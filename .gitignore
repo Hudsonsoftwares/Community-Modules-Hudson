@@ -1,0 +1,21 @@
+# Build artifact — addons are copied here by build.sh / GitHub Actions
+docker-deploy/addons/
+
+# Python caches
+__pycache__/
+*.pyc
+*.pyo
+
+# OS junk
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log

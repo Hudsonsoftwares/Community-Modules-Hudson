@@ -1,0 +1,43 @@
+# Version control
+.git
+.gitignore
+.github
+
+# Python caches
+__pycache__
+*.pyc
+*.pyo
+
+# OS junk
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# Docker (prevent recursive builds)
+docker-compose.yml
+Dockerfile
+
+# Render / build scripts (not needed inside the image)
+render.yaml
+build.bat
+build.sh
+
+# Documentation
+*.md
+!README.md
+LICENSE
+COPYRIGHT
+CONTRIBUTING.md
+
+# Logs
+*.log
+
+# OCA metadata
+.oca
+setup/
