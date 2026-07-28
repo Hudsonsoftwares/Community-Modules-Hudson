@@ -1,0 +1,236 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <template id="signature_setup_template" name="Signature Setup UI">
+        &lt;!DOCTYPE html&gt;
+        <html>
+            <head>
+                <title>Setup Signatures</title>
+                <!-- Include Bootstrap for styling -->
+                <link rel="stylesheet" href="/web/static/lib/bootstrap/css/bootstrap.css"/>
+                <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+                <style>
+                    body { background: #f0f2f5; margin: 0; padding: 20px; font-family: sans-serif; display: flex; }
+                    #pdf-container { position: relative; border: 1px solid #ccc; box-shadow: 0 4px 8px rgba(0,0,0,0.1); background: white; margin-right: 20px; }
+                    .signature-box { position: absolute; border: 2px dashed #007bff; background: rgba(0, 123, 255, 0.2); width: 150px; height: 50px; cursor: move; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #007bff; }
+                    .sidebar { width: 300px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+                </style>
+            </head>
+            <body>
+                <div id="pdf-container-wrapper" style="display: flex; flex-direction: column; align-items: center; background: white; border: 1px solid #ccc; box-shadow: 0 4px 8px rgba(0,0,0,0.1); margin-right: 20px;">
+                    <div style="padding: 10px; width: 100%; border-bottom: 1px solid #ccc; display: flex; justify-content: center; align-items: center; gap: 10px;">
+                        <button id="prev-page" class="btn btn-sm btn-secondary">Previous</button>
+                        <span>Page <span id="page-num"></span> of <span id="page-count"></span></span>
+                        <button id="next-page" class="btn btn-sm btn-secondary">Next</button>
+                    </div>
+                    <div id="pdf-container">
+                        <canvas id="pdf-canvas"></canvas>
+                    </div>
+                </div>
+                <div class="sidebar">
+                    <h4>Setup Signatures</h4>
+                    <p>Click on the PDF to place a signature box.</p>
+                    <div class="form-group mt-3">
+                        <label>Assign to User:</label>
+                        <select id="user-select" class="form-control">
+                            <t t-foreach="users" t-as="user">
+                                <option t-att-value="user.id"><t t-esc="user.name"/></option>
+                            </t>
+                        </select>
+                    </div>
+                    <button id="add-box-btn" class="btn btn-outline-primary btn-block mt-3">Add Box at Center</button>
+                    <hr/>
+                    <ul id="box-list" class="list-group mb-3"></ul>
+                    <button id="save-btn" class="btn btn-success btn-block">Save and Send Requests</button>
+                </div>
+                
+                <script>
+                    const url = "<t t-esc="pdf_url"/>";
+                    const revisionId = <t t-esc="revision.id"/>;
+                    
+                    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+                    
+                    let pdfDoc = null;
+                    let pageNum = 1;
+                    let canvas = document.getElementById('pdf-canvas');
+                    let ctx = canvas.getContext('2d');
+                    let container = document.getElementById('pdf-container');
+                    let scale = 1.2;
+                    let viewport = null;
+                    
+                    let boxes = [];
+                    
+                    pdfjsLib.getDocument(url).promise.then(function(pdfDoc_) {
+                        pdfDoc = pdfDoc_;
+                        document.getElementById('page-count').textContent = pdfDoc.numPages;
+                        renderPage(pageNum);
+                    });
+                    
+                    function renderPage(num) {
+                        pdfDoc.getPage(num).then(function(page) {
+                            viewport = page.getViewport({scale: scale});
+                            canvas.height = viewport.height;
+                            canvas.width = viewport.width;
+                            container.style.width = viewport.width + 'px';
+                            container.style.height = viewport.height + 'px';
+                            
+                            var renderContext = {
+                                canvasContext: ctx,
+                                viewport: viewport
+                            };
+                            page.render(renderContext);
+                            
+                            document.getElementById('page-num').textContent = num;
+                            
+                            // Show only boxes for current page
+                            boxes.forEach(box => {
+                                if (box.page === num) {
+                                    box.element.style.display = 'flex';
+                                } else {
+                                    box.element.style.display = 'none';
+                                }
+                            });
+                        });
+                    }
+
+                    document.getElementById('prev-page').addEventListener('click', function() {
+                        if (pageNum &lt;= 1) return;
+                        pageNum--;
+                        renderPage(pageNum);
+                    });
+
+                    document.getElementById('next-page').addEventListener('click', function() {
+                        if (pageNum >= pdfDoc.numPages) return;
+                        pageNum++;
+                        renderPage(pageNum);
+                    });
+                    
+                    container.addEventListener('click', function(e) {
+                        if (e.target.classList.contains('signature-box')) return;
+                        const rect = container.getBoundingClientRect();
+                        const x = e.clientX - rect.left;
+                        const y = e.clientY - rect.top;
+                        addBox(x, y);
+                    });
+                    
+                    document.getElementById('add-box-btn').addEventListener('click', function() {
+                        addBox(viewport.width/2 - 75, viewport.height/2 - 25);
+                    });
+                    
+                    function addBox(x, y) {
+                        const select = document.getElementById('user-select');
+                        const userId = select.value;
+                        const userName = select.options[select.selectedIndex].text;
+                        
+                        const boxDiv = document.createElement('div');
+                        boxDiv.className = 'signature-box';
+                        boxDiv.style.left = x + 'px';
+                        boxDiv.style.top = y + 'px';
+                        boxDiv.innerText = userName;
+                        container.appendChild(boxDiv);
+                        
+                        const boxId = boxes.length;
+                        
+                        boxes.push({
+                            id: boxId,
+                            x: x,
+                            y: y,
+                            page: pageNum,
+                            userId: userId,
+                            userName: userName,
+                            element: boxDiv
+                        });
+                        
+                        updateBoxList();
+                        makeDraggable(boxDiv, boxId);
+                    }
+                    
+                    function updateBoxList() {
+                        const list = document.getElementById('box-list');
+                        list.innerHTML = '';
+                        boxes.forEach((box, index) => {
+                            const li = document.createElement('li');
+                            li.className = 'list-group-item d-flex justify-content-between align-items-center';
+                            li.innerText = box.userName + " (Page " + box.page + ")";
+                            const btn = document.createElement('button');
+                            btn.className = 'btn btn-sm btn-danger';
+                            btn.innerText = 'X';
+                            btn.onclick = () => {
+                                box.element.remove();
+                                boxes.splice(index, 1);
+                                updateBoxList();
+                            };
+                            li.appendChild(btn);
+                            list.appendChild(li);
+                        });
+                    }
+                    
+                    function makeDraggable(elmnt, boxId) {
+                        var pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+                        elmnt.onmousedown = dragMouseDown;
+                        
+                        function dragMouseDown(e) {
+                            e = e || window.event;
+                            e.preventDefault();
+                            pos3 = e.clientX;
+                            pos4 = e.clientY;
+                            document.onmouseup = closeDragElement;
+                            document.onmousemove = elementDrag;
+                        }
+                        
+                        function elementDrag(e) {
+                            e = e || window.event;
+                            e.preventDefault();
+                            pos1 = pos3 - e.clientX;
+                            pos2 = pos4 - e.clientY;
+                            pos3 = e.clientX;
+                            pos4 = e.clientY;
+                            elmnt.style.top = (elmnt.offsetTop - pos2) + "px";
+                            elmnt.style.left = (elmnt.offsetLeft - pos1) + "px";
+                            
+                            boxes.find(b => b.id === boxId).x = elmnt.offsetLeft;
+                            boxes.find(b => b.id === boxId).y = elmnt.offsetTop;
+                        }
+                        
+                        function closeDragElement() {
+                            document.onmouseup = null;
+                            document.onmousemove = null;
+                        }
+                    }
+                    
+                    document.getElementById('save-btn').addEventListener('click', function() {
+                        const payload = boxes.map(b => {
+                            // Convert HTML y to PDF y (bottom-up). ReportLab uses bottom-up coordinates.
+                            // However, we can just pass the scale and HTML coordinates to the backend
+                            // and let the backend do the math, OR do it here.
+                            // The backend assumes A4 (595x842) by default, but let's pass the exact canvas coords and canvas size
+                            return {
+                                recipient_id: b.userId,
+                                pos_x: b.x / scale,
+                                pos_y: (viewport.height - b.y - 50) / scale, // 50 is box height
+                                page_number: b.page
+                            }
+                        });
+                        
+                        fetch('/dms/signature/setup/save', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                params: {
+                                    revision_id: revisionId,
+                                    boxes: payload
+                                }
+                            })
+                        }).then(response => response.json())
+                          .then(data => {
+                              if (data.result &amp;&amp; data.result.success) {
+                                  alert('Signature requests created successfully! You can close this window.');
+                              } else {
+                                  alert('An error occurred while saving.');
+                              }
+                          });
+                    });
+                </script>
+            </body>
+        </html>
+    </template>
+</odoo>

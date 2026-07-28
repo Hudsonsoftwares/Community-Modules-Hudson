@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-name="hudson_dynamic_reports.DynamicReport" owl="1">
+        <div class="o_dynamic_report_container">
+            <div class="o_dynamic_report_header mb-4 mt-4">
+                <h2 class="text-center text-primary fw-bold" t-esc="state.title"/>
+            </div>
+            
+            <div class="o_dynamic_report_content table-responsive shadow-sm bg-white rounded p-3">
+                <table class="table table-hover table-sm">
+                    <thead class="table-light">
+                        <tr>
+                            <t t-foreach="state.columns" t-as="col" t-key="col.field">
+                                <th t-att-class="col.type === 'monetary' ? 'text-end' : ''" t-esc="col.label"/>
+                            </t>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <t t-foreach="state.lines" t-as="line" t-key="line.id">
+                            <tr t-if="isVisible(line)" 
+                                t-att-class="{'fw-bold': line.level === 1, 'text-muted': line.level > 2}"
+                                t-on-click="() => this.onLineClicked(line)"
+                                t-att-style="'cursor: ' + (line.type === 'account' ? 'pointer' : 'default')">
+                                <t t-foreach="state.columns" t-as="col" t-key="col.field">
+                                    <td t-att-class="col.type === 'monetary' ? 'text-end' : ''">
+                                        <t t-if="col.field === 'name'">
+                                            <div t-att-style="'padding-left: ' + ((line.level - 1) * 20) + 'px'">
+                                                <span t-if="hasChildren(line)" 
+                                                      class="me-2 text-primary" 
+                                                      style="cursor: pointer;"
+                                                      t-on-click.stop="() => this.toggleExpand(line.id)">
+                                                    <i t-att-class="state.expandedLines[line.id] ? 'fa fa-caret-down' : 'fa fa-caret-right'"/>
+                                                </span>
+                                                <span t-else="" class="me-3"/>
+                                                <span t-esc="line[col.field]"/>
+                                            </div>
+                                        </t>
+                                        <t t-else="">
+                                            <span t-esc="col.type === 'monetary' ? formatMonetary(line[col.field]) : line[col.field]"/>
+                                        </t>
+                                    </td>
+                                </t>
+                            </tr>
+                        </t>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </t>
+</templates>

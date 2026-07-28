@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+
+        <record id="view_social_post_publish_wizard_form" model="ir.ui.view">
+            <field name="name">hudson.social.post.publish.wizard.form</field>
+            <field name="model">hudson.social.post.publish.wizard</field>
+            <field name="arch" type="xml">
+                <form string="Publish Social Post">
+                    <sheet>
+                        <div class="o_form_view oe_title">
+                            <h2>Publish to Social Media</h2>
+                            <p class="text-muted">
+                                This will sync your post to the remote Odoo Enterprise instance and trigger publishing.
+                            </p>
+                        </div>
+
+                        <group col="2">
+                            <group>
+                                <field name="post_id" readonly="1"/>
+                                <field name="account_names" readonly="1" widget="char"/>
+                            </group>
+                            <group>
+                                <field name="publish_type" widget="radio"/>
+                                <field name="scheduled_date"
+                                       invisible="publish_type != 'schedule'"
+                                       required="publish_type == 'schedule'"/>
+                            </group>
+                        </group>
+
+                        <separator string="Post Preview"/>
+                        <field name="message_preview" readonly="1" widget="text"
+                               class="o_field_text hudson_social_preview"/>
+
+                    </sheet>
+                    <footer>
+                        <button name="action_confirm" type="object"
+                                string="Confirm &amp; Publish"
+                                class="btn-primary"
+                                data-hotkey="q"/>
+                        <button string="Cancel" class="btn-secondary" special="cancel"/>
+                    </footer>
+                </form>
+            </field>
+        </record>
+
+    </data>
+</odoo>

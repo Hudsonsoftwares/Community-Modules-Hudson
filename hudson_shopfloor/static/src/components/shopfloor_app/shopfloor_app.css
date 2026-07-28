@@ -1,0 +1,69 @@
+.o_hudson_shopfloor {
+    background-color: #f8f9fa !important; /* Light background */
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+.o_hudson_shopfloor .sf-navbar {
+    background-color: #ffffff;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.o_hudson_shopfloor .cursor-pointer {
+    cursor: pointer;
+}
+
+.o_hudson_shopfloor .sf-wo-card {
+    background-color: #ffffff !important;
+    border-color: #dee2e6 !important;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.o_hudson_shopfloor .sf-wo-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+
+.o_hudson_shopfloor .text-success {
+    color: #017e84 !important; /* Odoo typical teal */
+}
+
+.o_hudson_shopfloor .border-success {
+    border-color: #017e84 !important;
+}
+
+.o_hudson_shopfloor .btn-outline-danger {
+    color: #e83e8c;
+    border-color: #e83e8c;
+}
+
+.o_hudson_shopfloor .btn-outline-danger:hover {
+    background-color: #e83e8c;
+    color: white;
+}
+
+/* Operation list styling */
+.o_hudson_shopfloor .sf-operation-row {
+    border-bottom: 1px solid #f1f3f5;
+    padding: 12px 0;
+    color: #495057;
+}
+.o_hudson_shopfloor .sf-operation-row:last-child {
+    border-bottom: none;
+}
+.o_hudson_shopfloor .sf-operation-row.active-clickable {
+    cursor: pointer;
+    color: #212529;
+}
+.o_hudson_shopfloor .sf-operation-row.active-clickable:hover {
+    background-color: #f8f9fa;
+    color: #017e84;
+}
+
+/* Custom button hover effects */
+.o_hudson_shopfloor .sf-hover-btn {
+    transition: all 0.2s ease-in-out;
+}
+.o_hudson_shopfloor .sf-hover-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15) !important;
+}

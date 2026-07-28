@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!--
+    Copyright 2024 Hudson Community
+    License LGPL-3.0 or later (http://www.gnu.org/licenses/lgpl).
+-->
+<odoo>
+
+    <!-- ── List View ──────────────────────────────────────────────────── -->
+    <record id="view_dms_folder_rule_list" model="ir.ui.view">
+        <field name="name">dms.folder.rule.list</field>
+        <field name="model">dms.folder.rule</field>
+        <field name="arch" type="xml">
+            <list string="Folder Auto-Assignment Rules"
+                  decoration-muted="not active">
+                <field name="sequence" widget="handle"/>
+                <field name="active" widget="boolean_toggle"/>
+                <field name="name"/>
+                <field name="area" widget="badge"
+                       decoration-info="area == 'hr'"
+                       decoration-success="area == 'accounting'"
+                       decoration-warning="area == 'recruitment'"
+                       decoration-primary="area == 'project'"/>
+                <field name="model_id"/>
+                <field name="directory_path" string="Target Folder"/>
+                <field name="tag_ids" widget="many2many_tags"/>
+                <field name="create_subfolder"/>
+                <field name="company_id" groups="base.group_multi_company"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- ── Form View ──────────────────────────────────────────────────── -->
+    <record id="view_dms_folder_rule_form" model="ir.ui.view">
+        <field name="name">dms.folder.rule.form</field>
+        <field name="model">dms.folder.rule</field>
+        <field name="arch" type="xml">
+            <form string="Folder Auto-Assignment Rule">
+                <sheet>
+                    <!-- Header Status Bar -->
+                    <div class="oe_title">
+                        <label for="name" string="Rule Name"/>
+                        <h1>
+                            <field name="name" placeholder="e.g. Route HR Documents"/>
+                        </h1>
+                    </div>
+
+                    <group col="4">
+                        <field name="active" widget="boolean_toggle"/>
+                        <field name="area"/>
+                        <field name="sequence"/>
+                        <field name="company_id"
+                               groups="base.group_multi_company"/>
+                    </group>
+
+                    <notebook>
+                        <!-- ── Source Tab ── -->
+                        <page string="Source" name="source">
+                            <group string="Document Source">
+                                <group>
+                                    <field name="model_id"
+                                           options="{'no_create': True}"
+                                           help="Odoo model whose attachments will be auto-routed."/>
+                                    <field name="model_name" invisible="1"/>
+                                    <field name="domain" widget="domain"
+                                           options="{'model': 'model_name'}"
+                                           help="Optional filter. Only matching records trigger this rule."/>
+                                </group>
+                            </group>
+                        </page>
+
+                        <!-- ── Target Tab ── -->
+                        <page string="Target" name="target">
+                            <group string="Destination Folder">
+                                <group>
+                                    <field name="directory_id"
+                                           options="{'no_create': False}"/>
+                                    <field name="directory_path"
+                                           string="Full Path"
+                                           readonly="True"/>
+                                    <field name="tag_ids"
+                                           widget="many2many_tags"
+                                           help="Tags applied to every document routed by this rule."/>
+                                </group>
+                            </group>
+
+                            <group string="Per-Record Subfolder">
+                                <group>
+                                    <field name="create_subfolder"/>
+                                    <field name="subfolder_name_field"
+                                           invisible="not create_subfolder"/>
+                                </group>
+                            </group>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <!-- ── Window Action ──────────────────────────────────────────────── -->
+    <record id="action_dms_folder_rules" model="ir.actions.act_window">
+        <field name="name">Folder Auto-Assignment Rules</field>
+        <field name="res_model">dms.folder.rule</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Create your first auto-assignment rule!
+            </p>
+            <p>
+                Rules automatically route documents from Odoo business records
+                (HR, Accounting, Projects, etc.) into the right DMS folder.
+            </p>
+        </field>
+    </record>
+
+    <!-- ── Menu Item under DMS Configuration ─────────────────────────── -->
+    <menuitem
+        id="menu_dms_folder_rules"
+        name="Auto-Assignment Rules"
+        parent="dms.cat_menu_dms_config_organizing"
+        sequence="10"
+        action="action_dms_folder_rules"
+        groups="dms.group_dms_manager"
+    />
+
+</odoo>

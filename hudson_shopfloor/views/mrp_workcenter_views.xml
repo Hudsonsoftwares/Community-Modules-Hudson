@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="mrp_workcenter_kanban_hudson_shopfloor" model="ir.ui.view">
+        <field name="name">mrp.workcenter.kanban.hudson.shopfloor</field>
+        <field name="model">mrp.workcenter</field>
+        <field name="inherit_id" ref="mrp.mrp_workcenter_kanban"/>
+        <field name="arch" type="xml">
+            <!-- Inject modern styling classes to the Kanban container -->
+            <xpath expr="//kanban" position="attributes">
+                <attribute name="class">o_hudson_modern_kanban</attribute>
+            </xpath>
+            
+            <!-- Replace the main content inside the Kanban card to mimic modern Enterprise tiles -->
+            <xpath expr="//t[@t-name='card']" position="replace">
+                <t t-name="card">
+                    <div class="p-3 d-flex flex-column h-100 justify-content-between o_hudson_kanban_card">
+                        <div class="d-flex justify-content-between mb-3">
+                            <button class="btn btn-secondary text-uppercase fw-bold text-light" style="background-color: #5c3551; border: none; border-radius: 4px; padding: 4px 12px; font-size: 11px;">
+                                Work Orders <i class="fa fa-desktop ms-1"/>
+                            </button>
+                            <div class="text-end">
+                                <span class="text-success d-block" style="font-size: 12px;">To Launch</span>
+                                <span class="fw-bold fs-5"><field name="workorder_ready_count"/></span>
+                            </div>
+                        </div>
+                        <div class="d-flex justify-content-between text-muted mt-auto" style="font-size: 11px;">
+                            <span><field name="name"/></span>
+                        </div>
+                    </div>
+                </t>
+            </xpath>
+        </field>
+    </record>
+</odoo>

@@ -1,0 +1,177 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-name="hudson_shopfloor.ShopFloorApp" owl="1">
+        <div class="o_hudson_shopfloor w-100 h-100 d-flex flex-column text-dark position-relative">
+            <!-- Navbar -->
+            <div class="sf-navbar d-flex justify-content-between align-items-center px-4 py-3 border-bottom shadow-sm">
+                <div class="d-flex align-items-center">
+                    <t t-foreach="state.workcenters" t-as="wc" t-key="wc.id">
+                        <div t-attf-class="sf-nav-item me-4 fw-bold fs-5 cursor-pointer pb-2 d-flex align-items-center {{ state.selectedWorkcenter === wc.id ? 'border-bottom border-3 border-success text-success' : 'text-dark opacity-75' }}"
+                             t-on-click="() => this.selectWorkcenter(wc.id)">
+                            <t t-esc="wc.name"/>
+                            <span class="badge rounded-pill ms-2" t-attf-class="{{ state.selectedWorkcenter === wc.id ? 'bg-success text-white' : 'bg-secondary text-white' }}" style="font-size: 0.75rem;">
+                                <t t-esc="wc.count"/>
+                            </span>
+                        </div>
+                    </t>
+                </div>
+                
+                <div t-if="state.activeEmployee" class="d-flex align-items-center">
+                    <span class="fw-bold me-3 text-success">Logged in: <t t-esc="state.activeEmployee.name"/></span>
+                    <button class="btn btn-outline-danger btn-sm rounded-pill" t-on-click="() => this.logoutEmployee()">Sign Out</button>
+                </div>
+            </div>
+
+            <div class="d-flex flex-grow-1 overflow-hidden">
+                <!-- Left Sidebar (Operators) -->
+                <div class="sf-sidebar border-end p-3 bg-light overflow-auto" style="width: 250px; min-width: 250px;">
+                    <h5 class="fw-bold mb-4 text-secondary text-uppercase" style="font-size: 0.85rem; letter-spacing: 1px;">Operators</h5>
+                    <t t-foreach="state.employees" t-as="emp" t-key="emp.id">
+                        <div t-attf-class="d-flex align-items-center mb-3 p-2 rounded cursor-pointer sf-hover-btn {{ state.activeEmployee and state.activeEmployee.id === emp.id ? 'bg-success text-white shadow-sm' : 'bg-white border' }}"
+                             t-on-click="() => this.clickEmployee(emp)">
+                            <div t-attf-class="rounded-circle me-3 d-flex align-items-center justify-content-center text-white {{ state.activeEmployee and state.activeEmployee.id === emp.id ? 'bg-white text-success' : 'bg-secondary' }}" style="width: 36px; height: 36px;">
+                                <i class="fa fa-user"></i>
+                            </div>
+                            <div class="fw-bold">
+                                <t t-esc="emp.name"/>
+                            </div>
+                        </div>
+                    </t>
+                    <div t-if="state.employees.length === 0" class="text-muted small">
+                        No employees linked to a system User.
+                    </div>
+                </div>
+
+                <!-- Main Content -->
+                <div class="sf-main flex-grow-1 p-4 overflow-auto d-flex flex-wrap align-items-start align-content-start gap-4" style="background-color: #f8f9fa;">
+                    
+                    <t t-foreach="state.mos" t-as="mo" t-key="mo.id">
+                        <div class="sf-wo-card border rounded shadow-sm d-flex flex-column bg-white" style="width: 400px;">
+                            
+                            <!-- LIST VIEW (When no WO is active for this card) -->
+                            <t t-if="state.activeWoId == null or state.activeWoId != null and !mo.workorders.map(w => w.id).includes(state.activeWoId)">
+                                <div class="p-4 bg-white border-bottom border-secondary-subtle">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <h4 class="mb-0 fw-bold"><t t-esc="mo.name"/></h4>
+                                        <span class="badge bg-warning rounded-pill text-dark border border-warning-subtle" t-if="mo.workorders.some(w => w.state === 'progress')">In Progress</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between fs-5">
+                                        <span class="text-secondary"><t t-esc="mo.product_id[1]"/></span>
+                                        <span class="fw-bold"><t t-esc="mo.qty_producing"/> / <t t-esc="mo.qty_production"/> Units</span>
+                                    </div>
+                                </div>
+                                
+                                <!-- Operations List -->
+                                <div class="px-4 py-2 bg-white">
+                                    <t t-foreach="mo.workorders" t-as="wo" t-key="wo.id">
+                                        <div t-attf-class="sf-operation-row d-flex justify-content-between align-items-center {{ wo.state === 'ready' ? 'active-clickable' : '' }}" 
+                                             t-on-click="() => wo.state === 'ready' ? this.actionStartWorkorder(wo.id) : null">
+                                            <div class="d-flex align-items-center">
+                                                <span class="badge bg-secondary-subtle text-secondary me-2 p-2" t-if="wo.state !== 'done'"><t t-esc="wo.workcenter_id[1]"/></span>
+                                                <span t-attf-class="fs-6 {{ wo.state === 'done' ? 'text-muted text-decoration-line-through' : '' }}"><t t-esc="wo.name"/></span>
+                                            </div>
+                                            <div>
+                                                <i class="fa fa-check text-success ms-2" t-if="wo.state === 'done'"></i>
+                                                <i class="fa fa-chevron-right text-secondary ms-2" t-if="wo.state === 'ready' or wo.state === 'progress'"></i>
+                                            </div>
+                                        </div>
+                                    </t>
+                                </div>
+                                
+                                <!-- Card Footer -->
+                                <div class="p-3 bg-light border-top border-secondary-subtle d-flex justify-content-between align-items-center mt-auto">
+                                    <button class="btn btn-secondary px-3" t-on-click="() => this.actionCloseProduction(mo.workorders[0].id)">Close Production</button>
+                                    <div class="dropdown">
+                                        <button class="btn btn-secondary px-3" t-on-click="() => this.toggleOptions(mo.id)">⋮</button>
+                                        <div class="dropdown-menu dropdown-menu-end show" t-if="mo.showOptions" style="position: absolute; right: 0; top: 100%; z-index: 1000;">
+                                            <a class="dropdown-item" href="#" t-on-click.prevent="() => { this.actionScrap(mo.workorders[0].id); this.toggleOptions(mo.id); }">Scrap</a>
+                                            <a class="dropdown-item" href="#" t-on-click.prevent="() => this.toggleOptions(mo.id)">Close Menu</a>
+                                        </div>
+                                    </div>
+                                </div>
+                            </t>
+
+                            <!-- ACTIVE WORKORDER VIEW (Timer View) -->
+                            <t t-if="state.activeWoId != null and mo.workorders.map(w => w.id).includes(state.activeWoId)">
+                                <div class="p-4 bg-white flex-grow-1 d-flex flex-column h-100">
+                                    <div class="d-flex justify-content-between align-items-center mb-3">
+                                        <h4 class="mb-0 fw-bold text-dark"><t t-esc="mo.name"/></h4>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <span class="fs-5 fw-bold text-success font-monospace" t-if="this.activeWo.state === 'progress'">
+                                                <t t-esc="this.formatDuration(this.activeWo.date_start, this.activeWo.duration)"/>
+                                            </span>
+                                            <div class="bg-primary rounded-circle text-white d-flex align-items-center justify-content-center" style="width: 32px; height: 32px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                                                <i class="fa fa-user"></i>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="mb-1 fs-5 fw-bold text-dark"><t t-esc="this.activeWo.name"/></div>
+                                    <div class="d-flex justify-content-between fs-5 text-secondary">
+                                        <span><t t-esc="mo.product_id[1]"/></span>
+                                        <span class="fw-bold text-dark"><t t-esc="mo.qty_producing"/> Units</span>
+                                    </div>
+                                </div>
+
+                                <!-- Footer Actions for Active View -->
+                                <div class="p-3 bg-light border-top border-secondary-subtle d-flex justify-content-between align-items-center mt-auto">
+                                    <button class="btn btn-success px-4 fw-bold shadow-sm sf-hover-btn" t-on-click="() => this.actionCloseProduction(this.activeWo.id)">Mark as Done</button>
+                                    <button class="btn btn-outline-secondary px-3 sf-hover-btn" t-on-click="() => this.closeOperation()">Back</button>
+                                </div>
+                            </t>
+
+                        </div>
+                    </t>
+                    
+                    <div t-if="state.mos.length === 0" class="text-muted w-100 text-center mt-5 fs-4">
+                        <t t-if="state.activeEmployee">
+                            No manufacturing orders assigned to <t t-esc="state.activeEmployee.name"/> for this work center.
+                        </t>
+                        <t t-else="">
+                            Please select an operator to view assigned manufacturing orders.
+                        </t>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PIN Modal Overlay -->
+            <div t-if="state.showPinModal" class="position-absolute top-0 start-0 w-100 h-100 bg-dark bg-opacity-50 d-flex justify-content-center align-items-center" style="z-index: 2000;">
+                <div class="bg-white rounded p-4 shadow-lg text-center" style="width: 350px;">
+                    <h4 class="fw-bold mb-3">Sign in</h4>
+                    <p class="text-secondary mb-4">Enter PIN for <strong class="text-dark"><t t-esc="state.pendingEmployee.name"/></strong></p>
+                    
+                    <!-- Display dynamic input asterisks -->
+                    <div class="mb-4 d-flex justify-content-center w-100 p-3 border rounded bg-light" style="min-height: 60px;">
+                        <span class="fs-1 fw-bold text-dark" style="letter-spacing: 0.5rem; line-height: 1;">
+                            <t t-esc="'•'.repeat(state.pinInput.length)"/>
+                        </span>
+                    </div>
+                    
+                    <div t-if="state.pinError" class="text-danger small fw-bold mb-3">
+                        Incorrect PIN. Please try again.
+                    </div>
+                    
+                    <!-- Numpad -->
+                    <div class="row g-2 mb-3">
+                        <t t-foreach="[1,2,3,4,5,6,7,8,9]" t-as="num" t-key="num">
+                            <div class="col-4">
+                                <button class="btn btn-light border w-100 py-2 fs-4 fw-bold sf-hover-btn" t-on-click="() => this.addPinDigit(num)"><t t-esc="num"/></button>
+                            </div>
+                        </t>
+                        <div class="col-4">
+                            <button class="btn btn-danger w-100 py-2 fs-5 fw-bold sf-hover-btn text-white" t-on-click="() => this.clearPin()">C</button>
+                        </div>
+                        <div class="col-4">
+                            <button class="btn btn-light border w-100 py-2 fs-4 fw-bold sf-hover-btn" t-on-click="() => this.addPinDigit(0)">0</button>
+                        </div>
+                        <div class="col-4">
+                            <button class="btn btn-success w-100 py-2 fs-5 fw-bold sf-hover-btn text-white" t-on-click="() => this.submitPin()">OK</button>
+                        </div>
+                    </div>
+                    
+                    <button class="btn btn-link text-secondary text-decoration-none mt-2" t-on-click="() => this.closePinModal()">Cancel</button>
+                </div>
+            </div>
+            
+        </div>
+    </t>
+</templates>

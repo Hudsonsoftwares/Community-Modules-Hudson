@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <template id="portal_my_home_menu_dms_signature" name="Portal layout : signatures menu entries" inherit_id="portal.portal_breadcrumbs" priority="40">
+        <xpath expr="//ol[hasclass('o_portal_submenu')]" position="inside">
+            <li t-if="page_name == 'dms_signature'" t-attf-class="breadcrumb-item #{'active ' if not signature_req else ''}">
+                <a t-if="signature_req" t-attf-href="/my/dms/signatures?{{ keep_query() }}">Signatures</a>
+                <t t-else="">Signatures</t>
+            </li>
+            <li t-if="signature_req" class="breadcrumb-item active">
+                <t t-esc="signature_req.revision_id.file_id.name"/>
+            </li>
+        </xpath>
+    </template>
+
+    <template id="portal_my_home_dms_signature" name="Portal My Home : signatures" inherit_id="portal.portal_my_home" customize_show="True" priority="40">
+        <xpath expr="//div[hasclass('o_portal_docs')]" position="inside">
+            <t t-call="portal.portal_docs_entry">
+                <t t-set="title">Signatures</t>
+                <t t-set="url" t-value="'/my/dms/signatures'"/>
+                <t t-set="placeholder_count" t-value="'dms_signature_count'"/>
+            </t>
+        </xpath>
+    </template>
+
+    <template id="portal_my_dms_signatures" name="My Signatures">
+        <t t-call="portal.portal_layout">
+            <t t-set="breadcrumbs_searchbar" t-value="True"/>
+            <t t-call="portal.portal_searchbar"/>
+            
+            <t t-if="not signatures">
+                <p>There are currently no signatures pending for your account.</p>
+            </t>
+            <t t-if="signatures" t-call="portal.portal_table">
+                <thead>
+                    <tr class="active">
+                        <th>Document</th>
+                        <th>Version</th>
+                        <th>Date Sent</th>
+                        <th class="text-right">Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <t t-foreach="signatures" t-as="sig">
+                        <tr>
+                            <td><a t-att-href="sig.get_portal_url()"><t t-esc="sig.revision_id.file_id.name"/></a></td>
+                            <td><t t-esc="sig.revision_id.version"/></td>
+                            <td><span t-field="sig.create_date" t-options="{'widget': 'date'}"/></td>
+                            <td class="text-right">
+                                <span t-attf-class="badge badge-pill #{'badge-success' if sig.state == 'signed' else 'badge-info'}" t-field="sig.state"/>
+                            </td>
+                        </tr>
+                    </t>
+                </tbody>
+            </t>
+        </t>
+    </template>
+
+    <template id="portal_signature_page" name="Signature Request">
+        <t t-call="portal.portal_layout">
+            <div id="optional_layout">
+                <div class="container">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="row">
+                                <div class="col-lg-6">
+                                    <h4><span t-field="signature_req.revision_id.file_id.name"/></h4>
+                                </div>
+                                <div class="col-lg-6 text-right">
+                                    <span t-attf-class="badge badge-pill #{'badge-success' if signature_req.state == 'signed' else 'badge-info'}"><t t-esc="signature_req.state"/></span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-lg-12">
+                                    <p>Please review and sign the document.</p>
+                                    <a class="btn btn-secondary mb-3" t-att-href="'/web/content/dms.file.revision/%s/content' % signature_req.revision_id.id" target="_blank">
+                                        <i class="fa fa-download"/> Download Original Document
+                                    </a>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-lg-12">
+                                    <div t-if="signature_req.state != 'signed'" id="signature" class="mt-4">
+                                        <t t-call="portal.signature_form">
+                                            <t t-set="call_url" t-value="signature_req.get_portal_url(suffix='/accept')"/>
+                                            <t t-set="default_name" t-value="signature_req.recipient_id.name"/>
+                                        </t>
+                                    </div>
+                                    <div t-if="signature_req.state == 'signed'" class="mt-4">
+                                        <h3>Signature</h3>
+                                        <div class="row">
+                                            <div class="col-12 col-md-4">
+                                                <p>Signed by: <b t-field="signature_req.recipient_id.name"/></p>
+                                                <p>Date: <span t-field="signature_req.signed_date"/></p>
+                                                <img t-att-src="image_data_uri(signature_req.signature_image)" style="max-height: 150px;"/>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </t>
+    </template>
+</odoo>

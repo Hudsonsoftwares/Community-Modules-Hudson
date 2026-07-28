@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- ============================================================ -->
+    <!-- ROOT MENU                                                     -->
+    <!-- ============================================================ -->
+
+    <menuitem
+        name="Field Service"
+        id="menu_field_service_root"
+        groups="hudson_field_service.group_field_service_user"
+        web_icon="hudson_field_service,static/description/icon.png"
+        sequence="55"
+    />
+
+    <!-- ============================================================ -->
+    <!-- DASHBOARD                                                     -->
+    <!-- ============================================================ -->
+
+    <!-- Planning Board — manager-only: shows ALL employees on a grid -->
+    <menuitem
+        name="Planning Board"
+        id="menu_field_service_planning_board"
+        parent="menu_field_service_root"
+        action="action_field_service_planning_board"
+        groups="hudson_field_service.group_field_service_manager"
+        sequence="1"
+    />
+
+    <menuitem
+        name="My Calendar"
+        id="menu_field_service_dashboard"
+        parent="menu_field_service_root"
+        action="action_field_service_dashboard"
+        sequence="2"
+    />
+
+    <!-- Live Technician Map — manager-only -->
+    <menuitem
+        name="Live Map"
+        id="menu_field_service_live_map"
+        parent="menu_field_service_root"
+        action="action_fs_live_map"
+        groups="hudson_field_service.group_field_service_manager"
+        sequence="3"
+    />
+
+    <!-- ============================================================ -->
+    <!-- ORDERS                                                        -->
+    <!-- ============================================================ -->
+
+    <menuitem
+        name="Orders"
+        id="menu_field_service_orders"
+        parent="menu_field_service_root"
+        sequence="10"
+    >
+        <menuitem
+            name="My Orders"
+            id="menu_field_service_my_orders"
+            action="action_field_service_my_orders"
+            sequence="1"
+        />
+        <menuitem
+            name="All Orders"
+            id="menu_field_service_all_orders"
+            action="action_field_service_all_orders"
+            sequence="2"
+        />
+    </menuitem>
+
+    <!-- ============================================================ -->
+    <!-- REPORTING                                                     -->
+    <!-- ============================================================ -->
+
+    <menuitem
+        name="Reporting"
+        id="menu_field_service_reporting"
+        parent="menu_field_service_root"
+        sequence="90"
+    >
+        <menuitem
+            name="Service Analysis"
+            id="menu_field_service_report_analysis"
+            action="action_field_service_report"
+            sequence="1"
+        />
+    </menuitem>
+
+    <!-- ============================================================ -->
+    <!-- CONFIGURATION                                                 -->
+    <!-- ============================================================ -->
+
+    <menuitem
+        name="Configuration"
+        id="menu_field_service_config"
+        parent="menu_field_service_root"
+        groups="hudson_field_service.group_field_service_manager"
+        sequence="100"
+    >
+        <menuitem
+            name="Settings"
+            id="menu_field_service_settings"
+            action="action_field_service_config_settings"
+            groups="base.group_system"
+            sequence="1"
+        />
+        <menuitem
+            name="Stages"
+            id="menu_field_service_stages"
+            action="action_field_service_stages"
+            sequence="10"
+        />
+        <menuitem
+            name="Tags"
+            id="menu_field_service_tags"
+            action="action_field_service_tags"
+            sequence="20"
+        />
+    </menuitem>
+
+</odoo>

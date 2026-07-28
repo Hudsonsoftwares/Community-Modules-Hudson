@@ -1,0 +1,610 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+
+        <!-- ============================================================
+             Social Posts â€” Kanban View (Posts menu, state-grouped)
+        ============================================================ -->
+        <record id="view_hudson_social_post_kanban" model="ir.ui.view">
+            <field name="name">hudson.social.post.kanban</field>
+            <field name="model">hudson.social.post</field>
+            <field name="arch" type="xml">
+                <kanban
+                    default_group_by="state"
+                    class="hudson_social_post_kanban"
+                    sample="1">
+                    <field name="id"/>
+                    <field name="message"/>
+                    <field name="message_preview"/>
+                    <field name="state"/>
+                    <field name="account_ids"/>
+                    <field name="scheduled_date"/>
+                    <field name="published_date"/>
+                    <field name="click_count"/>
+                    <field name="reach"/>
+                    <field name="likes"/>
+                    <field name="has_image"/>
+                    <field name="sync_error"/>
+                    <field name="remote_id"/>
+                    <field name="last_sync"/>
+                    <progressbar
+                        field="state"
+                        colors='{"draft": "200", "scheduled": "info", "posting": "warning", "posted": "success", "failed": "danger"}'/>
+                    <templates>
+                        <t t-name="card">
+                            <div t-attf-class="hudson_social_post_card hs_state_#{record.state.raw_value}">
+                                <!-- Header with state badge -->
+                                <div class="hs_post_header">
+                                    <span t-attf-class="badge hs_state_badge hs_badge_#{record.state.raw_value}">
+                                        <field name="state"/>
+                                    </span>
+                                    <span t-if="record.sync_error.raw_value" class="badge bg-warning ms-1" title="Sync error">
+                                        <i class="fa fa-exclamation-triangle"/>
+                                    </span>
+                                    <span t-if="record.remote_id.raw_value" class="badge bg-light text-dark ms-1" title="Synced to remote">
+                                        <i class="fa fa-cloud"/>
+                                    </span>
+                                </div>
+
+                                <!-- Message preview -->
+                                <div class="hs_post_message">
+                                    <field name="message_preview"/>
+                                </div>
+
+                                <!-- Account platforms -->
+                                <div class="hs_post_accounts">
+                                    <field name="account_ids" widget="many2many_tags"
+                                           options="{'color_field': 'media_type'}"/>
+                                </div>
+
+                                <!-- Date info -->
+                                <div class="hs_post_dates">
+                                    <span t-if="record.scheduled_date.raw_value" class="text-muted small">
+                                        <i class="fa fa-clock-o me-1"/>
+                                        <field name="scheduled_date" widget="date"/>
+                                    </span>
+                                    <span t-if="record.published_date.raw_value" class="text-muted small">
+                                        <i class="fa fa-check-circle me-1 text-success"/>
+                                        <field name="published_date" widget="date"/>
+                                    </span>
+                                </div>
+
+                                <!-- Engagement stats -->
+                                <div class="hs_post_stats" t-if="record.state.raw_value == 'posted'">
+                                    <span class="hs_stat_item" title="Reach">
+                                        <i class="fa fa-eye"/> <field name="reach"/>
+                                    </span>
+                                    <span class="hs_stat_item" title="Likes">
+                                        <i class="fa fa-heart"/> <field name="likes"/>
+                                    </span>
+                                    <span class="hs_stat_item" title="Clicks">
+                                        <i class="fa fa-mouse-pointer"/> <field name="click_count"/>
+                                    </span>
+                                </div>
+
+                                <!-- Footer actions -->
+                                <div class="hs_post_footer">
+                                    <button name="action_publish_now" type="object"
+                                            class="btn btn-sm btn-primary"
+                                            invisible="state not in ['draft']"
+                                            title="Publish Now">
+                                        <i class="fa fa-send"/> Publish
+                                    </button>
+                                    <button name="action_schedule" type="object"
+                                            class="btn btn-sm btn-outline-primary"
+                                            invisible="state not in ['draft']"
+                                            title="Schedule">
+                                        <i class="fa fa-calendar"/> Schedule
+                                    </button>
+                                    <button name="action_sync_to_remote" type="object"
+                                            class="btn btn-sm btn-outline-secondary"
+                                            title="Sync to Remote">
+                                        <i class="fa fa-refresh"/> Sync
+                                    </button>
+                                </div>
+                            </div>
+                        </t>
+                    </templates>
+                </kanban>
+            </field>
+        </record>
+
+        <!-- ============================================================
+             Social Posts â€” List View
+        ============================================================ -->
+        <record id="view_hudson_social_post_list" model="ir.ui.view">
+            <field name="name">hudson.social.post.list</field>
+            <field name="model">hudson.social.post</field>
+            <field name="arch" type="xml">
+                <list string="Social Posts"
+                      decoration-success="state == 'posted'"
+                      decoration-warning="state == 'scheduled'"
+                      decoration-info="state == 'posting'"
+                      decoration-danger="state == 'failed'"
+                      decoration-muted="state == 'draft'">
+                    <field name="message_preview" string="Message"/>
+                    <field name="account_ids" widget="many2many_tags"/>
+                    <field name="state" widget="badge"
+                           decoration-success="state == 'posted'"
+                           decoration-warning="state == 'scheduled'"
+                           decoration-info="state == 'posting'"
+                           decoration-danger="state == 'failed'"/>
+                    <field name="scheduled_date"/>
+                    <field name="published_date"/>
+                    <field name="reach"/>
+                    <field name="likes"/>
+                    <field name="click_count"/>
+                    <field name="remote_id" string="Remote ID"/>
+                    <field name="last_sync"/>
+                    <button name="action_publish_now" type="object"
+                            string="Publish" icon="fa-send"
+                            invisible="state != 'draft'"
+                            class="btn-link"/>
+                    <button name="action_sync_to_remote" type="object"
+                            string="Sync" icon="fa-refresh"
+                            class="btn-link"/>
+                </list>
+            </field>
+        </record>
+
+        <!-- ============================================================
+             Social Posts - Composer Form View (Enterprise two-panel style)
+        ============================================================ -->
+        <record id="view_hudson_social_post_form" model="ir.ui.view">
+            <field name="name">hudson.social.post.form</field>
+            <field name="model">hudson.social.post</field>
+            <field name="arch" type="xml">
+                <form string="New Post" class="hs_post_composer_form">
+                    <header>
+                        <button name="action_publish_now" type="object"
+                                string="Post Now"
+                                class="btn-primary hs_btn_post_now"
+                                invisible="state != 'draft'"/>
+                        <button name="action_schedule" type="object"
+                                string="Schedule"
+                                class="btn-secondary hs_btn_schedule_hdr"
+                                invisible="state != 'draft'"/>
+                        <button name="action_check_remote_status" type="object"
+                                string="Check Status"
+                                icon="fa-refresh"
+                                class="btn-secondary"
+                                invisible="not remote_id"
+                                title="Pull the latest publish status from the remote Odoo Enterprise server"/>
+                        <button name="action_sync_comments" type="object"
+                                string="Sync Comments"
+                                icon="fa-comments"
+                                class="btn-secondary"
+                                invisible="1"
+                                title="Fetch comments from social media platforms"/>
+                        <button name="action_set_draft" type="object"
+                                string="Reset to Draft"
+                                class="btn-secondary"
+                                invisible="state not in ['scheduled', 'failed']"/>
+                        <field name="state" widget="statusbar"
+                               statusbar_visible="draft,scheduled,posting,posted"/>
+                    </header>
+
+                    <sheet class="hs_enterprise_sheet">
+                        <widget name="web_ribbon" title="Archived" bg_color="bg-danger" invisible="active"/>
+                        <field name="active" invisible="1"/>
+
+                        <!-- Warning / error banners -->
+                        <div class="hs_alert_banner hs_alert_warning"
+                             invisible="not has_validation_warnings">
+                            <i class="fa fa-exclamation-triangle"/>
+                            <strong>Platform Warnings:</strong>
+                            <field name="validation_warnings" widget="text"
+                                   readonly="1" nolabel="1" class="hs_validation_text"/>
+                        </div>
+                        <div class="hs_alert_banner hs_alert_danger"
+                             invisible="not sync_error">
+                            <i class="fa fa-times-circle"/>
+                            <strong>Publish / Sync Error:</strong>
+                            <field name="sync_error" widget="text" readonly="1" nolabel="1"/>
+                        </div>
+
+                        <!-- Two-panel layout -->
+                        <div class="hs_ep_layout" invisible="state == 'posted'">
+
+                            <!-- LEFT PANEL: composer -->
+                            <div class="hs_ep_left">
+
+                                <!-- POST ON -->
+                                <div class="hs_ep_section">
+                                    <div class="hs_ep_section_title">POST ON</div>
+                                    <div class="hs_ep_section_body">
+                                        <div class="hs_ep_field_row">
+                                            <span class="hs_ep_label">Campaign</span>
+                                            <field name="campaign_id"
+                                                   nolabel="1"
+                                                   placeholder="Select a Campaign..."
+                                                   class="hs_ep_field"/>
+                                        </div>
+                                        <div class="hs_ep_field_row hs_ep_accounts_row">
+                                            <span class="hs_ep_label">
+                                                Accounts
+                                                <span class="hs_ep_help"
+                                                      title="Choose the social accounts to post on">?</span>
+                                            </span>
+                                            <field name="account_ids"
+                                                   widget="many2many_checkboxes"
+                                                   domain="[('is_media_disconnected', '=', False)]"
+                                                   nolabel="1"
+                                                   class="hs_ep_accounts_checks"/>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- MESSAGE -->
+                                <div class="hs_ep_section">
+                                    <div class="hs_ep_section_title">MESSAGE</div>
+                                    <div class="hs_ep_section_body hs_ep_message_body">
+                                        <field name="message"
+                                               widget="text"
+                                               nolabel="1"
+                                               placeholder="What do you want to say?"
+                                               class="hs_ep_message_field"/>
+                                        <!-- Character count bar -->
+                                        <div class="hs_ep_char_row">
+                                            <span class="hs_ep_char_item hs_twitter_chars">
+                                                <i class="fa fa-twitter"/>
+                                                <field name="char_count" readonly="1" nolabel="1"/>
+                                                <span class="hs_char_limit_text">/ 280</span>
+                                            </span>
+                                            <span class="hs_ep_char_item hs_linkedin_chars">
+                                                <i class="fa fa-linkedin-square"/>
+                                                <span>3,000</span>
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- MEDIA -->
+                                <div class="hs_ep_section">
+                                    <div class="hs_ep_section_title">MEDIA</div>
+                                    <div class="hs_ep_section_body">
+                                        <field name="image_ids"
+                                               widget="many2many_binary"
+                                               nolabel="1"
+                                               class="hs_ep_media_upload"/>
+                                        <div class="hs_ep_media_hint" invisible="not has_image">
+                                            <i class="fa fa-check-circle text-success"/>
+                                            <field name="image_count" readonly="1" nolabel="1"/>
+                                            <span>image(s) attached - auto-compressed before upload</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- SCHEDULING -->
+                                <div class="hs_ep_section">
+                                    <div class="hs_ep_section_title">SCHEDULING</div>
+                                    <div class="hs_ep_section_body">
+                                        <div class="hs_ep_field_row" invisible="state != 'scheduled'">
+                                            <span class="hs_ep_label">Scheduled</span>
+                                            <field name="scheduled_date" nolabel="1"/>
+                                        </div>
+                                        <div class="hs_ep_field_row"
+                                             invisible="state not in ['posting', 'posted', 'failed']">
+                                            <span class="hs_ep_label">Published</span>
+                                            <field name="published_date" readonly="1" nolabel="1"/>
+                                        </div>
+                                        <div class="hs_ep_field_row"
+                                             invisible="state in ['scheduled', 'posting', 'posted', 'failed']">
+                                            <span class="hs_ep_hint">
+                                                Use the Schedule button above to set a publish date.
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- ENGAGEMENT (posted only) -->
+                                <div class="hs_ep_section hs_ep_analytics_section"
+                                     invisible="state != 'posted'">
+                                    <div class="hs_ep_section_title">ENGAGEMENT</div>
+                                    <div class="hs_ep_section_body">
+                                        <div class="hs_analytics_grid">
+                                            <div class="hs_analytic_item">
+                                                <i class="fa fa-eye"/>
+                                                <span class="hs_analytic_val">
+                                                    <field name="reach" readonly="1" nolabel="1"/>
+                                                </span>
+                                                <span class="hs_analytic_label">Reach</span>
+                                            </div>
+                                            <div class="hs_analytic_item">
+                                                <i class="fa fa-heart"/>
+                                                <span class="hs_analytic_val">
+                                                    <field name="likes" readonly="1" nolabel="1"/>
+                                                </span>
+                                                <span class="hs_analytic_label">Likes</span>
+                                            </div>
+                                            <div class="hs_analytic_item">
+                                                <i class="fa fa-mouse-pointer"/>
+                                                <span class="hs_analytic_val">
+                                                    <field name="click_count" readonly="1" nolabel="1"/>
+                                                </span>
+                                                <span class="hs_analytic_label">Clicks</span>
+                                            </div>
+                                            <div class="hs_analytic_item">
+                                                <i class="fa fa-share"/>
+                                                <span class="hs_analytic_val">
+                                                    <field name="shares" readonly="1" nolabel="1"/>
+                                                </span>
+                                                <span class="hs_analytic_label">Shares</span>
+                                            </div>
+                                            <div class="hs_analytic_item">
+                                                <i class="fa fa-comment"/>
+                                                <span class="hs_analytic_val">
+                                                    <field name="comment_count" readonly="1" nolabel="1"/>
+                                                </span>
+                                                <span class="hs_analytic_label">Comments</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- COMMENTS (posted only) -->
+                                <div class="hs_ep_section hs_ep_comments_section"
+                                     invisible="state != 'posted'">
+                                    <div class="hs_ep_section_title">
+                                        COMMENTS
+                                        <span class="hs_ep_comments_count" invisible="not comment_count">
+                                            (<field name="comment_count" readonly="1" nolabel="1"/>)
+                                        </span>
+                                    </div>
+                                    <div class="hs_ep_section_body">
+                                        <!-- Comment list -->
+                                        <div class="hs_comments_list" invisible="not comment_ids">
+                                            <field name="comment_ids" nolabel="1"
+                                                   widget="one2many"
+                                                   mode="list">
+                                                <list decoration-muted="not message"
+                                                      string="Comments"
+                                                      create="false"
+                                                      delete="false">
+                                                    <field name="platform" widget="badge"
+                                                           decoration-info="platform == 'twitter'"
+                                                           decoration-primary="platform == 'linkedin'"
+                                                           decoration-success="platform == 'facebook'"
+                                                           decoration-warning="platform == 'instagram'"/>
+                                                    <field name="author_name" string="Author"/>
+                                                    <field name="message" string="Comment"/>
+                                                    <field name="likes_count" string="Likes"/>
+                                                    <field name="published_date" string="Date"/>
+                                                </list>
+                                            </field>
+                                        </div>
+                                        <!-- Empty state hint -->
+                                        <div class="hs_ep_no_comments" invisible="comment_ids">
+                                            <i class="fa fa-comments-o"/>
+                                            <span>No comments synced yet. Click
+                                                <strong>Sync Comments</strong> in the header to
+                                                fetch the latest comments from your platforms.
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                            </div><!-- /hs_ep_left -->
+
+                            <!-- RIGHT PANEL: preview -->
+                            <div class="hs_ep_right">
+
+                                <!-- Preview card -->
+                                <div class="hs_ep_preview_card">
+                                    <!-- Platform labels -->
+                                    <div class="hs_ep_preview_platforms">
+                                        <i class="fa fa-share-alt hs_ep_preview_platform_icon"/>
+                                        <field name="platform_icons" readonly="1" nolabel="1"
+                                               class="hs_ep_platform_label"/>
+                                    </div>
+
+                                    <!-- Post content preview (when message typed) -->
+                                    <div class="hs_ep_preview_content" invisible="not message">
+                                        <div class="hs_ep_preview_avatar">
+                                            <i class="fa fa-user-circle"/>
+                                        </div>
+                                        <div class="hs_ep_preview_body">
+                                            <div class="hs_ep_preview_name">
+                                                <field name="account_ids" widget="many2many_tags"
+                                                       readonly="1" nolabel="1"
+                                                       class="hs_ep_preview_account_tags"/>
+                                            </div>
+                                            <div class="hs_ep_preview_text">
+                                                <field name="message_preview" readonly="1" nolabel="1"
+                                                       class="hs_ep_preview_msg"/>
+                                            </div>
+                                            <div class="hs_ep_preview_image_hint" invisible="not has_image">
+                                                <i class="fa fa-image"/>
+                                                <field name="image_count" readonly="1" nolabel="1"/>
+                                                <span>image(s) attached</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Empty state (no message yet) -->
+                                    <div class="hs_ep_preview_empty" invisible="message">
+                                        <div class="hs_ep_preview_icon">
+                                            <i class="fa fa-pencil-square-o"/>
+                                        </div>
+                                        <div class="hs_ep_preview_empty_title">Preview your post</div>
+                                        <div class="hs_ep_preview_empty_sub">
+                                            Start typing your message on the left to see it appear here.
+                                        </div>
+                                    </div>
+                                </div><!-- /hs_ep_preview_card -->
+
+                                <!-- Sync status badge -->
+                                <div class="hs_ep_sync_badge" invisible="not remote_id">
+                                    <i class="fa fa-cloud text-success"/>
+                                    Synced to Enterprise - #<field name="remote_id" readonly="1" nolabel="1"/>
+                                </div>
+                                <div class="hs_ep_sync_badge hs_ep_sync_badge_warn" invisible="remote_id">
+                                    <i class="fa fa-cloud-upload"/>
+                                    Not yet synced to Enterprise
+                                </div>
+
+                                <!-- Last sync info -->
+                                <div class="hs_ep_sync_info" invisible="not last_sync">
+                                    <i class="fa fa-clock-o"/>
+                                    Last synced: <field name="last_sync" readonly="1" nolabel="1"/>
+                                </div>
+
+                                <!-- Character limits reference -->
+                                <div class="hs_ep_limits_card">
+                                    <div class="hs_ep_limits_title">
+                                        <i class="fa fa-info-circle"/> Character Limits
+                                    </div>
+                                    <div class="hs_limit_row">
+                                        <span class="hs_limit_platform">
+                                            <i class="fa fa-twitter"/> Twitter/X
+                                        </span>
+                                        <span class="hs_limit_val">280</span>
+                                    </div>
+                                    <div class="hs_limit_row">
+                                        <span class="hs_limit_platform">
+                                            <i class="fa fa-linkedin-square"/> LinkedIn
+                                        </span>
+                                        <span class="hs_limit_val">3,000</span>
+                                    </div>
+                                    <div class="hs_limit_row">
+                                        <span class="hs_limit_platform">
+                                            <i class="fa fa-instagram"/> Instagram
+                                        </span>
+                                        <span class="hs_limit_val">2,200</span>
+                                    </div>
+                                    <div class="hs_limit_row">
+                                        <span class="hs_limit_platform">
+                                            <i class="fa fa-facebook"/> Facebook
+                                        </span>
+                                        <span class="hs_limit_val">63,206</span>
+                                    </div>
+                                </div>
+
+                            </div><!-- /hs_ep_right -->
+
+                        </div><!-- /hs_ep_layout -->
+
+                        <!-- POSTED VIEW LAYOUT -->
+                        <div class="hs_posted_view_layout" invisible="state != 'posted'">
+                            <div class="hs_posted_card">
+                                <div class="hs_posted_header">
+                                    <div class="hs_posted_avatar">H</div>
+                                    <div class="hs_posted_author_info">
+                                        <div class="hs_posted_author_name">Hudson Learning</div>
+                                        <div class="hs_posted_time"><field name="published_date" readonly="1" nolabel="1" widget="datetime"/></div>
+                                    </div>
+                                </div>
+                                <div class="hs_posted_message">
+                                    <field name="message" readonly="1" nolabel="1"/>
+                                </div>
+                                <div class="hs_posted_image_container" invisible="not has_image">
+                                    <field name="image_ids" widget="many2many_binary" readonly="1" nolabel="1" class="hs_ep_media_upload_posted"/>
+                                </div>
+                                <div class="hs_posted_comments_section">
+                                    <div class="hs_posted_write_comment">
+                                        <div class="hs_posted_avatar">H</div>
+                                        <div class="hs_posted_write_input">Write a comment... (Coming soon)</div>
+                                    </div>
+                                    <field name="comment_ids" nolabel="1" readonly="1">
+                                        <list>
+                                            <field name="author_name" invisible="1"/>
+                                            <field name="message" invisible="1"/>
+                                            <field name="published_date" invisible="1"/>
+                                            <field name="likes_count" invisible="1"/>
+                                        </list>
+                                        <kanban>
+                                            <field name="author_name"/>
+                                            <field name="message"/>
+                                            <field name="published_date"/>
+                                            <field name="likes_count"/>
+                                            <templates>
+                                                <t t-name="card">
+                                                    <div class="hs_posted_comment">
+                                                        <div class="hs_posted_avatar">
+                                                            <t t-esc="record.author_name.raw_value ? record.author_name.raw_value[0] : 'U'"/>
+                                                        </div>
+                                                        <div class="hs_posted_comment_body">
+                                                            <div class="hs_posted_comment_box">
+                                                                <div class="hs_posted_comment_name"><field name="author_name"/></div>
+                                                                <div class="hs_posted_comment_text"><field name="message"/></div>
+                                                            </div>
+                                                            <div class="hs_posted_comment_actions">
+                                                                <span>Like</span> · <span>Reply</span> · <field name="published_date" widget="datetime"/>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </t>
+                                            </templates>
+                                        </kanban>
+                                    </field>
+                                </div>
+                            </div>
+                        </div><!-- /hs_posted_view_layout -->
+
+                    </sheet>
+                    <chatter/>
+                </form>
+            </field>
+        </record>
+
+
+
+        <!-- ============================================================
+             Search View
+        ============================================================ -->
+        <record id="view_hudson_social_post_search" model="ir.ui.view">
+            <field name="name">hudson.social.post.search</field>
+            <field name="model">hudson.social.post</field>
+            <field name="arch" type="xml">
+                <search string="Search Posts">
+                    <field name="message_preview" string="Message"/>
+                    <separator/>
+                    <filter string="Draft" name="draft" domain="[('state', '=', 'draft')]"/>
+                    <filter string="Scheduled" name="scheduled" domain="[('state', '=', 'scheduled')]"/>
+                    <filter string="Posted" name="posted" domain="[('state', '=', 'posted')]"/>
+                    <filter string="Failed" name="failed" domain="[('state', '=', 'failed')]"/>
+                    <separator/>
+                    <filter string="Has Images" name="has_image" domain="[('has_image', '=', True)]"/>
+                    <filter string="Synced to Remote" name="synced" domain="[('remote_id', '!=', False)]"/>
+                    <filter string="Not Synced" name="not_synced" domain="[('remote_id', '=', False)]"/>
+                    <separator/>
+                    <filter string="Archived" name="archived" domain="[('active', '=', False)]"/>
+                    <group>
+                        <filter string="Platform" name="group_by_platform" context="{'group_by': 'primary_platform'}"/>
+                        <filter string="Status" name="group_state" context="{'group_by': 'state'}"/>
+                        <filter string="Published Date" name="group_published" context="{'group_by': 'published_date'}"/>
+                    </group>
+                </search>
+            </field>
+        </record>
+
+        <!-- ============================================================
+             Action
+        ============================================================ -->
+        <record id="action_hudson_social_post" model="ir.actions.act_window">
+            <field name="name">Posts</field>
+            <field name="res_model">hudson.social.post</field>
+            <field name="view_mode">kanban,list,form</field>
+            <field name="search_view_id" ref="view_hudson_social_post_search"/>
+            <field name="context">{}</field>
+            <field name="help" type="html">
+                <p class="o_view_nocontent_smiling_face">
+                    Create your first social media post!
+                </p>
+                <p>
+                    Create a post, select platforms, and click <b>Publish Now</b> to
+                    push it to your social media accounts via the remote Odoo instance.
+                </p>
+            </field>
+        </record>
+
+        <!-- New Post action shortcut -->
+        <record id="action_hudson_social_post_new" model="ir.actions.act_window">
+            <field name="name">New Post</field>
+            <field name="res_model">hudson.social.post</field>
+            <field name="view_mode">form</field>
+            <field name="target">current</field>
+        </record>
+
+    </data>
+</odoo>

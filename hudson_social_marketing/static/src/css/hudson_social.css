@@ -1,0 +1,1715 @@
+/* =============================================================================
+   Hudson Social Marketing â€” Premium UI Styles
+   NOTE: No @import here â€” Google Fonts must NOT be placed in an Odoo asset
+   bundle CSS file as @import breaks the full CSS bundle compilation.
+   ============================================================================= */
+
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+   CSS Custom Properties (Design Tokens)
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+:root {
+    --hs-primary: #875A7B;
+    --hs-primary-dark: #6b4563;
+    --hs-primary-light: #a07a96;
+    --hs-accent: #00a09d;
+    --hs-accent-light: #e0f5f5;
+
+    --hs-facebook: #1877F2;
+    --hs-facebook-bg: #e7f0fd;
+    --hs-twitter: #000000;
+    --hs-twitter-bg: #e7e7e7;
+    --hs-instagram: #E1306C;
+    --hs-instagram-bg: #fde7ee;
+    --hs-linkedin: #0077B5;
+    --hs-linkedin-bg: #e5f2f9;
+    --hs-youtube: #FF0000;
+    --hs-youtube-bg: #ffe5e5;
+    --hs-pinterest: #BD081C;
+    --hs-pinterest-bg: #fde7ea;
+    --hs-other: #6c757d;
+    --hs-other-bg: #f0f0f0;
+    --hs-none: #adb5bd;
+    --hs-none-bg: #f8f9fa;
+
+    --hs-draft: #6c757d;
+    --hs-scheduled: #0d6efd;
+    --hs-posting: #fd7e14;
+    --hs-posted: #198754;
+    --hs-failed: #dc3545;
+
+    --hs-card-bg: #ffffff;
+    --hs-card-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+    --hs-card-shadow-hover: 0 8px 28px rgba(0, 0, 0, 0.14);
+    --hs-card-border: #e9ecef;
+    --hs-card-radius: 14px;
+
+    --hs-transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+[data-bs-theme="dark"] {
+    --hs-card-bg: #212529;
+    --hs-card-header-bg: linear-gradient(135deg, #2b3035 0%, #212529 100%);
+    --hs-card-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
+    --hs-card-shadow-hover: 0 8px 28px rgba(0, 0, 0, 0.5);
+    --hs-card-border: #343a40;
+    
+    --hs-text-main: #f8f9fa;
+    --hs-text-muted: #adb5bd;
+    --hs-bg-light: #2b3035;
+    --hs-bg-lighter: #343a40;
+
+    --hs-twitter: #ffffff;
+    --hs-facebook-bg: rgba(24, 119, 242, 0.15);
+    --hs-twitter-bg: rgba(255, 255, 255, 0.1);
+    --hs-instagram-bg: rgba(225, 48, 108, 0.15);
+    --hs-linkedin-bg: rgba(0, 119, 181, 0.15);
+    --hs-youtube-bg: rgba(255, 0, 0, 0.15);
+    --hs-pinterest-bg: rgba(189, 8, 28, 0.15);
+    --hs-other-bg: rgba(108, 117, 125, 0.15);
+    --hs-none-bg: rgba(173, 181, 189, 0.15);
+}
+
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+   DASHBOARD KANBAN â€” Platform-column layout
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+.hudson_social_dashboard_kanban .o_kanban_view {
+    background: linear-gradient(135deg, #f0f2f8 0%, #e8eaf0 100%);
+    padding: 16px;
+    min-height: 100vh;
+}
+
+.hudson_social_dashboard_kanban .o_kanban_group {
+    background: rgba(255, 255, 255, 0.6);
+    backdrop-filter: blur(8px);
+    border: 1px solid var(--hs-card-border);
+    border-radius: 16px;
+    width: 310px;
+    min-width: 310px;
+    box-shadow: 0 2px 16px rgba(0, 0, 0, 0.06);
+    overflow: hidden;
+}
+
+/* Platform column header bar */
+.hudson_social_dashboard_kanban .o_kanban_header {
+    padding: 0;
+}
+
+.hudson_social_dashboard_kanban .o_kanban_header_title {
+    font-weight: 700;
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: white;
+    border-radius: 0;
+}
+
+/* Platform-specific column header colours */
+.hudson_social_dashboard_kanban .o_kanban_group[data-group-by-value="facebook"] .o_kanban_header_title {
+    background: linear-gradient(90deg, var(--hs-facebook) 0%, #3b88f7 100%);
+}
+.hudson_social_dashboard_kanban .o_kanban_group[data-group-by-value="twitter"] .o_kanban_header_title {
+    background: linear-gradient(90deg, #111 0%, #333 100%);
+}
+.hudson_social_dashboard_kanban .o_kanban_group[data-group-by-value="instagram"] .o_kanban_header_title {
+    background: linear-gradient(90deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
+}
+.hudson_social_dashboard_kanban .o_kanban_group[data-group-by-value="linkedin"] .o_kanban_header_title {
+    background: linear-gradient(90deg, var(--hs-linkedin) 0%, #0095d5 100%);
+}
+.hudson_social_dashboard_kanban .o_kanban_group[data-group-by-value="youtube"] .o_kanban_header_title {
+    background: linear-gradient(90deg, var(--hs-youtube) 0%, #ff4444 100%);
+}
+.hudson_social_dashboard_kanban .o_kanban_group[data-group-by-value="pinterest"] .o_kanban_header_title {
+    background: linear-gradient(90deg, var(--hs-pinterest) 0%, #e0102a 100%);
+}
+.hudson_social_dashboard_kanban .o_kanban_group[data-group-by-value="none"] .o_kanban_header_title,
+.hudson_social_dashboard_kanban .o_kanban_group[data-group-by-value="other"] .o_kanban_header_title {
+    background: linear-gradient(90deg, #6c757d 0%, #8d9ba8 100%);
+}
+
+.hudson_social_dashboard_kanban .o_kanban_records_wrapper {
+    padding: 10px 8px;
+    max-height: calc(100vh - 120px);
+    overflow-y: auto;
+}
+
+/* â”€â”€ Dashboard Card â”€â”€ */
+.hs_dash_card {
+    background: var(--hs-card-bg);
+    border: 1px solid var(--hs-card-border);
+    border-radius: var(--hs-card-radius);
+    padding: 14px;
+    margin-bottom: 10px;
+    box-shadow: var(--hs-card-shadow);
+    transition: var(--hs-transition);
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+/* Platform-tinted left border accent */
+.hs_dash_card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 4px;
+    border-radius: var(--hs-card-radius) 0 0 var(--hs-card-radius);
+}
+.hs_dash_card.hs_platform_facebook::before  { background: var(--hs-facebook); }
+.hs_dash_card.hs_platform_twitter::before   { background: var(--hs-twitter); }
+.hs_dash_card.hs_platform_instagram::before { background: var(--hs-instagram); }
+.hs_dash_card.hs_platform_linkedin::before  { background: var(--hs-linkedin); }
+.hs_dash_card.hs_platform_youtube::before   { background: var(--hs-youtube); }
+.hs_dash_card.hs_platform_pinterest::before { background: var(--hs-pinterest); }
+.hs_dash_card.hs_platform_other::before,
+.hs_dash_card.hs_platform_none::before      { background: var(--hs-other); }
+
+.hs_dash_card:hover {
+    box-shadow: var(--hs-card-shadow-hover);
+    transform: translateY(-2px);
+}
+
+/* â”€â”€ Card Header â”€â”€ */
+.hs_dash_card_header {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    flex-wrap: wrap;
+    padding-left: 6px;
+}
+
+/* â”€â”€ State Badges â”€â”€ */
+.hs_state_badge {
+    font-size: 0.68rem;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 20px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.hs_badge_draft     { background: #e9ecef; color: var(--hs-draft); }
+.hs_badge_scheduled { background: #cfe2ff; color: #084298; }
+.hs_badge_posting   { background: #fff3cd; color: #664d03; }
+.hs_badge_posted    { background: #d1e7dd; color: #0a3622; }
+.hs_badge_failed    { background: #f8d7da; color: #842029; }
+
+.hs_synced_badge { background: #e0f5f5; color: #00695c; font-size: 0.7rem; }
+.hs_image_badge  { background: #f3e5f5; color: var(--hs-primary); font-size: 0.7rem; }
+
+/* â”€â”€ Card Message â”€â”€ */
+.hs_dash_card_message {
+    font-size: 0.88rem;
+    color: #212529;
+    line-height: 1.5;
+    padding-left: 6px;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+}
+
+/* â”€â”€ Account Tags â”€â”€ */
+.hs_dash_card_accounts {
+    padding-left: 6px;
+}
+
+.hs_dash_card_accounts .o_field_many2many_tags .badge {
+    font-size: 0.68rem;
+}
+
+/* â”€â”€ Date Chips â”€â”€ */
+.hs_dash_card_dates {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    padding-left: 6px;
+}
+
+.hs_date_chip {
+    font-size: 0.75rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-weight: 500;
+}
+
+.hs_date_chip.scheduled {
+    background: #e8f0fe;
+    color: #1a56db;
+}
+
+.hs_date_chip.published {
+    background: #dcfce7;
+    color: #15803d;
+}
+
+/* â”€â”€ Mini Stats â”€â”€ */
+.hs_dash_card_stats {
+    display: flex;
+    gap: 10px;
+    padding: 6px 6px 0;
+    border-top: 1px solid #f0f2f5;
+}
+
+.hs_mini_stat {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.75rem;
+    color: #495057;
+    font-weight: 600;
+}
+
+.hs_mini_stat .fa {
+    color: var(--hs-primary);
+    font-size: 0.8rem;
+}
+
+/* â”€â”€ Card Footer â”€â”€ */
+.hs_dash_card_footer {
+    display: flex;
+    gap: 5px;
+    flex-wrap: wrap;
+    padding-top: 6px;
+    border-top: 1px solid #f0f2f5;
+}
+
+.hs_btn_publish {
+    background: linear-gradient(135deg, var(--hs-primary) 0%, var(--hs-primary-dark) 100%);
+    color: white;
+    border: none;
+    font-size: 0.72rem;
+    padding: 3px 10px;
+    border-radius: 6px;
+    font-weight: 600;
+}
+
+.hs_btn_publish:hover { background: var(--hs-primary-dark); color: white; }
+
+.hs_btn_schedule {
+    background: transparent;
+    color: var(--hs-scheduled);
+    border: 1px solid var(--hs-scheduled);
+    font-size: 0.72rem;
+    padding: 3px 10px;
+    border-radius: 6px;
+    font-weight: 600;
+}
+
+.hs_btn_schedule:hover { background: #cfe2ff; }
+
+.hs_btn_image {
+    background: #f3e5f5;
+    color: var(--hs-primary);
+    border: 1px solid #e1bee7;
+    font-size: 0.72rem;
+    padding: 3px 8px;
+    border-radius: 6px;
+}
+
+.hs_btn_image:hover { background: #e1bee7; }
+
+.hs_btn_sync {
+    background: transparent;
+    color: #6c757d;
+    border: 1px solid #dee2e6;
+    font-size: 0.72rem;
+    padding: 3px 8px;
+    border-radius: 6px;
+}
+
+.hs_btn_sync:hover { background: #e9ecef; color: #212529; }
+
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+   POST KANBAN (Posts menu â€” state-grouped)
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+.hudson_social_post_kanban .o_kanban_view {
+    background: linear-gradient(135deg, #f8f9fa 0%, #f0f2f5 100%);
+    padding: 16px;
+    min-height: 100vh;
+}
+
+.hudson_social_post_kanban .o_kanban_group {
+    background: transparent;
+    border: none;
+    width: 290px;
+    min-width: 290px;
+}
+
+.hudson_social_post_kanban .o_kanban_header_title {
+    font-weight: 700;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 10px 16px;
+    border-radius: 8px 8px 0 0;
+}
+
+/* â”€â”€ Post Card (state-grouped kanban) â”€â”€ */
+.hudson_social_post_card {
+    background: var(--hs-card-bg);
+    border: 1px solid var(--hs-card-border);
+    border-radius: var(--hs-card-radius);
+    padding: 16px;
+    margin-bottom: 12px;
+    box-shadow: var(--hs-card-shadow);
+    transition: var(--hs-transition);
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.hudson_social_post_card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    border-radius: var(--hs-card-radius) var(--hs-card-radius) 0 0;
+}
+
+.hudson_social_post_card.hs_state_draft::before   { background: var(--hs-draft); }
+.hudson_social_post_card.hs_state_scheduled::before { background: var(--hs-scheduled); }
+.hudson_social_post_card.hs_state_posting::before { background: var(--hs-posting); }
+.hudson_social_post_card.hs_state_posted::before  { background: var(--hs-posted); }
+.hudson_social_post_card.hs_state_failed::before  { background: var(--hs-failed); }
+
+.hudson_social_post_card:hover {
+    box-shadow: var(--hs-card-shadow-hover);
+    transform: translateY(-2px);
+    border-color: var(--hs-primary-light);
+}
+
+.hs_post_header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.hs_post_message {
+    font-size: 0.9rem;
+    color: #212529;
+    line-height: 1.5;
+    flex: 1;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+}
+
+.hs_post_accounts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.hs_post_accounts .badge {
+    font-size: 0.7rem;
+}
+
+.hs_post_dates {
+    display: flex;
+    gap: 10px;
+    font-size: 0.78rem;
+    color: #6c757d;
+}
+
+.hs_post_stats {
+    display: flex;
+    gap: 12px;
+    padding: 8px 0;
+    border-top: 1px solid #f0f2f5;
+}
+
+.hs_stat_item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.78rem;
+    color: #495057;
+    font-weight: 500;
+}
+
+.hs_stat_item .fa {
+    color: var(--hs-primary);
+}
+
+.hs_post_footer {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    padding-top: 6px;
+    border-top: 1px solid #f0f2f5;
+}
+
+.hs_post_footer .btn {
+    font-size: 0.75rem;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-weight: 500;
+    transition: var(--hs-transition);
+}
+
+.hs_post_footer .btn i {
+    margin-right: 3px;
+}
+
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+   ACCOUNT KANBAN
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+.hudson_social_account_kanban .o_kanban_view {
+    background: linear-gradient(135deg, #f8f9fa 0%, #f0f2f5 100%);
+    padding: 24px;
+}
+
+.hudson_social_account_card {
+    background: var(--hs-card-bg);
+    border: 1px solid var(--hs-card-border);
+    border-radius: var(--hs-card-radius);
+    padding: 20px;
+    box-shadow: var(--hs-card-shadow);
+    transition: var(--hs-transition);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 12px;
+    min-height: 220px;
+}
+
+.hudson_social_account_card:hover {
+    box-shadow: var(--hs-card-shadow-hover);
+    transform: translateY(-3px);
+}
+
+.hs_account_header {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+}
+
+.hs_platform_icon {
+    font-size: 1.8rem;
+}
+
+.hs_platform_icon.fa-facebook  { color: var(--hs-facebook); }
+.hs_platform_icon.fa-twitter   { color: var(--hs-twitter); }
+.hs_platform_icon.fa-instagram { color: var(--hs-instagram); }
+.hs_platform_icon.fa-linkedin  { color: var(--hs-linkedin); }
+.hs_platform_icon.fa-youtube   { color: var(--hs-youtube); }
+.hs_platform_icon.fa-pinterest { color: var(--hs-pinterest); }
+.hs_platform_icon.fa-globe     { color: var(--hs-accent); }
+.hs_platform_icon.fa-bell      { color: #6f42c1; }
+
+.hs_account_body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+}
+
+.hs_account_avatar {
+    width: 56px !important;
+    height: 56px !important;
+    border-radius: 50% !important;
+    object-fit: cover;
+    border: 3px solid var(--hs-card-border);
+}
+
+.hs_account_name {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #212529;
+    margin: 0;
+}
+
+.hs_account_stats {
+    display: flex;
+    gap: 20px;
+    justify-content: center;
+    margin-top: 4px;
+}
+
+.hs_stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.hs_stat_value {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--hs-primary);
+}
+
+.hs_stat_label {
+    font-size: 0.7rem;
+    color: #6c757d;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+/* =============================================================================
+   POST COMPOSER FORM â€” Unified social-media style composer
+   ============================================================================= */
+
+/* Remove the default Odoo form sheet max-width restrictions */
+.hs_post_composer_form .o_form_sheet {
+    max-width: 100% !important;
+    padding: 0 !important;
+}
+
+.hs_post_composer_form .o_form_sheet_bg {
+    background: var(--hs-bg-light, #f3f4f8);
+}
+
+/* Validation banner */
+.hs_validation_banner {
+    border-radius: 10px;
+    border: 1px solid #f0ad4e;
+    background: linear-gradient(135deg, #fff9e6 0%, #fff3cd 100%);
+    padding: 14px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin: 16px 16px 0;
+}
+
+[data-bs-theme="dark"] .hs_validation_banner {
+    background: linear-gradient(135deg, #4d3a03 0%, #664d03 100%);
+    border-color: #997404;
+}
+
+.hs_validation_text .o_field_widget {
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+    white-space: pre-line;
+    font-size: 0.875rem;
+    color: #664d03;
+    line-height: 1.6;
+}
+
+[data-bs-theme="dark"] .hs_validation_text .o_field_widget {
+    color: #fff3cd;
+}
+
+/* Two-column composer grid */
+.hs_composer_layout {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    padding: 16px;
+    align-items: start;
+}
+
+/* Left column */
+.hs_composer_left {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    flex: 1 1 500px;
+    min-width: 0;
+}
+
+/* Right column */
+.hs_composer_right {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    flex: 0 0 320px;
+    position: sticky;
+    top: 60px;
+}
+
+/* â”€â”€ Composer Card (shared) â”€â”€ */
+.hs_composer_card {
+    background: var(--hs-card-bg, #ffffff);
+    border: 1px solid var(--hs-card-border, #e2e5ec);
+    border-radius: 14px;
+    box-shadow: var(--hs-card-shadow, 0 2px 10px rgba(0, 0, 0, 0.06));
+    overflow: hidden;
+    transition: box-shadow 0.2s ease;
+}
+
+.hs_composer_card:focus-within {
+    box-shadow: 0 4px 20px rgba(135, 90, 123, 0.12);
+    border-color: var(--hs-primary-light);
+}
+
+.hs_composer_card_header {
+    display: flex;
+    align-items: center;
+    padding: 12px 16px;
+    background: var(--hs-card-header-bg, linear-gradient(135deg, #fafbfd 0%, #f4f5f8 100%));
+    border-bottom: 1px solid var(--hs-card-border, #e9ecef);
+    font-weight: 700;
+    font-size: 0.82rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--hs-text-main, #495057);
+    gap: 4px;
+}
+
+.hs_composer_card_header .fa {
+    color: var(--hs-primary);
+    font-size: 0.9rem;
+}
+
+.hs_composer_card_body {
+    padding: 16px;
+}
+
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   UNIFIED COMPOSER CARD (Instagram/Twitter-style)
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+.hs_unified_card {
+    border-radius: 18px;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.09);
+    border: 1.5px solid var(--hs-card-border, #e2e5ec);
+    overflow: visible;
+}
+
+.hs_unified_card:focus-within {
+    border-color: var(--hs-primary);
+    box-shadow: 0 6px 32px rgba(135, 90, 123, 0.15);
+}
+
+/* â”€â”€ Top bar: avatar + account tags + char counter â”€â”€ */
+.hs_compose_top_bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 18px 12px;
+    border-bottom: 1px solid var(--hs-card-border, #f0f2f5);
+}
+
+.hs_compose_avatar {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--hs-primary) 0%, var(--hs-primary-dark) 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    box-shadow: 0 2px 8px rgba(135, 90, 123, 0.3);
+}
+
+.hs_compose_avatar .fa {
+    font-size: 1.4rem;
+    color: white;
+}
+
+.hs_compose_identity {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    flex: 1;
+    min-width: 0;
+}
+
+.hs_compose_posting_as {
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--hs-text-muted, #9aa0ac);
+}
+
+/* Account tags in top bar â€” keep them compact */
+.hs_compose_account_tags .o_field_many2many_tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.hs_compose_account_tags .o_field_many2many_tags .badge {
+    font-size: 0.75rem;
+    padding: 3px 10px;
+    border-radius: 20px;
+    background: linear-gradient(135deg, var(--hs-primary) 0%, var(--hs-primary-dark) 100%);
+    color: white;
+    font-weight: 600;
+}
+
+/* â”€â”€ Character Counter â”€â”€ */
+.hs_char_counter {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    background: var(--hs-bg-lighter, #f0f0f5);
+    border-radius: 20px;
+    padding: 3px 12px;
+    font-size: 0.75rem;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.hs_char_count .o_field_widget {
+    display: inline;
+    font-weight: 800;
+    color: var(--hs-primary);
+    font-size: 0.82rem;
+}
+
+.hs_char_label {
+    color: #6c757d;
+    font-size: 0.75rem;
+}
+
+/* â”€â”€ Caption / Message Area â”€â”€ */
+.hs_caption_area {
+    padding: 14px 18px 4px;
+}
+
+.hs_composer_textarea .o_field_text textarea,
+.hs_composer_textarea textarea {
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    font-size: 1rem;
+    min-height: 120px;
+    padding: 0;
+    resize: none;
+    width: 100%;
+    line-height: 1.65;
+    color: var(--hs-text-main, #212529);
+    background: transparent !important;
+    font-weight: 400;
+}
+
+.hs_composer_textarea .o_field_text textarea:focus,
+.hs_composer_textarea textarea:focus {
+    border: none !important;
+    box-shadow: none !important;
+    outline: none !important;
+}
+
+/* â”€â”€ Image count strip â”€â”€ */
+.hs_image_preview_strip {
+    margin: 4px 18px 0;
+    padding: 8px 12px;
+    background: rgba(135, 90, 123, 0.07);
+    border-radius: 10px;
+    border: 1px dashed rgba(135, 90, 123, 0.3);
+}
+
+.hs_image_strip_header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--hs-primary);
+}
+
+.hs_image_strip_header .o_field_widget {
+    display: inline;
+    font-weight: 800;
+    color: var(--hs-primary);
+}
+
+/* â”€â”€ Divider â”€â”€ */
+.hs_composer_divider {
+    height: 1px;
+    background: var(--hs-card-border, #e9ecef);
+    margin: 12px 0 0;
+}
+
+/* â”€â”€ Media toolbar (image upload inline) â”€â”€ */
+.hs_media_toolbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+    background: var(--hs-bg-light, #fafbfd);
+    border-top: 1px solid var(--hs-card-border, #f0f2f5);
+}
+
+.hs_media_upload_inline {
+    flex: 1;
+    min-width: 0;
+}
+
+/* Style the binary widget in the toolbar to look like an icon button */
+.hs_inline_binary_widget .o_field_many2many_binary {
+    border: none !important;
+    background: transparent !important;
+    padding: 0 !important;
+}
+
+/* The "Add files" label becomes a styled icon button */
+.hs_inline_binary_widget .o_field_many2many_binary label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(135, 90, 123, 0.1);
+    color: var(--hs-primary);
+    border: 1.5px dashed rgba(135, 90, 123, 0.4);
+    border-radius: 10px;
+    padding: 6px 14px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--hs-transition);
+}
+
+.hs_inline_binary_widget .o_field_many2many_binary label:hover {
+    background: rgba(135, 90, 123, 0.18);
+    border-color: var(--hs-primary);
+    transform: translateY(-1px);
+}
+
+/* â”€â”€ Big Publish button row at bottom of card â”€â”€ */
+.hs_compose_action_row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 18px 16px;
+    border-top: 1px solid var(--hs-card-border, #f0f2f5);
+    background: linear-gradient(135deg, #fafbfd 0%, #f7f4fb 100%);
+}
+
+.hs_big_publish_btn {
+    flex: 1;
+    background: linear-gradient(135deg, var(--hs-primary) 0%, var(--hs-primary-dark) 100%);
+    color: white !important;
+    border: none;
+    border-radius: 12px;
+    padding: 11px 20px;
+    font-size: 0.95rem;
+    font-weight: 700;
+    transition: var(--hs-transition);
+    box-shadow: 0 4px 14px rgba(135, 90, 123, 0.3);
+    letter-spacing: 0.02em;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.hs_big_publish_btn:hover {
+    background: linear-gradient(135deg, var(--hs-primary-dark) 0%, #5a3552 100%);
+    color: white !important;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(135, 90, 123, 0.4);
+}
+
+.hs_big_publish_btn:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 8px rgba(135, 90, 123, 0.25);
+}
+
+.hs_schedule_inline_btn {
+    background: transparent;
+    color: var(--hs-scheduled, #0d6efd);
+    border: 1.5px solid var(--hs-scheduled, #0d6efd);
+    border-radius: 12px;
+    padding: 10px 18px;
+    font-size: 0.88rem;
+    font-weight: 600;
+    transition: var(--hs-transition);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.hs_schedule_inline_btn:hover {
+    background: #cfe2ff;
+    color: #084298;
+    border-color: #084298;
+    transform: translateY(-1px);
+}
+
+/* Header "Publish Post" button â€” keep consistent */
+.hs_btn_header_publish {
+    font-weight: 700;
+    letter-spacing: 0.02em;
+}
+
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   RIGHT SIDEBAR
+â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+
+/* Platforms Card */
+.hs_platforms_card .hs_composer_card_header .fa { color: var(--hs-accent); }
+
+.hs_platforms_hint {
+    font-size: 0.8rem;
+    color: #6c757d;
+    margin-bottom: 10px;
+    margin-top: 0;
+}
+
+/* Platform checkboxes */
+.hs_platform_checkboxes .o_field_many2many_checkboxes {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.hs_platform_checkboxes .o_field_many2many_checkboxes .form-check {
+    background: var(--hs-bg-lighter, #f8f9fa);
+    border: 1px solid var(--hs-card-border, #e2e5ec);
+    border-radius: 10px;
+    padding: 10px 14px 10px 38px;
+    transition: var(--hs-transition);
+    cursor: pointer;
+    margin: 0;
+}
+
+.hs_platform_checkboxes .o_field_many2many_checkboxes .form-check:hover {
+    background: #f0e8f5;
+    border-color: var(--hs-primary-light);
+}
+
+.hs_platform_checkboxes .o_field_many2many_checkboxes .form-check:has(input:checked) {
+    background: linear-gradient(135deg, #f8f0fb 0%, #f0e8f5 100%);
+    border-color: var(--hs-primary);
+    box-shadow: 0 0 0 2px rgba(135, 90, 123, 0.12);
+}
+
+.hs_platform_checkboxes .o_field_many2many_checkboxes .form-check-label {
+    font-size: 0.88rem;
+    font-weight: 500;
+    color: var(--hs-text-main, #343a40);
+    cursor: pointer;
+    width: 100%;
+}
+
+.hs_platform_checkboxes .o_field_many2many_checkboxes .form-check-input {
+    width: 1.1em;
+    height: 1.1em;
+    margin-top: 0.15em;
+    border-color: #adb5bd;
+    cursor: pointer;
+}
+
+.hs_platform_checkboxes .o_field_many2many_checkboxes .form-check-input:checked {
+    background-color: var(--hs-primary);
+    border-color: var(--hs-primary);
+}
+
+/* Field rows */
+.hs_field_row {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 12px;
+}
+
+.hs_field_row:last-child { margin-bottom: 0; }
+
+.hs_field_label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--hs-text-muted, #6c757d);
+}
+
+/* Sync Card */
+.hs_sync_card .hs_composer_card_header .fa { color: var(--hs-accent); }
+.hs_synced_dot { font-size: 1rem; }
+
+/* Platform Limits Card (right sidebar) */
+.hs_limits_card .hs_composer_card_header .fa { color: #6c757d; }
+
+.hs_limits_body {
+    padding: 12px 16px !important;
+}
+
+.hs_limits_body .hs_limit_row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--hs-card-border, #f0f2f5);
+    font-size: 0.8rem;
+}
+
+.hs_limits_body .hs_limit_row:last-child {
+    border-bottom: none;
+}
+
+.hs_limit_platform {
+    font-weight: 600;
+    color: var(--hs-text-main, #495057);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.hs_limit_platform .fa-twitter  { color: var(--hs-twitter); }
+.hs_limit_platform .fa-instagram { color: var(--hs-instagram); }
+.hs_limit_platform .fa-linkedin  { color: var(--hs-linkedin); }
+.hs_limit_platform .fa-pinterest { color: var(--hs-pinterest); }
+.hs_limit_platform .fa-facebook  { color: var(--hs-facebook); }
+
+.hs_limit_val {
+    background: var(--hs-bg-lighter, #f0f2f5);
+    border-radius: 10px;
+    padding: 2px 10px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--hs-text-main, #495057);
+}
+
+/* â”€â”€ Analytics Card â”€â”€ */
+.hs_analytics_card .hs_composer_card_header .fa { color: var(--hs-posted); }
+
+.hs_analytics_grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+}
+
+.hs_analytic_item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    background: var(--hs-bg-lighter, #f8f9fa);
+    border-radius: 10px;
+    padding: 10px 6px;
+    text-align: center;
+}
+
+.hs_analytic_item .fa {
+    font-size: 1rem;
+    color: var(--hs-primary);
+}
+
+.hs_analytic_val {
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: var(--hs-text-main, #212529);
+    line-height: 1;
+}
+
+.hs_analytic_val .o_field_widget {
+    display: inline;
+    font-size: inherit;
+    font-weight: inherit;
+    color: inherit;
+}
+
+.hs_analytic_label {
+    font-size: 0.68rem;
+    color: var(--hs-text-muted, #6c757d);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+/* â”€â”€ Image count badge (kept for kanban) â”€â”€ */
+.hs_image_count_badge .o_field_widget {
+    display: inline;
+    font-weight: 700;
+    color: var(--hs-primary);
+}
+
+.hs_image_count_badge {
+    background: rgba(135, 90, 123, 0.1);
+    border-radius: 20px;
+    padding: 1px 8px;
+    font-size: 0.72rem;
+    color: var(--hs-primary);
+}
+
+/* Responsive: stack on small screens */
+@media (max-width: 1100px) {
+    .hs_composer_layout {
+        flex-direction: column;
+    }
+    .hs_composer_right {
+        position: static;
+        flex: 1 1 auto;
+    }
+}
+
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+   STREAM LIST â€” Feed styling
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+.hudson_social_stream_list .o_list_table tbody tr:hover {
+    background: linear-gradient(90deg, var(--hs-accent-light) 0%, transparent 100%);
+    transition: var(--hs-transition);
+}
+
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+   Micro-animations
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+@keyframes hs_fade_in {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+.hudson_social_post_card,
+.hudson_social_account_card,
+.hs_dash_card,
+.hs_composer_card {
+    animation: hs_fade_in 0.3s ease both;
+}
+
+.hudson_social_post_card:nth-child(1) { animation-delay: 0.03s; }
+.hudson_social_post_card:nth-child(2) { animation-delay: 0.06s; }
+.hudson_social_post_card:nth-child(3) { animation-delay: 0.09s; }
+.hudson_social_post_card:nth-child(4) { animation-delay: 0.12s; }
+
+.hs_dash_card:nth-child(1) { animation-delay: 0.03s; }
+.hs_dash_card:nth-child(2) { animation-delay: 0.06s; }
+.hs_dash_card:nth-child(3) { animation-delay: 0.09s; }
+.hs_dash_card:nth-child(4) { animation-delay: 0.12s; }
+
+.hs_composer_card:nth-child(1) { animation-delay: 0.05s; }
+.hs_composer_card:nth-child(2) { animation-delay: 0.1s; }
+.hs_composer_card:nth-child(3) { animation-delay: 0.15s; }
+
+@keyframes hs_pulse {
+    0%, 100% { box-shadow: var(--hs-card-shadow); }
+    50% { box-shadow: 0 0 0 4px rgba(253, 126, 20, 0.2), var(--hs-card-shadow); }
+}
+
+.hs_state_posting {
+    animation: hs_fade_in 0.3s ease both, hs_pulse 2s ease-in-out infinite;
+}
+
+/* =============================================================================
+   ENTERPRISE-STYLE TWO-PANEL COMPOSER  (hs_ep_*)
+   Matches the Odoo Enterprise social.post form: left form + right preview
+   ============================================================================= */
+
+/* Sheet override */
+.hs_post_composer_form .hs_enterprise_sheet {
+    max-width: 100% !important;
+    padding: 0 !important;
+}
+
+/* Alert banners */
+.hs_alert_banner {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px 18px;
+    border-radius: 8px;
+    margin: 12px 16px 0;
+    font-size: 0.88rem;
+    line-height: 1.5;
+}
+.hs_alert_warning { background: #fff3cd; border: 1px solid #f0ad4e; color: #664d03; }
+.hs_alert_danger  { background: #f8d7da; border: 1px solid #f1aeb5; color: #58151c; }
+
+/* ── Two-column layout ── */
+.hs_ep_layout {
+    display: flex;
+    min-height: 520px;
+    gap: 0;
+}
+
+/* Left: the composer form */
+.hs_ep_left {
+    flex: 1 1 0;
+    min-width: 0;
+    border-right: 1px solid var(--hs-card-border, #2e2e3a);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+}
+
+/* Right: preview panel */
+.hs_ep_right {
+    flex: 0 0 48%;
+    max-width: 520px;
+    padding: 20px 20px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    background: var(--hs-bg-light, #f3f4f8);
+}
+
+/* ── Sections (POST ON / MESSAGE / MEDIA …) ── */
+.hs_ep_section {
+    border-bottom: 1px solid var(--hs-card-border, #e0e3eb);
+}
+.hs_ep_section:last-child { border-bottom: none; }
+
+.hs_ep_section_title {
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--hs-text-muted, #6c757d);
+    padding: 14px 20px 8px;
+}
+
+.hs_ep_section_body {
+    padding: 0 20px 16px;
+}
+
+/* Field rows inside sections */
+.hs_ep_field_row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 10px;
+}
+.hs_ep_field_row:last-child { margin-bottom: 0; }
+
+.hs_ep_label {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--hs-text-main, #343a40);
+    white-space: nowrap;
+    min-width: 80px;
+}
+
+.hs_ep_help {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--hs-text-muted, #9aa0ac);
+    color: #fff;
+    font-size: 0.65rem;
+    font-weight: 700;
+    cursor: help;
+    margin-left: 4px;
+}
+
+/* Accounts checkboxes */
+.hs_ep_accounts_row { align-items: flex-start; }
+
+.hs_ep_accounts_checks .o_field_many2many_checkboxes {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.hs_ep_accounts_checks .form-check {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0;
+    margin: 0;
+}
+.hs_ep_accounts_checks .form-check-label {
+    font-size: 0.88rem;
+    font-weight: 500;
+    color: var(--hs-text-main, #343a40);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.hs_ep_accounts_checks .form-check-input:checked {
+    background-color: var(--hs-primary);
+    border-color: var(--hs-primary);
+}
+
+/* Message area */
+.hs_ep_message_body { padding-bottom: 0; }
+
+.hs_ep_message_field .o_field_text textarea,
+.hs_ep_message_field textarea {
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    font-size: 0.95rem;
+    min-height: 100px;
+    padding: 0;
+    resize: none;
+    width: 100%;
+    line-height: 1.65;
+    color: var(--hs-text-main, #212529);
+}
+.hs_ep_message_field textarea:focus {
+    border: none !important;
+    box-shadow: none !important;
+    outline: none !important;
+}
+
+/* Character count row */
+.hs_ep_char_row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 10px 0 14px;
+    border-top: 1px solid var(--hs-card-border, #e0e3eb);
+    margin-top: 8px;
+}
+.hs_ep_char_item {
+    font-size: 0.82rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+.hs_twitter_chars { color: #1da1f2; }
+.hs_linkedin_chars { color: #0077b5; }
+.hs_twitter_chars .o_field_widget,
+.hs_linkedin_chars .o_field_widget { display: inline; font-size: inherit; font-weight: inherit; }
+
+/* Media upload */
+.hs_ep_media_upload .o_field_many2many_binary {
+    border: 2px dashed var(--hs-card-border, #dee2e6) !important;
+    border-radius: 10px;
+    padding: 16px !important;
+    background: var(--hs-bg-lighter, #f8f9fa) !important;
+}
+.hs_ep_media_upload .o_field_many2many_binary:hover {
+    border-color: var(--hs-primary) !important;
+    background: rgba(135, 90, 123, 0.04) !important;
+}
+.hs_ep_media_upload .o_field_many2many_binary label {
+    color: var(--hs-primary);
+    font-weight: 600;
+    font-size: 0.88rem;
+    cursor: pointer;
+}
+
+.hs_ep_media_hint {
+    font-size: 0.8rem;
+    color: #198754;
+    margin-top: 8px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+.hs_ep_media_hint .o_field_widget { display: inline; font-size: inherit; }
+
+.hs_ep_hint {
+    font-size: 0.82rem;
+    color: var(--hs-text-muted, #6c757d);
+    line-height: 1.5;
+}
+
+.hs_ep_published_row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 10px;
+    font-size: 0.85rem;
+}
+
+/* Analytics section inside left panel */
+.hs_ep_analytics_section .hs_analytics_grid {
+    grid-template-columns: repeat(5, 1fr);
+    gap: 8px;
+}
+
+/* ── RIGHT PANEL ── */
+
+/* Preview card */
+.hs_ep_preview_card {
+    background: #fff;
+    border-radius: 14px;
+    border: 1px solid var(--hs-card-border, #e2e5ec);
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.07);
+    overflow: hidden;
+    flex: 1;
+    min-height: 280px;
+    display: flex;
+    flex-direction: column;
+}
+
+.hs_ep_preview_platforms {
+    padding: 12px 14px 8px;
+    border-bottom: 1px solid var(--hs-card-border, #f0f2f5);
+    font-size: 0.8rem;
+    color: #6c757d;
+    min-height: 36px;
+}
+.hs_ep_platform_icons_field .o_field_widget { display: inline; font-size: 0.85rem; }
+
+/* Post preview */
+.hs_ep_preview_content {
+    display: flex;
+    gap: 12px;
+    padding: 16px;
+    flex: 1;
+}
+
+.hs_ep_preview_avatar {
+    font-size: 2.2rem;
+    color: var(--hs-primary);
+    flex-shrink: 0;
+    line-height: 1;
+    margin-top: 2px;
+}
+
+.hs_ep_preview_body { flex: 1; min-width: 0; }
+
+.hs_ep_preview_name { margin-bottom: 6px; }
+.hs_ep_preview_account_tags .badge {
+    font-size: 0.75rem;
+    background: var(--hs-primary) !important;
+    color: #fff !important;
+    border-radius: 12px;
+    padding: 2px 10px;
+    font-weight: 600;
+}
+
+.hs_ep_preview_text {
+    font-size: 0.88rem;
+    color: var(--hs-text-main, #212529);
+    line-height: 1.6;
+    white-space: pre-line;
+    word-break: break-word;
+}
+.hs_ep_preview_msg { display: block; }
+
+.hs_ep_preview_image_hint {
+    margin-top: 10px;
+    font-size: 0.8rem;
+    color: var(--hs-text-muted, #6c757d);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+.hs_ep_preview_image_hint .o_field_widget { display: inline; font-size: inherit; }
+
+/* Empty state */
+.hs_ep_preview_empty {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 32px 20px;
+    text-align: center;
+    color: var(--hs-text-muted, #9aa0ac);
+}
+
+.hs_ep_preview_icon { font-size: 3.5rem; opacity: 0.25; }
+.hs_ep_preview_empty_title { font-size: 1rem; font-weight: 700; color: var(--hs-text-main, #495057); }
+.hs_ep_preview_empty_sub   { font-size: 0.8rem; line-height: 1.5; max-width: 220px; }
+
+/* Sync badge */
+.hs_ep_sync_badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #198754;
+    background: #d1e7dd;
+    border-radius: 8px;
+    padding: 6px 12px;
+}
+.hs_ep_sync_badge_warn { color: #6c757d; background: #f0f0f5; }
+.hs_ep_sync_id { font-weight: 400; margin-left: 4px; }
+.hs_ep_sync_id .o_field_widget { display: inline; font-size: inherit; }
+
+/* Platform limits (right panel compact) */
+.hs_ep_limits_card {
+    background: #fff;
+    border: 1px solid var(--hs-card-border, #e2e5ec);
+    border-radius: 10px;
+    padding: 10px 14px;
+}
+.hs_ep_limits_title {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--hs-text-muted, #6c757d);
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+/* Header buttons — styled like Enterprise tab toggles */
+.hs_btn_post_now {
+    font-weight: 700;
+    letter-spacing: 0.02em;
+}
+.hs_btn_schedule_hdr {
+    font-weight: 600;
+}
+
+/* Responsive */
+@media (max-width: 1050px) {
+    .hs_ep_layout { flex-direction: column; }
+    .hs_ep_left   { border-right: none; border-bottom: 1px solid var(--hs-card-border, #e0e3eb); }
+    .hs_ep_right  { max-width: 100%; }
+    .hs_ep_analytics_section .hs_analytics_grid { grid-template-columns: repeat(3, 1fr); }
+}
+
+/* Fix for help icon overlap */
+.hs_ep_accounts_row {
+    position: relative;
+    z-index: 1;
+}
+.hs_ep_help {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--hs-primary-light);
+    color: white;
+    font-size: 11px;
+    font-weight: bold;
+    cursor: help;
+    margin-left: 6px;
+    z-index: 10;
+    position: relative;
+}
+.hs_ep_accounts_checks {
+    margin-top: 8px;
+    display: block;
+    clear: both;
+}
+
+/* Custom layout for POSTED state */
+.hs_posted_view_layout {
+    display: flex;
+    justify-content: center;
+    padding: 20px;
+    background: #1b1e21; /* Dark theme for social comment UI */
+    border-radius: 12px;
+}
+.hs_posted_card {
+    width: 600px;
+    max-width: 100%;
+    background: #25282c;
+    border-radius: 12px;
+    overflow: hidden;
+    color: #e4e6eb;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+.hs_posted_header {
+    padding: 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.hs_posted_avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--hs-primary);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    font-weight: bold;
+}
+.hs_posted_author_info {
+    flex: 1;
+}
+.hs_posted_author_name {
+    font-weight: bold;
+    color: #fff;
+    font-size: 14px;
+}
+.hs_posted_time {
+    font-size: 12px;
+    color: #b0b3b8;
+}
+.hs_posted_message {
+    padding: 0 16px 16px;
+    font-size: 14px;
+    line-height: 1.5;
+}
+.hs_posted_image_container {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    background: #000;
+}
+.hs_posted_image_container img {
+    max-width: 100%;
+    max-height: 400px;
+    object-fit: contain;
+}
+.hs_posted_comments_section {
+    padding: 12px 16px;
+    border-top: 1px solid #3e4042;
+}
+.hs_posted_write_comment {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+.hs_posted_write_comment .hs_posted_avatar {
+    width: 32px;
+    height: 32px;
+    font-size: 14px;
+}
+.hs_posted_write_input {
+    flex: 1;
+    background: #3a3b3c;
+    border-radius: 20px;
+    padding: 8px 16px;
+    color: #e4e6eb;
+    font-size: 14px;
+    border: none;
+    outline: none;
+}
+.hs_posted_comment {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+.hs_posted_comment .hs_posted_avatar {
+    width: 32px;
+    height: 32px;
+    font-size: 14px;
+}
+.hs_posted_comment_body {
+    flex: 1;
+}
+.hs_posted_comment_box {
+    background: #3a3b3c;
+    padding: 8px 12px;
+    border-radius: 18px;
+    display: inline-block;
+}
+.hs_posted_comment_name {
+    font-weight: bold;
+    font-size: 13px;
+    color: #fff;
+    margin-bottom: 2px;
+}
+.hs_posted_comment_text {
+    font-size: 14px;
+}
+.hs_posted_comment_actions {
+    margin-left: 12px;
+    margin-top: 4px;
+    font-size: 12px;
+    color: #b0b3b8;
+    font-weight: bold;
+}
+.hs_posted_comment_actions span {
+    cursor: pointer;
+    margin-right: 12px;
+}
+.hs_posted_comment_actions span:hover {
+    text-decoration: underline;
+}
+

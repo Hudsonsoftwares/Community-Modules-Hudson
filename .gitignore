@@ -1,21 +1,121 @@
-# Build artifact — addons are copied here by build.sh / GitHub Actions
-docker-deploy/addons/
+﻿# ============================================================
+# Git Ignore — Odoo Custom Addons Repository
+# Only the following modules are tracked:
+#   - dms_enterprise_features
+#   - dms-19.0
+#   - hudson_ai
+#   - hudson_dynamic_reports
+#   - hudson_field_service
+#   - hudson_plm
+#   - hudson_shopfloor
+#   - hudson_social_marketing
+#   - om_account_accountant-19.0.1.0.3
+# ============================================================
 
-# Python caches
+# ----------------------------------------------------------
+# Excluded Odoo Modules (not needed in this repo)
+# ----------------------------------------------------------
+eg_maintenance_start_stop_timer/
+module_template/
+zxs_entp_theme/
+
+# ----------------------------------------------------------
+# Loose debug / utility scripts at repo root
+# ----------------------------------------------------------
+check_action.py
+check_actions.py
+check_all_views.py
+check_dir_rules.py
+check_dir_rules2.py
+check_dms_directory_access.py
+check_dms_directory_access_group.py
+check_dms_group_inheritance.py
+check_domain3.py
+check_domain4.py
+check_domain5.py
+check_domain6.py
+check_domain7.py
+check_emp.py
+check_groups.py
+check_mitchell_admin_groups.py
+check_rule_group.py
+check_rule_groups.py
+check_rules.py
+check_sign.py
+check_token.py
+check_views.py
+check_xml_ids.py
+fix_demo_docs.py
+fix_documents.py
+fix_emp.py
+fix_rule.py
+fix_users.py
+test_portal.py
+test_query.py
+test_query2.py
+test_schema.py
+
+# ----------------------------------------------------------
+# Output / log text files at repo root
+# ----------------------------------------------------------
+*.txt
+
+# ----------------------------------------------------------
+# IDE & Editor settings
+# ----------------------------------------------------------
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# ----------------------------------------------------------
+# Python bytecode & virtual environments
+# ----------------------------------------------------------
 __pycache__/
-*.pyc
+*.py[cod]
 *.pyo
+*.pyd
+.Python
+venv/
+env/
+.env/
+.venv/
+pip-wheel-metadata/
+*.egg-info/
+dist/
+build/
 
-# OS junk
+# ----------------------------------------------------------
+# OS-generated files
+# ----------------------------------------------------------
 .DS_Store
 Thumbs.db
 desktop.ini
 
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# Logs
+# ----------------------------------------------------------
+# Odoo-specific ignores (inside tracked modules)
+# ----------------------------------------------------------
+*.pyc
 *.log
+*.pot
+*.mo
+*.egg
+
+# ----------------------------------------------------------
+# Old repo infrastructure (no longer needed)
+# ----------------------------------------------------------
+docker-deploy/
+.github/
+base_territory/
+account-financial-reporting/
+field-service/
+helpdesk/
+mis-builder/
+partner-contact/
+reporting-engine/
+server-tools/
+server-ux/
+social/
+stock-logistics-orderpoint/
+web/
+wms/

@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Action Main -->
+    <record id="mrp_eco_action_main" model="ir.actions.act_window">
+        <field name="name">Engineering Change Orders</field>
+        <field name="res_model">mrp.eco</field>
+        <field name="view_mode">kanban,list,form</field>
+        <field name="context">{'search_default_group_by_stage_id': 1}</field>
+    </record>
+    
+    <menuitem id="menu_mrp_eco_action_main"
+              name="Changes"
+              parent="menu_plm_changes"
+              action="mrp_eco_action_main"
+              sequence="10"/>
+
+    <!-- Form View -->
+    <record id="mrp_eco_view_form" model="ir.ui.view">
+        <field name="name">mrp.eco.view.form</field>
+        <field name="model">mrp.eco</field>
+        <field name="arch" type="xml">
+            <form string="Engineering Change Order">
+                <header>
+                    <button name="action_start_revision" type="object" string="Start Revision" class="oe_highlight" invisible="new_bom_id or type != 'bom'"/>
+                    <button name="action_apply_changes" type="object" string="Apply Changes" class="oe_highlight" invisible="not new_bom_id or is_applied"/>
+                    <field name="stage_id" widget="statusbar" options="{'clickable': '1', 'fold_field': 'folded'}"/>
+                </header>
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_open_documents" type="object" class="oe_stat_button" icon="fa-file-text-o">
+                            <field name="document_count" widget="statinfo" string="Documents"/>
+                        </button>
+                        <button name="action_open_new_bom" type="object" class="oe_stat_button" icon="fa-flask" invisible="not new_bom_id">
+                            <div class="o_stat_info">
+                                <span class="o_stat_value">V<field name="new_bom_version"/></span>
+                                <span class="o_stat_text">Revision</span>
+                            </div>
+                        </button>
+                        <button name="action_review_changes" type="object" class="oe_stat_button" icon="fa-exchange" invisible="not new_bom_id">
+                            <div class="o_stat_info">
+                                <span class="o_stat_text">Review Changes</span>
+                            </div>
+                        </button>
+                    </div>
+                    <div class="oe_title">
+                        <label for="name" string="Description"/>
+                        <h1>
+                            <field name="name" placeholder="e.g. Awesome Product 2.0" readonly="0"/>
+                        </h1>
+                    </div>
+                    <group>
+                        <group string="" name="left_col">
+                            <field name="type_id" options="{'no_create': True}"/>
+                            <field name="type" string="Apply on"/>
+                            <field name="product_tmpl_id"/>
+                            <field name="bom_id" invisible="type != 'bom'"/>
+                            <field name="new_bom_id" invisible="1"/>
+                            <field name="company_id"/>
+                        </group>
+                        <group string="" name="right_col">
+                            <field name="user_id" string="Responsible"/>
+                            <field name="effectivity" string="Effective Date"/>
+                            <field name="effectivity_date" invisible="effectivity == 'asap'"/>
+                            <field name="tag_ids" widget="many2many_tags" options="{'color_field': 'color'}"/>
+                            <field name="update_version" invisible="type != 'bom'"/>
+                            <field name="state" invisible="1"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Note" name="note">
+                            <field name="note" placeholder="Description of the change and its reason."/>
+                        </page>
+                        <page string="Approvals" name="approvals">
+                            <field name="approval_ids">
+                                <list editable="bottom" create="0" delete="0">
+                                    <field name="name" readonly="1"/>
+                                    <field name="user_id" readonly="1"/>
+                                    <field name="status" readonly="1"/>
+                                    <button name="action_approve" type="object" string="Approve" class="btn btn-primary btn-sm" invisible="status != 'none'"/>
+                                    <button name="action_reject" type="object" string="Reject" class="btn btn-secondary btn-sm" invisible="status != 'none'"/>
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <!-- Tree View -->
+    <record id="mrp_eco_view_tree" model="ir.ui.view">
+        <field name="name">mrp.eco.view.tree</field>
+        <field name="model">mrp.eco</field>
+        <field name="arch" type="xml">
+            <list string="Engineering Change Orders">
+                <field name="name"/>
+                <field name="type_id"/>
+                <field name="product_tmpl_id"/>
+                <field name="user_id"/>
+                <field name="stage_id"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- Kanban View -->
+    <record id="mrp_eco_view_kanban" model="ir.ui.view">
+        <field name="name">mrp.eco.view.kanban</field>
+        <field name="model">mrp.eco</field>
+        <field name="arch" type="xml">
+            <kanban default_group_by="stage_id" class="o_kanban_small_column o_kanban_project_tasks" color="color">
+                <field name="name"/>
+                <field name="product_tmpl_id"/>
+                <field name="type_id"/>
+                <field name="user_id"/>
+                <field name="stage_id"/>
+                <field name="bom_id"/>
+                <field name="color"/>
+                <templates>
+                    <t t-name="card">
+                        <div class="oe_kanban_global_click">
+                            <div class="o_kanban_record_top">
+                                <div class="o_kanban_record_headings">
+                                    <strong class="o_kanban_record_title"><field name="name"/>: <field name="product_tmpl_id"/></strong>
+                                </div>
+                            </div>
+                            <div class="o_kanban_record_body">
+                                <div><field name="type_id"/></div>
+                                <div invisible="not bom_id">BoM: <field name="bom_id"/></div>
+                            </div>
+                            <div class="o_kanban_record_bottom">
+                                <div class="oe_kanban_bottom_left">
+                                </div>
+                                <div class="oe_kanban_bottom_right">
+                                    <field name="user_id" widget="many2one_avatar_user"/>
+                                </div>
+                            </div>
+                        </div>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+
+    <record id="mrp_eco_view_search" model="ir.ui.view">
+        <field name="name">mrp.eco.view.search</field>
+        <field name="model">mrp.eco</field>
+        <field name="arch" type="xml">
+            <search string="Search ECOs">
+                <field name="name" string="ECO"/>
+                <field name="product_tmpl_id"/>
+                <field name="bom_id"/>
+                <group>
+                    <filter string="Stage" name="group_by_stage_id" context="{'group_by': 'stage_id'}"/>
+                    <filter string="Type" name="group_by_type_id" context="{'group_by': 'type_id'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+</odoo>

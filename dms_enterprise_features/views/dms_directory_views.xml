@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Allow Document Controllers to create Root Directories -->
+    <record id="view_dms_directory_form_inherit_doc_controller" model="ir.ui.view">
+        <field name="name">dms.directory.form.inherit.doc.controller</field>
+        <field name="model">dms.directory</field>
+        <field name="inherit_id" ref="dms.view_dms_directory_form"/>
+        <field name="arch" type="xml">
+            <!-- Allow Document Controller to act like a manager for these fields -->
+            <xpath expr="//field[@name='is_root_directory'][@groups='!dms.group_dms_manager']" position="attributes">
+                <attribute name="groups">!dms.group_dms_manager,!dms_enterprise_features.group_dms_document_controller</attribute>
+            </xpath>
+            <xpath expr="//field[@name='is_root_directory'][@groups='dms.group_dms_manager']" position="attributes">
+                <attribute name="groups">dms.group_dms_manager,dms_enterprise_features.group_dms_document_controller</attribute>
+            </xpath>
+            
+            <xpath expr="//field[@name='storage_id'][@groups='!dms.group_dms_manager']" position="attributes">
+                <attribute name="groups">!dms.group_dms_manager,!dms_enterprise_features.group_dms_document_controller</attribute>
+            </xpath>
+            <xpath expr="//field[@name='storage_id'][@groups='dms.group_dms_manager']" position="attributes">
+                <attribute name="groups">dms.group_dms_manager,dms_enterprise_features.group_dms_document_controller</attribute>
+            </xpath>
+        </field>
+    </record>
+</odoo>

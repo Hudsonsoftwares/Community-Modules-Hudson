@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+
+        <!-- ============================================================
+             Root Menu — Social Marketing
+        ============================================================ -->
+        <menuitem
+            id="menu_hudson_social_root"
+            name="Social Marketing"
+            web_icon="hudson_social_marketing,static/description/icon.png"
+            sequence="45"/>
+
+        <!-- ============================================================
+             Dashboard
+        ============================================================ -->
+        <menuitem
+            id="menu_hudson_social_dashboard"
+            name="Dashboard"
+            parent="menu_hudson_social_root"
+            action="action_hudson_social_dashboard"
+            sequence="10"/>
+
+        <!-- ============================================================
+             Posts
+        ============================================================ -->
+        <menuitem
+            id="menu_hudson_social_posts"
+            name="Posts"
+            parent="menu_hudson_social_root"
+            action="action_hudson_social_post"
+            sequence="20"/>
+
+        <!-- New Post -->
+        <menuitem
+            id="menu_hudson_social_new_post"
+            name="New Post"
+            parent="menu_hudson_social_root"
+            action="action_hudson_social_post_new"
+            sequence="25"/>
+
+        <!-- ============================================================
+             Feed / Streams
+        ============================================================ -->
+        <menuitem
+            id="menu_hudson_social_feed"
+            name="Feed"
+            parent="menu_hudson_social_root"
+            action="action_hudson_social_stream_post"
+            sequence="30"/>
+
+        <!-- ============================================================
+             Configuration sub-menu
+        ============================================================ -->
+        <menuitem
+            id="menu_hudson_social_config"
+            name="Configuration"
+            parent="menu_hudson_social_root"
+            sequence="90"/>
+
+        <menuitem
+            id="menu_hudson_social_accounts"
+            name="Social Accounts"
+            parent="menu_hudson_social_config"
+            action="action_hudson_social_account"
+            sequence="10"/>
+
+        <menuitem
+            id="menu_hudson_social_settings"
+            name="Settings"
+            parent="menu_hudson_social_config"
+            action="hudson_social_marketing.action_hudson_social_config_settings"
+            sequence="20"/>
+
+    </data>
+</odoo>

@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Workflow Form -->
+    <record id="view_dms_approval_workflow_form" model="ir.ui.view">
+        <field name="name">dms.approval.workflow.form</field>
+        <field name="model">dms.approval.workflow</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <group>
+                        <field name="name"/>
+                    </group>
+                    <notebook>
+                        <page string="Steps">
+                            <field name="step_ids">
+                                <list editable="bottom">
+                                    <field name="sequence" widget="handle"/>
+                                    <field name="name"/>
+                                    <field name="approver_id"/>
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Workflow Action -->
+    <record id="action_dms_approval_workflow" model="ir.actions.act_window">
+        <field name="name">Approval Workflows</field>
+        <field name="res_model">dms.approval.workflow</field>
+        <field name="view_mode">tree,form</field>
+    </record>
+
+    <!-- Menu Item (Will add to dms configuration) -->
+    <menuitem id="menu_dms_approval_workflow" 
+              name="Approval Workflows" 
+              parent="dms.cat_menu_dms_config" 
+              action="action_dms_approval_workflow" 
+              groups="dms_enterprise_features.group_dms_document_controller"
+              sequence="50"/>
+
+    <!-- File Approval Views -->
+    <record id="view_dms_file_approval_tree" model="ir.ui.view">
+        <field name="name">dms.file.approval.tree</field>
+        <field name="model">dms.file.approval</field>
+        <field name="arch" type="xml">
+            <list create="0">
+                <field name="revision_id"/>
+                <field name="approver_id"/>
+                <field name="status"/>
+                <field name="date"/>
+                <button name="action_approve" string="Approve" type="object" icon="fa-check" invisible="status != 'pending'"/>
+                <button name="action_reject" string="Reject" type="object" icon="fa-times" invisible="status != 'pending'"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- Need to show File Approvals in the File Form -->
+</odoo>

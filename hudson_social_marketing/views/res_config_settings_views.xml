@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+
+        <record id="res_config_settings_view_form_social" model="ir.ui.view">
+            <field name="name">res.config.settings.view.form.social</field>
+            <field name="model">res.config.settings</field>
+            <field name="inherit_id" ref="base.res_config_settings_view_form"/>
+            <field name="arch" type="xml">
+                <xpath expr="//form" position="inside">
+                    <app data-string="Social Marketing"
+                         string="Social Marketing"
+                         name="hudson_social_marketing">
+
+                        <block title="Remote Connection">
+                            <setting string="Remote Odoo URL"
+                                     help="Base URL of your Odoo Enterprise / Odoo Online instance (e.g. https://hudson-social.odoo.com).">
+                                <field name="social_remote_url"
+                                       placeholder="https://hudson-social.odoo.com"/>
+                            </setting>
+                            <setting string="Remote Database"
+                                     help="Database name on the remote instance (usually the subdomain, e.g. hudson-social).">
+                                <field name="social_remote_db"
+                                       placeholder="hudson-social"/>
+                            </setting>
+                            <setting string="Remote User Email"
+                                     help="Email address of the user on the remote Odoo instance.">
+                                <field name="social_remote_email"
+                                       placeholder="user@example.com"/>
+                            </setting>
+                            <setting string="API Key"
+                                     help="Generate in remote Odoo: Settings > Users > Your User > API Keys.">
+                                <field name="social_api_key"
+                                       password="True"
+                                       placeholder="API Key from remote Odoo"/>
+                            </setting>
+                        </block>
+
+                        <block title="Sync Settings">
+                            <setting string="Sync Interval (minutes)"
+                                     help="How often the scheduled action will auto-sync data from the remote instance.">
+                                <field name="social_sync_interval"/>
+                            </setting>
+                            <setting string="Connection">
+                                <div class="d-flex gap-2">
+                                    <button name="action_social_test_connection"
+                                            type="object"
+                                            string="Test Connection"
+                                            class="btn btn-secondary"/>
+                                    <button name="action_social_sync_now"
+                                            type="object"
+                                            string="Sync Now"
+                                            class="btn btn-primary"/>
+                                </div>
+                            </setting>
+                        </block>
+
+                    </app>
+                </xpath>
+            </field>
+        </record>
+
+        <!-- Settings action shortcut -->
+        <record id="action_hudson_social_config_settings" model="ir.actions.act_window">
+            <field name="name">Settings</field>
+            <field name="res_model">res.config.settings</field>
+            <field name="view_mode">form</field>
+            <field name="context">{'module': 'hudson_social_marketing'}</field>
+        </record>
+
+    </data>
+</odoo>

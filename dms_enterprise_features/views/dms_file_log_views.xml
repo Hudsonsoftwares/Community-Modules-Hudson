@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_dms_file_log_tree" model="ir.ui.view">
+        <field name="name">dms.file.log.list</field>
+        <field name="model">dms.file.log</field>
+        <field name="arch" type="xml">
+            <list string="Document Logs" create="false" edit="false" delete="false">
+                <field name="date"/>
+                <field name="name"/>
+                <field name="action"/>
+                <field name="user_id"/>
+                <field name="file_id"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_dms_file_log_form" model="ir.ui.view">
+        <field name="name">dms.file.log.form</field>
+        <field name="model">dms.file.log</field>
+        <field name="arch" type="xml">
+            <form string="Document Log" create="false" edit="false" delete="false">
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="name"/>
+                            <field name="file_id"/>
+                            <field name="action"/>
+                        </group>
+                        <group>
+                            <field name="user_id"/>
+                            <field name="date"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Details">
+                            <field name="details" nolabel="1"/>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_dms_file_log" model="ir.actions.act_window">
+        <field name="name">Document Logs</field>
+        <field name="res_model">dms.file.log</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <menuitem id="menu_dms_file_log"
+              name="Logs"
+              parent="dms.main_menu_dms"
+              action="action_dms_file_log"
+              groups="dms.group_dms_manager"
+              sequence="99"/>
+</odoo>

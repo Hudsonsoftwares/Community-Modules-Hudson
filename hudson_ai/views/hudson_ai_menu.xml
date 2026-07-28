@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <data>
+
+        <!-- Top-level menu item -->
+        <menuitem id="menu_hudson_ai_root"
+                  name="Hudson AI"
+                  sequence="5"
+                  web_icon="hudson_ai,static/description/icon.png"/>
+
+        <!-- Configuration sub-menu -->
+        <menuitem id="menu_hudson_ai_config"
+                  name="Configuration"
+                  parent="menu_hudson_ai_root"
+                  action="action_hudson_ai_config"
+                  sequence="10"/>
+
+    </data>
+</odoo>

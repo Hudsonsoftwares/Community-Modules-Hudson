@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- ================================================================== -->
+    <!-- Field Service — Configuration Settings                               -->
+    <!-- Enterprise-style layout: app > block > setting                       -->
+    <!-- ================================================================== -->
+
+    <record id="res_config_settings_view_form_field_service" model="ir.ui.view">
+        <field name="name">res.config.settings.view.form.field.service</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="base.res_config_settings_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//form" position="inside">
+
+                <app data-string="Field Service"
+                     string="Field Service"
+                     name="hudson_field_service"
+                     groups="hudson_field_service.group_field_service_manager">
+
+                    <!-- ─── Scheduling ─────────────────────────────────── -->
+                    <block title="Scheduling">
+                        <setting string="Project Planning"
+                                 help="Plan resource allocation across projects. Link field service interventions to project tasks and automatically inherit the project's sale order for billing.">
+                            <field name="fs_project_planning"/>
+                            <div class="content-group" invisible="not fs_project_planning">
+                                <div class="text-muted" style="font-size: 13px; margin-top: 6px;">
+                                    When a field service order is linked to a project task whose project
+                                    originated from a sale order, materials will be billed to that sale order.
+                                </div>
+                            </div>
+                        </setting>
+                    </block>
+
+                    <!-- ─── Field Service Features ─────────────────────── -->
+                    <block title="Field Service">
+
+                        <setting string="Billing"
+                                 help="Invoice time and materials to your customers. Products added to a field service order are automatically synced to a sale order.">
+                            <field name="fs_billing"/>
+                        </setting>
+
+                        <setting string="Worksheets"
+                                 help="Allow technicians to complete worksheets documenting the work performed during interventions.">
+                            <field name="fs_worksheets"/>
+                        </setting>
+
+                        <setting string="Products"
+                                 help="Track materials and spare parts used during interventions and bill them to the customer.">
+                            <field name="fs_products"/>
+                            <div class="content-group" invisible="not fs_products">
+                                <div class="row mt8">
+                                    <label for="fs_hide_prices" class="col-lg-8 o_light_label"
+                                           string="Hide prices on customer report"/>
+                                    <field name="fs_hide_prices" class="col-lg-4"/>
+                                </div>
+                            </div>
+                        </setting>
+
+                        <setting string="Customer Report"
+                                 help="Provide the customer with an intervention report. Collect their digital signature and email them a copy via the customer portal.">
+                            <field name="fs_customer_signature"/>
+                        </setting>
+
+                        <setting string="Geolocation"
+                                 help="Track technicians' GPS location when they start or resume a timer. View all active technicians on the Live Map.">
+                            <field name="fs_geolocation"/>
+                        </setting>
+
+                    </block>
+
+                    <!-- ─── Invoicing ───────────────────────────────────── -->
+                    <block title="Invoicing">
+
+                        <setting help="Set the default hourly rate for field service time charges.">
+                            <div class="content-group">
+                                <div class="row mt16">
+                                    <label for="field_service_default_hourly_rate" class="col-lg-4"/>
+                                    <field name="field_service_default_hourly_rate" class="col-lg-4"/>
+                                </div>
+                            </div>
+                        </setting>
+
+                        <setting string="Auto-Invoice on Completion"
+                                 help="Automatically open the invoice wizard when a field service order is marked as Done.">
+                            <field name="field_service_auto_invoice"/>
+                        </setting>
+
+                        <setting string="Auto-create Sale Order"
+                                 help="When products are added to a standalone field service order (not linked to a project sale order), automatically create a new sale order and add the products as lines.">
+                            <field name="fs_auto_sale_order"/>
+                        </setting>
+
+                    </block>
+
+                    <!-- ─── Customer Satisfaction ────────────────────────── -->
+                    <block title="Customer Satisfaction">
+
+                        <setting string="Customer Ratings"
+                                 help="Track customer satisfaction for interventions. An email containing a satisfaction survey is automatically sent to the customer when a field service order is marked as Done.">
+                            <field name="fs_customer_ratings"/>
+                            <div class="content-group" invisible="not fs_customer_ratings">
+                                <div class="row mt8">
+                                    <label for="fs_rating_survey_id" class="col-lg-4 o_light_label"
+                                           string="Email Template / Survey"/>
+                                    <field name="fs_rating_survey_id"
+                                           class="col-lg-6"
+                                           options="{'no_create': True}"
+                                           placeholder="Field Service — Customer Satisfaction"/>
+                                </div>
+                                <div class="text-muted" style="font-size: 12px; margin-top: 4px;">
+                                    The default survey was created when you installed this module.
+                                    You can customise it in the <strong>Surveys</strong> app.
+                                </div>
+                            </div>
+                        </setting>
+
+                    </block>
+
+                </app>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="action_field_service_config_settings" model="ir.actions.act_window">
+        <field name="name">Settings</field>
+        <field name="res_model">res.config.settings</field>
+        <field name="view_mode">form</field>
+        <field name="context">{'module': 'hudson_field_service'}</field>
+    </record>
+
+</odoo>

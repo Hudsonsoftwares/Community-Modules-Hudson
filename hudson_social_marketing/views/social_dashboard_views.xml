@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+
+        <!-- ============================================================
+             Dashboard — Platform-grouped Kanban View
+             Each column = one social media platform
+        ============================================================ -->
+        <record id="view_hudson_social_dashboard_kanban" model="ir.ui.view">
+            <field name="name">hudson.social.post.dashboard.kanban</field>
+            <field name="model">hudson.social.post</field>
+            <field name="arch" type="xml">
+                <kanban
+                    default_group_by="account_ids"
+                    default_order="write_date desc"
+                    class="hudson_social_dashboard_kanban"
+                    sample="1">
+                    <field name="id"/>
+                    <field name="message"/>
+                    <field name="message_preview"/>
+                    <field name="state"/>
+                    <field name="primary_platform"/>
+                    <field name="account_ids"/>
+                    <field name="platform_icons"/>
+                    <field name="scheduled_date"/>
+                    <field name="published_date"/>
+                    <field name="click_count"/>
+                    <field name="reach"/>
+                    <field name="likes"/>
+                    <field name="has_image"/>
+                    <field name="image_ids"/>
+                    <field name="sync_error"/>
+                    <field name="remote_id"/>
+                    <templates>
+                        <t t-name="card">
+                            <div t-attf-class="hs_dash_card hs_platform_#{record.primary_platform.raw_value}">
+                                <!-- State + Sync badges -->
+                                <div class="hs_dash_card_header">
+                                    <span t-attf-class="badge hs_state_badge hs_badge_#{record.state.raw_value}">
+                                        <field name="state"/>
+                                    </span>
+                                    <span t-if="record.sync_error.raw_value"
+                                          class="badge bg-warning ms-1" title="Sync error">
+                                        <i class="fa fa-exclamation-triangle"/>
+                                    </span>
+                                    <span t-if="record.remote_id.raw_value"
+                                          class="badge hs_synced_badge ms-1" title="Synced to Enterprise">
+                                        <i class="fa fa-cloud"/>
+                                    </span>
+                                    <span t-if="record.has_image.raw_value"
+                                          class="badge hs_image_badge ms-1" title="Has images">
+                                        <i class="fa fa-image"/>
+                                    </span>
+                                </div>
+
+                                <!-- Message preview -->
+                                <div class="hs_dash_card_message">
+                                    <field name="message_preview"/>
+                                </div>
+
+                                <!-- All accounts this post is published to -->
+                                <div class="hs_dash_card_accounts" t-if="record.account_ids.raw_value and record.account_ids.raw_value.length">
+                                    <field name="account_ids" widget="many2many_tags"/>
+                                </div>
+
+                                <!-- Date info -->
+                                <div class="hs_dash_card_dates">
+                                    <span t-if="record.scheduled_date.raw_value" class="hs_date_chip scheduled">
+                                        <i class="fa fa-clock-o"/> <field name="scheduled_date" widget="date"/>
+                                    </span>
+                                    <span t-if="record.published_date.raw_value" class="hs_date_chip published">
+                                        <i class="fa fa-check-circle"/> <field name="published_date" widget="date"/>
+                                    </span>
+                                </div>
+
+                                <!-- Engagement stats (only for posted) -->
+                                <div class="hs_dash_card_stats" t-if="record.state.raw_value == 'posted'">
+                                    <span class="hs_mini_stat" title="Reach">
+                                        <i class="fa fa-eye"/> <field name="reach"/>
+                                    </span>
+                                    <span class="hs_mini_stat" title="Likes">
+                                        <i class="fa fa-heart"/> <field name="likes"/>
+                                    </span>
+                                    <span class="hs_mini_stat" title="Clicks">
+                                        <i class="fa fa-mouse-pointer"/> <field name="click_count"/>
+                                    </span>
+                                </div>
+
+                                <!-- Footer actions -->
+                                <div class="hs_dash_card_footer">
+                                    <button name="action_publish_now" type="object"
+                                            class="btn btn-sm hs_btn_publish"
+                                            invisible="state not in ['draft']">
+                                        <i class="fa fa-send"/> Publish
+                                    </button>
+                                    <button name="action_schedule" type="object"
+                                            class="btn btn-sm hs_btn_schedule"
+                                            invisible="state not in ['draft']">
+                                        <i class="fa fa-calendar"/> Schedule
+                                    </button>
+                                    <button name="action_upload_images" type="object"
+                                            class="btn btn-sm hs_btn_image"
+                                            invisible="not has_image"
+                                            title="Upload Images to Remote">
+                                        <i class="fa fa-upload"/>
+                                    </button>
+                                    <button name="action_sync_to_remote" type="object"
+                                            class="btn btn-sm hs_btn_sync"
+                                            title="Sync to Enterprise">
+                                        <i class="fa fa-refresh"/>
+                                    </button>
+                                </div>
+                            </div>
+                        </t>
+                    </templates>
+                </kanban>
+            </field>
+        </record>
+
+        <!-- ============================================================
+             Dashboard Action — Platform-grouped kanban
+        ============================================================ -->
+        <record id="action_hudson_social_dashboard" model="ir.actions.act_window">
+            <field name="name">Social Marketing Dashboard</field>
+            <field name="res_model">hudson.social.post</field>
+            <field name="view_mode">kanban,list,form</field>
+            <field name="views" eval="[(ref('view_hudson_social_dashboard_kanban'), 'kanban'), (False, 'list'), (False, 'form')]"/>
+            <!-- By default show only active (non-draft, non-failed) posts -->
+            <field name="domain">[('state', 'in', ['scheduled', 'posting', 'posted'])]</field>
+            <field name="context">{'search_default_group_by_platform': 1}</field>
+            <field name="help" type="html">
+                <p class="o_view_nocontent_smiling_face">
+                    Welcome to your Social Marketing Dashboard!
+                </p>
+                <p>
+                    Create a post and publish it to your connected social platforms.
+                    Each column represents a social media platform.
+                    <br/>
+                    Go to <b>Configuration → Social Accounts</b> and click <b>Sync Now</b>
+                    to import your connected platforms.
+                </p>
+            </field>
+        </record>
+
+    </data>
+</odoo>
+

@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+
+        <!-- ============================================================
+             Stream Posts — List View (Feed)
+        ============================================================ -->
+        <record id="view_hudson_social_stream_post_list" model="ir.ui.view">
+            <field name="name">hudson.social.stream.post.list</field>
+            <field name="model">hudson.social.stream.post</field>
+            <field name="arch" type="xml">
+                <list string="Social Feed" default_order="published_date desc"
+                      class="hudson_social_stream_list">
+                    <field name="account_id"/>
+                    <field name="media_type" widget="badge"/>
+                    <field name="author_name"/>
+                    <field name="message"/>
+                    <field name="published_date"/>
+                    <field name="likes"/>
+                    <field name="comments"/>
+                    <field name="shares"/>
+                    <field name="engagement_total" string="Total Engagement"/>
+                    <field name="last_sync" optional="hide"/>
+                </list>
+            </field>
+        </record>
+
+        <!-- ============================================================
+             Stream Posts — Form View
+        ============================================================ -->
+        <record id="view_hudson_social_stream_post_form" model="ir.ui.view">
+            <field name="name">hudson.social.stream.post.form</field>
+            <field name="model">hudson.social.stream.post</field>
+            <field name="arch" type="xml">
+                <form string="Feed Post" create="false" edit="false">
+                    <sheet>
+                        <div class="oe_title">
+                            <h3>
+                                <field name="author_name" readonly="1"/>
+                            </h3>
+                        </div>
+                        <group>
+                            <group>
+                                <field name="account_id" readonly="1"/>
+                                <field name="media_type" readonly="1"/>
+                                <field name="published_date" readonly="1"/>
+                                <field name="post_link" widget="url" readonly="1"/>
+                            </group>
+                            <group string="Engagement">
+                                <field name="likes" readonly="1"/>
+                                <field name="comments" readonly="1"/>
+                                <field name="shares" readonly="1"/>
+                                <field name="engagement_total" readonly="1"/>
+                            </group>
+                        </group>
+                        <separator string="Message"/>
+                        <field name="message" readonly="1" widget="text" nolabel="1"/>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
+        <!-- ============================================================
+             Stream Posts — Search View
+        ============================================================ -->
+        <record id="view_hudson_social_stream_post_search" model="ir.ui.view">
+            <field name="name">hudson.social.stream.post.search</field>
+            <field name="model">hudson.social.stream.post</field>
+            <field name="arch" type="xml">
+                <search string="Search Feed">
+                    <field name="author_name"/>
+                    <field name="account_id"/>
+                    <field name="message"/>
+                    <separator/>
+                    <filter string="Facebook" name="facebook"
+                            domain="[('media_type', '=', 'facebook')]"/>
+                    <filter string="Twitter" name="twitter"
+                            domain="[('media_type', '=', 'twitter')]"/>
+                    <filter string="Instagram" name="instagram"
+                            domain="[('media_type', '=', 'instagram')]"/>
+                    <filter string="LinkedIn" name="linkedin"
+                            domain="[('media_type', '=', 'linkedin')]"/>
+                    <separator/>
+                    <group>
+                        <filter string="Account" name="group_account"
+                                context="{'group_by': 'account_id'}"/>
+                        <filter string="Platform" name="group_media"
+                                context="{'group_by': 'media_type'}"/>
+                        <filter string="Date" name="group_date"
+                                context="{'group_by': 'published_date:week'}"/>
+                    </group>
+                </search>
+            </field>
+        </record>
+
+        <!-- ============================================================
+             Action
+        ============================================================ -->
+        <record id="action_hudson_social_stream_post" model="ir.actions.act_window">
+            <field name="name">Feed</field>
+            <field name="res_model">hudson.social.stream.post</field>
+            <field name="view_mode">list,form</field>
+            <field name="search_view_id" ref="view_hudson_social_stream_post_search"/>
+            <field name="help" type="html">
+                <p class="o_view_nocontent_smiling_face">
+                    Your social media feed is empty!
+                </p>
+                <p>
+                    Sync your data from Settings &gt; Social Marketing to see
+                    incoming posts from your connected accounts.
+                </p>
+            </field>
+        </record>
+
+    </data>
+</odoo>

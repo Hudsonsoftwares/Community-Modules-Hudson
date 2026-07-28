@@ -1,0 +1,322 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!--
+    Copyright 2024 Hudson Community
+    License LGPL-3.0 or later (http://www.gnu.org/licenses/lgpl).
+
+    Adds the "Files Centralization" block to the DMS settings page,
+    matching the layout from the Odoo Enterprise Documents settings.
+-->
+<odoo>
+    <record id="res_config_settings_view_dms_enterprise" model="ir.ui.view">
+        <field name="name">res.config.settings.view.form.inherit.dms.enterprise</field>
+        <field name="model">res.config.settings</field>
+        <field name="priority" eval="25"/>
+        <field name="inherit_id" ref="dms.res_config_settings_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//app[@name='dms']" position="inside">
+
+                <!-- ══════════════════════════════════════════════════════════
+                     TRASH MANAGEMENT
+                     ═══════════════════════════════════════════════════════ -->
+                <block title="Trash Management">
+                    <setting
+                        string="Deletion Delay (days)"
+                        help="Time before documents in the Trash are permanently deleted."
+                    >
+                        <field name="documents_trash_delay"/>
+                    </setting>
+                </block>
+
+                <!-- ══════════════════════════════════════════════════════════
+                     DOCUMENT CONTROLLER
+                     ═══════════════════════════════════════════════════════ -->
+                <block title="Document Controller">
+                    <setting
+                        string="Document Controller Features"
+                        help="Enable revisions, approval workflows, and signature requests."
+                    >
+                        <field name="group_dms_document_controller"/>
+                    </setting>
+                </block>
+
+                <!-- ══════════════════════════════════════════════════════════
+                     FILES CENTRALIZATION
+                     ═══════════════════════════════════════════════════════ -->
+                <block title="Files Centralization">
+
+                    <!-- ── Default Project Folder ─────────────────────── -->
+                    <setting
+                        string="Default Project Folder"
+                        help="Folder where new project documents are created."
+                    >
+                        <div class="row mt8 o_settings_container">
+                            <div class="col-xs-12 col-md-6 o_setting_box">
+                                <div class="o_setting_right_pane">
+                                    <div class="row">
+                                        <label
+                                            for="documents_project_folder_id"
+                                            class="col-4 col-form-label"
+                                            string="Folder"/>
+                                        <div class="col-8">
+                                            <field
+                                                name="documents_project_folder_id"
+                                                options="{'no_create': False}"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </setting>
+
+                    <!-- ── Sign ───────────────────────────────────────── -->
+                    <setting
+                        string="Sign"
+                        help="Link Sign Templates to directories."
+                    >
+                        <div class="row mt8 o_settings_container">
+                            <div class="col-xs-12 col-md-6 o_setting_box">
+                                <div class="o_setting_right_pane">
+                                    <span class="o_form_label">Enabled</span>
+                                    <field
+                                        name="documents_sign_enabled"
+                                        widget="boolean_toggle"
+                                    />
+                                    <div
+                                        class="content-group mt8"
+                                        invisible="not documents_sign_enabled"
+                                    >
+                                        <div class="row">
+                                            <label
+                                                for="documents_sign_folder_id"
+                                                class="col-4 col-form-label"
+                                                string="Folder"/>
+                                            <div class="col-8">
+                                                <field
+                                                    name="documents_sign_folder_id"
+                                                    options="{'no_create': False}"
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </setting>
+
+                    <!-- ── Product ────────────────────────────────────── -->
+                    <setting
+                        string="Product"
+                        help="Centralize files attached to products."
+                    >
+                        <field name="documents_product_enabled" widget="boolean_toggle"/>
+                        <div
+                            class="content-group mt8"
+                            invisible="not documents_product_enabled"
+                        >
+                            <div class="row">
+                                <label
+                                    for="documents_product_folder_id"
+                                    class="col-4 col-form-label"
+                                    string="Folder"/>
+                                <div class="col-8">
+                                    <field
+                                        name="documents_product_folder_id"
+                                        options="{'no_create': False}"
+                                    />
+                                </div>
+                            </div>
+                            <div class="row mt4">
+                                <label
+                                    for="documents_product_tag_ids"
+                                    class="col-4 col-form-label"
+                                    string="Tags"/>
+                                <div class="col-8">
+                                    <field
+                                        name="documents_product_tag_ids"
+                                        widget="many2many_tags"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    </setting>
+
+                    <!-- ── Accounting ─────────────────────────────────── -->
+                    <setting
+                        string="Accounting"
+                        help="Centralize accounting files and documents."
+                    >
+                        <field name="documents_accounting_enabled" widget="boolean_toggle"/>
+                        <div
+                            class="content-group mt8"
+                            invisible="not documents_accounting_enabled"
+                        >
+                            <div class="row">
+                                <label
+                                    for="documents_accounting_folder_id"
+                                    class="col-4 col-form-label"
+                                    string="Folder"/>
+                                <div class="col-8">
+                                    <field
+                                        name="documents_accounting_folder_id"
+                                        options="{'no_create': False}"
+                                    />
+                                </div>
+                            </div>
+                            <div class="row mt4">
+                                <label
+                                    for="documents_accounting_tag_ids"
+                                    class="col-4 col-form-label"
+                                    string="Tags"/>
+                                <div class="col-8">
+                                    <field
+                                        name="documents_accounting_tag_ids"
+                                        widget="many2many_tags"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    </setting>
+
+                    <!-- ── Recruitment ────────────────────────────────── -->
+                    <setting
+                        string="Recruitment"
+                        help="Centralize files attached to applications and job positions."
+                    >
+                        <field name="documents_recruitment_enabled" widget="boolean_toggle"/>
+                        <div
+                            class="content-group mt8"
+                            invisible="not documents_recruitment_enabled"
+                        >
+                            <div class="row">
+                                <label
+                                    for="documents_recruitment_folder_id"
+                                    class="col-4 col-form-label"
+                                    string="Folder"/>
+                                <div class="col-8">
+                                    <field
+                                        name="documents_recruitment_folder_id"
+                                        options="{'no_create': False}"
+                                    />
+                                </div>
+                            </div>
+                            <div class="row mt4">
+                                <label
+                                    for="documents_recruitment_tag_ids"
+                                    class="col-4 col-form-label"
+                                    string="Tags"/>
+                                <div class="col-8">
+                                    <field
+                                        name="documents_recruitment_tag_ids"
+                                        widget="many2many_tags"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    </setting>
+
+                    <!-- ── Approvals ──────────────────────────────────── -->
+                    <setting
+                        string="Approvals"
+                        help="Centralize files attached to Approvals."
+                    >
+                        <field name="documents_approvals_enabled" widget="boolean_toggle"/>
+                        <div
+                            class="content-group mt8"
+                            invisible="not documents_approvals_enabled"
+                        >
+                            <div class="row">
+                                <label
+                                    for="documents_approvals_folder_id"
+                                    class="col-4 col-form-label"
+                                    string="Folder"/>
+                                <div class="col-8">
+                                    <field
+                                        name="documents_approvals_folder_id"
+                                        options="{'no_create': False}"
+                                    />
+                                </div>
+                            </div>
+                            <div class="row mt4">
+                                <label
+                                    for="documents_approvals_tag_ids"
+                                    class="col-4 col-form-label"
+                                    string="Tags"/>
+                                <div class="col-8">
+                                    <field
+                                        name="documents_approvals_tag_ids"
+                                        widget="many2many_tags"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    </setting>
+
+                    <!-- ── Human Resources ────────────────────────────── -->
+                    <setting
+                        string="Human Resources"
+                        help="Centralize your employees' documents (contracts, payslips, etc.)."
+                    >
+                        <field name="documents_hr_enabled" widget="boolean_toggle"/>
+                        <div
+                            class="content-group mt8"
+                            invisible="not documents_hr_enabled"
+                        >
+                            <div class="row">
+                                <label
+                                    for="documents_hr_folder_id"
+                                    class="col-4 col-form-label"
+                                    string="Employees Folder"/>
+                                <div class="col-8">
+                                    <field
+                                        name="documents_hr_folder_id"
+                                        options="{'no_create': False}"
+                                    />
+                                </div>
+                            </div>
+                            <div class="row mt4">
+                                <label
+                                    for="documents_hr_create_subfolders"
+                                    class="col-4 col-form-label"
+                                    string="Employee Subfolders"/>
+                                <div class="col-8">
+                                    <field name="documents_hr_create_subfolders"/>
+                                </div>
+                            </div>
+                            <div class="row mt8">
+                                <span class="col-4 col-form-label font-weight-bold">
+                                    Default Tags
+                                </span>
+                            </div>
+                            <div class="row mt4">
+                                <label
+                                    for="documents_hr_contract_tag_ids"
+                                    class="col-4 col-form-label"
+                                    string="Contracts"/>
+                                <div class="col-8">
+                                    <field
+                                        name="documents_hr_contract_tag_ids"
+                                        widget="many2many_tags"
+                                    />
+                                </div>
+                            </div>
+                            <div class="row mt4">
+                                <label
+                                    for="documents_hr_payslip_tag_ids"
+                                    class="col-4 col-form-label"
+                                    string="Payslip"/>
+                                <div class="col-8">
+                                    <field
+                                        name="documents_hr_payslip_tag_ids"
+                                        widget="many2many_tags"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    </setting>
+
+                </block>
+            </xpath>
+        </field>
+    </record>
+</odoo>

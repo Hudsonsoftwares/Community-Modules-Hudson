@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <data>
+
+        <!-- ════════════════════════════════════════════════════════════════
+             Hudson AI Configuration — Form View
+             ════════════════════════════════════════════════════════════════ -->
+        <record id="view_hudson_ai_config_form" model="ir.ui.view">
+            <field name="name">hudson.ai.config.form</field>
+            <field name="model">hudson.ai.config</field>
+            <field name="arch" type="xml">
+                <form string="Hudson AI Configuration">
+                    <header>
+                        <button name="action_test_connection"
+                                string="Test Connection"
+                                type="object"
+                                class="btn-primary"
+                                icon="fa-plug"/>
+                    </header>
+                    <sheet>
+                        <div class="oe_title">
+                            <h1>
+                                <field name="name" placeholder="Configuration Name"/>
+                            </h1>
+                        </div>
+                        <group>
+                            <group>
+                                <field name="is_primary" widget="boolean_toggle"/>
+                            </group>
+                        </group>
+
+                        <group>
+                            <group string="Status">
+                                <field name="enabled" widget="boolean_toggle"/>
+                                <field name="connection_status" readonly="1"/>
+                            </group>
+                        </group>
+
+                        <notebook>
+                            <!-- AI Connection Settings -->
+                            <page string="Connection Settings" name="connection">
+                                <group>
+                                    <group string="Server Settings">
+                                        <field name="provider" widget="radio" options="{'horizontal': true}"/>
+                                        <field name="base_url"
+                                               placeholder="http://localhost:1234/v1"/>
+                                        <field name="api_key"
+                                               password="True"
+                                               placeholder="lm-studio (any value works)"/>
+                                        <field name="model_name"
+                                               placeholder="e.g. gemma-3-12b-it"/>
+                                    </group>
+                                    <group string="Generation Parameters">
+                                        <field name="temperature"/>
+                                        <field name="max_tokens"/>
+                                    </group>
+                                </group>
+                                <div class="alert alert-info" role="alert" invisible="provider != 'lm_studio'">
+                                    <strong>How to set up LM Studio:</strong>
+                                    <ol style="margin-bottom:0; padding-left:18px;">
+                                        <li>Open LM Studio and go to the <strong>Local Server</strong> tab.</li>
+                                        <li>Select your model (e.g. Gemma 3) and click <strong>Start Server</strong>.</li>
+                                        <li>The default URL is <code>http://localhost:1234/v1</code>.</li>
+                                        <li>Enter the model name exactly as it appears in LM Studio.</li>
+                                        <li>Click <strong>Test Connection</strong> to verify.</li>
+                                    </ol>
+                                </div>
+                                <div class="alert alert-info" role="alert" invisible="provider != 'groq'">
+                                    <strong>How to set up Groq:</strong>
+                                    <ol style="margin-bottom:0; padding-left:18px;">
+                                        <li>Go to <a href="https://console.groq.com/keys" target="_blank">console.groq.com</a> and generate an API key.</li>
+                                        <li>Paste your API Key in the field above.</li>
+                                        <li>Set the Model Name to a supported Groq model (e.g., <code>llama3-70b-8192</code>, <code>gemma2-9b-it</code>, <code>mixtral-8x7b-32768</code>).</li>
+                                        <li>Click <strong>Test Connection</strong> to verify.</li>
+                                    </ol>
+                                </div>
+                            </page>
+
+                            <!-- Custom System Prompt -->
+                            <page string="System Prompt" name="system_prompt">
+                                <group>
+                                    <field name="system_prompt"
+                                           widget="text"
+                                           nolabel="1"
+                                           placeholder="Leave blank to use the default system prompt. Customise the AI's personality and behaviour here."/>
+                                </group>
+                            </page>
+                        </notebook>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
+        <!-- List View -->
+        <record id="view_hudson_ai_config_list" model="ir.ui.view">
+            <field name="name">hudson.ai.config.list</field>
+            <field name="model">hudson.ai.config</field>
+            <field name="arch" type="xml">
+                <list string="AI Configurations">
+                    <field name="name"/>
+                    <field name="provider"/>
+                    <field name="is_primary" widget="boolean_toggle"/>
+                    <field name="enabled" widget="boolean_toggle"/>
+                    <field name="connection_status"/>
+                </list>
+            </field>
+        </record>
+
+        <!-- Window Action -->
+        <record id="action_hudson_ai_config" model="ir.actions.act_window">
+            <field name="name">AI Configuration</field>
+            <field name="res_model">hudson.ai.config</field>
+            <field name="view_mode">list,form</field>
+            <field name="help" type="html">
+                <p class="o_view_nocontent_smiling_face">
+                    No AI configuration found!
+                </p>
+                <p>
+                    Create a configuration to connect Hudson AI to your local LM Studio instance.
+                </p>
+            </field>
+        </record>
+
+    </data>
+</odoo>

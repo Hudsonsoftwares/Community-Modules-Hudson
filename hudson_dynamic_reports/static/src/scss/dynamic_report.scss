@@ -1,0 +1,39 @@
+.o_dynamic_report_container {
+    padding: 20px;
+    background-color: #f8f9fa;
+    min-height: 100vh;
+    
+    .o_dynamic_report_header {
+        h2 {
+            font-size: 24px;
+            color: #2c3e50;
+        }
+    }
+    
+    .table {
+        th {
+            font-weight: 600;
+            color: #34495e;
+            border-bottom: 2px solid #dee2e6;
+        }
+        
+        td {
+            vertical-align: middle;
+            color: #2c3e50;
+        }
+        
+        tr:hover {
+            background-color: #f1f3f5;
+        }
+        
+        .fa-caret-down, .fa-caret-right {
+            font-size: 16px;
+            width: 12px;
+            text-align: center;
+        }
+        
+        .fw-bold {
+            font-weight: 600 !important;
+        }
+    }
+}

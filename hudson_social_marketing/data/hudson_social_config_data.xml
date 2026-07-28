@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+
+        <!-- Pre-populate API connection settings -->
+        <function model="ir.config_parameter" name="set_param">
+            <value>hudson_social.remote_url</value>
+            <value>https://hudson-social.odoo.com</value>
+        </function>
+
+        <function model="ir.config_parameter" name="set_param">
+            <value>hudson_social.remote_db</value>
+            <value>hudson-social</value>
+        </function>
+
+        <function model="ir.config_parameter" name="set_param">
+            <value>hudson_social.remote_email</value>
+            <value>nandusaji20012001@gmail.com</value>
+        </function>
+
+        <function model="ir.config_parameter" name="set_param">
+            <value>hudson_social.api_key</value>
+            <value>04faf49029b6972ebea6c145572b4060bf372e05</value>
+        </function>
+
+        <function model="ir.config_parameter" name="set_param">
+            <value>hudson_social.sync_interval</value>
+            <value>5</value>
+        </function>
+
+    </data>
+</odoo>

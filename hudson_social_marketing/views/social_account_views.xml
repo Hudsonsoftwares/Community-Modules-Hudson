@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+
+        <!-- ============================================================
+             Social Accounts — List View
+        ============================================================ -->
+        <record id="view_hudson_social_account_list" model="ir.ui.view">
+            <field name="name">hudson.social.account.list</field>
+            <field name="model">hudson.social.account</field>
+            <field name="arch" type="xml">
+                <list string="Social Accounts" decoration-muted="is_media_disconnected == True">
+                    <field name="name"/>
+                    <field name="media_type"/>
+                    <field name="social_account_handle"/>
+                    <field name="followers"/>
+                    <field name="audience"/>
+                    <field name="post_count"/>
+                    <field name="is_media_disconnected" widget="boolean_toggle"/>
+                    <field name="last_sync"/>
+                    <button name="action_view_posts" type="object"
+                            string="View Posts" icon="fa-newspaper-o"
+                            class="btn-link"/>
+                </list>
+            </field>
+        </record>
+
+        <!-- ============================================================
+             Social Accounts — Form View
+        ============================================================ -->
+        <record id="view_hudson_social_account_form" model="ir.ui.view">
+            <field name="name">hudson.social.account.form</field>
+            <field name="model">hudson.social.account</field>
+            <field name="arch" type="xml">
+                <form string="Social Account">
+                    <sheet>
+                        <div class="oe_button_box" name="button_box">
+                            <button name="action_view_posts" type="object"
+                                    class="oe_stat_button" icon="fa-newspaper-o">
+                                <field name="post_count" widget="statinfo" string="Posts"/>
+                            </button>
+                        </div>
+                        <widget name="web_ribbon" title="Disconnected"
+                                bg_color="bg-danger"
+                                invisible="is_media_disconnected == False"/>
+                        <field name="image" widget="image" class="oe_avatar"/>
+                        <div class="oe_title">
+                            <h1>
+                                <field name="name" placeholder="Account Name"/>
+                            </h1>
+                            <h3 class="text-muted">
+                                <field name="social_account_handle" placeholder="@handle"/>
+                            </h3>
+                        </div>
+                        <group>
+                            <group string="Platform Details">
+                                <field name="media_type"/>
+                                <field name="is_media_disconnected"/>
+                            </group>
+                            <group string="Analytics">
+                                <field name="followers"/>
+                                <field name="audience"/>
+                            </group>
+                        </group>
+                        <group string="Sync Info">
+                            <field name="remote_id" readonly="1"/>
+                            <field name="last_sync" readonly="1"/>
+                        </group>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
+        <!-- ============================================================
+             Social Accounts — Kanban View
+        ============================================================ -->
+        <record id="view_hudson_social_account_kanban" model="ir.ui.view">
+            <field name="name">hudson.social.account.kanban</field>
+            <field name="model">hudson.social.account</field>
+            <field name="arch" type="xml">
+                <kanban class="hudson_social_account_kanban">
+                    <field name="id"/>
+                    <field name="name"/>
+                    <field name="media_type"/>
+                    <field name="media_type_icon"/>
+                    <field name="followers"/>
+                    <field name="audience"/>
+                    <field name="post_count"/>
+                    <field name="is_media_disconnected"/>
+                    <field name="image"/>
+                    <templates>
+                        <t t-name="card">
+                            <div class="hudson_social_account_card">
+                                <div class="hs_account_header">
+                                    <i t-attf-class="fa #{record.media_type_icon.raw_value} hs_platform_icon"/>
+                                    <span t-if="record.is_media_disconnected.raw_value"
+                                          class="badge bg-danger ms-2">Disconnected</span>
+                                </div>
+                                <div class="hs_account_body">
+                                    <field name="image" widget="image" class="hs_account_avatar"/>
+                                    <h5 class="hs_account_name">
+                                        <field name="name"/>
+                                    </h5>
+                                    <div class="hs_account_stats">
+                                        <div class="hs_stat">
+                                            <span class="hs_stat_value">
+                                                <field name="followers"/>
+                                            </span>
+                                            <span class="hs_stat_label">Followers</span>
+                                        </div>
+                                        <div class="hs_stat">
+                                            <span class="hs_stat_value">
+                                                <field name="post_count"/>
+                                            </span>
+                                            <span class="hs_stat_label">Posts</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </t>
+                    </templates>
+                </kanban>
+            </field>
+        </record>
+
+        <!-- ============================================================
+             Action
+        ============================================================ -->
+        <record id="action_hudson_social_account" model="ir.actions.act_window">
+            <field name="name">Social Accounts</field>
+            <field name="res_model">hudson.social.account</field>
+            <field name="view_mode">kanban,list,form</field>
+            <field name="help" type="html">
+                <p class="o_view_nocontent_smiling_face">
+                    No social accounts yet!
+                </p>
+                <p>
+                    Go to Settings &gt; Social Marketing and click <b>Sync Now</b>
+                    to import your connected accounts from the remote Odoo instance.
+                </p>
+            </field>
+        </record>
+
+    </data>
+</odoo>
