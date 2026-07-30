@@ -112,6 +112,78 @@ export class DynamicReport extends Component {
             await this.action.doAction(action);
         }
     }
+
+    printView() {
+        window.print();
+    }
+
+    async exportPDF() {
+        const params = this.props.action.params || {};
+        const model_name = params.model_name;
+        const wizard_id = params.wizard_id;
+        const data = params.data || {};
+        
+        if (model_name && wizard_id) {
+            const context = {
+                active_model: data.model || this.props.action.context?.active_model || model_name,
+                active_ids: data.ids || this.props.action.context?.active_ids || [wizard_id],
+                active_id: (data.ids && data.ids[0]) || this.props.action.context?.active_id || wizard_id,
+            };
+            const action = await this.orm.call(model_name, "check_report", [[wizard_id]], { context });
+            if (action) {
+                if (!action.context) {
+                    action.context = {};
+                }
+                Object.assign(action.context, context);
+                await this.action.doAction(action);
+            }
+        }
+    }
+
+    exportCSV() {
+        const headers = this.state.columns.map(col => `"${col.label.replace(/"/g, '""')}"`);
+        let csvContent = headers.join(",") + "\r\n";
+        
+        for (const line of this.state.lines) {
+            if (!this.isVisible(line)) continue;
+            const row = this.state.columns.map(col => {
+                let val = line[col.field];
+                if (val === undefined || val === null) val = '';
+                if (col.type === 'monetary') {
+                    val = Number(val).toFixed(2);
+                }
+                return `"${String(val).replace(/"/g, '""')}"`;
+            });
+            csvContent += row.join(",") + "\r\n";
+        }
+        
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement("a");
+        const url = URL.createObjectURL(blob);
+        link.setAttribute("href", url);
+        link.setAttribute("download", `${this.state.title.replace(/\s+/g, '_')}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    }
+
+    exportJSON() {
+        const data = {
+            title: this.state.title,
+            columns: this.state.columns,
+            lines: this.state.lines.filter(line => this.isVisible(line))
+        };
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const link = document.createElement("a");
+        const url = URL.createObjectURL(blob);
+        link.setAttribute("href", url);
+        link.setAttribute("download", `${this.state.title.replace(/\s+/g, '_')}.json`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    }
 }
 
 DynamicReport.template = "hudson_dynamic_reports.DynamicReport";

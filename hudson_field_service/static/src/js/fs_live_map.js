@@ -17,7 +17,7 @@ import { loadJS, loadCSS } from "@web/core/assets";
  */
 export class FsLiveMap extends Component {
     static template = "hudson_field_service.FsLiveMap";
-    static props = {};
+    static props = ["*"];
 
     setup() {
         this.orm = useService("orm");

@@ -1,4 +1,6 @@
 from odoo import fields, models, api
+from odoo.osv import expression
+from odoo.tools.query import Query
 
 
 class AccountAnalyticAccount(models.Model):

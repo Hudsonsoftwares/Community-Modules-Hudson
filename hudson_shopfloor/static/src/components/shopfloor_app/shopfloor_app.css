@@ -1,5 +1,5 @@
 .o_hudson_shopfloor {
-    background-color: #f8f9fa !important; /* Light background */
+    background-color: #f8f9fa !important;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 
@@ -8,62 +8,256 @@
     box-shadow: 0 1px 3px rgba(0,0,0,0.1);
 }
 
-.o_hudson_shopfloor .cursor-pointer {
-    cursor: pointer;
-}
+.o_hudson_shopfloor .cursor-pointer { cursor: pointer; }
 
+/* ── MO Cards ──────────────────────────────────────────────── */
 .o_hudson_shopfloor .sf-wo-card {
     background-color: #ffffff !important;
     border-color: #dee2e6 !important;
     transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
-
 .o_hudson_shopfloor .sf-wo-card:hover {
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(0,0,0,0.08);
 }
 
-.o_hudson_shopfloor .text-success {
-    color: #017e84 !important; /* Odoo typical teal */
-}
+.o_hudson_shopfloor .text-success  { color: #017e84 !important; }
+.o_hudson_shopfloor .border-success { border-color: #017e84 !important; }
+.o_hudson_shopfloor .btn-outline-danger { color: #e83e8c; border-color: #e83e8c; }
+.o_hudson_shopfloor .btn-outline-danger:hover { background-color: #e83e8c; color: #fff; }
 
-.o_hudson_shopfloor .border-success {
-    border-color: #017e84 !important;
-}
-
-.o_hudson_shopfloor .btn-outline-danger {
-    color: #e83e8c;
-    border-color: #e83e8c;
-}
-
-.o_hudson_shopfloor .btn-outline-danger:hover {
-    background-color: #e83e8c;
-    color: white;
-}
-
-/* Operation list styling */
+/* ── Operation rows ────────────────────────────────────────── */
 .o_hudson_shopfloor .sf-operation-row {
     border-bottom: 1px solid #f1f3f5;
     padding: 12px 0;
     color: #495057;
 }
-.o_hudson_shopfloor .sf-operation-row:last-child {
-    border-bottom: none;
-}
-.o_hudson_shopfloor .sf-operation-row.active-clickable {
-    cursor: pointer;
-    color: #212529;
-}
-.o_hudson_shopfloor .sf-operation-row.active-clickable:hover {
-    background-color: #f8f9fa;
-    color: #017e84;
-}
+.o_hudson_shopfloor .sf-operation-row:last-child { border-bottom: none; }
+.o_hudson_shopfloor .sf-operation-row.active-clickable { cursor: pointer; color: #212529; }
+.o_hudson_shopfloor .sf-operation-row.active-clickable:hover { background-color: #f8f9fa; color: #017e84; }
 
-/* Custom button hover effects */
-.o_hudson_shopfloor .sf-hover-btn {
-    transition: all 0.2s ease-in-out;
-}
+/* ── Hover buttons ─────────────────────────────────────────── */
+.o_hudson_shopfloor .sf-hover-btn { transition: all 0.2s ease-in-out; }
 .o_hudson_shopfloor .sf-hover-btn:hover {
     transform: translateY(-1px);
     box-shadow: 0 4px 8px rgba(0,0,0,0.15) !important;
+}
+
+/* ── Overlay backdrop ──────────────────────────────────────── */
+.sf-overlay { backdrop-filter: blur(2px); }
+
+/* ================================================================ */
+/* OPTIONS MODAL GRID BUTTONS                                        */
+/* ================================================================ */
+.sf-options-modal .sf-option-btn {
+    border: 1px solid #dee2e6 !important;
+    background-color: #f8f9fa !important;
+    color: #212529;
+    cursor: pointer;
+    min-height: 105px;
+    border-radius: 0.5rem !important;
+    transition: background-color 0.15s, transform 0.15s, box-shadow 0.15s;
+    font-size: 0.95rem;
+}
+.sf-options-modal .sf-option-btn:hover {
+    background-color: #e9ecef !important;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1) !important;
+}
+.sf-options-modal .sf-option-btn i { color: #495057; font-size: 1.4rem; }
+
+/* ================================================================ */
+/* PRODUCT CATALOG MODAL                                             */
+/* ================================================================ */
+
+/* Category sidebar section title */
+.sf-catalog-section-title {
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: #6c757d;
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+/* Category items in sidebar */
+.sf-cat-item {
+    padding: 6px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    color: #343a40;
+    transition: background-color 0.12s;
+    margin-bottom: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.sf-cat-item:hover { background-color: #f0f1f3; }
+.sf-cat-item-active {
+    background-color: #e8eaf6;
+    color: #333;
+    font-weight: 600;
+}
+
+/* Pagination buttons */
+.sf-page-btn {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+}
+
+/* Product cards in catalog */
+.sf-product-card {
+    border: 1px solid #e0e0e0 !important;
+    border-radius: 8px;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    cursor: default;
+}
+.sf-product-card:hover {
+    border-color: #adb5bd !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+}
+.sf-product-card-selected {
+    border-color: #4e73d6 !important;
+    background-color: #f0f4ff !important;
+}
+
+.sf-product-name {
+    font-size: 0.95rem;
+    line-height: 1.3;
+    word-break: break-word;
+}
+
+/* Product image thumbnail */
+.sf-product-img-wrap {
+    width: 80px;
+    height: 80px;
+}
+.sf-product-img {
+    width: 80px;
+    height: 80px;
+    object-fit: contain;
+    border-radius: 4px;
+    background: #f8f8f8;
+}
+
+/* Add button on product card */
+.sf-add-btn {
+    border: 1px solid #ccc;
+    background: #fff;
+    color: #333;
+    font-size: 0.85rem;
+    padding: 4px 14px;
+    border-radius: 5px;
+    transition: background 0.12s, box-shadow 0.12s;
+}
+.sf-add-btn:hover { background-color: #f0f0f0; box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
+
+/* Qty stepper buttons (− / +) */
+.sf-qty-btn {
+    width: 32px;
+    height: 32px;
+    border: 1px solid #ced4da;
+    background: #fff;
+    color: #333;
+    font-size: 1rem;
+    font-weight: 700;
+    border-radius: 4px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 0.1s;
+    padding: 0;
+    flex-shrink: 0;
+}
+.sf-qty-btn:hover { background-color: #f0f0f0; }
+
+/* Qty number input in cart stepper */
+.sf-qty-input {
+    width: 52px;
+    height: 32px;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    text-align: center;
+    font-size: 0.9rem;
+    font-weight: 600;
+    padding: 0 4px;
+}
+
+/* Remove button */
+.sf-remove-btn { font-size: 0.8rem; padding: 4px 10px; }
+
+/* "Back to ShopFloor" dark button (matches enterprise purple/dark) */
+.sf-back-btn {
+    background-color: #3d3153;
+    color: #fff;
+    border: none;
+}
+.sf-back-btn:hover { background-color: #2e2440; color: #fff; }
+
+/* ================================================================ */
+/* ADD WORK ORDER FORM                                               */
+/* ================================================================ */
+
+/* Label+field two-column row */
+.sf-wo-form-row {
+    display: flex;
+    align-items: flex-start;
+    padding: 10px 0;
+    border-bottom: 1px solid #f0f0f0;
+    gap: 16px;
+}
+.sf-wo-form-row:first-child { padding-top: 0; }
+
+.sf-wo-label {
+    flex: 0 0 180px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: #344054;
+    padding-top: 7px;
+}
+
+.sf-wo-field { flex: 1; }
+
+.sf-wo-input,
+.sf-wo-select {
+    border: 1px solid #d0d5dd;
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 0.9rem;
+    width: 100%;
+    background: #fff;
+}
+.sf-wo-input:focus,
+.sf-wo-select:focus {
+    border-color: #017e84;
+    box-shadow: 0 0 0 3px rgba(1,126,132,0.12);
+    outline: none;
+}
+
+/* "Add Work Order" submit button (matches enterprise purple/dark) */
+.sf-submit-btn {
+    background-color: #3d3153;
+    color: #fff;
+    border: none;
+}
+.sf-submit-btn:hover { background-color: #2e2440; color: #fff; }
+
+/* ================================================================ */
+/* Responsive tweaks                                                 */
+/* ================================================================ */
+@media (max-width: 600px) {
+    .sf-options-modal,
+    .sf-catalog-overlay .bg-white { width: 95vw !important; }
+    .sf-product-img-wrap { width: 56px; height: 56px; }
+    .sf-product-img      { width: 56px; height: 56px; }
+    .sf-wo-label { flex: 0 0 120px; }
 }

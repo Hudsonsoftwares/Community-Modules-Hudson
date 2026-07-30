@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_account_executive_summary_wizard" model="ir.ui.view">
+        <field name="name">account.executive.summary.wizard.form</field>
+        <field name="model">account.executive.summary.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Executive Summary">
+                <group>
+                    <group string="Current Period">
+                        <field name="date_from"/>
+                        <field name="date_to"/>
+                        <field name="target_move" widget="radio"/>
+                        <field name="company_id" groups="base.group_multi_company"/>
+                    </group>
+                    <group string="Comparison">
+                        <field name="enable_comparison"/>
+                        <field name="compare_date_from" invisible="not enable_comparison"/>
+                        <field name="compare_date_to" invisible="not enable_comparison"/>
+                    </group>
+                </group>
+                <footer>
+                    <button name="action_print_report"
+                            string="Generate Executive Summary"
+                            type="object"
+                            class="btn-primary"
+                            data-hotkey="q"/>
+                    <button string="Cancel"
+                            class="btn-secondary"
+                            special="cancel"
+                            data-hotkey="z"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_account_executive_summary_wizard" model="ir.actions.act_window">
+        <field name="name">Executive Summary</field>
+        <field name="res_model">account.executive.summary.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="view_id" ref="view_account_executive_summary_wizard"/>
+        <field name="target">new</field>
+    </record>
+</odoo>

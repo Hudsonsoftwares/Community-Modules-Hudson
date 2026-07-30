@@ -95,7 +95,7 @@ const DAY_HOUR_END = 20; // exclusive
 
 export class FsPlanningBoard extends Component {
     static template = "hudson_field_service.FsPlanningBoard";
-    static props = {};
+    static props = ["*"];
 
     setup() {
         this.orm = useService("orm");

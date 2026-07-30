@@ -1,0 +1,8 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_account_cash_flow_wizard,access.account.cash.flow.wizard,model_account_cash_flow_wizard,account.group_account_user,1,1,1,1
+access_account_annual_report_wizard,access.account.annual.report.wizard,model_account_annual_report_wizard,account.group_account_user,1,1,1,1
+access_account_executive_summary_wizard,access.account.executive.summary.wizard,model_account_executive_summary_wizard,account.group_account_user,1,1,1,1
+access_account_unrealized_currency_wizard,access.account.unrealized.currency.wizard,model_account_unrealized_currency_wizard,account.group_account_user,1,1,1,1
+access_account_tax_extended_wizard,access.account.tax.extended.wizard,model_account_tax_extended_wizard,account.group_account_user,1,1,1,1
+access_account_aged_report,access.account.aged.report,model_account_aged_report,account.group_account_user,1,1,1,1
+access_account_aged_report_line,access.account.aged.report.line,model_account_aged_report_line,account.group_account_user,1,1,1,1

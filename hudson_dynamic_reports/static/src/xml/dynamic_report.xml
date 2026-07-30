@@ -2,8 +2,14 @@
 <templates xml:space="preserve">
     <t t-name="hudson_dynamic_reports.DynamicReport" owl="1">
         <div class="o_dynamic_report_container">
-            <div class="o_dynamic_report_header mb-4 mt-4">
-                <h2 class="text-center text-primary fw-bold" t-esc="state.title"/>
+            <div class="o_dynamic_report_header mb-4 mt-4 d-flex justify-content-between align-items-center px-3">
+                <h2 class="text-primary fw-bold mb-0" t-esc="state.title"/>
+                <div class="o_dynamic_report_buttons">
+                    <button class="btn btn-secondary me-2" t-on-click="printView"><i class="fa fa-print me-1"></i> Print</button>
+                    <button class="btn btn-danger me-2" t-on-click="exportPDF"><i class="fa fa-file-pdf-o me-1"></i> PDF</button>
+                    <button class="btn btn-success me-2" t-on-click="exportCSV"><i class="fa fa-file-excel-o me-1"></i> CSV</button>
+                    <button class="btn btn-info text-white" t-on-click="exportJSON"><i class="fa fa-file-code-o me-1"></i> JSON</button>
+                </div>
             </div>
             
             <div class="o_dynamic_report_content table-responsive shadow-sm bg-white rounded p-3">

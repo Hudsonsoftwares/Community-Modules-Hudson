@@ -2,20 +2,24 @@
 <templates xml:space="preserve">
     <t t-name="hudson_shopfloor.ShopFloorApp" owl="1">
         <div class="o_hudson_shopfloor w-100 h-100 d-flex flex-column text-dark position-relative">
-            <!-- Navbar -->
+
+            <!-- =========================================================== -->
+            <!-- Navbar                                                        -->
+            <!-- =========================================================== -->
             <div class="sf-navbar d-flex justify-content-between align-items-center px-4 py-3 border-bottom shadow-sm">
                 <div class="d-flex align-items-center">
                     <t t-foreach="state.workcenters" t-as="wc" t-key="wc.id">
                         <div t-attf-class="sf-nav-item me-4 fw-bold fs-5 cursor-pointer pb-2 d-flex align-items-center {{ state.selectedWorkcenter === wc.id ? 'border-bottom border-3 border-success text-success' : 'text-dark opacity-75' }}"
                              t-on-click="() => this.selectWorkcenter(wc.id)">
                             <t t-esc="wc.name"/>
-                            <span class="badge rounded-pill ms-2" t-attf-class="{{ state.selectedWorkcenter === wc.id ? 'bg-success text-white' : 'bg-secondary text-white' }}" style="font-size: 0.75rem;">
+                            <span class="badge rounded-pill ms-2"
+                                  t-attf-class="{{ state.selectedWorkcenter === wc.id ? 'bg-success text-white' : 'bg-secondary text-white' }}"
+                                  style="font-size: 0.75rem;">
                                 <t t-esc="wc.count"/>
                             </span>
                         </div>
                     </t>
                 </div>
-                
                 <div t-if="state.activeEmployee" class="d-flex align-items-center">
                     <span class="fw-bold me-3 text-success">Logged in: <t t-esc="state.activeEmployee.name"/></span>
                     <button class="btn btn-outline-danger btn-sm rounded-pill" t-on-click="() => this.logoutEmployee()">Sign Out</button>
@@ -29,12 +33,10 @@
                     <t t-foreach="state.employees" t-as="emp" t-key="emp.id">
                         <div t-attf-class="d-flex align-items-center mb-3 p-2 rounded cursor-pointer sf-hover-btn {{ state.activeEmployee and state.activeEmployee.id === emp.id ? 'bg-success text-white shadow-sm' : 'bg-white border' }}"
                              t-on-click="() => this.clickEmployee(emp)">
-                            <div t-attf-class="rounded-circle me-3 d-flex align-items-center justify-content-center text-white {{ state.activeEmployee and state.activeEmployee.id === emp.id ? 'bg-white text-success' : 'bg-secondary' }}" style="width: 36px; height: 36px;">
+                            <div t-attf-class="rounded-circle me-3 d-flex align-items-center justify-content-center {{ state.activeEmployee and state.activeEmployee.id === emp.id ? 'bg-white text-success' : 'bg-secondary text-white' }}" style="width: 36px; height: 36px;">
                                 <i class="fa fa-user"></i>
                             </div>
-                            <div class="fw-bold">
-                                <t t-esc="emp.name"/>
-                            </div>
+                            <div class="fw-bold"><t t-esc="emp.name"/></div>
                         </div>
                     </t>
                     <div t-if="state.employees.length === 0" class="text-muted small">
@@ -44,27 +46,24 @@
 
                 <!-- Main Content -->
                 <div class="sf-main flex-grow-1 p-4 overflow-auto d-flex flex-wrap align-items-start align-content-start gap-4" style="background-color: #f8f9fa;">
-                    
                     <t t-foreach="state.mos" t-as="mo" t-key="mo.id">
                         <div class="sf-wo-card border rounded shadow-sm d-flex flex-column bg-white" style="width: 400px;">
-                            
-                            <!-- LIST VIEW (When no WO is active for this card) -->
-                            <t t-if="state.activeWoId == null or state.activeWoId != null and !mo.workorders.map(w => w.id).includes(state.activeWoId)">
+
+                            <!-- LIST VIEW -->
+                            <t t-if="state.activeWoId == null or state.activeWoId != null and !mo.workorders.map(w =&gt; w.id).includes(state.activeWoId)">
                                 <div class="p-4 bg-white border-bottom border-secondary-subtle">
                                     <div class="d-flex justify-content-between align-items-center mb-2">
                                         <h4 class="mb-0 fw-bold"><t t-esc="mo.name"/></h4>
-                                        <span class="badge bg-warning rounded-pill text-dark border border-warning-subtle" t-if="mo.workorders.some(w => w.state === 'progress')">In Progress</span>
+                                        <span class="badge bg-warning rounded-pill text-dark" t-if="mo.workorders.some(w => w.state === 'progress')">In Progress</span>
                                     </div>
                                     <div class="d-flex justify-content-between fs-5">
                                         <span class="text-secondary"><t t-esc="mo.product_id[1]"/></span>
                                         <span class="fw-bold"><t t-esc="mo.qty_producing"/> / <t t-esc="mo.qty_production"/> Units</span>
                                     </div>
                                 </div>
-                                
-                                <!-- Operations List -->
                                 <div class="px-4 py-2 bg-white">
                                     <t t-foreach="mo.workorders" t-as="wo" t-key="wo.id">
-                                        <div t-attf-class="sf-operation-row d-flex justify-content-between align-items-center {{ wo.state === 'ready' ? 'active-clickable' : '' }}" 
+                                        <div t-attf-class="sf-operation-row d-flex justify-content-between align-items-center {{ wo.state === 'ready' ? 'active-clickable' : '' }}"
                                              t-on-click="() => wo.state === 'ready' ? this.actionStartWorkorder(wo.id) : null">
                                             <div class="d-flex align-items-center">
                                                 <span class="badge bg-secondary-subtle text-secondary me-2 p-2" t-if="wo.state !== 'done'"><t t-esc="wo.workcenter_id[1]"/></span>
@@ -77,21 +76,16 @@
                                         </div>
                                     </t>
                                 </div>
-                                
-                                <!-- Card Footer -->
                                 <div class="p-3 bg-light border-top border-secondary-subtle d-flex justify-content-between align-items-center mt-auto">
                                     <button class="btn btn-secondary px-3" t-on-click="() => this.actionCloseProduction(mo.workorders[0].id)">Close Production</button>
-                                    <div class="dropdown">
-                                        <button class="btn btn-secondary px-3" t-on-click="() => this.toggleOptions(mo.id)">⋮</button>
-                                        <div class="dropdown-menu dropdown-menu-end show" t-if="mo.showOptions" style="position: absolute; right: 0; top: 100%; z-index: 1000;">
-                                            <a class="dropdown-item" href="#" t-on-click.prevent="() => { this.actionScrap(mo.workorders[0].id); this.toggleOptions(mo.id); }">Scrap</a>
-                                            <a class="dropdown-item" href="#" t-on-click.prevent="() => this.toggleOptions(mo.id)">Close Menu</a>
-                                        </div>
-                                    </div>
+                                    <button class="btn btn-outline-secondary px-3 sf-hover-btn" title="Options"
+                                            t-on-click="() => this.openOptionsModal(mo.id, mo.workorders[0].id)">
+                                        <i class="fa fa-ellipsis-v"></i>
+                                    </button>
                                 </div>
                             </t>
 
-                            <!-- ACTIVE WORKORDER VIEW (Timer View) -->
+                            <!-- ACTIVE WORKORDER VIEW -->
                             <t t-if="state.activeWoId != null and mo.workorders.map(w => w.id).includes(state.activeWoId)">
                                 <div class="p-4 bg-white flex-grow-1 d-flex flex-column h-100">
                                     <div class="d-flex justify-content-between align-items-center mb-3">
@@ -100,7 +94,7 @@
                                             <span class="fs-5 fw-bold text-success font-monospace" t-if="this.activeWo.state === 'progress'">
                                                 <t t-esc="this.formatDuration(this.activeWo.date_start, this.activeWo.duration)"/>
                                             </span>
-                                            <div class="bg-primary rounded-circle text-white d-flex align-items-center justify-content-center" style="width: 32px; height: 32px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                                            <div class="bg-primary rounded-circle text-white d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">
                                                 <i class="fa fa-user"></i>
                                             </div>
                                         </div>
@@ -111,17 +105,21 @@
                                         <span class="fw-bold text-dark"><t t-esc="mo.qty_producing"/> Units</span>
                                     </div>
                                 </div>
-
-                                <!-- Footer Actions for Active View -->
                                 <div class="p-3 bg-light border-top border-secondary-subtle d-flex justify-content-between align-items-center mt-auto">
                                     <button class="btn btn-success px-4 fw-bold shadow-sm sf-hover-btn" t-on-click="() => this.actionCloseProduction(this.activeWo.id)">Mark as Done</button>
-                                    <button class="btn btn-outline-secondary px-3 sf-hover-btn" t-on-click="() => this.closeOperation()">Back</button>
+                                    <div class="d-flex gap-2">
+                                        <button class="btn btn-outline-secondary px-3 sf-hover-btn" title="Options"
+                                                t-on-click="() => this.openOptionsModal(mo.id, this.activeWo.id)">
+                                            <i class="fa fa-ellipsis-v"></i>
+                                        </button>
+                                        <button class="btn btn-outline-secondary px-3 sf-hover-btn" t-on-click="() => this.closeOperation()">Back</button>
+                                    </div>
                                 </div>
                             </t>
 
                         </div>
                     </t>
-                    
+
                     <div t-if="state.mos.length === 0" class="text-muted w-100 text-center mt-5 fs-4">
                         <t t-if="state.activeEmployee">
                             No manufacturing orders assigned to <t t-esc="state.activeEmployee.name"/> for this work center.
@@ -133,45 +131,469 @@
                 </div>
             </div>
 
-            <!-- PIN Modal Overlay -->
-            <div t-if="state.showPinModal" class="position-absolute top-0 start-0 w-100 h-100 bg-dark bg-opacity-50 d-flex justify-content-center align-items-center" style="z-index: 2000;">
+            <!-- =========================================================== -->
+            <!-- OPTIONS MODAL (Enterprise-style 2×3 grid)                   -->
+            <!-- =========================================================== -->
+            <div t-if="state.showOptionsModal"
+                 class="sf-overlay position-fixed top-0 start-0 w-100 h-100 d-flex justify-content-center align-items-center"
+                 style="z-index: 3000; background: rgba(0,0,0,0.45);"
+                 t-on-click.self="() => this.closeOptionsModal()">
+                <div class="bg-white rounded-3 shadow-lg sf-options-modal" style="width: 560px; max-width: 95vw;">
+                    <div class="d-flex justify-content-between align-items-center px-4 pt-4 pb-2">
+                        <span class="fw-bold fs-5">Options</span>
+                        <button class="btn btn-link text-dark p-0" t-on-click="() => this.closeOptionsModal()">
+                            <i class="fa fa-times fs-5"></i>
+                        </button>
+                    </div>
+                    <div class="p-4 pt-2">
+                        <div class="row g-3">
+                            <div class="col-6">
+                                <button class="sf-option-btn w-100 py-4 border rounded-3 bg-light sf-hover-btn d-flex flex-column align-items-center gap-2"
+                                        t-on-click="() => this.openRegisterQtyModal(state.optionsMoId, state.optionsWoId)">
+                                    <i class="fa fa-plus fs-4"></i>
+                                    <span class="fw-semibold text-center">Register Quantity / Lot</span>
+                                </button>
+                            </div>
+                            <div class="col-6">
+                                <button class="sf-option-btn w-100 py-4 border rounded-3 bg-light sf-hover-btn d-flex flex-column align-items-center gap-2"
+                                        t-on-click="() => this.actionScrap(state.optionsWoId)">
+                                    <i class="fa fa-random fs-4"></i>
+                                    <span class="fw-semibold">Scrap</span>
+                                </button>
+                            </div>
+                            <div class="col-6">
+                                <button class="sf-option-btn w-100 py-4 border rounded-3 bg-light sf-hover-btn d-flex flex-column align-items-center gap-2"
+                                        t-on-click="() => this.openAddWorkOrderModal(state.optionsMoId)">
+                                    <i class="fa fa-plus fs-4"></i>
+                                    <span class="fw-semibold">Add Work Order</span>
+                                </button>
+                            </div>
+                            <div class="col-6">
+                                <button class="sf-option-btn w-100 py-4 border rounded-3 bg-light sf-hover-btn d-flex flex-column align-items-center gap-2"
+                                        t-on-click="() => this.openCatalogModal(state.optionsMoId)">
+                                    <i class="fa fa-plus fs-4"></i>
+                                    <span class="fw-semibold">Add Component</span>
+                                </button>
+                            </div>
+                            <div class="col-6">
+                                <button class="sf-option-btn w-100 py-4 border rounded-3 bg-light sf-hover-btn d-flex flex-column align-items-center gap-2"
+                                        t-on-click="() => this.openLogNoteModal(state.optionsMoId)">
+                                    <i class="fa fa-sticky-note-o fs-4"></i>
+                                    <span class="fw-semibold">Log Note</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- =========================================================== -->
+            <!-- REGISTER QUANTITY / LOT MODAL                               -->
+            <!-- =========================================================== -->
+            <div t-if="state.showRegisterQtyModal"
+                 class="sf-overlay position-fixed top-0 start-0 w-100 h-100 d-flex justify-content-center align-items-center"
+                 style="z-index: 3100; background: rgba(0,0,0,0.45);">
+                <div class="bg-white rounded-3 shadow-lg" style="width: 460px; max-width: 95vw;">
+                    <div class="d-flex justify-content-between align-items-center px-4 pt-4 pb-2">
+                        <span class="fw-bold fs-5">Register Quantity / Lot</span>
+                        <button class="btn btn-link text-dark p-0" t-on-click="() => this.closeRegisterQtyModal()">
+                            <i class="fa fa-times fs-5"></i>
+                        </button>
+                    </div>
+                    <div class="p-4 pt-2">
+                        <div class="mb-3" t-if="state.registerProducts.length > 0">
+                            <label class="form-label fw-semibold">Component</label>
+                            <select class="form-select" t-on-change="onRegisterMoveChange">
+                                <t t-foreach="state.registerProducts" t-as="mv" t-key="mv.id">
+                                    <option t-att-value="mv.id" t-att-selected="mv.id === state.registerSelectedMoveId">
+                                        <t t-esc="mv.product_id[1]"/> (Planned: <t t-esc="mv.product_uom_qty"/>)
+                                    </option>
+                                </t>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Quantity Done</label>
+                            <input type="number" class="form-control" min="0" step="0.01"
+                                   t-att-value="state.registerQtyValue"
+                                   t-on-input="(ev) => state.registerQtyValue = ev.target.value"/>
+                        </div>
+                        <div class="mb-4">
+                            <label class="form-label fw-semibold">Lot / Serial Number <span class="text-muted fw-normal">(optional)</span></label>
+                            <input type="text" class="form-control" placeholder="Enter lot or serial number..."
+                                   t-att-value="state.registerLotName"
+                                   t-on-input="(ev) => state.registerLotName = ev.target.value"/>
+                        </div>
+                        <div class="d-flex gap-2 justify-content-end">
+                            <button class="btn btn-outline-secondary" t-on-click="() => this.closeRegisterQtyModal()">Cancel</button>
+                            <button class="btn btn-success px-4 fw-bold" t-on-click="() => this.submitRegisterQty()">Confirm</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- =========================================================== -->
+            <!-- PRODUCT CATALOG MODAL (Add Component)                       -->
+            <!-- Enterprise-style full product picker                        -->
+            <!-- =========================================================== -->
+            <div t-if="state.showCatalogModal"
+                 class="sf-catalog-overlay position-fixed top-0 start-0 w-100 h-100"
+                 style="z-index: 3200; background: #fff;">
+                <div class="d-flex flex-column h-100">
+
+                    <!-- Catalog Header -->
+                    <div class="d-flex align-items-center justify-content-between px-4 py-3 border-bottom bg-white">
+                        <span class="fw-bold fs-5">Products</span>
+                        <button class="btn btn-link text-dark p-0" t-on-click="() => this.closeCatalogModal()">
+                            <i class="fa fa-times fs-4"></i>
+                        </button>
+                    </div>
+
+                    <!-- Catalog Body -->
+                    <div class="d-flex flex-grow-1 overflow-hidden">
+
+                        <!-- LEFT SIDEBAR: Categories + Tags -->
+                        <div class="sf-catalog-sidebar border-end overflow-auto p-3" style="width: 210px; min-width: 210px; background: #fff;">
+
+                            <!-- Categories -->
+                            <div class="sf-catalog-section-title mb-2">
+                                <i class="fa fa-th-list me-1"></i> CATEGORIES
+                            </div>
+                            <!-- All -->
+                            <div t-attf-class="sf-cat-item {{ !state.catalogSelectedCat and !state.catalogSelectedTag ? 'sf-cat-item-active' : '' }}"
+                                 t-on-click="() => this.catalogSelectCategory(null)">All</div>
+                            <!-- Individual categories -->
+                            <t t-foreach="state.catalogCategories" t-as="cat" t-key="cat.id">
+                                <div t-attf-class="sf-cat-item {{ state.catalogSelectedCat === cat.id ? 'sf-cat-item-active' : '' }}"
+                                     t-on-click="() => this.catalogSelectCategory(cat.id)">
+                                    <t t-esc="cat.name"/>
+                                </div>
+                            </t>
+
+                            <!-- Tags (if any) -->
+                            <div t-if="state.catalogTags.length > 0" class="sf-catalog-section-title mt-4 mb-2">
+                                <i class="fa fa-tags me-1"></i> TAGS
+                            </div>
+                            <t t-foreach="state.catalogTags" t-as="tag" t-key="tag.id">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div t-attf-class="sf-cat-item flex-grow-1 {{ state.catalogSelectedTag === tag.id ? 'sf-cat-item-active' : '' }}"
+                                         t-on-click="() => this.catalogSelectTag(tag.id)">
+                                        <t t-esc="tag.name"/>
+                                    </div>
+                                </div>
+                            </t>
+                        </div>
+
+                        <!-- RIGHT CONTENT: Search + Product Grid -->
+                        <div class="d-flex flex-column flex-grow-1 overflow-hidden">
+
+                            <!-- Search bar + pagination -->
+                            <div class="d-flex align-items-center gap-3 px-4 py-3 border-bottom bg-white">
+                                <div class="sf-catalog-search-wrap d-flex align-items-center flex-grow-1" style="max-width: 420px;">
+                                    <div class="input-group">
+                                        <span class="input-group-text bg-white border-end-0 text-muted" style="border-color: #ced4da;">
+                                            <i class="fa fa-search"></i>
+                                        </span>
+                                        <input type="text" class="form-control border-start-0 ps-0"
+                                               placeholder="Search..."
+                                               style="border-color: #ced4da;"
+                                               t-att-value="state.catalogSearch"
+                                               t-on-input="(ev) => this.onCatalogSearchInput(ev)"/>
+                                        <!-- dropdown arrow to match enterprise look -->
+                                        <span class="input-group-text bg-white text-muted" style="border-color: #ced4da; cursor: pointer;">
+                                            <i class="fa fa-caret-down"></i>
+                                        </span>
+                                    </div>
+                                </div>
+                                <!-- Pagination info + arrows -->
+                                <div class="d-flex align-items-center gap-2 ms-auto text-muted" style="white-space: nowrap; font-size: 0.9rem;">
+                                    <span t-if="state.catalogTotalCount &gt; 0">
+                                        <t t-esc="this.catalogPageStart"/>-<t t-esc="this.catalogPageEnd"/> / <t t-esc="state.catalogTotalCount"/>
+                                    </span>
+                                    <button class="btn btn-sm btn-outline-secondary sf-page-btn" t-on-click="() => this.catalogPrevPage()"
+                                            t-att-disabled="state.catalogPage &lt;= 1">
+                                        <i class="fa fa-chevron-left"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-secondary sf-page-btn" t-on-click="() => this.catalogNextPage()"
+                                            t-att-disabled="state.catalogPage * 40 &gt;= state.catalogTotalCount">
+                                        <i class="fa fa-chevron-right"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Product Grid -->
+                            <div class="flex-grow-1 overflow-auto p-3" style="background: #f8f9fa;">
+                                <!-- Loading spinner -->
+                                <div t-if="state.catalogLoading" class="d-flex justify-content-center align-items-center h-100">
+                                    <div class="spinner-border text-secondary" role="status">
+                                        <span class="visually-hidden">Loading...</span>
+                                    </div>
+                                </div>
+
+                                <div t-if="!state.catalogLoading" class="row g-3">
+                                    <t t-foreach="state.catalogProducts" t-as="prod" t-key="prod.id">
+                                        <div class="col-6">
+                                            <div t-attf-class="sf-product-card h-100 bg-white border rounded p-3 d-flex flex-column {{ this.catalogIsInCart(prod.id) ? 'sf-product-card-selected' : '' }}">
+                                                <!-- Top: text info + image -->
+                                                <div class="d-flex gap-3 flex-grow-1">
+                                                    <div class="flex-grow-1 min-w-0">
+                                                        <div class="fw-bold text-dark sf-product-name"><t t-esc="prod.name"/></div>
+                                                        <div class="text-muted small mt-1" t-if="prod.default_code">
+                                                            <t t-esc="prod.default_code"/>
+                                                        </div>
+                                                        <!-- Stock availability -->
+                                                        <div class="text-muted small mt-1">
+                                                            <t t-if="prod.virtual_available and prod.virtual_available != prod.qty_available">
+                                                                <t t-esc="prod.virtual_available"/> Available / <t t-esc="prod.qty_available"/> On Hand
+                                                            </t>
+                                                            <t t-else="">
+                                                                <t t-esc="prod.qty_available"/> On Hand
+                                                            </t>
+                                                        </div>
+                                                    </div>
+                                                    <!-- Product image -->
+                                                    <div class="sf-product-img-wrap flex-shrink-0">
+                                                        <img t-attf-src="/web/image/product.product/{{ prod.id }}/image_128"
+                                                             class="sf-product-img"
+                                                             t-att-alt="prod.name"/>
+                                                    </div>
+                                                </div>
+
+                                                <!-- Bottom action area -->
+                                                <div class="mt-3 d-flex justify-content-end align-items-center">
+                                                    <!-- Not in cart: show Add button -->
+                                                    <t t-if="!this.catalogIsInCart(prod.id)">
+                                                        <button class="btn btn-outline-secondary btn-sm sf-add-btn"
+                                                                t-on-click="() => this.catalogAddToCart(prod)">
+                                                            <i class="fa fa-shopping-cart me-1"></i> Add
+                                                        </button>
+                                                    </t>
+                                                    <!-- In cart: show qty stepper + Remove -->
+                                                    <t t-else="">
+                                                        <div class="d-flex align-items-center gap-2">
+                                                            <button class="sf-qty-btn" t-on-click="() => this.catalogDecreaseQty(prod.id)">−</button>
+                                                            <input type="number" class="sf-qty-input text-center"
+                                                                   t-att-value="this.catalogGetQty(prod.id)"
+                                                                   t-on-change="(ev) => this.catalogSetQty(prod.id, ev)"
+                                                                   min="1"/>
+                                                            <span class="text-muted small"><t t-esc="this.catalogGetUom(prod.id)"/></span>
+                                                            <button class="sf-qty-btn" t-on-click="() => this.catalogIncreaseQty(prod.id)">+</button>
+                                                            <button class="btn btn-sm btn-outline-danger sf-remove-btn"
+                                                                    t-on-click="() => this.catalogRemoveFromCart(prod.id)">
+                                                                <i class="fa fa-trash me-1"></i> Remove
+                                                            </button>
+                                                        </div>
+                                                    </t>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </t>
+
+                                    <div t-if="state.catalogProducts.length === 0 and !state.catalogLoading"
+                                         class="col-12 text-center text-muted py-5 fs-5">
+                                        No products found.
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Catalog Footer -->
+                            <div class="px-4 py-3 bg-white border-top d-flex align-items-center gap-3">
+                                <button class="btn sf-back-btn fw-bold px-4"
+                                        t-on-click="() => this.closeCatalogModal()">
+                                    Back to ShopFloor
+                                </button>
+                                <t t-if="Object.keys(state.catalogCart).length > 0">
+                                    <button class="btn btn-success px-4 fw-bold"
+                                            t-on-click="() => this.submitCatalog()">
+                                        Add <t t-esc="Object.keys(state.catalogCart).length"/> Component(s)
+                                    </button>
+                                </t>
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- =========================================================== -->
+            <!-- ADD WORK ORDER MODAL (Enterprise-style form)                -->
+            <!-- =========================================================== -->
+            <div t-if="state.showAddWorkOrderModal"
+                 class="sf-overlay position-fixed top-0 start-0 w-100 h-100 d-flex justify-content-center align-items-center"
+                 style="z-index: 3100; background: rgba(0,0,0,0.45);">
+                <div class="bg-white rounded-3 shadow-lg" style="width: 580px; max-width: 95vw;">
+                    <!-- Header -->
+                    <div class="d-flex justify-content-between align-items-center px-4 py-3 border-bottom">
+                        <span class="fw-bold fs-5">Add Work Order</span>
+                        <button class="btn btn-link text-dark p-0" t-on-click="() => this.closeAddWorkOrderModal()">
+                            <i class="fa fa-times fs-5"></i>
+                        </button>
+                    </div>
+                    <!-- Form body -->
+                    <div class="p-4">
+                        <!-- Insert after operation -->
+                        <div class="sf-wo-form-row">
+                            <label class="sf-wo-label">Insert after operation</label>
+                            <div class="sf-wo-field">
+                                <select class="form-select sf-wo-select" t-on-change="onAddWorkOrderInsertAfterChange">
+                                    <option value="">-- Beginning --</option>
+                                    <t t-foreach="state.addWorkOrderOperations" t-as="op" t-key="op.id">
+                                        <option t-att-value="op.id"
+                                                t-att-selected="state.addWorkOrderInsertAfterId === op.id">
+                                            <t t-esc="op.production_id ? op.production_id[1] + ' - ' + op.name : op.name"/>
+                                        </option>
+                                    </t>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Title -->
+                        <div class="sf-wo-form-row">
+                            <label class="sf-wo-label">Title</label>
+                            <div class="sf-wo-field">
+                                <input type="text" class="form-control sf-wo-input"
+                                       t-att-value="state.addWorkOrderTitle"
+                                       t-on-input="(ev) => state.addWorkOrderTitle = ev.target.value"/>
+                            </div>
+                        </div>
+
+                        <!-- Work Center -->
+                        <div class="sf-wo-form-row">
+                            <label class="sf-wo-label">Work Center</label>
+                            <div class="sf-wo-field">
+                                <select class="form-select sf-wo-select" t-on-change="onAddWorkOrderWcChange">
+                                    <option value="">-- Select --</option>
+                                    <t t-foreach="state.addWorkOrderWorkcentersList" t-as="wc" t-key="wc.id">
+                                        <option t-att-value="wc.id"
+                                                t-att-selected="state.addWorkOrderWorkcenterId === wc.id">
+                                            <t t-esc="wc.name"/>
+                                        </option>
+                                    </t>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Expected Duration -->
+                        <div class="sf-wo-form-row">
+                            <label class="sf-wo-label">Expected Duration</label>
+                            <div class="sf-wo-field d-flex align-items-center gap-2">
+                                <span class="text-muted" t-if="!state.addWorkOrderDurationMin">0m 0s</span>
+                                <input type="number" class="form-control sf-wo-input" style="max-width: 100px;"
+                                       placeholder="Minutes" min="0"
+                                       t-att-value="state.addWorkOrderDurationMin"
+                                       t-on-input="(ev) => state.addWorkOrderDurationMin = ev.target.value"/>
+                                <span class="text-muted small">min</span>
+                            </div>
+                        </div>
+
+                        <!-- Date Start -->
+                        <div class="sf-wo-form-row">
+                            <label class="sf-wo-label">Date Start</label>
+                            <div class="sf-wo-field">
+                                <input type="datetime-local" class="form-control sf-wo-input"
+                                       t-att-value="state.addWorkOrderDateStart"
+                                       t-on-change="(ev) => state.addWorkOrderDateStart = ev.target.value"/>
+                            </div>
+                        </div>
+
+                        <!-- Employee -->
+                        <div class="sf-wo-form-row mb-4">
+                            <label class="sf-wo-label">Employee</label>
+                            <div class="sf-wo-field">
+                                <select class="form-select sf-wo-select" t-on-change="onAddWorkOrderEmpChange">
+                                    <option value="">-- Select --</option>
+                                    <t t-foreach="state.addWorkOrderEmployeesList" t-as="emp" t-key="emp.id">
+                                        <option t-att-value="emp.id"
+                                                t-att-selected="state.addWorkOrderEmployeeId === emp.id">
+                                            <t t-esc="emp.name"/>
+                                        </option>
+                                    </t>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Buttons -->
+                        <div class="d-flex gap-3 pt-2 border-top">
+                            <button class="btn sf-submit-btn fw-bold px-4" t-on-click="() => this.submitAddWorkOrder()">
+                                Add Work Order
+                            </button>
+                            <button class="btn btn-outline-secondary px-4" t-on-click="() => this.closeAddWorkOrderModal()">
+                                Discard
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- =========================================================== -->
+            <!-- LOG NOTE MODAL                                              -->
+            <!-- =========================================================== -->
+            <div t-if="state.showLogNoteModal"
+                 class="sf-overlay position-fixed top-0 start-0 w-100 h-100 d-flex justify-content-center align-items-center"
+                 style="z-index: 3100; background: rgba(0,0,0,0.45);">
+                <div class="bg-white rounded-3 shadow-lg" style="width: 460px; max-width: 95vw;">
+                    <div class="d-flex justify-content-between align-items-center px-4 pt-4 pb-2">
+                        <span class="fw-bold fs-5">Log Note</span>
+                        <button class="btn btn-link text-dark p-0" t-on-click="() => this.closeLogNoteModal()">
+                            <i class="fa fa-times fs-5"></i>
+                        </button>
+                    </div>
+                    <div class="p-4 pt-2">
+                        <div class="mb-4">
+                            <label class="form-label fw-semibold">Note</label>
+                            <textarea class="form-control" rows="4" placeholder="Enter your note here..."
+                                      t-att-value="state.logNoteText"
+                                      t-on-input="(ev) => state.logNoteText = ev.target.value"></textarea>
+                        </div>
+                        <div class="d-flex gap-2 justify-content-end">
+                            <button class="btn btn-outline-secondary" t-on-click="() => this.closeLogNoteModal()">Cancel</button>
+                            <button class="btn btn-success px-4 fw-bold" t-on-click="() => this.submitLogNote()">Add Note</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- =========================================================== -->
+            <!-- PIN Modal Overlay                                           -->
+            <!-- =========================================================== -->
+            <div t-if="state.showPinModal"
+                 class="position-absolute top-0 start-0 w-100 h-100 bg-dark bg-opacity-50 d-flex justify-content-center align-items-center"
+                 style="z-index: 4000;">
                 <div class="bg-white rounded p-4 shadow-lg text-center" style="width: 350px;">
                     <h4 class="fw-bold mb-3">Sign in</h4>
                     <p class="text-secondary mb-4">Enter PIN for <strong class="text-dark"><t t-esc="state.pendingEmployee.name"/></strong></p>
-                    
-                    <!-- Display dynamic input asterisks -->
                     <div class="mb-4 d-flex justify-content-center w-100 p-3 border rounded bg-light" style="min-height: 60px;">
                         <span class="fs-1 fw-bold text-dark" style="letter-spacing: 0.5rem; line-height: 1;">
                             <t t-esc="'•'.repeat(state.pinInput.length)"/>
                         </span>
                     </div>
-                    
                     <div t-if="state.pinError" class="text-danger small fw-bold mb-3">
                         Incorrect PIN. Please try again.
                     </div>
-                    
-                    <!-- Numpad -->
                     <div class="row g-2 mb-3">
                         <t t-foreach="[1,2,3,4,5,6,7,8,9]" t-as="num" t-key="num">
                             <div class="col-4">
-                                <button class="btn btn-light border w-100 py-2 fs-4 fw-bold sf-hover-btn" t-on-click="() => this.addPinDigit(num)"><t t-esc="num"/></button>
+                                <button class="btn btn-light border w-100 py-2 fs-4 fw-bold sf-hover-btn"
+                                        t-on-click="() => this.addPinDigit(num)"><t t-esc="num"/></button>
                             </div>
                         </t>
                         <div class="col-4">
-                            <button class="btn btn-danger w-100 py-2 fs-5 fw-bold sf-hover-btn text-white" t-on-click="() => this.clearPin()">C</button>
+                            <button class="btn btn-danger w-100 py-2 fs-5 fw-bold sf-hover-btn text-white"
+                                    t-on-click="() => this.clearPin()">C</button>
                         </div>
                         <div class="col-4">
-                            <button class="btn btn-light border w-100 py-2 fs-4 fw-bold sf-hover-btn" t-on-click="() => this.addPinDigit(0)">0</button>
+                            <button class="btn btn-light border w-100 py-2 fs-4 fw-bold sf-hover-btn"
+                                    t-on-click="() => this.addPinDigit(0)">0</button>
                         </div>
                         <div class="col-4">
-                            <button class="btn btn-success w-100 py-2 fs-5 fw-bold sf-hover-btn text-white" t-on-click="() => this.submitPin()">OK</button>
+                            <button class="btn btn-success w-100 py-2 fs-5 fw-bold sf-hover-btn text-white"
+                                    t-on-click="() => this.submitPin()">OK</button>
                         </div>
                     </div>
-                    
-                    <button class="btn btn-link text-secondary text-decoration-none mt-2" t-on-click="() => this.closePinModal()">Cancel</button>
+                    <button class="btn btn-link text-secondary text-decoration-none mt-2"
+                            t-on-click="() => this.closePinModal()">Cancel</button>
                 </div>
             </div>
-            
+
         </div>
     </t>
 </templates>

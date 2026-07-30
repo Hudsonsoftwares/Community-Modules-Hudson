@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- ─────────────────────────────────────────────────────────────
+         NEW SUBMENU: Advanced Reports (under Accounting > Reporting)
+         ───────────────────────────────────────────────────────────── -->
+    <menuitem id="menu_hudson_advanced_reports"
+              name="Advanced Reports"
+              parent="account.menu_finance_reports"
+              sequence="50"
+              groups="account.group_account_user,account.group_account_manager"/>
+
+    <!-- Cash Flow Statement -->
+    <menuitem id="menu_account_cash_flow"
+              name="Cash Flow Statement"
+              parent="menu_hudson_advanced_reports"
+              action="action_account_cash_flow_wizard"
+              sequence="10"
+              groups="account.group_account_user,account.group_account_manager"/>
+
+    <!-- Annual Report -->
+    <menuitem id="menu_account_annual_report"
+              name="Annual Report"
+              parent="menu_hudson_advanced_reports"
+              action="action_account_annual_report_wizard"
+              sequence="20"
+              groups="account.group_account_user,account.group_account_manager"/>
+
+    <!-- Executive Summary -->
+    <menuitem id="menu_account_executive_summary"
+              name="Executive Summary"
+              parent="menu_hudson_advanced_reports"
+              action="action_account_executive_summary_wizard"
+              sequence="30"
+              groups="account.group_account_user,account.group_account_manager"/>
+
+    <!-- Unrealized Currency Gains/Losses -->
+    <menuitem id="menu_account_unrealized_currency"
+              name="Unrealized Currency Gains/Losses"
+              parent="menu_hudson_advanced_reports"
+              action="action_account_unrealized_currency_wizard"
+              sequence="40"
+              groups="account.group_account_user,account.group_account_manager"/>
+
+    <!-- Extended Tax Report (under Audit Reports) -->
+    <menuitem id="menu_account_tax_extended"
+              name="Tax Report (Extended)"
+              parent="accounting_pdf_reports.menu_finance_audit_reports"
+              action="action_account_tax_extended_wizard"
+              sequence="35"
+              groups="account.group_account_user,account.group_account_manager"/>
+
+    <!-- ─────────────────────────────────────────────────────────────
+         AGED RECEIVABLE / PAYABLE — Override community wizard menus
+         Point existing menuitems to our new enterprise-style actions
+         ───────────────────────────────────────────────────────────── -->
+
+    <!-- Override Aged Receivable menu to point to new enterprise-style action -->
+    <record id="accounting_pdf_reports.menu_aged_receivable" model="ir.ui.menu">
+        <field name="action" ref="action_aged_receivable"/>
+    </record>
+
+    <!-- Override Aged Payable menu to point to new enterprise-style action -->
+    <record id="accounting_pdf_reports.menu_aged_payable" model="ir.ui.menu">
+        <field name="action" ref="action_aged_payable"/>
+    </record>
+
+    <!-- Override Aged Partner Balance menu to point to new enterprise-style action -->
+    <record id="accounting_pdf_reports.menu_aged_trial_balance" model="ir.ui.menu">
+        <field name="action" ref="action_aged_partner_balance"/>
+    </record>
+
+    <!-- ─────────────────────────────────────────────────────────────
+         BUDGET FIX — Make Budgets accessible to account users
+         under Accounting > Reporting for better discoverability
+         ───────────────────────────────────────────────────────────── -->
+
+    <!-- Budget Management submenu under Reporting -->
+    <menuitem id="menu_hudson_budget_section"
+              name="Budget"
+              parent="account.menu_finance_reports"
+              sequence="60"
+              groups="account.group_account_user,account.group_account_manager"/>
+
+    <!-- Budgets list -->
+    <menuitem id="menu_hudson_budgets"
+              name="Budgets"
+              parent="menu_hudson_budget_section"
+              action="om_account_budget.act_crossovered_budget_view"
+              sequence="10"
+              groups="account.group_account_user,account.group_account_manager"/>
+
+    <!-- Budget Analysis pivot/graph view -->
+    <menuitem id="menu_hudson_budget_analysis"
+              name="Budget Analysis"
+              parent="menu_hudson_budget_section"
+              action="om_account_budget.act_crossovered_budget_lines_view"
+              sequence="20"
+              groups="account.group_account_user,account.group_account_manager"/>
+
+    <!-- Budgetary Positions (categories) -->
+    <menuitem id="menu_hudson_budget_positions"
+              name="Budgetary Positions"
+              parent="menu_hudson_budget_section"
+              action="om_account_budget.open_budget_post_form"
+              sequence="30"
+              groups="account.group_account_manager"/>
+
+    <!-- ─────────────────────────────────────────────────────────────
+         RECONCILIATION — Add "Journal Items" quick access for manual entries
+         ───────────────────────────────────────────────────────────── -->
+    <menuitem id="menu_hudson_journal_items"
+              name="All Journal Items"
+              parent="account.menu_finance_entries"
+              action="account.action_account_moves_all_a"
+              sequence="15"
+              groups="account.group_account_user,account.group_account_manager"/>
+
+</odoo>

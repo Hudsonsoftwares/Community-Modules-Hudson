@@ -79,6 +79,7 @@ class CrossoveredBudgetLines(models.Model):
 
     name = fields.Char(compute='_compute_line_name')
     crossovered_budget_id = fields.Many2one('crossovered.budget', 'Budget', ondelete='cascade', index=True, required=True)
+    budget_id = fields.Many2one('crossovered.budget', related='crossovered_budget_id', string='Budget')
     analytic_account_id = fields.Many2one('account.analytic.account', 'Analytic Account')
     analytic_plan_id = fields.Many2one(related='analytic_account_id.plan_id')
     general_budget_id = fields.Many2one('account.budget.post', 'Budgetary Position')
@@ -94,6 +95,8 @@ class CrossoveredBudgetLines(models.Model):
     theoritical_amount = fields.Monetary(
         compute='_compute_theoritical_amount', string='Theoretical Amount',
         help="Amount you are supposed to have earned/spent at this date.")
+    theoretical_amount = fields.Monetary(
+        related='theoritical_amount', string='Theoretical Amount (Alias)')
     percentage = fields.Float(
         compute='_compute_percentage', string='Achievement',
         help="Comparison between practical and theoretical amount. This measure tells you if you are below or over budget.")
@@ -171,14 +174,9 @@ class CrossoveredBudgetLines(models.Model):
                           ]
                 if acc_ids:
                     domain += [('general_account_id', 'in', acc_ids)]
-
-                where_query = analytic_line_obj._where_calc(domain)
-                analytic_line_obj._apply_ir_rules(where_query, 'read')
-                from_string, from_params = where_query.from_clause
-                where_string, where_params = where_query.where_clause
-                from_clause, where_clause, where_clause_params = from_string, where_string, from_params + where_params
-
-                select = "SELECT SUM(amount) from " + from_clause + " where " + where_clause
+                
+                result = analytic_line_obj._read_group(domain, [], ['amount:sum'])
+                line.practical_amount = result[0][0] if result and result[0] else 0.0
 
             else:
                 aml_obj = self.env['account.move.line']
@@ -187,16 +185,13 @@ class CrossoveredBudgetLines(models.Model):
                           ('date', '>=', date_from),
                           ('date', '<=', date_to)
                           ]
-                where_query = aml_obj._where_calc(domain)
-                aml_obj._apply_ir_rules(where_query, 'read')
-                from_string, from_params = where_query.from_clause
-                where_string, where_params = where_query.where_clause
-                from_clause, where_clause, where_clause_params = from_string, where_string, from_params + where_params
-
-                select = "SELECT sum(credit)-sum(debit) from " + from_clause + " where " + where_clause
-
-            self.env.cr.execute(select, where_clause_params)
-            line.practical_amount = self.env.cr.fetchone()[0] or 0.0
+                result = aml_obj._read_group(domain, [], ['credit:sum', 'debit:sum'])
+                if result and result[0]:
+                    credit = result[0][0] or 0.0
+                    debit = result[0][1] or 0.0
+                    line.practical_amount = credit - debit
+                else:
+                    line.practical_amount = 0.0
 
     def _compute_theoritical_amount(self):
         # beware: 'today' variable is mocked in the python tests and thus, its implementation matter

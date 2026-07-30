@@ -1,0 +1,428 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <template id="report_annual">
+        <t t-call="web.html_container">
+            <t t-call="web.internal_layout">
+                <div class="page">
+
+                    <!-- ══════════════════════════════════════════════════
+                         COVER HEADER — Company + Period Info
+                         ══════════════════════════════════════════════════ -->
+                    <div class="row mb-0" style="border-bottom:3px solid #2c3e50; padding-bottom:12px;">
+                        <div class="col-7">
+                            <div style="display:flex; align-items:center; gap:15px;">
+                                <div t-if="logo_b64">
+                                    <img t-att-src="'data:image/png;base64,' + logo_b64"
+                                         style="max-height:70px; max-width:160px; object-fit:contain;"/>
+                                </div>
+                                <div>
+                                    <h2 style="color:#2c3e50; font-weight:bold; margin:0; font-size:22px;">
+                                        <t t-esc="company.name"/>
+                                    </h2>
+                                    <p style="color:#7f8c8d; margin:2px 0; font-size:12px;">
+                                        <t t-if="company.street"><t t-esc="company.street"/>, </t>
+                                        <t t-if="company.city"><t t-esc="company.city"/></t>
+                                        <t t-if="company.country_id"> — <t t-esc="company.country_id.name"/></t>
+                                    </p>
+                                    <p style="color:#7f8c8d; margin:0; font-size:12px;">
+                                        <t t-if="company.vat">TIN: <t t-esc="company.vat"/></t>
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-5 text-end">
+                            <h1 style="color:#2c3e50; font-weight:bold; font-size:20px; margin:0;">
+                                Annual Financial Report
+                            </h1>
+                            <p style="color:#7f8c8d; font-size:13px; margin:4px 0 0 0;">
+                                Fiscal Year <strong><t t-esc="data.get('fiscal_year')"/></strong>
+                            </p>
+                            <p style="color:#95a5a6; font-size:11px; margin:2px 0 0 0;">
+                                <t t-esc="data.get('date_from')"/> to <t t-esc="data.get('date_to')"/>
+                            </p>
+                            <p style="color:#95a5a6; font-size:11px; margin:2px 0 0 0;">
+                                <t t-if="data.get('target_move') == 'posted'">Posted Entries Only</t>
+                                <t t-if="data.get('target_move') == 'all'">All Entries (incl. Draft)</t>
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- ══════════════════════════════════════════════════
+                         SECTION 1: INCOME STATEMENT (P&L)
+                         ══════════════════════════════════════════════════ -->
+                    <div style="margin-top:18px;">
+                        <h3 style="color:#2c3e50; font-weight:bold; font-size:14px;
+                                   border-left:4px solid #3498db; padding-left:8px; margin-bottom:6px;">
+                            Statement of Profit &amp; Loss
+                            <span style="font-weight:normal; font-size:11px; color:#7f8c8d;">
+                                (for the year ended <t t-esc="data.get('date_to')"/>)
+                            </span>
+                        </h3>
+                        <table class="table table-sm" style="font-size:12px; margin-bottom:6px;">
+                            <thead>
+                                <tr style="background:#2c3e50; color:white;">
+                                    <th style="width:65%; padding:6px 8px;">Particulars</th>
+                                    <th class="text-end" style="padding:6px 8px;">
+                                        Amount (<t t-esc="currency.symbol"/>)
+                                    </th>
+                                    <th class="text-end" style="padding:6px 8px; width:20%;">Notes</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Revenue -->
+                                <tr style="background:#f8f9fa;">
+                                    <td style="padding:5px 8px; font-weight:bold; color:#2c3e50;">I. Revenue from Operations</td>
+                                    <td class="text-end" style="padding:5px 8px; font-weight:bold;">
+                                        <span t-esc="data.get('revenue', 0)"
+                                              t-options="{'widget': 'monetary', 'display_currency': currency}"/>
+                                    </td>
+                                    <td class="text-end" style="padding:5px 8px; color:#95a5a6; font-size:10px;"></td>
+                                </tr>
+                                <!-- Other Income -->
+                                <tr>
+                                    <td style="padding:5px 8px;">II. Other Income</td>
+                                    <td class="text-end" style="padding:5px 8px;">
+                                        <span t-esc="data.get('other_income', 0)"
+                                              t-options="{'widget': 'monetary', 'display_currency': currency}"/>
+                                    </td>
+                                    <td></td>
+                                </tr>
+                                <!-- Total Revenue -->
+                                <tr style="background:#d5e8d4; font-weight:bold;">
+                                    <td style="padding:6px 8px;">III. Total Revenue (I + II)</td>
+                                    <td class="text-end" style="padding:6px 8px;">
+                                        <span t-esc="data.get('revenue', 0) + data.get('other_income', 0)"
+                                              t-options="{'widget': 'monetary', 'display_currency': currency}"/>
+                                    </td>
+                                    <td></td>
+                                </tr>
+                                <!-- Expenses header -->
+                                <tr style="background:#f8f9fa;">
+                                    <td colspan="3" style="padding:5px 8px; font-weight:bold; color:#2c3e50;">IV. Expenses</td>
+                                </tr>
+                                <!-- COGS -->
+                                <tr>
+                                    <td style="padding:5px 8px; padding-left:20px;">Cost of Revenue / COGS</td>
+                                    <td class="text-end" style="padding:5px 8px;">
+                                        <span t-esc="data.get('cogs', 0)"
+                                              t-options="{'widget': 'monetary', 'display_currency': currency}"/>
+                                    </td>
+                                    <td></td>
+                                </tr>
+                                <!-- Gross Profit -->
+                                <tr style="background:#dae8fc; font-weight:bold;">
+                                    <td style="padding:6px 8px;">    Gross Profit (I - COGS)</td>
+                                    <td class="text-end" style="padding:6px 8px;">
+                                        <span t-esc="data.get('gross_profit', 0)"
+                                              t-options="{'widget': 'monetary', 'display_currency': currency}"/>
+                                    </td>
+                                    <td></td>
+                                </tr>
+                                <!-- Operating Expenses -->
+                                <tr>
+                                    <td style="padding:5px 8px; padding-left:20px;">Operating Expenses</td>
+                                    <td class="text-end" style="padding:5px 8px;">
+                                        <span t-esc="data.get('operating_expenses', 0)"
+                                              t-options="{'widget': 'monetary', 'display_currency': currency}"/>
+                                    </td>
+                                    <td></td>
+                                </tr>
+                                <!-- Depreciation -->
+                                <tr>
+                                    <td style="padding:5px 8px; padding-left:20px;">Depreciation &amp; Amortisation</td>
+                                    <td class="text-end" style="padding:5px 8px;">
+                                        <span t-esc="data.get('depreciation', 0)"
+                                              t-options="{'widget': 'monetary', 'display_currency': currency}"/>
+                                    </td>
+                                    <td></td>
+                                </tr>
+                                <!-- Total Expenses -->
+                                <tr style="background:#ffeaa7;">
+                                    <td style="padding:6px 8px; font-weight:bold;">    Total Expenses (IV)</td>
+                                    <td class="text-end" style="padding:6px 8px; font-weight:bold;">
+                                        <span t-esc="data.get('cogs', 0) + data.get('operating_expenses', 0) + data.get('depreciation', 0)"
+                                              t-options="{'widget': 'monetary', 'display_currency': currency}"/>
+                                    </td>
+                                    <td></td>
+                                </tr>
+                                <!-- Net Profit -->
+                                <tr style="background:#2c3e50; color:white; font-weight:bold; font-size:13px;">
+                                    <td style="padding:8px;">V. Net Profit / (Loss) for the Year (III - IV)</td>
+                                    <td class="text-end" style="padding:8px;"
+                                        t-att-style="'background:#c0392b;' if data.get('net_profit', 0) &lt; 0 else ''">
+                                        <span t-esc="data.get('net_profit', 0)"
+                                              t-options="{'widget': 'monetary', 'display_currency': currency}"/>
+                                    </td>
+                                    <td></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div style="page-break-before:always;"/>
+
+                    <!-- ══════════════════════════════════════════════════
+                         SECTION 2: BALANCE SHEET
+                         ══════════════════════════════════════════════════ -->
+                    <div style="margin-top:18px;">
+                        <h3 style="color:#2c3e50; font-weight:bold; font-size:14px;
+                                   border-left:4px solid #27ae60; padding-left:8px; margin-bottom:6px;">
+                            Balance Sheet
+                            <span style="font-weight:normal; font-size:11px; color:#7f8c8d;">
+                                (as at <t t-esc="data.get('date_to')"/>)
+                            </span>
+                        </h3>
+
+                        <div class="row">
+                            <!-- ── ASSETS ──────────────────────────────── -->
+                            <div class="col-6">
+                                <table class="table table-sm" style="font-size:12px;">
+                                    <thead>
+                                        <tr style="background:#27ae60; color:white;">
+                                            <th style="padding:6px 8px;">Assets</th>
+                                            <th class="text-end" style="padding:6px 8px;">
+                                                <t t-esc="currency.symbol"/>
+                                            </th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <!-- Non-Current Assets -->
+                                        <tr style="background:#f8f9fa;">
+                                            <td colspan="2" style="padding:4px 8px; font-weight:bold; color:#27ae60; font-size:11px;">
+                                                NON-CURRENT ASSETS
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td style="padding:4px 8px; padding-left:16px;">Property, Plant &amp; Equipment</td>
+                                            <td class="text-end" style="padding:4px 8px;">
+                                                <span t-esc="data.get('noncurrent_assets', 0)"
+                                                      t-options="{'widget': 'monetary', 'display_currency': currency}"/>
+                                            </td>
+                                        </tr>
+                                        <tr style="background:#eafaf1; font-weight:bold; color:#27ae60;">
+                                            <td style="padding:5px 8px;">Total Non-Current Assets</td>
+                                            <td class="text-end" style="padding:5px 8px;">
+                                                <span t-esc="data.get('noncurrent_assets', 0)"
+                                                      t-options="{'widget': 'monetary', 'display_currency': currency}"/>
+                                            </td>
+                                        </tr>
+
+                                        <!-- Current Assets -->
+                                        <tr style="background:#f8f9fa;">
+                                            <td colspan="2" style="padding:4px 8px; font-weight:bold; color:#27ae60; font-size:11px; margin-top:4px;">
+                                                CURRENT ASSETS
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td style="padding:4px 8px; padding-left:16px;">Trade Receivables &amp; Other</td>
+                                            <td class="text-end" style="padding:4px 8px;">
+                                                <span t-esc="data.get('current_assets', 0)"
+                                                      t-options="{'widget': 'monetary', 'display_currency': currency}"/>
+                                            </td>
+                                        </tr>
+                                        <tr style="background:#eafaf1; font-weight:bold; color:#27ae60;">
+                                            <td style="padding:5px 8px;">Total Current Assets</td>
+                                            <td class="text-end" style="padding:5px 8px;">
+                                                <span t-esc="data.get('current_assets', 0)"
+                                                      t-options="{'widget': 'monetary', 'display_currency': currency}"/>
+                                            </td>
+                                        </tr>
+
+                                        <!-- TOTAL ASSETS -->
+                                        <tr style="background:#27ae60; color:white; font-weight:bold; font-size:13px;">
+                                            <td style="padding:8px;">TOTAL ASSETS</td>
+                                            <td class="text-end" style="padding:8px;">
+                                                <span t-esc="data.get('total_assets', 0)"
+                                                      t-options="{'widget': 'monetary', 'display_currency': currency}"/>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <!-- ── LIABILITIES & EQUITY ────────────────── -->
+                            <div class="col-6">
+                                <table class="table table-sm" style="font-size:12px;">
+                                    <thead>
+                                        <tr style="background:#e74c3c; color:white;">
+                                            <th style="padding:6px 8px;">Equity &amp; Liabilities</th>
+                                            <th class="text-end" style="padding:6px 8px;">
+                                                <t t-esc="currency.symbol"/>
+                                            </th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <!-- Equity -->
+                                        <tr style="background:#f8f9fa;">
+                                            <td colspan="2" style="padding:4px 8px; font-weight:bold; color:#3498db; font-size:11px;">
+                                                SHAREHOLDERS' EQUITY
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td style="padding:4px 8px; padding-left:16px;">Share Capital &amp; Reserves</td>
+                                            <td class="text-end" style="padding:4px 8px;">
+                                                <span t-esc="data.get('share_capital', 0)"
+                                                      t-options="{'widget': 'monetary', 'display_currency': currency}"/>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td style="padding:4px 8px; padding-left:16px;">Retained Earnings</td>
+                                            <td class="text-end" style="padding:4px 8px;">
+                                                <span t-esc="data.get('retained_earnings', 0)"
+                                                      t-options="{'widget': 'monetary', 'display_currency': currency}"/>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td style="padding:4px 8px; padding-left:16px;">Current Year Net Profit/(Loss)</td>
+                                            <td class="text-end" style="padding:4px 8px;">
+                                                <span t-esc="data.get('net_profit', 0)"
+                                                      t-options="{'widget': 'monetary', 'display_currency': currency}"/>
+                                            </td>
+                                        </tr>
+                                        <tr style="background:#ebf5fb; font-weight:bold; color:#3498db;">
+                                            <td style="padding:5px 8px;">Total Equity</td>
+                                            <td class="text-end" style="padding:5px 8px;">
+                                                <span t-esc="data.get('total_equity', 0)"
+                                                      t-options="{'widget': 'monetary', 'display_currency': currency}"/>
+                                            </td>
+                                        </tr>
+
+                                        <!-- Non-Current Liabilities -->
+                                        <tr style="background:#f8f9fa;">
+                                            <td colspan="2" style="padding:4px 8px; font-weight:bold; color:#e74c3c; font-size:11px;">
+                                                NON-CURRENT LIABILITIES
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td style="padding:4px 8px; padding-left:16px;">Long-term Borrowings &amp; Other</td>
+                                            <td class="text-end" style="padding:4px 8px;">
+                                                <span t-esc="data.get('noncurrent_liabilities', 0)"
+                                                      t-options="{'widget': 'monetary', 'display_currency': currency}"/>
+                                            </td>
+                                        </tr>
+                                        <tr style="background:#fdf2f2; font-weight:bold; color:#e74c3c;">
+                                            <td style="padding:5px 8px;">Total Non-Current Liabilities</td>
+                                            <td class="text-end" style="padding:5px 8px;">
+                                                <span t-esc="data.get('noncurrent_liabilities', 0)"
+                                                      t-options="{'widget': 'monetary', 'display_currency': currency}"/>
+                                            </td>
+                                        </tr>
+
+                                        <!-- Current Liabilities -->
+                                        <tr style="background:#f8f9fa;">
+                                            <td colspan="2" style="padding:4px 8px; font-weight:bold; color:#e74c3c; font-size:11px;">
+                                                CURRENT LIABILITIES
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td style="padding:4px 8px; padding-left:16px;">Trade Payables &amp; Other</td>
+                                            <td class="text-end" style="padding:4px 8px;">
+                                                <span t-esc="data.get('current_liabilities', 0)"
+                                                      t-options="{'widget': 'monetary', 'display_currency': currency}"/>
+                                            </td>
+                                        </tr>
+                                        <tr style="background:#fdf2f2; font-weight:bold; color:#e74c3c;">
+                                            <td style="padding:5px 8px;">Total Current Liabilities</td>
+                                            <td class="text-end" style="padding:5px 8px;">
+                                                <span t-esc="data.get('current_liabilities', 0)"
+                                                      t-options="{'widget': 'monetary', 'display_currency': currency}"/>
+                                            </td>
+                                        </tr>
+
+                                        <!-- TOTAL EQUITY & LIABILITIES -->
+                                        <tr style="background:#e74c3c; color:white; font-weight:bold; font-size:13px;">
+                                            <td style="padding:8px;">TOTAL EQUITY &amp; LIABILITIES</td>
+                                            <td class="text-end" style="padding:8px;">
+                                                <span t-esc="data.get('total_liabilities', 0) + data.get('total_equity', 0)"
+                                                      t-options="{'widget': 'monetary', 'display_currency': currency}"/>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ══════════════════════════════════════════════════
+                         SECTION 3: KEY FINANCIAL RATIOS
+                         ══════════════════════════════════════════════════ -->
+                    <div style="margin-top:10px;">
+                        <h3 style="color:#2c3e50; font-weight:bold; font-size:13px;
+                                   border-left:4px solid #9b59b6; padding-left:8px; margin-bottom:6px;">
+                            Key Financial Indicators
+                        </h3>
+                        <table class="table table-sm" style="font-size:11px; width:50%;">
+                            <thead>
+                                <tr style="background:#9b59b6; color:white;">
+                                    <th style="padding:5px 8px;">Ratio</th>
+                                    <th class="text-end" style="padding:5px 8px;">Value</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td style="padding:4px 8px;">Gross Profit Margin</td>
+                                    <td class="text-end" style="padding:4px 8px; font-weight:bold;">
+                                        <t t-if="data.get('revenue', 0) != 0">
+                                            <t t-esc="round(data.get('gross_profit', 0) / data.get('revenue', 1) * 100, 1)"/>%
+                                        </t>
+                                        <t t-else="">N/A</t>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding:4px 8px;">Net Profit Margin</td>
+                                    <td class="text-end" style="padding:4px 8px; font-weight:bold;">
+                                        <t t-if="data.get('revenue', 0) != 0">
+                                            <t t-esc="round(data.get('net_profit', 0) / data.get('revenue', 1) * 100, 1)"/>%
+                                        </t>
+                                        <t t-else="">N/A</t>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding:4px 8px;">Current Ratio</td>
+                                    <td class="text-end" style="padding:4px 8px; font-weight:bold;">
+                                        <t t-if="data.get('current_liabilities', 0) != 0">
+                                            <t t-esc="round(data.get('current_assets', 0) / abs(data.get('current_liabilities', 1)), 2)"/>x
+                                        </t>
+                                        <t t-else="">N/A</t>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding:4px 8px;">Debt-to-Equity Ratio</td>
+                                    <td class="text-end" style="padding:4px 8px; font-weight:bold;">
+                                        <t t-if="data.get('total_equity', 0) != 0">
+                                            <t t-esc="round(data.get('total_liabilities', 0) / abs(data.get('total_equity', 1)), 2)"/>x
+                                        </t>
+                                        <t t-else="">N/A</t>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- ══════════════════════════════════════════════════
+                         FOOTER / NOTES
+                         ══════════════════════════════════════════════════ -->
+                    <div class="row mt-3" style="border-top:1px solid #bdc3c7; padding-top:8px;">
+                        <div class="col-8">
+                            <p style="font-size:10px; color:#95a5a6; margin:0;">
+                                All amounts are stated in <t t-esc="currency.name"/> (<t t-esc="currency.symbol"/>).
+                                Prepared in accordance with applicable accounting standards.
+                                This report has been generated by the accounting system and is subject to audit.
+                            </p>
+                        </div>
+                        <div class="col-4 text-end">
+                            <p style="font-size:10px; color:#95a5a6; margin:0;">
+                                For and on behalf of<br/>
+                                <strong><t t-esc="company.name"/></strong>
+                            </p>
+                            <div style="margin-top:30px; border-top:1px solid #bdc3c7; padding-top:4px; font-size:10px; color:#7f8c8d;">
+                                Authorised Signatory
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </t>
+        </t>
+    </template>
+</odoo>

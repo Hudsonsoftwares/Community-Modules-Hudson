@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_account_unrealized_currency_wizard" model="ir.ui.view">
+        <field name="name">account.unrealized.currency.wizard.form</field>
+        <field name="model">account.unrealized.currency.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Unrealized Currency Gains/Losses">
+                <group>
+                    <group string="Parameters">
+                        <field name="as_of_date"/>
+                        <field name="company_id" groups="base.group_multi_company"/>
+                    </group>
+                    <group string="Information">
+                        <div class="o_form_label"/>
+                        <div>
+                            <p class="text-muted">
+                                This report shows unrealized foreign exchange gains and losses
+                                on open receivables and payables in foreign currencies,
+                                based on the exchange rates as of the selected date.
+                            </p>
+                        </div>
+                    </group>
+                </group>
+                <footer>
+                    <button name="action_print_report"
+                            string="Generate Report"
+                            type="object"
+                            class="btn-primary"
+                            data-hotkey="q"/>
+                    <button string="Cancel"
+                            class="btn-secondary"
+                            special="cancel"
+                            data-hotkey="z"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_account_unrealized_currency_wizard" model="ir.actions.act_window">
+        <field name="name">Unrealized Currency Gains/Losses</field>
+        <field name="res_model">account.unrealized.currency.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="view_id" ref="view_account_unrealized_currency_wizard"/>
+        <field name="target">new</field>
+    </record>
+</odoo>
