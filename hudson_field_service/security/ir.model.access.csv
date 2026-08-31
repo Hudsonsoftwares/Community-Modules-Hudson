@@ -1,4 +1,6 @@
 id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_field_service_material_user,field.service.material.user,model_field_service_material,hudson_field_service.group_field_service_user,1,1,1,0
+access_field_service_material_manager,field.service.material.manager,model_field_service_material,hudson_field_service.group_field_service_manager,1,1,1,1
 access_field_service_order_user,field.service.order.user,model_field_service_order,hudson_field_service.group_field_service_user,1,1,1,0
 access_field_service_order_manager,field.service.order.manager,model_field_service_order,hudson_field_service.group_field_service_manager,1,1,1,1
 access_field_service_stage_user,field.service.stage.user,model_field_service_stage,hudson_field_service.group_field_service_user,1,0,0,0
@@ -12,6 +14,7 @@ access_field_service_product_line_manager,field.service.product.line.manager,mod
 access_field_service_stop_wizard_user,field.service.stop.wizard.user,model_field_service_stop_wizard,hudson_field_service.group_field_service_user,1,1,1,1
 access_field_service_create_invoice_wizard_user,field.service.create.invoice.wizard.user,model_field_service_create_invoice_wizard,hudson_field_service.group_field_service_user,1,1,1,1
 access_field_service_create_invoice_wizard_manager,field.service.create.invoice.wizard.manager,model_field_service_create_invoice_wizard,hudson_field_service.group_field_service_manager,1,1,1,1
+
 access_field_service_report_user,report.field.service.analysis.user,model_report_field_service_analysis,hudson_field_service.group_field_service_user,1,0,0,0
 access_field_service_report_manager,report.field.service.analysis.manager,model_report_field_service_analysis,hudson_field_service.group_field_service_manager,1,0,0,0
 access_field_service_image_user,field.service.image.user,model_field_service_image,hudson_field_service.group_field_service_user,1,1,1,1

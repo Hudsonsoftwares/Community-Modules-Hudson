@@ -6,8 +6,14 @@
         <field name="model">res.currency</field>
         <field name="inherit_id" ref="base.view_currency_tree"/>
         <field name="arch" type="xml">
-            <list position="attributes">
-                <attribute name="decoration-muted">active == False</attribute>
+            <list position="inside">
+                <header>
+                    <button name="action_fetch_ecb_rates" 
+                            string="Fetch ECB Rates" 
+                            type="object" 
+                            class="btn-primary" 
+                            display="always"/>
+                </header>
             </list>
         </field>
     </record>

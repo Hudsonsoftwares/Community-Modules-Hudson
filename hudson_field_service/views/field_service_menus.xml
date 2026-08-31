@@ -17,12 +17,18 @@
     <!-- DASHBOARD                                                     -->
     <!-- ============================================================ -->
 
-    <!-- Planning Board — manager-only: shows ALL employees on a grid -->
+    <!-- Field Service Board (Owl Schedule) -->
+    <record id="action_fs_board" model="ir.actions.client">
+        <field name="name">Field Service Board</field>
+        <field name="tag">hudson_field_service.fs_board</field>
+        <field name="target">main</field>
+    </record>
+
     <menuitem
-        name="Planning Board"
-        id="menu_field_service_planning_board"
+        name="Field Service Board"
+        id="menu_field_service_board"
         parent="menu_field_service_root"
-        action="action_field_service_planning_board"
+        action="action_fs_board"
         groups="hudson_field_service.group_field_service_manager"
         sequence="1"
     />
@@ -45,29 +51,7 @@
         sequence="3"
     />
 
-    <!-- ============================================================ -->
-    <!-- ORDERS                                                        -->
-    <!-- ============================================================ -->
 
-    <menuitem
-        name="Orders"
-        id="menu_field_service_orders"
-        parent="menu_field_service_root"
-        sequence="10"
-    >
-        <menuitem
-            name="My Orders"
-            id="menu_field_service_my_orders"
-            action="action_field_service_my_orders"
-            sequence="1"
-        />
-        <menuitem
-            name="All Orders"
-            id="menu_field_service_all_orders"
-            action="action_field_service_all_orders"
-            sequence="2"
-        />
-    </menuitem>
 
     <!-- ============================================================ -->
     <!-- REPORTING                                                     -->
@@ -117,6 +101,13 @@
             action="action_field_service_tags"
             sequence="20"
         />
+        <menuitem
+            name="Materials"
+            id="menu_field_service_materials"
+            action="action_field_service_material"
+            sequence="30"
+        />
+
     </menuitem>
 
 </odoo>

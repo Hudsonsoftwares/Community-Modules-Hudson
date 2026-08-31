@@ -10,6 +10,14 @@
         t-inherit-mode="primary"
     >
         <xpath expr="//div[hasclass('o_kanban_renderer')]" position="before">
+            <style>
+                .o_kanban_record.o_record_selected,
+                .o_kanban_record.dms_selected {
+                    background-color: #e8f4fd !important;
+                    border: 2px solid #0d6efd !important;
+                    box-shadow: 0 0 0 1px #0d6efd !important;
+                }
+            </style>
             <div t-if="dragState.showDragZone" class="o_dropzone">
                 <i class="fa fa-cloud-upload fa-10x" />
             </div>

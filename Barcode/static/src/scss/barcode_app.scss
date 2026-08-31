@@ -1,0 +1,151 @@
+.o_barcode_client_action {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    background-color: #f8f9fa;
+    
+    .o_barcode_header {
+        background-color: #714B67;
+        color: white;
+        padding: 1rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        
+        button.btn-link {
+            color: white;
+            text-decoration: none;
+            &:hover {
+                color: #e0e0e0;
+            }
+        }
+    }
+
+    .o_barcode_content {
+        flex: 1;
+        overflow-y: auto;
+        padding: 1rem;
+        
+        &.o_landing_background {
+            background: linear-gradient(135deg, #e4d8eb 0%, #e2e8f0 100%);
+            padding: 0;
+        }
+    }
+    
+    .o_barcode_kanban_tiles {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+        gap: 1rem;
+        
+        .o_barcode_tile {
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 0.5rem;
+            padding: 1.5rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            
+            &:hover {
+                box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                border-color: #714B67;
+            }
+            
+            .o_tile_icon {
+                font-size: 2.5rem;
+                color: #714B67;
+                margin-bottom: 0.5rem;
+            }
+        }
+    }
+    
+    .o_barcode_list {
+        .o_barcode_list_item {
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-bottom: 0.5rem;
+            cursor: pointer;
+            
+            &:hover {
+                border-color: #714B67;
+            }
+        }
+    }
+
+    .o_barcode_lines {
+        .o_barcode_line {
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-bottom: 0.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            
+            .o_line_qty {
+                display: flex;
+                align-items: center;
+                gap: 0.5rem;
+                
+                button {
+                    border-radius: 50%;
+                    width: 35px;
+                    height: 35px;
+                }
+            }
+            
+            &.o_line_completed {
+                background-color: #d4edda;
+                border-color: #c3e6cb;
+            }
+        }
+    }
+
+    .o_barcode_bottom_bar {
+        background: white;
+        border-top: 1px solid #dee2e6;
+        padding: 1rem;
+        display: flex;
+        justify-content: space-around;
+        
+        button {
+            flex: 1;
+            margin: 0 0.5rem;
+        }
+    }
+}
+
+// Scanning Laser Animation
+@keyframes scanLaser {
+    0% { top: 0%; opacity: 0; }
+    10% { opacity: 1; }
+    90% { opacity: 1; }
+    100% { top: 100%; opacity: 0; }
+}
+
+.o_barcode_scanner_reticle {
+    box-shadow: 0 0 0 4000px rgba(10, 15, 25, 0.7);
+    border-radius: 16px;
+    z-index: 1;
+    overflow: hidden;
+}
+
+.o_barcode_laser {
+    height: 2px;
+    background-color: #017e84;
+    box-shadow: 0 0 10px 2px rgba(1, 126, 132, 0.8);
+    animation: scanLaser 2.5s infinite ease-in-out;
+    width: 100%;
+    position: absolute;
+}
+
+.o_barcode_reticle_corner {
+    position: absolute;
+    width: 30px;
+    height: 30px;
+    border-color: #017e84 !important;
+    border-radius: 4px;
+}

@@ -9,6 +9,14 @@
                 <button name="action_view_ecos" type="object" class="oe_stat_button" icon="fa-cogs" invisible="eco_count == 0">
                     <field name="eco_count" widget="statinfo" string="ECO(s)"/>
                 </button>
+                <button name="action_view_versions" type="object" class="oe_stat_button" icon="fa-history" invisible="version_count &lt;= 1">
+                    <field name="version_count" widget="statinfo" string="Versions"/>
+                </button>
+            </xpath>
+            <xpath expr="//sheet" position="before">
+                <header>
+                    <button name="action_restore_version" type="object" string="Restore This Version" class="oe_highlight" invisible="active"/>
+                </header>
             </xpath>
             <xpath expr="//widget[@name='web_ribbon']" position="after">
                 <widget name="web_ribbon" title="Archived" bg_color="text-bg-danger" invisible="active"/>

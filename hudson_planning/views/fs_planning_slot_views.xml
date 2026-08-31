@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- standard list view for fallback/reporting -->
+    <record id="fs_planning_slot_view_tree" model="ir.ui.view">
+        <field name="name">fs.planning.slot.tree</field>
+        <field name="model">fs.planning.slot</field>
+        <field name="arch" type="xml">
+            <list string="Planning Slots" multi_edit="1">
+                <field name="resource_id" widget="many2one_avatar_employee"/>
+                <field name="role_id"/>
+                <field name="date_start"/>
+                <field name="date_end"/>
+                <field name="allocated_hours" sum="Total Hours"/>
+                <field name="project_id" optional="show"/>
+                <field name="partner_id" optional="show"/>
+                <field name="attendance_status" widget="badge" decoration-success="attendance_status == 'present'" decoration-danger="attendance_status == 'absent'" decoration-muted="attendance_status == 'unmarked'"/>
+                <field name="state" widget="badge" decoration-info="state == 'draft'" decoration-success="state == 'published'"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- pivot for reporting -->
+    <record id="fs_planning_slot_view_pivot" model="ir.ui.view">
+        <field name="name">fs.planning.slot.pivot</field>
+        <field name="model">fs.planning.slot</field>
+        <field name="arch" type="xml">
+            <pivot string="Planning Analysis" display_quantity="1">
+                <field name="resource_id" type="row"/>
+                <field name="date_start" type="col" interval="month"/>
+                <field name="allocated_hours" type="measure"/>
+            </pivot>
+        </field>
+    </record>
+
+    <!-- form view for manual edits -->
+    <record id="fs_planning_slot_view_form" model="ir.ui.view">
+        <field name="name">fs.planning.slot.form</field>
+        <field name="model">fs.planning.slot</field>
+        <field name="arch" type="xml">
+            <form string="Planning Slot">
+                <header>
+                    <button name="action_publish" string="Publish" type="object" class="oe_highlight" invisible="state == 'published'"/>
+                    <button name="action_unpublish" string="Unpublish" type="object" invisible="state == 'draft'"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,published"/>
+                </header>
+                <sheet>
+                    <widget name="web_ribbon" title="Archived" bg_color="bg-danger" invisible="active"/>
+                    <group>
+                        <group>
+                            <field name="resource_id" widget="many2one_avatar_employee"/>
+                            <field name="project_id"/>
+                            <field name="partner_id"/>
+                            <field name="attendance_status"/>
+                        </group>
+                        <group>
+                            <label for="date_start" string="Date"/>
+                            <div class="o_row">
+                                <field name="date_start" widget="daterange" options="{'end_date_field': 'date_end'}" nolabel="1"/>
+                            </div>
+                            <field name="allocated_hours" widget="float_time"/>
+                            <field name="role_id"/>
+                            <field name="company_id" groups="base.group_multi_company"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Note" name="note">
+                            <field name="note" placeholder="Internal note..."/>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Search view -->
+    <record id="fs_planning_slot_view_search" model="ir.ui.view">
+        <field name="name">fs.planning.slot.search</field>
+        <field name="model">fs.planning.slot</field>
+        <field name="arch" type="xml">
+            <search string="Planning Slots">
+                <field name="resource_id"/>
+                <field name="role_id"/>
+                <field name="project_id"/>
+                <field name="partner_id"/>
+                <filter string="My Shifts" name="my_shifts" domain="[('resource_id.user_id', '=', uid)]"/>
+                <filter string="Published" name="published" domain="[('state', '=', 'published')]"/>
+                <filter string="Draft" name="draft" domain="[('state', '=', 'draft')]"/>
+                <separator/>
+                <filter string="Resource" name="group_resource" context="{'group_by': 'resource_id'}"/>
+                <filter string="Role" name="group_role" context="{'group_by': 'role_id'}"/>
+                <filter string="Project" name="group_project" context="{'group_by': 'project_id'}"/>
+                <filter string="Start Date" name="group_date" context="{'group_by': 'date_start:month'}"/>
+            </search>
+        </field>
+    </record>
+
+    <!-- OWL Client Action for Schedule View -->
+    <record id="action_fs_planning_schedule" model="ir.actions.client">
+        <field name="name">Planning Schedule</field>
+        <field name="tag">hudson_planning.fs_planning_schedule</field>
+        <field name="target">main</field>
+    </record>
+
+    <record id="action_fs_my_planning" model="ir.actions.client">
+        <field name="name">My Planning</field>
+        <field name="tag">hudson_planning.fs_planning_schedule</field>
+        <field name="target">main</field>
+        <field name="context">{'default_my_planning': True}</field>
+    </record>
+
+    <!-- Fallback action for reporting -->
+    <record id="action_fs_planning_slot_reporting" model="ir.actions.act_window">
+        <field name="name">Planning Analysis</field>
+        <field name="res_model">fs.planning.slot</field>
+        <field name="view_mode">pivot,list,form</field>
+        <field name="search_view_id" ref="fs_planning_slot_view_search"/>
+    </record>
+
+</odoo>

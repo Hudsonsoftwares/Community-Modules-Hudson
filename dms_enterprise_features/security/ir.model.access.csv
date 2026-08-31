@@ -17,3 +17,11 @@ access_dms_file_revision_user,dms.file.revision.user,model_dms_file_revision,bas
 access_dms_file_approval_user,dms.file.approval.user,model_dms_file_approval,base.group_user,1,1,1,1
 access_dms_file_signature_req_user,dms.file.signature.request.user,model_dms_file_signature_request,base.group_user,1,1,1,1
 access_dms_file_signature_req_portal,dms.file.signature.request.portal,model_dms_file_signature_request,base.group_portal,1,1,0,0
+
+access_dms_file_signature_item,dms.file.signature.item,model_dms_file_signature_item,dms_enterprise_features.group_dms_document_controller,1,1,1,1
+access_dms_file_signature_item_user,dms.file.signature.item.user,model_dms_file_signature_item,base.group_user,1,1,1,1
+access_dms_file_signature_item_portal,dms.file.signature.item.portal,model_dms_file_signature_item,base.group_portal,1,1,0,0
+
+access_dms_directory_permission_manager,dms.directory.permission.manager,model_dms_directory_permission,dms.group_dms_manager,1,1,1,1
+access_dms_directory_permission_user,dms.directory.permission.user,model_dms_directory_permission,dms.group_dms_user,1,0,0,0
+access_res_config_settings_dms_admin,res.config.settings.dms.admin,base.model_res_config_settings,dms_enterprise_features.group_dms_administrator,1,1,1,1

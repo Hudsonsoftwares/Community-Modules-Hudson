@@ -31,12 +31,18 @@ class AccountAgedReport(models.TransientModel):
     )
     account_type = fields.Selection([
         ('receivable', 'Receivable'),
+        ('non_trade_receivable', 'Non Trade Receivable'),
         ('payable', 'Payable'),
+        ('non_trade_payable', 'Non Trade Payable'),
     ], string='Account Type', required=True, default='receivable')
-    target_move = fields.Selection([
-        ('posted', 'Posted Entries'),
-        ('all', 'All Entries'),
-    ], string='Target Moves', required=True, default='posted')
+    show_draft = fields.Boolean(string='Draft Entries', default=False)
+    show_currency = fields.Boolean(string='Show Currency', default=False)
+    show_account = fields.Boolean(string='Show Account', default=False)
+    hide_lines_at_0 = fields.Boolean(string='Hide lines at 0', default=True)
+    date_basis = fields.Selection([
+        ('date_maturity', 'Based on Due Date'),
+        ('date', 'Based on Invoice Date'),
+    ], string='Based On', required=True, default='date_maturity')
     company_id = fields.Many2one(
         'res.company',
         string='Company',
@@ -46,6 +52,10 @@ class AccountAgedReport(models.TransientModel):
         'res.partner',
         string='Partners',
         help='Leave empty to include all partners.',
+    )
+    partner_category_ids = fields.Many2many(
+        'res.partner.category',
+        string='Partner Tags',
     )
 
     # ── Computed result lines ────────────────────────────────────────────────
@@ -73,9 +83,15 @@ class AccountAgedReport(models.TransientModel):
             rec.col4_label = f'+{4*p}'
 
     def _get_account_types(self):
-        if self.account_type == 'receivable':
+        if self.account_type in ('receivable', 'non_trade_receivable'):
             return ['asset_receivable']
         return ['liability_payable']
+
+    def _get_non_trade_filter(self):
+        if self.account_type in ('non_trade_receivable', 'non_trade_payable'):
+            return "AND aa.non_trade = TRUE"
+        else:
+            return "AND aa.non_trade = FALSE"
 
     def _compute_aged_lines(self):
         """Core computation: generate aged buckets per partner."""
@@ -84,8 +100,14 @@ class AccountAgedReport(models.TransientModel):
         as_of = self.as_of_date
         p = self.period_length
         company = self.company_id
-        state_filter = "AND am.state = 'posted'" if self.target_move == 'posted' else ''
+        state_filter = "" if self.show_draft else "AND am.state = 'posted'"
         acc_types = self._get_account_types()
+        non_trade_filter = self._get_non_trade_filter()
+        
+        # Date basis SQL field mapping
+        basis_field = 'l.date_maturity' if self.date_basis == 'date_maturity' else 'l.date'
+        # Fallback to l.date if l.date_maturity is null when using due date basis
+        date_expr = f"COALESCE({basis_field}, l.date)" if self.date_basis == 'date_maturity' else basis_field
 
         # Determine cutoff dates for each bucket
         # Buckets are based on DAYS PAST DUE (date_maturity or move date)
@@ -119,30 +141,38 @@ class AccountAgedReport(models.TransientModel):
             recon_clause = '(l.reconciled IS FALSE OR l.id IN %s)'
             recon_args = [tuple(recon_after)]
 
-        # Fetch all relevant partners
-        query = f'''
-            SELECT DISTINCT l.partner_id, rp.name AS partner_name
-            FROM account_move_line l
-            JOIN account_account aa ON aa.id = l.account_id
-            JOIN account_move am ON am.id = l.move_id
-            LEFT JOIN res_partner rp ON rp.id = l.partner_id
-            WHERE aa.account_type IN %s
-              AND l.date <= %s
-              AND l.company_id = %s
-              {state_filter}
-              AND {recon_clause}
-              {partner_clause}
-            ORDER BY rp.name
-        '''
+        partner_clause = ''
+        partner_args = []
+        if self.partner_ids:
+            if len(self.partner_ids) == 1:
+                partner_clause = f"AND p.id = {self.partner_ids[0].id}"
+            else:
+                partner_clause = "AND p.id IN %s"
+                partner_args.append(tuple(self.partner_ids.ids))
+                
+        tags_clause = ''
+        tags_args = []
+        if self.partner_category_ids:
+            tags_clause = """
+                AND EXISTS (
+                    SELECT 1 FROM res_partner_res_partner_category_rel rel 
+                    WHERE rel.partner_id = p.id AND rel.category_id IN %s
+                )
+            """
+            tags_args.append(tuple(self.partner_category_ids.ids))
+
+        # Query to get relevant partners
         cr.execute(
-            query,
-            [tuple(acc_types), as_of, company.id] + recon_args + partner_args
+            f'''SELECT DISTINCT p.id as partner_id, p.name as partner_name 
+                FROM res_partner p 
+                WHERE 1=1 {partner_clause} {tags_clause}''',
+            partner_args + tags_args
         )
         partners = cr.dictfetchall()
         if not partners:
             return []
 
-        partner_ids = [p_['partner_id'] for p_ in partners if p_['partner_id']]
+        partner_ids = [prow['partner_id'] for prow in partners]
         partner_id_tuple = tuple(partner_ids) if partner_ids else (0,)
 
         sign = 1 if self.account_type == 'receivable' else -1
@@ -177,8 +207,9 @@ class AccountAgedReport(models.TransientModel):
                 JOIN account_account aa ON aa.id = l.account_id
                 JOIN account_move am ON am.id = l.move_id
                 WHERE aa.account_type IN %s
+                  {non_trade_filter}
                   AND l.date <= %s
-                  AND COALESCE(l.date_maturity, l.date) >= %s
+                  AND {date_expr} >= %s
                   AND l.company_id = %s
                   {state_filter}
                   AND {recon_clause}
@@ -199,8 +230,9 @@ class AccountAgedReport(models.TransientModel):
                     JOIN account_account aa ON aa.id = l.account_id
                     JOIN account_move am ON am.id = l.move_id
                     WHERE aa.account_type IN %s
+                      {non_trade_filter}
                       AND l.date <= %s
-                      AND COALESCE(l.date_maturity, l.date) {date_op}
+                      AND {date_expr} {date_op}
                       AND l.company_id = %s
                       {state_filter}
                       AND {recon_clause}
@@ -225,7 +257,7 @@ class AccountAgedReport(models.TransientModel):
             p4 = bucket_data[0].get(pid, 0.0)
             total = nd + p0 + p1 + p2 + p3 + p4
 
-            if abs(total) < 0.001:
+            if self.hide_lines_at_0 and abs(total) < 0.001:
                 continue  # Skip zero-balance partners
 
             totals['not_due'] += nd
@@ -270,7 +302,7 @@ class AccountAgedReport(models.TransientModel):
                 'res_model': 'account.aged.report',
                 'res_id': self.id,
                 'view_mode': 'form',
-                'target': 'new',
+                'target': 'current',
             }
 
         rows, totals = result_and_totals
@@ -311,7 +343,7 @@ class AccountAgedReport(models.TransientModel):
             'res_model': 'account.aged.report',
             'res_id': self.id,
             'view_mode': 'form',
-            'target': 'new',
+            'target': 'current',
             'context': self.env.context,
         }
 

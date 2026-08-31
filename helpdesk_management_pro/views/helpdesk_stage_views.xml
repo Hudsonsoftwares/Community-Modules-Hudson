@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Stage Form View -->
+    <record id="helpdesk_management_pro_view_stage_form" model="ir.ui.view">
+        <field name="name">helpdesk.management.stage.form</field>
+        <field name="model">helpdesk.management.stage</field>
+        <field name="arch" type="xml">
+            <form string="Helpdesk Stage">
+                <sheet>
+                    <div class="oe_title">
+                        <h1>
+                            <field name="name" placeholder="Stage Name..."/>
+                        </h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="is_close"/>
+                            <field name="fold"/>
+                        </group>
+                        <group>
+                            <field name="sequence"/>
+                            <field name="template_id"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Teams" name="teams">
+                            <field name="team_ids" widget="many2many_tags"/>
+                            <div class="text-muted">
+                                If no teams are selected, this stage will be available to all teams.
+                            </div>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Stage Tree View -->
+    <record id="helpdesk_management_pro_view_stage_tree" model="ir.ui.view">
+        <field name="name">helpdesk.management.stage.tree</field>
+        <field name="model">helpdesk.management.stage</field>
+        <field name="arch" type="xml">
+            <list string="Helpdesk Stages">
+                <field name="sequence" widget="handle"/>
+                <field name="name"/>
+                <field name="is_close"/>
+                <field name="fold"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- Stage Action -->
+    <record id="helpdesk_management_pro_action_stages" model="ir.actions.act_window">
+        <field name="name">Stages</field>
+        <field name="res_model">helpdesk.management.stage</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Create a new stage!
+            </p>
+        </field>
+    </record>
+
+    <menuitem id="helpdesk_management_pro_menu_stages"
+              name="Stages"
+              parent="helpdesk_management_pro_menu_config_stages"
+              action="helpdesk_management_pro_action_stages"
+              sequence="10"/>
+</odoo>

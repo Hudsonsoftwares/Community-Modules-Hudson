@@ -21,6 +21,8 @@
         <field name="arch" type="xml">
             <form string="Engineering Change Order">
                 <header>
+                    <button name="action_approve" type="object" string="Approve" class="oe_highlight" invisible="not user_can_approve" data-hotkey="v"/>
+                    <button name="action_reject" type="object" string="Reject" class="btn-secondary" invisible="not user_can_reject" data-hotkey="x"/>
                     <button name="action_start_revision" type="object" string="Start Revision" class="oe_highlight" invisible="new_bom_id or type != 'bom'"/>
                     <button name="action_apply_changes" type="object" string="Apply Changes" class="oe_highlight" invisible="not new_bom_id or is_applied"/>
                     <field name="stage_id" widget="statusbar" options="{'clickable': '1', 'fold_field': 'folded'}"/>
@@ -64,6 +66,8 @@
                             <field name="tag_ids" widget="many2many_tags" options="{'color_field': 'color'}"/>
                             <field name="update_version" invisible="type != 'bom'"/>
                             <field name="state" invisible="1"/>
+                            <field name="user_can_approve" invisible="1"/>
+                            <field name="user_can_reject" invisible="1"/>
                         </group>
                     </group>
                     <notebook>

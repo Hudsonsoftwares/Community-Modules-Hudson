@@ -3,3 +3,4 @@
 
 from . import portal
 from . import signature_ui
+from . import directory_download

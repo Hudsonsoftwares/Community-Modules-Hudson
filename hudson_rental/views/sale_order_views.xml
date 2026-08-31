@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        
+        <!-- Sale Order Form View - Add Rental Fields -->
+        <record id="sale_order_form_view_rental" model="ir.ui.view">
+            <field name="name">sale.order.rental.form</field>
+            <field name="model">sale.order</field>
+            <field name="inherit_id" ref="sale.view_order_form"/>
+            <field name="arch" type="xml">
+                <xpath expr="//field[@name='partner_id']" position="after">
+                    <field name="is_rental_order" invisible="1"/>
+                    <field name="rental_order_id" invisible="not rental_order_id" readonly="1"/>
+                </xpath>
+                <xpath expr="//field[@name='date_order']" position="after">
+                    <field name="has_rental_product" invisible="1"/>
+                    <label for="rental_start_date" string="Rental period" invisible="not has_rental_product"/>
+                    <div class="o_row" invisible="not has_rental_product">
+                        <field name="rental_start_date" widget="daterange" options="{'end_date_field': 'rental_end_date'}"/>
+                        <field name="rental_end_date" invisible="1"/>
+                    </div>
+                </xpath>
+            </field>
+        </record>
+
+        <!-- Sale Order Line Tree View - Add Rental Fields -->
+        <record id="sale_order_line_tree_view_rental" model="ir.ui.view">
+            <field name="name">sale.order.line.rental.tree</field>
+            <field name="model">sale.order.line</field>
+            <field name="inherit_id" ref="sale.view_order_line_tree"/>
+            <field name="arch" type="xml">
+                <xpath expr="//field[@name='name']" position="after">
+                    <field name="is_rental" optional="hide"/>
+                    <field name="rental_start_date" optional="hide" invisible="not is_rental"/>
+                    <field name="rental_end_date" optional="hide" invisible="not is_rental"/>
+                </xpath>
+            </field>
+        </record>
+
+    </data>
+</odoo>

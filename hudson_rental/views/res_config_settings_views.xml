@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        
+        <!-- Settings View -->
+        <record id="res_config_settings_view_form_rental" model="ir.ui.view">
+            <field name="name">res.config.settings.view.form.inherit.rental</field>
+            <field name="model">res.config.settings</field>
+            <field name="inherit_id" ref="base.res_config_settings_view_form"/>
+            <field name="arch" type="xml">
+                <xpath expr="//form" position="inside">
+                    <app string="Rental" data-string="Rental" name="hudson_rental" groups="hudson_rental.group_rental_manager">
+                        <block title="Pick up &amp; Returns" name="rental_setting_pickup_returns">
+                            <setting string="Unavailability days" help="Days on which pickup and return are not possible">
+                                <div class="content-group">
+                                    <div class="row">
+                                        <div class="col-12 col-md-6">
+                                            <field name="rental_unavailability_monday"/> <label for="rental_unavailability_monday"/>
+                                            <br/>
+                                            <field name="rental_unavailability_tuesday"/> <label for="rental_unavailability_tuesday"/>
+                                            <br/>
+                                            <field name="rental_unavailability_wednesday"/> <label for="rental_unavailability_wednesday"/>
+                                            <br/>
+                                            <field name="rental_unavailability_thursday"/> <label for="rental_unavailability_thursday"/>
+                                            <br/>
+                                        </div>
+                                        <div class="col-12 col-md-6">
+                                            <field name="rental_unavailability_friday"/> <label for="rental_unavailability_friday"/>
+                                            <br/>
+                                            <field name="rental_unavailability_saturday"/> <label for="rental_unavailability_saturday"/>
+                                            <br/>
+                                            <field name="rental_unavailability_sunday"/> <label for="rental_unavailability_sunday"/>
+                                            <br/>
+                                        </div>
+                                    </div>
+                                </div>
+                            </setting>
+                        </block>
+
+                        <block title="Products" name="rental_setting_products">
+                            <setting id="rental_product_variants" string="Variants" help="Sell variants of a product using attributes (size, color, etc.)">
+                                <field name="group_product_variant"/>
+                            </setting>
+                            <setting id="rental_pricelists" string="Pricelists" help="Set multiple prices per product, automated discounts, etc.">
+                                <field name="group_product_pricelist"/>
+                            </setting>
+                            <setting id="rental_loyalty" string="Promotions, Loyalty &amp; Gift Card" help="Manage Promotions, loyalty, gift cards">
+                                <field name="module_loyalty"/>
+                            </setting>
+                            <setting id="rental_discounts" string="Discounts" help="Grant discounts on sales order lines">
+                                <field name="group_discount_per_so_line"/>
+                            </setting>
+                        </block>
+
+                        <block title="Quotations" name="rental_setting_quotations">
+                            <setting id="rental_pdf_quote" string="PDF Quote builder" help="Make your quote attractive by adding header pages, product descriptions and footer pages to your quote.">
+                                <field name="module_sale_pdf_quote_builder"/>
+                            </setting>
+                            <setting id="rental_quotation_template" string="Quotation Templates" help="Design your quotation templates using building blocks">
+                                <field name="group_sale_order_template"/>
+                            </setting>
+                        </block>
+
+                        <block title="Inventory" name="rental_setting_inventory">
+                            <setting id="rental_transfers" string="Rental Transfers" help="Activate to use stock deliveries and receipts for rental orders.">
+                                <field name="rental_use_transfers"/>
+                            </setting>
+                            
+                            <!-- Internal Settings (Hidden if transfers are off, but needed for the backend functionality) -->
+                            <setting string="Location" help="Location where rental products are stored" invisible="not rental_use_transfers">
+                                <field name="rental_location_id" domain="[('usage', '=', 'internal')]"/>
+                            </setting>
+                            <setting string="Picking Type" help="Picking type for rental deliveries" invisible="not rental_use_transfers">
+                                <field name="rental_picking_type_id"/>
+                            </setting>
+                        </block>
+
+                        <block title="Financials" name="rental_setting_financials">
+                            <setting string="Auto Invoice" help="Automatically create invoice when rental is returned">
+                                <field name="rental_auto_invoice"/>
+                            </setting>
+                            <setting string="Security Deposit" help="Require security deposit for all rentals">
+                                <field name="rental_require_deposit"/>
+                            </setting>
+                        </block>
+                    </app>
+                </xpath>
+            </field>
+        </record>
+
+    </data>
+</odoo>

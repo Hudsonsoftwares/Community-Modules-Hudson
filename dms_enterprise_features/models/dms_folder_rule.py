@@ -105,6 +105,7 @@ class DmsFolderRule(models.Model):
             ("project", "Projects"),
             ("approvals", "Approvals"),
             ("sign", "Sign"),
+            ("fleet", "Fleet"),
             ("other", "Other"),
         ],
         string="Business Area",

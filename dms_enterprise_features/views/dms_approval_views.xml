@@ -30,7 +30,7 @@
     <record id="action_dms_approval_workflow" model="ir.actions.act_window">
         <field name="name">Approval Workflows</field>
         <field name="res_model">dms.approval.workflow</field>
-        <field name="view_mode">tree,form</field>
+        <field name="view_mode">list,form</field>
     </record>
 
     <!-- Menu Item (Will add to dms configuration) -->

@@ -16,7 +16,7 @@
                         <group string="Parameters">
                             <field name="as_of_date"/>
                             <field name="period_length"/>
-                            <field name="target_move" widget="radio"/>
+                            <field name="show_draft" widget="boolean_toggle"/>
                             <field name="company_id" groups="base.group_multi_company"/>
                         </group>
                         <group string="Filter">
@@ -66,31 +66,70 @@
 
     <!-- ── Actions ─────────────────────────────────────────────────────── -->
 
-    <record id="action_aged_receivable" model="ir.actions.act_window">
+    <record id="action_server_aged_receivable" model="ir.actions.server">
         <field name="name">Aged Receivable</field>
-        <field name="res_model">account.aged.report</field>
-        <field name="view_mode">form</field>
-        <field name="view_id" ref="view_aged_report_form"/>
-        <field name="context">{'default_account_type': 'receivable', 'aged_type': 'receivable'}</field>
-        <field name="target">new</field>
+        <field name="model_id" ref="hudson_accounting_enhancements.model_account_aged_report"/>
+        <field name="state">code</field>
+        <field name="code">
+wiz = env['account.aged.report'].create({
+    'account_type': 'receivable',
+})
+data = wiz.read()[0]
+action = {
+    'name': 'Aged Receivable',
+    'type': 'ir.actions.client',
+    'tag': 'hudson_dynamic_reports.dynamic_report',
+    'params': {
+        'model_name': 'account.aged.report',
+        'wizard_id': wiz.id,
+        'data': data
+    }
+}
+        </field>
     </record>
 
-    <record id="action_aged_payable" model="ir.actions.act_window">
+    <record id="action_server_aged_payable" model="ir.actions.server">
         <field name="name">Aged Payable</field>
-        <field name="res_model">account.aged.report</field>
-        <field name="view_mode">form</field>
-        <field name="view_id" ref="view_aged_report_form"/>
-        <field name="context">{'default_account_type': 'payable', 'aged_type': 'payable'}</field>
-        <field name="target">new</field>
+        <field name="model_id" ref="hudson_accounting_enhancements.model_account_aged_report"/>
+        <field name="state">code</field>
+        <field name="code">
+wiz = env['account.aged.report'].create({
+    'account_type': 'payable',
+})
+data = wiz.read()[0]
+action = {
+    'name': 'Aged Payable',
+    'type': 'ir.actions.client',
+    'tag': 'hudson_dynamic_reports.dynamic_report',
+    'params': {
+        'model_name': 'account.aged.report',
+        'wizard_id': wiz.id,
+        'data': data
+    }
+}
+        </field>
     </record>
 
-    <record id="action_aged_partner_balance" model="ir.actions.act_window">
+    <record id="action_server_aged_partner_balance" model="ir.actions.server">
         <field name="name">Aged Partner Balance</field>
-        <field name="res_model">account.aged.report</field>
-        <field name="view_mode">form</field>
-        <field name="view_id" ref="view_aged_report_form"/>
-        <field name="context">{}</field>
-        <field name="target">new</field>
+        <field name="model_id" ref="hudson_accounting_enhancements.model_account_aged_report"/>
+        <field name="state">code</field>
+        <field name="code">
+wiz = env['account.aged.report'].create({
+    'account_type': 'receivable',
+})
+data = wiz.read()[0]
+action = {
+    'name': 'Aged Partner Balance',
+    'type': 'ir.actions.client',
+    'tag': 'hudson_dynamic_reports.dynamic_report',
+    'params': {
+        'model_name': 'account.aged.report',
+        'wizard_id': wiz.id,
+        'data': data
+    }
+}
+        </field>
     </record>
 
 </odoo>

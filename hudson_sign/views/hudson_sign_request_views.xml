@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <record id="hudson_sign_request_view_tree" model="ir.ui.view">
+            <field name="name">hudson.sign.request.tree</field>
+            <field name="model">hudson.sign.request</field>
+            <field name="arch" type="xml">
+                <list create="false" js_class="hudson_sign_template_list">
+                    <field name="create_date" string="Date"/>
+                    <field name="name" string="Name"/>
+                    <field name="create_uid" string="Sent by" widget="many2one_avatar_user"/>
+                    <field name="request_ids" string="Signers" widget="many2many_tags" options="{'color_field': 'color'}"/>
+                    <field name="state" string="Status" widget="badge" 
+                           decoration-success="state == 'signed'"
+                           decoration-warning="state == 'draft'"
+                           decoration-info="state == 'sent'"/>
+                    <button name="action_resend" type="object" string="Resend" class="btn btn-secondary" invisible="state == 'signed'"/>
+                    <button name="action_download" type="object" string="Download" class="btn btn-secondary" invisible="state != 'signed'"/>
+                </list>
+            </field>
+        </record>
+
+        <record id="hudson_sign_request_view_form" model="ir.ui.view">
+            <field name="name">hudson.sign.request.form</field>
+            <field name="model">hudson.sign.request</field>
+            <field name="arch" type="xml">
+                <form>
+                    <header>
+                        <button name="action_resend" type="object" string="Resend" class="oe_highlight" invisible="state == 'signed'"/>
+                        <button name="action_download" type="object" string="Download" class="oe_highlight" invisible="state != 'signed'"/>
+                        <field name="state" widget="statusbar"/>
+                    </header>
+                    <sheet>
+                        <div class="oe_title">
+                            <h1><field name="name"/></h1>
+                        </div>
+                        <group>
+                            <group>
+                                <field name="template_id"/>
+                                <field name="revision_id"/>
+                            </group>
+                            <group>
+                                <field name="create_date"/>
+                                <field name="create_uid"/>
+                            </group>
+                        </group>
+                        <notebook>
+                            <page string="Signers">
+                                <field name="request_ids">
+                                    <list>
+                                        <field name="recipient_id"/>
+                                        <field name="state"/>
+                                    </list>
+                                </field>
+                            </page>
+                        </notebook>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+
+        <record id="action_hudson_sign_request" model="ir.actions.act_window">
+            <field name="name">Documents</field>
+            <field name="res_model">hudson.sign.request</field>
+            <field name="view_mode">list,form</field>
+        </record>
+
+        <menuitem id="menu_hudson_sign_documents_action"
+                  parent="menu_hudson_sign_documents"
+                  action="action_hudson_sign_request"
+                  sequence="10"/>
+    </data>
+</odoo>

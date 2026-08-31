@@ -6,4 +6,5 @@ from . import field_service_timesheet
 from . import field_service_product_line
 from . import field_service_order
 from . import field_service_project
+from . import field_service_material
 from . import res_config_settings

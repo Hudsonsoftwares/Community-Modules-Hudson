@@ -90,7 +90,7 @@
                         <t t-foreach="state.technicians" t-as="tech" t-key="tech.id">
                             <div class="fs-tech-card"
                                  t-att-class="state.selectedId === tech.id ? 'active' : ''"
-                                 t-on-click="() => this.onTechClick(tech.id)">
+                                 t-on-click="() => onTechClick(tech.id)">
 
                                 <!-- Avatar -->
                                 <div class="fs-tech-avatar-placeholder">
@@ -99,7 +99,7 @@
 
                                 <!-- Info -->
                                 <div class="fs-tech-info">
-                                    <div class="fs-tech-name" t-esc="tech.user_id[1]"/>
+                                    <div class="fs-tech-name" t-esc="tech.employee_id ? tech.employee_id[1] : 'Unknown'"/>
                                     <div class="fs-tech-order">
                                         <i class="fa fa-wrench me-1" style="font-size: 11px;"/>
                                         <t t-esc="tech.name"/> — <t t-esc="tech.title or 'Unnamed'"/>

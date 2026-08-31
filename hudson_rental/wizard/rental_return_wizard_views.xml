@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        
+        <!-- Rental Return Wizard Form -->
+        <record id="rental_return_wizard_view_form" model="ir.ui.view">
+            <field name="name">rental.return.wizard.form</field>
+            <field name="model">rental.return.wizard</field>
+            <field name="arch" type="xml">
+                <form string="Process Return">
+                    <group>
+                        <field name="order_id" column_invisible="1"/>
+                        <field name="partner_id" readonly="1"/>
+                        <field name="expected_return_date" readonly="1"/>
+                        <field name="return_date"/>
+                        <field name="is_late" readonly="1"/>
+                        <field name="late_days" readonly="1" invisible="not is_late"/>
+                        <field name="late_fee" readonly="1" invisible="late_fee == 0"/>
+                        <field name="create_invoice"/>
+                        <field name="note"/>
+                    </group>
+                    <group string="Returned Items">
+                        <field name="line_ids" nolabel="1">
+                            <list editable="bottom">
+                                <field name="product_id"/>
+                                <field name="quantity"/>
+                                <field name="returned_quantity"/>
+                                <field name="condition"/>
+                                <field name="notes"/>
+                            </list>
+                        </field>
+                    </group>
+                    <footer>
+                        <button name="action_confirm_return" string="Confirm Return" 
+                                type="object" class="btn-primary"/>
+                        <button string="Cancel" class="btn-secondary" special="cancel"/>
+                    </footer>
+                </form>
+            </field>
+        </record>
+
+    </data>
+</odoo>

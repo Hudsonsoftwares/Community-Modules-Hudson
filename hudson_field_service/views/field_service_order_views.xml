@@ -149,7 +149,7 @@
                     <widget name="web_ribbon" title="Cancelled" bg_color="text-bg-danger" invisible="state != 'cancelled'"/>
 
                     <div class="oe_title">
-                        <h1>
+                        <h1 invisible="name == 'New'">
                             <field name="name" readonly="1"/>
                         </h1>
                         <h2>
@@ -167,14 +167,16 @@
                             <field name="priority" widget="priority"/>
                         </group>
                             <group string="Scheduling">
+
                                 <field name="employee_id" widget="many2one_avatar_employee"/>
                                 <field name="extra_employee_ids" widget="many2many_avatar_employee" options="{'no_create': True}"/>
                                 <field name="team_leader_employee_id" widget="many2one_avatar_employee"/>
+                                <field name="material_ids" widget="many2many_tags" options="{'color_field': 'color'}"/>
                                 <field name="date_planned"/>
                                 <field name="date_deadline"/>
-                                <field name="duration_planned" widget="float_time" string="Total Scheduled Time"/>
+                                <field name="duration_planned" widget="float_time" string="Total Scheduled Time" readonly="1" force_save="1"/>
                                 <field name="rest_time_planned" widget="float_time"/>
-                                <field name="duration_working_planned" widget="float_time"/>
+                                <field name="duration_working_planned" widget="float_time" readonly="1" force_save="1"/>
                             </group>
                     </group>
 
@@ -208,7 +210,7 @@
                             <field name="survey_input_id" readonly="1" invisible="not survey_input_id"/>
                         </group>
                         <group>
-                            <field name="rating_note" placeholder="Customer's additional feedback..."/>
+                <field name="rating_note" placeholder="Customer's additional feedback..."/>
                         </group>
                     </group>
 

@@ -1,18 +1,14 @@
+import ssl
+import json
 import logging
 import urllib.request
-from xml.etree import ElementTree
 from odoo import api, fields, models, _
 from odoo.exceptions import UserError
 
 _logger = logging.getLogger(__name__)
 
-# ECB provides daily rates relative to EUR
-ECB_URL = 'https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml'
-ECB_NS = {
-    'gesmes': 'http://www.gesmes.org/xml/2002-08-01',
-    'ecb': 'http://www.ecb.int/vocabulary/2002-08-31/eurofxref',
-}
-
+# Free, reliable exchange rate API (no API key required) based on ECB data
+RATES_URL = 'https://open.er-api.com/v6/latest/EUR'
 
 class ResCurrency(models.Model):
     _inherit = 'res.currency'
@@ -20,39 +16,37 @@ class ResCurrency(models.Model):
     @api.model
     def _fetch_ecb_rates_data(self):
         """
-        Fetch ECB XML feed and return a dict {currency_code: rate_vs_eur}.
-        ECB gives: 1 EUR = rate[currency_code]
+        Fetch ExchangeRate-API JSON feed and return a dict {currency_code: rate_vs_eur}.
+        Provides: 1 EUR = rate[currency_code]
         """
         try:
-            with urllib.request.urlopen(ECB_URL, timeout=15) as response:
-                xml_data = response.read()
+            ctx = ssl.create_default_context()
+            ctx.check_hostname = False
+            ctx.verify_mode = ssl.CERT_NONE
+            req = urllib.request.Request(RATES_URL, headers={'User-Agent': 'Odoo/19.0'})
+            with urllib.request.urlopen(req, timeout=15, context=ctx) as response:
+                json_data = response.read()
         except Exception as e:
             raise UserError(
-                _('Failed to connect to ECB server: %s\n'
+                _('Failed to connect to Exchange Rate server: %s\n'
                   'Please check your internet connection.') % str(e)
             )
 
         try:
-            root = ElementTree.fromstring(xml_data)
-        except ElementTree.ParseError as e:
-            raise UserError(_('Failed to parse ECB XML response: %s') % str(e))
+            data = json.loads(json_data)
+        except json.JSONDecodeError as e:
+            raise UserError(_('Failed to parse JSON response: %s') % str(e))
 
-        # ECB XML structure: Envelope > Cube > Cube[@time] > Cube[@currency @rate]
-        cube_time = root.find('.//ecb:Cube[@time]', ECB_NS)
-        if cube_time is None:
-            raise UserError(_('Could not find rate data in ECB XML feed.'))
+        if data.get('result') != 'success':
+            raise UserError(_('API returned an error or unsuccessful response.'))
 
-        ecb_rates = {'EUR': 1.0}  # EUR is the base
-        for cube in cube_time.findall('ecb:Cube', ECB_NS):
-            currency_code = cube.get('currency')
-            rate_str = cube.get('rate')
-            if currency_code and rate_str:
-                try:
-                    ecb_rates[currency_code] = float(rate_str)
-                except (ValueError, TypeError):
-                    _logger.warning('Invalid rate for %s: %s', currency_code, rate_str)
+        rates = data.get('rates', {})
+        if not rates:
+            raise UserError(_('Could not find rate data in API feed.'))
 
-        return ecb_rates
+        # Ensure EUR is 1.0
+        rates['EUR'] = 1.0
+        return rates
 
     @api.model
     def _update_currency_rates(self, company=None):
@@ -94,9 +88,6 @@ class ResCurrency(models.Model):
         skipped = []
 
         for currency in active_currencies:
-            if currency.name == company_currency_code:
-                continue  # skip company's own currency
-
             if currency.name not in ecb_rates:
                 skipped.append(currency.name)
                 continue

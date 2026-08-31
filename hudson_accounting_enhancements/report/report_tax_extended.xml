@@ -4,177 +4,86 @@
         <t t-call="web.html_container">
             <t t-call="web.internal_layout">
                 <div class="page">
+                    <!-- Header -->
                     <div class="row mb-3">
-                        <div class="col-12 text-center">
-                            <h2 style="font-weight:bold; color:#2c3e50;">Tax Report — Extended</h2>
+                        <div class="col-8">
+                            <h2 style="font-weight:bold; color:#2c3e50;" t-esc="report_data.get('title', 'Tax Report')"/>
                             <h4 t-esc="company.name" style="color:#7f8c8d;"/>
                             <p class="text-muted">
-                                Period: <strong><t t-esc="data.get('date_from')"/></strong>
-                                to <strong><t t-esc="data.get('date_to')"/></strong>
-                                &#160;|&#160;
-                                <t t-if="data.get('target_move') == 'posted'">Posted Entries</t>
-                                <t t-else="">All Entries</t>
+                                <t t-esc="data.get('date_from')"/> — <t t-esc="data.get('date_to')"/>
                             </p>
                         </div>
                     </div>
                     <hr/>
+                    
+                    <style>
+                        .table-reports th {
+                            background-color: #f8f9fa;
+                            color: #495057;
+                            font-weight: bold;
+                            padding: 8px;
+                            border-bottom: 2px solid #dee2e6;
+                        }
+                        .table-reports td {
+                            padding: 6px 8px;
+                            border-bottom: 1px solid #e9ecef;
+                            vertical-align: middle;
+                        }
+                        .row-header td {
+                            background-color: #e9ecef;
+                            font-weight: bold;
+                        }
+                        .row-total td {
+                            background-color: #ffffff;
+                            font-weight: bold;
+                            border-top: 2px solid #343a40 !important;
+                            border-bottom: 2px solid #343a40 !important;
+                        }
+                    </style>
 
-                    <!-- ===== SALES TAX ===== -->
-                    <t t-if="data.get('sale_groups')">
-                        <h4 style="color:#27ae60; font-weight:bold;">Output Tax (Sales)</h4>
-                        <t t-foreach="data.get('sale_groups', [])" t-as="group">
-                            <h6 style="color:#2c3e50; margin-top:12px;">
-                                Tax Group: <em><t t-esc="group.get('group_name')"/></em>
-                            </h6>
-                            <table class="table table-sm table-reports" style="font-size:13px;">
-                                <thead>
-                                    <tr style="background:#27ae60; color:white;">
-                                        <th style="width:50%;">Tax</th>
-                                        <th class="text-end">Rate (%)</th>
-                                        <th class="text-end">Base Amount</th>
-                                        <th class="text-end">Tax Amount</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <t t-foreach="group.get('taxes', [])" t-as="tax">
-                                        <tr>
-                                            <td><t t-esc="tax.get('name')"/></td>
-                                            <td class="text-end"><t t-esc="tax.get('rate')"/>%</td>
-                                            <td class="text-end">
-                                                <span t-esc="tax.get('base_amount', 0)"
-                                                      t-options="{'widget': 'monetary', 'display_currency': currency}"/>
-                                            </td>
-                                            <td class="text-end">
-                                                <span t-esc="tax.get('tax_amount', 0)"
-                                                      t-options="{'widget': 'monetary', 'display_currency': currency}"/>
-                                            </td>
-                                        </tr>
+                    <table class="table table-sm table-reports" style="width: 100%; font-size: 13px;">
+                        <thead>
+                            <tr>
+                                <t t-foreach="report_data.get('columns', [])" t-as="col">
+                                    <th t-att-class="col.get('type') == 'monetary' and 'text-end' or ''">
+                                        <span t-esc="col.get('label')"/>
+                                    </th>
+                                </t>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <t t-foreach="report_data.get('lines', [])" t-as="line">
+                                <tr t-att-class="'row-header' if line.get('level') == 1 else 'row-normal'">
+                                    <t t-foreach="report_data.get('columns', [])" t-as="col">
+                                        <td t-att-class="col.get('type') == 'monetary' and 'text-end' or ''">
+                                            <t t-if="col.get('field') == 'name'">
+                                                <div t-att-style="'padding-left: ' + str((line.get('level', 1) - 1) * 20) + 'px;'">
+                                                    <span t-esc="line.get(col.get('field'))"/>
+                                                </div>
+                                            </t>
+                                            <t t-else="">
+                                                <t t-if="line.get('type') == 'percent'">
+                                                    <span t-esc="('%.2f' % (line.get(col.get('field')) or 0.0)) + ' %'"/>
+                                                </t>
+                                                <t t-elif="line.get('type') == 'number'">
+                                                    <span t-esc="'%.2f' % (line.get(col.get('field')) or 0.0)"/>
+                                                </t>
+                                                <t t-elif="col.get('type') == 'monetary'">
+                                                    <t t-if="line.get(col.get('field')) != None">
+                                                        <span t-esc="line.get(col.get('field'))"
+                                                              t-options="{'widget': 'monetary', 'display_currency': currency}"/>
+                                                    </t>
+                                                </t>
+                                                <t t-else="">
+                                                    <span t-esc="line.get(col.get('field'))"/>
+                                                </t>
+                                            </t>
+                                        </td>
                                     </t>
-                                    <tr style="background:#d5e8d4; font-weight:bold;">
-                                        <td colspan="2">Group Total</td>
-                                        <td class="text-end">
-                                            <span t-esc="group.get('total_base', 0)"
-                                                  t-options="{'widget': 'monetary', 'display_currency': currency}"/>
-                                        </td>
-                                        <td class="text-end">
-                                            <span t-esc="group.get('total_tax', 0)"
-                                                  t-options="{'widget': 'monetary', 'display_currency': currency}"/>
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </t>
-                        <!-- Sales Total -->
-                        <div class="row">
-                            <div class="col-12">
-                                <table class="table table-sm" style="max-width:350px; float:right;">
-                                    <tr style="background:#27ae60; color:white; font-weight:bold;">
-                                        <td>Total Output Tax (Sales)</td>
-                                        <td class="text-end">
-                                            <span t-esc="data.get('total_sale_tax', 0)"
-                                                  t-options="{'widget': 'monetary', 'display_currency': currency}"/>
-                                        </td>
-                                    </tr>
-                                </table>
-                            </div>
-                        </div>
-                    </t>
-
-                    <!-- ===== PURCHASE TAX ===== -->
-                    <t t-if="data.get('purchase_groups')">
-                        <h4 style="color:#e74c3c; font-weight:bold; margin-top:20px;">Input Tax (Purchases)</h4>
-                        <t t-foreach="data.get('purchase_groups', [])" t-as="group">
-                            <h6 style="color:#2c3e50; margin-top:12px;">
-                                Tax Group: <em><t t-esc="group.get('group_name')"/></em>
-                            </h6>
-                            <table class="table table-sm table-reports" style="font-size:13px;">
-                                <thead>
-                                    <tr style="background:#e74c3c; color:white;">
-                                        <th style="width:50%;">Tax</th>
-                                        <th class="text-end">Rate (%)</th>
-                                        <th class="text-end">Base Amount</th>
-                                        <th class="text-end">Tax Amount</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <t t-foreach="group.get('taxes', [])" t-as="tax">
-                                        <tr>
-                                            <td><t t-esc="tax.get('name')"/></td>
-                                            <td class="text-end"><t t-esc="tax.get('rate')"/>%</td>
-                                            <td class="text-end">
-                                                <span t-esc="tax.get('base_amount', 0)"
-                                                      t-options="{'widget': 'monetary', 'display_currency': currency}"/>
-                                            </td>
-                                            <td class="text-end">
-                                                <span t-esc="tax.get('tax_amount', 0)"
-                                                      t-options="{'widget': 'monetary', 'display_currency': currency}"/>
-                                            </td>
-                                        </tr>
-                                    </t>
-                                    <tr style="background:#fadbd8; font-weight:bold;">
-                                        <td colspan="2">Group Total</td>
-                                        <td class="text-end">
-                                            <span t-esc="group.get('total_base', 0)"
-                                                  t-options="{'widget': 'monetary', 'display_currency': currency}"/>
-                                        </td>
-                                        <td class="text-end">
-                                            <span t-esc="group.get('total_tax', 0)"
-                                                  t-options="{'widget': 'monetary', 'display_currency': currency}"/>
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </t>
-                        <!-- Purchase Total -->
-                        <div class="row">
-                            <div class="col-12">
-                                <table class="table table-sm" style="max-width:350px; float:right;">
-                                    <tr style="background:#e74c3c; color:white; font-weight:bold;">
-                                        <td>Total Input Tax (Purchases)</td>
-                                        <td class="text-end">
-                                            <span t-esc="data.get('total_purchase_tax', 0)"
-                                                  t-options="{'widget': 'monetary', 'display_currency': currency}"/>
-                                        </td>
-                                    </tr>
-                                </table>
-                            </div>
-                        </div>
-                    </t>
-
-                    <!-- ===== NET TAX SUMMARY ===== -->
-                    <div class="row mt-4">
-                        <div class="col-12">
-                            <table class="table table-sm" style="max-width:400px; float:right; font-size:14px;">
-                                <tr>
-                                    <td>Total Output Tax (Sales)</td>
-                                    <td class="text-end">
-                                        <span t-esc="data.get('total_sale_tax', 0)"
-                                              t-options="{'widget': 'monetary', 'display_currency': currency}"/>
-                                    </td>
                                 </tr>
-                                <tr>
-                                    <td>Less: Input Tax (Purchases)</td>
-                                    <td class="text-end">
-                                        <span t-esc="-data.get('total_purchase_tax', 0)"
-                                              t-options="{'widget': 'monetary', 'display_currency': currency}"/>
-                                    </td>
-                                </tr>
-                                <tr style="background:#2c3e50; color:white; font-weight:bold;">
-                                    <td style="padding:8px;">Net Tax Payable / (Refundable)</td>
-                                    <td class="text-end" style="padding:8px;">
-                                        <span t-esc="data.get('net_tax', 0)"
-                                              t-options="{'widget': 'monetary', 'display_currency': currency}"/>
-                                    </td>
-                                </tr>
-                            </table>
-                        </div>
-                    </div>
-
-                    <t t-if="not data.get('sale_groups') and not data.get('purchase_groups')">
-                        <div class="alert alert-info mt-3">
-                            No tax transactions found for the selected period.
-                        </div>
-                    </t>
+                            </t>
+                        </tbody>
+                    </table>
                 </div>
             </t>
         </t>

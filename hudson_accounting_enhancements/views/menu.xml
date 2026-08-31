@@ -1,118 +1,526 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <!-- ─────────────────────────────────────────────────────────────
-         NEW SUBMENU: Advanced Reports (under Accounting > Reporting)
-         ───────────────────────────────────────────────────────────── -->
-    <menuitem id="menu_hudson_advanced_reports"
-              name="Advanced Reports"
-              parent="account.menu_finance_reports"
-              sequence="50"
-              groups="account.group_account_user,account.group_account_manager"/>
+    <!-- ========================================================================= -->
+    <!-- REPORTING TAB (account.menu_finance_reports)                              -->
+    <!-- ========================================================================= -->
+    
+    <!-- 1. Statement Reports (Core overrides & custom) -->
+    <!-- Balance Sheet -->
+    <record id="action_server_report_bs" model="ir.actions.server">
+        <field name="name">Balance Sheet</field>
+        <field name="model_id" ref="accounting_pdf_reports.model_accounting_report"/>
+        <field name="state">code</field>
+        <field name="code">
+report_id = env.ref('accounting_pdf_reports.account_financial_report_balancesheet0').id
+wiz = env['accounting.report'].create({'account_report_id': report_id})
+data = wiz.read()[0]
+action = {'name': 'Balance Sheet', 'type': 'ir.actions.client', 'tag': 'hudson_dynamic_reports.dynamic_report', 'params': {'model_name': 'accounting.report', 'wizard_id': wiz.id, 'data': data}}
+        </field>
+    </record>
+    <record id="accounting_pdf_reports.menu_account_report_bs" model="ir.ui.menu">
+        <field name="action" ref="action_server_report_bs"/>
+        <field name="parent_id" ref="account.account_reports_legal_statements_menu"/>
+        <field name="sequence">10</field>
+    </record>
+
+    <!-- Profit and Loss -->
+    <record id="action_server_report_pl" model="ir.actions.server">
+        <field name="name">Profit and Loss</field>
+        <field name="model_id" ref="accounting_pdf_reports.model_accounting_report"/>
+        <field name="state">code</field>
+        <field name="code">
+report_id = env.ref('accounting_pdf_reports.account_financial_report_profitandloss0').id
+wiz = env['accounting.report'].create({'account_report_id': report_id})
+data = wiz.read()[0]
+action = {'name': 'Profit and Loss', 'type': 'ir.actions.client', 'tag': 'hudson_dynamic_reports.dynamic_report', 'params': {'model_name': 'accounting.report', 'wizard_id': wiz.id, 'data': data}}
+        </field>
+    </record>
+    <record id="accounting_pdf_reports.menu_account_report_pl" model="ir.ui.menu">
+        <field name="action" ref="action_server_report_pl"/>
+        <field name="parent_id" ref="account.account_reports_legal_statements_menu"/>
+        <field name="sequence">20</field>
+    </record>
 
     <!-- Cash Flow Statement -->
+    <record id="action_server_report_cash_flow" model="ir.actions.server">
+        <field name="name">Cash Flow Statement</field>
+        <field name="model_id" ref="hudson_accounting_enhancements.model_account_cash_flow_wizard"/>
+        <field name="state">code</field>
+        <field name="code">
+wiz = env['account.cash.flow.wizard'].create({})
+data = wiz.read()[0]
+action = {'name': 'Cash Flow Statement', 'type': 'ir.actions.client', 'tag': 'hudson_dynamic_reports.dynamic_report', 'params': {'model_name': 'account.cash.flow.wizard', 'wizard_id': wiz.id, 'data': data}}
+        </field>
+    </record>
     <menuitem id="menu_account_cash_flow"
               name="Cash Flow Statement"
-              parent="menu_hudson_advanced_reports"
-              action="action_account_cash_flow_wizard"
-              sequence="10"
-              groups="account.group_account_user,account.group_account_manager"/>
-
-    <!-- Annual Report -->
-    <menuitem id="menu_account_annual_report"
-              name="Annual Report"
-              parent="menu_hudson_advanced_reports"
-              action="action_account_annual_report_wizard"
-              sequence="20"
-              groups="account.group_account_user,account.group_account_manager"/>
-
-    <!-- Executive Summary -->
-    <menuitem id="menu_account_executive_summary"
-              name="Executive Summary"
-              parent="menu_hudson_advanced_reports"
-              action="action_account_executive_summary_wizard"
+              parent="account.account_reports_legal_statements_menu"
+              action="action_server_report_cash_flow"
               sequence="30"
               groups="account.group_account_user,account.group_account_manager"/>
 
-    <!-- Unrealized Currency Gains/Losses -->
-    <menuitem id="menu_account_unrealized_currency"
-              name="Unrealized Currency Gains/Losses"
-              parent="menu_hudson_advanced_reports"
-              action="action_account_unrealized_currency_wizard"
+
+    <!-- 2. Ledgers (New submenu under Reporting) -->
+    <menuitem id="menu_account_reports_ledgers"
+              name="Ledgers"
+              parent="account.menu_finance_reports"
+              sequence="2"
+              groups="account.group_account_user,account.group_account_manager"/>
+
+    <!-- Trial Balance -->
+    <record id="action_server_report_trial_balance" model="ir.actions.server">
+        <field name="name">Trial Balance</field>
+        <field name="model_id" ref="accounting_pdf_reports.model_account_balance_report"/>
+        <field name="state">code</field>
+        <field name="code">
+wiz = env['account.balance.report'].create({})
+data = wiz.read()[0]
+data['form'] = data.copy()
+data['form']['used_context'] = {}
+action = {'name': 'Trial Balance', 'type': 'ir.actions.client', 'tag': 'hudson_dynamic_reports.dynamic_report', 'params': {'model_name': 'account.balance.report', 'wizard_id': wiz.id, 'data': data}}
+        </field>
+    </record>
+    <record id="accounting_pdf_reports.menu_general_balance_report" model="ir.ui.menu">
+        <field name="action" ref="action_server_report_trial_balance"/>
+        <field name="parent_id" ref="menu_account_reports_ledgers"/>
+        <field name="sequence">10</field>
+    </record>
+
+    <!-- General Ledger -->
+    <record id="action_server_report_general_ledger" model="ir.actions.server">
+        <field name="name">General Ledger</field>
+        <field name="model_id" ref="accounting_pdf_reports.model_account_report_general_ledger"/>
+        <field name="state">code</field>
+        <field name="code">
+wiz = env['account.report.general.ledger'].create({})
+data = wiz.read()[0]
+data['form'] = data.copy()
+data['form']['used_context'] = {}
+action = {'name': 'General Ledger', 'type': 'ir.actions.client', 'tag': 'hudson_dynamic_reports.dynamic_report', 'params': {'model_name': 'account.report.general.ledger', 'wizard_id': wiz.id, 'data': data}}
+        </field>
+    </record>
+    <record id="accounting_pdf_reports.menu_general_ledger" model="ir.ui.menu">
+        <field name="action" ref="action_server_report_general_ledger"/>
+        <field name="parent_id" ref="menu_account_reports_ledgers"/>
+        <field name="sequence">20</field>
+    </record>
+
+
+    <!-- 3. Partner Reports (Core overrides) -->
+    <!-- Partner Ledger -->
+    <record id="action_server_report_partner_ledger" model="ir.actions.server">
+        <field name="name">Partner Ledger</field>
+        <field name="model_id" ref="accounting_pdf_reports.model_account_report_partner_ledger"/>
+        <field name="state">code</field>
+        <field name="code">
+wiz = env['account.report.partner.ledger'].create({})
+data = wiz.read()[0]
+data['form'] = data.copy()
+data['form']['used_context'] = {}
+data['form']['reconciled'] = False
+action = {'name': 'Partner Ledger', 'type': 'ir.actions.client', 'tag': 'hudson_dynamic_reports.dynamic_report', 'params': {'model_name': 'account.report.partner.ledger', 'wizard_id': wiz.id, 'data': data}}
+        </field>
+    </record>
+    <record id="accounting_pdf_reports.menu_partner_ledger" model="ir.ui.menu">
+        <field name="action" ref="action_server_report_partner_ledger"/>
+        <field name="parent_id" ref="account.account_reports_partners_reports_menu"/>
+        <field name="sequence">10</field>
+    </record>
+
+    <!-- Aged Receivable -->
+    <record id="accounting_pdf_reports.menu_aged_receivable" model="ir.ui.menu">
+        <field name="action" ref="hudson_accounting_enhancements.action_server_aged_receivable"/>
+        <field name="parent_id" ref="account.account_reports_partners_reports_menu"/>
+        <field name="sequence">20</field>
+    </record>
+
+    <!-- Aged Payable -->
+    <record id="accounting_pdf_reports.menu_aged_payable" model="ir.ui.menu">
+        <field name="action" ref="hudson_accounting_enhancements.action_server_aged_payable"/>
+        <field name="parent_id" ref="account.account_reports_partners_reports_menu"/>
+        <field name="sequence">30</field>
+    </record>
+
+
+    <!-- 4. Taxes & Fiscal -->
+    <record id="action_server_report_tax" model="ir.actions.server">
+        <field name="name">Tax Report</field>
+        <field name="model_id" ref="hudson_accounting_enhancements.model_account_tax_extended_wizard"/>
+        <field name="state">code</field>
+        <field name="code">
+wiz = env['account.tax.extended.wizard'].create({})
+data = wiz.read()[0]
+action = {'name': 'Tax Report', 'type': 'ir.actions.client', 'tag': 'hudson_dynamic_reports.dynamic_report', 'params': {'model_name': 'account.tax.extended.wizard', 'wizard_id': wiz.id, 'data': data}}
+        </field>
+    </record>
+    <menuitem id="menu_account_tax_extended"
+              name="Tax Report"
+              parent="account.account_reports_taxes_and_fiscal_menu"
+              action="action_server_report_tax"
+              sequence="10"
+              groups="account.group_account_user,account.group_account_manager"/>
+
+
+    <!-- 5. Management -->
+    <!-- Invoice Analysis (Standard) -->
+    <record id="account.menu_action_account_invoice_report_all" model="ir.ui.menu">
+        <field name="parent_id" ref="account.account_reports_management_menu"/>
+        <field name="sequence">10</field>
+    </record>
+
+    <!-- Analytic Report -->
+    <record id="account.menu_action_analytic_reporting" model="ir.ui.menu">
+        <field name="name">Analytic Report</field>
+        <field name="parent_id" ref="account.account_reports_management_menu"/>
+        <field name="action" ref="action_hudson_analytic_report_dynamic"/>
+        <field name="sequence">20</field>
+    </record>
+
+    <!-- Executive Summary -->
+    <record id="action_server_report_executive" model="ir.actions.server">
+        <field name="name">Executive Summary</field>
+        <field name="model_id" ref="hudson_accounting_enhancements.model_account_executive_summary_wizard"/>
+        <field name="state">code</field>
+        <field name="code">
+wiz = env['account.executive.summary.wizard'].create({})
+data = wiz.read()[0]
+action = {'name': 'Executive Summary', 'type': 'ir.actions.client', 'tag': 'hudson_dynamic_reports.dynamic_report', 'params': {'model_name': 'account.executive.summary.wizard', 'wizard_id': wiz.id, 'data': data}}
+        </field>
+    </record>
+    <menuitem id="menu_account_executive_summary"
+              name="Executive Summary"
+              parent="account.account_reports_management_menu"
+              action="action_server_report_executive"
+              sequence="30"
+              groups="account.group_account_user,account.group_account_manager"/>
+
+    <!-- Budget Report (Enterprise Style Budget Report) -->
+    <record id="om_account_budget.menu_act_crossovered_budget_lines_view" model="ir.ui.menu">
+        <field name="parent_id" ref="account.account_reports_management_menu"/>
+        <field name="name">Budget Report</field>
+        <field name="sequence">40</field>
+        <field name="active" eval="True"/>
+    </record>
+
+    <!-- Hide Standard Budgets from Accounting tab -->
+    <record id="om_account_budget.menu_act_crossovered_budget_view" model="ir.ui.menu">
+        <field name="active" eval="False"/>
+    </record>
+
+    <!-- Transactions -> Analytic Budget -->
+    <menuitem id="menu_hudson_budgets"
+              name="Analytic Budget"
+              parent="account.account_transactions_menu"
+              action="om_account_budget.act_crossovered_budget_view"
               sequence="40"
               groups="account.group_account_user,account.group_account_manager"/>
 
-    <!-- Extended Tax Report (under Audit Reports) -->
-    <menuitem id="menu_account_tax_extended"
-              name="Tax Report (Extended)"
-              parent="accounting_pdf_reports.menu_finance_audit_reports"
-              action="action_account_tax_extended_wizard"
-              sequence="35"
-              groups="account.group_account_user,account.group_account_manager"/>
-
-    <!-- ─────────────────────────────────────────────────────────────
-         AGED RECEIVABLE / PAYABLE — Override community wizard menus
-         Point existing menuitems to our new enterprise-style actions
-         ───────────────────────────────────────────────────────────── -->
-
-    <!-- Override Aged Receivable menu to point to new enterprise-style action -->
-    <record id="accounting_pdf_reports.menu_aged_receivable" model="ir.ui.menu">
-        <field name="action" ref="action_aged_receivable"/>
-    </record>
-
-    <!-- Override Aged Payable menu to point to new enterprise-style action -->
-    <record id="accounting_pdf_reports.menu_aged_payable" model="ir.ui.menu">
-        <field name="action" ref="action_aged_payable"/>
-    </record>
-
-    <!-- Override Aged Partner Balance menu to point to new enterprise-style action -->
-    <record id="accounting_pdf_reports.menu_aged_trial_balance" model="ir.ui.menu">
-        <field name="action" ref="action_aged_partner_balance"/>
-    </record>
-
-    <!-- ─────────────────────────────────────────────────────────────
-         BUDGET FIX — Make Budgets accessible to account users
-         under Accounting > Reporting for better discoverability
-         ───────────────────────────────────────────────────────────── -->
-
-    <!-- Budget Management submenu under Reporting -->
-    <menuitem id="menu_hudson_budget_section"
-              name="Budget"
-              parent="account.menu_finance_reports"
-              sequence="60"
-              groups="account.group_account_user,account.group_account_manager"/>
-
-    <!-- Budgets list -->
-    <menuitem id="menu_hudson_budgets"
-              name="Budgets"
-              parent="menu_hudson_budget_section"
-              action="om_account_budget.act_crossovered_budget_view"
+    <!-- Closing -> Reconcile (Journal Items mapped) -->
+    <menuitem id="menu_hudson_journal_items"
+              name="Reconcile"
+              parent="account.account_closing_menu"
+              action="hudson_accounting_enhancements.action_hudson_auto_reconcile"
               sequence="10"
               groups="account.group_account_user,account.group_account_manager"/>
 
-    <!-- Budget Analysis pivot/graph view -->
-    <menuitem id="menu_hudson_budget_analysis"
-              name="Budget Analysis"
-              parent="menu_hudson_budget_section"
-              action="om_account_budget.act_crossovered_budget_lines_view"
+
+    <!-- ========================================================================= -->
+    <!-- REVIEW TAB (account.account_audit_menu)                                   -->
+    <!-- ========================================================================= -->
+    
+    <!-- Control -> Journal Audit -->
+    <!-- Journal Items is already under Control as sequence 10 (menu_action_account_moves_all) -->
+    <record id="action_server_report_journal_audit" model="ir.actions.server">
+        <field name="name">Journal Audit</field>
+        <field name="model_id" ref="accounting_pdf_reports.model_account_print_journal"/>
+        <field name="state">code</field>
+        <field name="code">
+wiz = env['account.print.journal'].create({})
+data = wiz.read()[0]
+data['form'] = data.copy()
+data['form']['used_context'] = {}
+action = {'name': 'Journal Audit', 'type': 'ir.actions.client', 'tag': 'hudson_dynamic_reports.dynamic_report', 'params': {'model_name': 'account.print.journal', 'wizard_id': wiz.id, 'data': data}}
+        </field>
+    </record>
+    <record id="accounting_pdf_reports.menu_print_journal" model="ir.ui.menu">
+        <!-- We use the existing menu and re-parent it, or create if needed. 
+             Wait, om_account_accountant defines "accounting_pdf_reports.menu_print_journal" under "menu_finance_audit_reports". 
+             Let's re-parent it. -->
+        <field name="action" ref="action_server_report_journal_audit"/>
+        <field name="parent_id" ref="account.account_audit_control_menu"/>
+        <field name="sequence">20</field>
+        <field name="name">Journal Audit</field>
+    </record>
+
+    <!-- Audit (Custom Submenu) -->
+    <menuitem id="menu_account_review_audit"
+              name="Audit"
+              parent="account.account_audit_menu"
+              sequence="30"
+              groups="account.group_account_user,account.group_account_manager"/>
+              
+    <!-- Annual Report -->
+    <menuitem id="menu_account_annual_report"
+              name="Annual Reports"
+              parent="menu_account_review_audit"
+              action="hudson_accounting_enhancements.action_account_annual_report"
               sequence="20"
               groups="account.group_account_user,account.group_account_manager"/>
 
-    <!-- Budgetary Positions (categories) -->
-    <menuitem id="menu_hudson_budget_positions"
-              name="Budgetary Positions"
-              parent="menu_hudson_budget_section"
-              action="om_account_budget.open_budget_post_form"
-              sequence="30"
-              groups="account.group_account_manager"/>
-
-    <!-- ─────────────────────────────────────────────────────────────
-         RECONCILIATION — Add "Journal Items" quick access for manual entries
-         ───────────────────────────────────────────────────────────── -->
-    <menuitem id="menu_hudson_journal_items"
-              name="All Journal Items"
-              parent="account.menu_finance_entries"
-              action="account.action_account_moves_all_a"
-              sequence="15"
+    <menuitem id="menu_account_review_regularization"
+              name="Management"
+              parent="account.account_audit_menu"
+              sequence="32"
               groups="account.group_account_user,account.group_account_manager"/>
+
+    <menuitem id="menu_account_review_purchases"
+              name="Purchases"
+              parent="account.account_audit_menu"
+              sequence="30"/>
+
+    <menuitem id="menu_account_review_bill_to_receive"
+              name="Bill To Receive"
+              action="action_hudson_purchase_bill_to_receive"
+              parent="menu_account_review_purchases"
+              sequence="10"/>
+
+    <menuitem id="menu_account_review_billed_not_received"
+              name="Billed Not Received"
+              action="action_hudson_purchase_billed_not_received"
+              parent="menu_account_review_purchases"
+              sequence="20"/>
+
+    <menuitem id="menu_account_review_sales"
+              name="Sales"
+              parent="account.account_audit_menu"
+              sequence="40"/>
+
+    <menuitem id="menu_account_review_invoices_to_be_issued"
+              name="Invoices To Be Issued"
+              action="action_hudson_sale_invoices_to_be_issued"
+              parent="menu_account_review_sales"
+              sequence="10"/>
+
+    <menuitem id="menu_account_review_invoiced_not_delivered"
+              name="Invoiced Not Delivered"
+              action="action_hudson_sale_invoiced_not_delivered"
+              parent="menu_account_review_sales"
+              sequence="20"/>
+
+    <!-- Deferred Revenues Action -->
+    <record id="action_hudson_deferred_revenues" model="ir.actions.client">
+        <field name="name">Deferred Revenues</field>
+        <field name="tag">hudson_dynamic_reports.dynamic_report</field>
+        <field name="params" eval="{'model_name': 'account.deferred.revenue.report'}"/>
+    </record>
+
+    <!-- Deferred Expenses Action -->
+    <record id="action_hudson_deferred_expenses" model="ir.actions.client">
+        <field name="name">Deferred Expenses</field>
+        <field name="tag">hudson_dynamic_reports.dynamic_report</field>
+        <field name="params" eval="{'model_name': 'account.deferred.expense.report'}"/>
+    </record>
+
+    <!-- Menus for Deferred Revenues/Expenses -->
+    <menuitem id="menu_hudson_deferred_revenues"
+              name="Deferred Revenues"
+              parent="menu_account_review_regularization"
+              action="action_hudson_deferred_revenues"
+              sequence="5"
+              groups="account.group_account_user,account.group_account_manager"/>
+
+    <menuitem id="menu_hudson_deferred_expenses"
+              name="Deferred Expenses"
+              parent="menu_account_review_regularization"
+              action="action_hudson_deferred_expenses"
+              sequence="6"
+              groups="account.group_account_user,account.group_account_manager"/>
+
+    <!-- Reporting -> Management -> Deferred Revenues / Expenses -->
+    <menuitem id="menu_hudson_report_deferred_revenues"
+              name="Deferred Revenues"
+              parent="account.account_reports_management_menu"
+              action="action_hudson_deferred_revenues"
+              sequence="50"
+              groups="account.group_account_user,account.group_account_manager"/>
+
+    <menuitem id="menu_hudson_report_deferred_expenses"
+              name="Deferred Expenses"
+              parent="account.account_reports_management_menu"
+              action="action_hudson_deferred_expenses"
+              sequence="60"
+              groups="account.group_account_user,account.group_account_manager"/>
+
+    <!-- Unrealized Currencies -->
+    <record id="action_server_report_unrealized" model="ir.actions.server">
+        <field name="name">Unrealized Currency Gains/Losses</field>
+        <field name="model_id" ref="hudson_accounting_enhancements.model_account_unrealized_currency_wizard"/>
+        <field name="state">code</field>
+        <field name="code">
+wiz = env['account.unrealized.currency.wizard'].create({})
+data = wiz.read()[0]
+action = {'name': 'Unrealized Currency Gains/Losses', 'type': 'ir.actions.client', 'tag': 'hudson_dynamic_reports.dynamic_report', 'params': {'model_name': 'account.unrealized.currency.wizard', 'wizard_id': wiz.id, 'data': data}}
+        </field>
+    </record>
+    <menuitem id="menu_account_unrealized_currency"
+              name="Unrealized Currencies"
+              parent="menu_account_review_regularization"
+              action="action_server_report_unrealized"
+              sequence="10"
+              groups="account.group_account_user,account.group_account_manager"/>
+
+    <!-- ========================================================================= -->
+    <!-- ENTERPRISE RESTRUCTURING OVERRIDES                                        -->
+    <!-- ========================================================================= -->
+    
+    <!-- Configuration Tab -->
+    <!-- Rename Asset Types to Depreciation Models and move to Configuration > Accounting -->
+    <record id="om_account_asset.menu_action_account_asset_asset_list_normal_purchase" model="ir.ui.menu">
+        <field name="parent_id" ref="account.account_account_menu"/>
+        <field name="name">Depreciation Models</field>
+        <field name="sequence">100</field>
+    </record>
+
+    <!-- Accounting Tab -->
+    <!-- Move Journal Entries to Transactions -->
+    <record id="account.menu_action_move_journal_line_form" model="ir.ui.menu">
+        <field name="parent_id" ref="account.account_transactions_menu"/>
+        <field name="sequence">10</field>
+    </record>
+
+    <!-- Create Assets & Liabilities section and move Assets under it -->
+    <menuitem id="menu_assets_and_liabilities"
+              name="Assets &amp; Liabilities"
+              parent="account.menu_finance_entries"
+              sequence="10"
+              groups="account.group_account_user,account.group_account_manager"/>
+    <record id="om_account_asset.menu_action_account_asset_asset_form" model="ir.ui.menu">
+        <field name="parent_id" ref="hudson_accounting_enhancements.menu_assets_and_liabilities"/>
+        <field name="sequence">10</field>
+    </record>
+    
+    <!-- Link Fleet Vehicles under Assets & Liabilities -->
+    <menuitem id="menu_accounting_fleet_vehicles"
+              name="Fleet"
+              parent="hudson_accounting_enhancements.menu_assets_and_liabilities"
+              action="fleet.fleet_vehicle_action"
+              sequence="30"
+              groups="account.group_account_user,account.group_account_manager"/>
+
+    <!-- Fix Lock Dates alignment under Closing -->
+    <record id="om_fiscal_year.menu_action_change_lock_date" model="ir.ui.menu">
+        <field name="parent_id" ref="account.account_closing_menu"/>
+        <field name="sequence">20</field>
+    </record>
+
+    <!-- Review Tab -->
+    <!-- Create Inventory section and move Asset Report (Depreciation Schedule) under it -->
+    <menuitem id="menu_review_inventory"
+              name="Inventory"
+              parent="account.account_audit_menu"
+              sequence="35"
+              groups="account.group_account_user,account.group_account_manager"/>
+    <record id="om_account_asset.menu_action_asset_asset_report" model="ir.ui.menu">
+        <field name="parent_id" ref="hudson_accounting_enhancements.menu_review_inventory"/>
+        <field name="name">Depreciation Schedule</field>
+        <field name="sequence">20</field>
+    </record>
+    <!-- ========================================================================= -->
+    <!-- HIDE UNWANTED MENUS (from community modules that pollute the menu)        -->
+    <!-- ========================================================================= -->
+    <!-- Daily Reports (om_account_daily_reports) -->
+    <record id="om_account_daily_reports.menu_daybook" model="ir.ui.menu">
+        <field name="active" eval="False"/>
+    </record>
+    <record id="om_account_daily_reports.menu_cashbook" model="ir.ui.menu">
+        <field name="active" eval="False"/>
+    </record>
+    <record id="om_account_daily_reports.menu_bankbook" model="ir.ui.menu">
+        <field name="active" eval="False"/>
+    </record>
+    
+    <!-- Old Audit Reports (accounting_pdf_reports) -->
+    <record id="accounting_pdf_reports.menu_aged_trial_balance" model="ir.ui.menu">
+        <field name="active" eval="False"/>
+    </record>
+    <record id="accounting_pdf_reports.menu_finance_audit_reports" model="ir.ui.menu">
+        <field name="active" eval="False"/>
+    </record>
+    
+    <!-- Follow-ups (om_account_followup) -->
+    <record id="om_account_followup.menu_finance_followup" model="ir.ui.menu">
+        <field name="active" eval="False"/>
+    </record>
+    <record id="om_account_followup.om_account_followup_main_menu" model="ir.ui.menu">
+        <field name="active" eval="False"/>
+    </record>
+    
+    <!-- Hide extra submenus from Accounting Tab that pollute the layout -->
+    <record id="om_account_accountant.menu_finance_entries_accounting_journals" model="ir.ui.menu">
+        <field name="active" eval="False"/>
+    </record>
+    <record id="accounting_pdf_reports.menu_finance_entries_accounting_ledgers" model="ir.ui.menu">
+        <field name="active" eval="False"/>
+    </record>
+    <record id="om_account_asset.menu_finance_entries_generate_entries" model="ir.ui.menu">
+        <field name="active" eval="False"/>
+    </record>
+    <record id="om_account_accountant.menu_accounting_bank_and_cash" model="ir.ui.menu">
+        <field name="active" eval="False"/>
+    </record>
+
+    <!-- Hide requested config menus -->
+    <record id="accounting_pdf_reports.menu_account_reports" model="ir.ui.menu">
+        <field name="active" eval="False"/>
+    </record>
+    <record id="om_account_budget.menu_act_crossovered_budget_view" model="ir.ui.menu">
+        <field name="active" eval="False"/>
+    </record>
+    <record id="om_account_budget.menu_budget_post_form" model="ir.ui.menu">
+        <field name="active" eval="False"/>
+    </record>
+    <record id="om_fiscal_year.menu_fiscal_year" model="ir.ui.menu">
+        <field name="active" eval="False"/>
+    </record>
+    <record id="account.menu_action_tax_group" model="ir.ui.menu">
+        <field name="active" eval="False"/>
+    </record>
+    <record id="om_account_accountant.menu_account_tag" model="ir.ui.menu">
+        <field name="active" eval="False"/>
+    </record>
+    <record id="om_account_accountant.menu_account_group" model="ir.ui.menu">
+        <field name="active" eval="False"/>
+    </record>
+    <record id="om_recurring_payments.menu_recurring_payment" model="ir.ui.menu">
+        <field name="active" eval="False"/>
+    </record>
+    <record id="om_recurring_payments.menu_recurring_template" model="ir.ui.menu">
+        <field name="active" eval="False"/>
+    </record>
+    <record id="account_payment.payment_token_menu" model="ir.ui.menu">
+        <field name="active" eval="False"/>
+    </record>
+    <record id="account_payment.payment_transaction_menu" model="ir.ui.menu">
+        <field name="active" eval="False"/>
+    </record>
+    <record id="account_payment.payment_provider_menu" model="ir.ui.menu">
+        <field name="active" eval="False"/>
+    </record>
+    <record id="om_account_accountant.menu_account_payment_method" model="ir.ui.menu">
+        <field name="active" eval="False"/>
+    </record>
+    <!-- End Hide config menus -->
+
+    <!-- Ensure only 1 Payment Provider menu appears in Accounting and defaults to Kanban -->
+    <record id="action_hudson_payment_providers" model="ir.actions.act_window">
+        <field name="name">Payment Providers</field>
+        <field name="res_model">payment.provider</field>
+        <field name="view_mode">kanban,list,form</field>
+    </record>
+    <menuitem id="menu_hudson_payment_providers"
+              name="Payment Providers"
+              parent="account.root_payment_menu"
+              action="action_hudson_payment_providers"
+              sequence="10"/>
 
 </odoo>

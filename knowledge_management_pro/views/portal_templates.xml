@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <!-- Inject Knowledge Base into the Portal Home -->
+        <template id="portal_my_home_knowledge" name="Show Knowledge Articles" inherit_id="portal.portal_my_home" customize_show="True" priority="100">
+            <xpath expr="//div[hasclass('o_portal_docs')]" position="inside">
+                <t t-call="portal.portal_docs_entry">
+                    <t t-set="title">Knowledge Base</t>
+                    <t t-set="url" t-value="'/my/knowledge'"/>
+                    <t t-set="placeholder_count" t-value="'knowledge_count'"/>
+                </t>
+            </xpath>
+        </template>
+
+        <!-- Portal List View for Shared Articles -->
+        <template id="portal_my_knowledge" name="My Knowledge Articles">
+            <t t-call="portal.portal_layout">
+                <t t-set="breadcrumbs_searchbar" t-value="True"/>
+
+                <t t-call="portal.portal_searchbar">
+                    <t t-set="title">Knowledge Articles</t>
+                </t>
+
+                <t t-if="not articles">
+                    <div class="alert alert-info bg-white mt-4">
+                        There are currently no knowledge articles shared with you.
+                    </div>
+                </t>
+
+                <t t-if="articles">
+                    <t t-call="portal.portal_table">
+                        <thead>
+                            <tr>
+                                <th>Article Title</th>
+                                <th>Author</th>
+                                <th class="text-right">Last Updated</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <t t-foreach="articles" t-as="article">
+                                <tr>
+                                    <td>
+                                        <a t-attf-href="/my/knowledge/#{article.id}">
+                                            <t t-if="article.icon"><span t-esc="article.icon" class="mr-2"/></t>
+                                            <span t-esc="article.name"/>
+                                        </a>
+                                    </td>
+                                    <td><span t-esc="article.author_id.name"/></td>
+                                    <td class="text-right"><span t-field="article.write_date" t-options="{'widget': 'date'}"/></td>
+                                </tr>
+                            </t>
+                        </tbody>
+                    </t>
+                </t>
+            </t>
+        </template>
+
+        <!-- Portal Article Detail View -->
+        <template id="portal_article_page" name="Article Page">
+            <t t-call="portal.portal_layout">
+                <t t-set="no_breadcrumbs" t-value="True"/>
+                <div id="wrap" class="o_portal_wrap">
+                    <div class="container mt-4 mb-5">
+                        <div class="row">
+                            <div class="col-12 col-md-10 offset-md-1">
+                                <!-- Article Header -->
+                                <div class="card mb-4 shadow-sm border-0">
+                                    <t t-if="article.cover_image">
+                                        <img t-attf-src="data:image/png;base64,{{ article.cover_image }}" 
+                                             class="card-img-top" 
+                                             style="height: 300px; object-fit: cover;" 
+                                             alt="Cover Image"/>
+                                    </t>
+                                    <div class="card-body position-relative" style="padding: 2.5rem;">
+                                        <t t-if="article.icon">
+                                            <div class="position-absolute" style="top: -40px; font-size: 64px; background: white; border-radius: 12px; padding: 0 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                                                <span t-esc="article.icon"/>
+                                            </div>
+                                        </t>
+                                        <h1 class="card-title mt-4 font-weight-bold" style="font-size: 2.5rem; color: #333;">
+                                            <span t-esc="article.name"/>
+                                        </h1>
+                                        <div class="text-muted mb-4 d-flex align-items-center">
+                                            <img t-attf-src="/web/image?model=res.users&amp;field=avatar_128&amp;id={{article.author_id.id}}" 
+                                                 class="rounded-circle mr-2" 
+                                                 style="width: 32px; height: 32px;" 
+                                                 alt="Author Avatar"/>
+                                            <span>Written by <b t-esc="article.author_id.name"/></span>
+                                            <span class="mx-2">•</span>
+                                            <span>Last updated on <span t-field="article.write_date" t-options="{'widget': 'date'}"/></span>
+                                        </div>
+                                        
+                                        <!-- Article Content -->
+                                        <div class="article-content" style="font-size: 1.1rem; line-height: 1.8; color: #444;" t-field="article.content">
+                                        </div>
+                                    </div>
+                                </div>
+                                <!-- Back Button -->
+                                <div class="mt-4">
+                                    <a href="/my/knowledge" class="btn btn-secondary"><i class="fa fa-arrow-left mr-2"/> Back to Knowledge Base</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </t>
+        </template>
+    </data>
+</odoo>

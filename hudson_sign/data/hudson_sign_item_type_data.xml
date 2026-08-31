@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <record id="sign_item_type_signature" model="hudson.sign.item.type">
+            <field name="name">Signature</field>
+            <field name="item_type">signature</field>
+        </record>
+        <record id="sign_item_type_initial" model="hudson.sign.item.type">
+            <field name="name">Initial</field>
+            <field name="item_type">initial</field>
+        </record>
+        <record id="sign_item_type_text" model="hudson.sign.item.type">
+            <field name="name">Text</field>
+            <field name="item_type">text</field>
+        </record>
+        <record id="sign_item_type_multiline" model="hudson.sign.item.type">
+            <field name="name">Multiline Text</field>
+            <field name="item_type">multiline</field>
+        </record>
+        <record id="sign_item_type_checkbox" model="hudson.sign.item.type">
+            <field name="name">Checkbox</field>
+            <field name="item_type">checkbox</field>
+        </record>
+        <record id="sign_item_type_date" model="hudson.sign.item.type">
+            <field name="name">Date</field>
+            <field name="item_type">date</field>
+        </record>
+        
+        <!-- Auto-fill fields -->
+        <record id="sign_item_type_name" model="hudson.sign.item.type">
+            <field name="name">Name</field>
+            <field name="item_type">text</field>
+            <field name="linked_to" ref="base.model_res_partner"/>
+            <field name="linked_field" ref="base.field_res_partner__name"/>
+        </record>
+        <record id="sign_item_type_email" model="hudson.sign.item.type">
+            <field name="name">Email</field>
+            <field name="item_type">text</field>
+            <field name="linked_to" ref="base.model_res_partner"/>
+            <field name="linked_field" ref="base.field_res_partner__email"/>
+        </record>
+        <record id="sign_item_type_phone" model="hudson.sign.item.type">
+            <field name="name">Phone</field>
+            <field name="item_type">text</field>
+            <field name="linked_to" ref="base.model_res_partner"/>
+            <field name="linked_field" ref="base.field_res_partner__phone"/>
+        </record>
+        <record id="sign_item_type_company" model="hudson.sign.item.type">
+            <field name="name">Company</field>
+            <field name="item_type">text</field>
+            <field name="linked_to" ref="base.model_res_partner"/>
+            <field name="linked_field" ref="base.field_res_partner__parent_id"/>
+        </record>
+    </data>
+</odoo>

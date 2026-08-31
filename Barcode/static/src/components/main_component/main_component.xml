@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-name="custom_barcode_scanner.MainComponent" owl="1">
+        <div class="o_barcode_client_action">
+            
+            <div class="o_barcode_content p-0" t-attf-class="{{ state.currentScreen === 'landing' ? 'o_landing_background' : '' }}">
+                <LandingScreen t-if="state.currentScreen === 'landing'" onOperationsClick.bind="goToHome" onInventoryClick.bind="goToInventory" onPickingClick.bind="goToLineScan" onPickingTypeClick.bind="goToPickingList" />
+                <HomeScreen t-if="state.currentScreen === 'home'" onTypeClick.bind="goToPickingList" onBack.bind="goToLanding" />
+                <PickingListScreen t-if="state.currentScreen === 'picking_list'" pickingTypeId="state.pickingTypeId" onPickingClick.bind="goToLineScan" onBack.bind="goToHome" />
+                <LineScanScreen t-if="state.currentScreen === 'line_scan'" pickingId="state.pickingId" onBack.bind="goBackFromLineScan" />
+            </div>
+        </div>
+    </t>
+</templates>

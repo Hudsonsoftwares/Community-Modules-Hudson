@@ -17,7 +17,12 @@ import { loadJS, loadCSS } from "@web/core/assets";
  */
 export class FsLiveMap extends Component {
     static template = "hudson_field_service.FsLiveMap";
-    static props = ["*"];
+    static props = {
+        action: { type: Object, optional: true },
+        actionId: { type: [Number, String], optional: true },
+        updateActionState: { type: Function, optional: true },
+        className: { type: String, optional: true },
+    };
 
     setup() {
         this.orm = useService("orm");
@@ -102,7 +107,7 @@ export class FsLiveMap extends Component {
                 {
                     fields: [
                         "id", "name", "title",
-                        "user_id", "partner_id",
+                        "employee_id", "partner_id",
                         "current_latitude", "current_longitude",
                         "last_location_update", "state",
                     ],
@@ -115,7 +120,12 @@ export class FsLiveMap extends Component {
             this._syncMarkers(data);
         } catch (e) {
             console.error("[FsLiveMap] Failed to load technicians:", e);
-            this.state.error = e.message || "Failed to load technician locations";
+            let errMsg = e.message || String(e);
+            if (errMsg.includes("Odoo Server Error") || errMsg.includes("RPC_ERROR")) {
+                this.state.error = "No employees are available with map.";
+            } else {
+                this.state.error = "No employees are available with map.";
+            }
             this.state.loading = false;
         }
     }
@@ -175,7 +185,7 @@ export class FsLiveMap extends Component {
     }
 
     _buildPinHtml(tech) {
-        const initials = this._getInitials(tech.user_id?.[1] || "?");
+        const initials = this._getInitials(tech.employee_id?.[1] || "?");
         return `
             <div style="
                 width:40px; height:40px; border-radius:50% 50% 50% 0;
@@ -195,7 +205,7 @@ export class FsLiveMap extends Component {
     }
 
     _buildPopup(tech) {
-        const userName = tech.user_id?.[1] || "Unknown";
+        const userName = tech.employee_id?.[1] || "Unknown";
         const customerName = tech.partner_id?.[1] || "No customer";
         const orderRef = tech.name || "";
         const title = tech.title || "";
@@ -265,7 +275,7 @@ export class FsLiveMap extends Component {
     }
 
     getAvatarInitials(tech) {
-        return this._getInitials(tech.user_id?.[1] || "?");
+        return this._getInitials(tech.employee_id?.[1] || "?");
     }
 }
 

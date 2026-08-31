@@ -140,27 +140,7 @@
                     name="filter_write"
                     date="write_date"
                 />
-                <group>
-                    <filter
-                        name="group_color"
-                        string="Color"
-                        domain="[]"
-                        context="{'group_by':'color'}"
-                    />
-                    <filter
-                        name="group_category"
-                        string="Category"
-                        domain="[]"
-                        context="{'group_by':'category_id'}"
-                    />
-                    <separator />
-                    <filter
-                        name="group_storage"
-                        string="Storage"
-                        domain="[]"
-                        context="{'group_by':'storage_id'}"
-                    />
-                </group>
+
                 <searchpanel>
                     <field
                         name="parent_id"
@@ -214,9 +194,9 @@
                 <field name="count_total_files" />
                 <templates>
                     <t t-name="menu">
-                        <div class="container">
-                            <div class="row">
-                                <div name="card_menu_view" class="col-6">
+                        <div class="p-3">
+                            <div class="d-flex gap-4 text-nowrap">
+                                <div name="card_menu_view" class="d-flex flex-column">
                                     <h5
                                         role="menuitem"
                                         class="o_kanban_card_manage_title"
@@ -227,6 +207,7 @@
                                         <a
                                             type="object"
                                             name="action_dms_directories_all_directory"
+                                            class="dropdown-item"
                                         >
                                             <i class="fa fa-folder-o" />
                                             Directories
@@ -236,13 +217,14 @@
                                         <a
                                             type="object"
                                             name="action_dms_files_all_directory"
+                                            class="dropdown-item"
                                         >
                                             <i class="fa fa-file-o" />
                                             Files
                                         </a>
                                     </div>
                                 </div>
-                                <div class="col-6 o_kanban_manage_actions">
+                                <div class="o_kanban_manage_actions d-flex flex-column">
                                     <h5
                                         role="menuitem"
                                         class="o_kanban_card_manage_title"
@@ -250,36 +232,39 @@
                                         <span>Actions</span>
                                     </h5>
                                     <div role="menuitem">
-                                        <a type="open">
+                                        <a type="open" class="dropdown-item">
                                             <i class="fa fa-external-link" />
                                             Open
                                         </a>
                                     </div>
-                                    <div
-                                        role="menuitem"
-                                        t-if="record.permission_write.raw_value"
-                                    >
-                                        <a type="edit">
-                                            <i class="fa fa-pencil-square-o" />
+                                    <div role="menuitem" t-if="record.permission_write.raw_value">
+                                        <a
+                                            t-if="widget.editable"
+                                            role="menuitem"
+                                            type="open"
+                                            class="dropdown-item"
+                                        >
+                                            <i class="fa fa-pencil" />
                                             Edit
                                         </a>
                                     </div>
-                                    <div
-                                        role="menuitem"
-                                        t-if="record.permission_unlink.raw_value"
-                                    >
-                                        <a type="delete">
+                                    <div role="menuitem" t-if="record.permission_unlink.raw_value">
+                                        <a
+                                            t-if="widget.deletable"
+                                            role="menuitem"
+                                            type="delete"
+                                            class="dropdown-item"
+                                        >
                                             <i class="fa fa-trash-o" />
                                             Delete
                                         </a>
                                     </div>
                                 </div>
                             </div>
-                            <div class="o_kanban_card_manage_actions row">
+                            <div class="o_kanban_card_manage_actions mt-3">
                                 <div
                                     role="menuitem"
                                     aria-haspopup="true"
-                                    class="col-6"
                                     t-if="record.permission_write.raw_value"
                                 >
                                     <field name="color" widget="kanban_color_picker" />

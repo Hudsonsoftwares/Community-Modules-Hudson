@@ -33,6 +33,18 @@ class ResConfigSettings(models.TransientModel):
             'project\'s originating sale order when available.'
         ),
     )
+    fs_planning_enabled = fields.Boolean(
+        string='Enable Planning Schedule',
+        config_parameter='hudson_field_service.fs_planning_enabled',
+        default=True,
+        help='Enable the full planning schedule with roles, shift templates, and resource allocation.',
+    )
+    fs_planning_auto_plan = fields.Boolean(
+        string='Auto Plan',
+        config_parameter='hudson_field_service.fs_planning_auto_plan',
+        default=True,
+        help='Enable automatic scheduling of field service orders based on role and availability.',
+    )
 
     # ── Field Service features ────────────────────────────────────────────────
 

@@ -120,6 +120,7 @@ class AccountTaxExtendedWizard(models.TransientModel):
             base_amount = abs(base)
 
             groups[key]['taxes'].append({
+                'tax_id': row['tax_id'],
                 'name': tax_name,
                 'rate': row['tax_rate'],
                 'base_amount': base_amount,
@@ -154,3 +155,6 @@ class AccountTaxExtendedWizard(models.TransientModel):
         return self.env.ref(
             'hudson_accounting_enhancements.action_report_tax_extended'
         ).report_action(self, data={'form': data})
+
+    def check_report(self):
+        return self.action_print_report()

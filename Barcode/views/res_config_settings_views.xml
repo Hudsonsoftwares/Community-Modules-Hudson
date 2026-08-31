@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="res_config_settings_view_form_barcode" model="ir.ui.view">
+        <field name="name">res.config.settings.view.form.inherit.custom.barcode</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="stock.res_config_settings_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//block[@name='barcode_setting_container']" position="inside">
+                <setting id="custom_barcode_nomenclature_setting" title="Barcode Nomenclature" company_dependent="1" help="Switch between Default Nomenclature and Default GS1 Nomenclature.">
+                    <field name="barcode_nomenclature_id" required="1"/>
+                    <div class="mt16">
+                        <button name="%(Barcode.action_report_barcode_commands)d" icon="fa-arrow-right" type="action" string="Print barcode commands and operation types" class="btn-link text-primary"/>
+                    </div>
+                </setting>
+            </xpath>
+        </field>
+    </record>
+</odoo>

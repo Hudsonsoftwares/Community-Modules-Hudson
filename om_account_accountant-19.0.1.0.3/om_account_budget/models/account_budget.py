@@ -203,6 +203,10 @@ class CrossoveredBudgetLines(models.Model):
                 else:
                     theo_amt = line.planned_amount
             else:
+                if not line.date_from or not line.date_to:
+                    line.theoritical_amount = 0.00
+                    continue
+
                 line_timedelta = line.date_to - line.date_from
                 elapsed_timedelta = today - line.date_from
 

@@ -640,3 +640,51 @@ class DMSFile(models.Model):
                 )
             else:
                 record.update({"is_locked": False, "is_lock_editor": False})
+
+    # ----------------------------------------------------------
+    # Document Smart Actions (Enterprise style)
+    # ----------------------------------------------------------
+    def action_create_account_move(self, move_type="out_invoice"):
+        self.ensure_one()
+        if "account.move" not in self.env:
+            raise UserError(_("The Invoicing module (account) is not installed."))
+
+        move_vals = {
+            "move_type": move_type,
+        }
+        move = self.env["account.move"].create(move_vals)
+
+        # Attach this file's binary content to the newly created move
+        if self.content:
+            self.env["ir.attachment"].create({
+                "name": self.name,
+                "datas": self.content,
+                "res_model": "account.move",
+                "res_id": move.id,
+                "mimetype": self.mimetype or "application/pdf",
+            })
+
+        return {
+            "name": _("Create %s") % dict(self.env["account.move"]._fields["move_type"].selection).get(move_type, "Entry"),
+            "type": "ir.actions.act_window",
+            "res_model": "account.move",
+            "res_id": move.id,
+            "views": [[False, "form"]],
+            "view_mode": "form",
+            "target": "current",
+        }
+
+    def action_duplicate_file(self):
+        new_files = self.env["dms.file"]
+        for record in self:
+            new_files |= record.copy()
+        return True
+
+    def action_toggle_lock(self):
+        for record in self:
+            if record.is_locked:
+                record.unlock()
+            else:
+                record.lock()
+        return True
+

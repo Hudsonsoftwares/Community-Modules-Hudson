@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
 
-    <!-- Inherit common report view to add View Online button -->
+    <!-- Inherit common report view to add View Online button 
     <record id="account_common_report_view_inherit_html" model="ir.ui.view">
         <field name="name">Common Report HTML Button</field>
         <field name="model">account.common.report</field>
@@ -13,7 +13,6 @@
         </field>
     </record>
 
-    <!-- Inherit tax report view to add View Online button -->
     <record id="accounting_tax_report_view_inherit_html" model="ir.ui.view">
         <field name="name">Tax Report HTML Button</field>
         <field name="model">account.tax.report.wizard</field>
@@ -25,7 +24,6 @@
         </field>
     </record>
 
-    <!-- Inherit aged partner balance view to add View Online button -->
     <record id="account_aged_balance_view_inherit_html" model="ir.ui.view">
         <field name="name">Aged Partner Balance HTML Button</field>
         <field name="model">account.aged.trial.balance</field>
@@ -36,6 +34,7 @@
             </xpath>
         </field>
     </record>
+    -->
 
     <!-- Inherit daily reports views to add View Online button -->
     <record id="account_report_daybook_view_inherit_html" model="ir.ui.view">

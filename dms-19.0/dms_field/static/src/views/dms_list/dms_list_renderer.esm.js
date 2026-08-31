@@ -484,13 +484,25 @@ export class DmsListRenderer extends Component {
         });
     }
     onDMSPreviewFile(node) {
-        const attachment = this.store.Attachment.insert({
+        const data = {
             id: node.data.data.id,
             filename: node.data.data.name,
             name: node.data.data.name,
             mimetype: node.data.data.mimetype,
             model_name: node.data.resModel,
-        });
+        };
+
+        let attachment;
+        if (this.store && this.store["ir.attachment"]) {
+            attachment = this.store["ir.attachment"].insert(data);
+        } else if (this.store && this.store.Attachment) {
+            attachment = this.store.Attachment.insert(data);
+        } else if (this.store && this.store.models && this.store.models.Attachment) {
+            attachment = this.store.models.Attachment.insert(data);
+        } else {
+            attachment = data;
+        }
+
         this.fileViewer.open(attachment);
     }
     get showDragZone() {

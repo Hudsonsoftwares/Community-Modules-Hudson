@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-inherit="web.SearchPanel.Regular" t-inherit-mode="extension">
+        <xpath expr="//section[@t-foreach='sections']" position="after">
+            <t t-if="isDmsView()">
+                <div class="o_search_panel_section mt-3">
+                    <div class="o_search_panel_section_header pt-4 pb-2 text-uppercase cursor-default cursor-pointer"
+                        t-on-click="() => this.openTrash()">
+                        <i class="fa fa-trash-o o_search_panel_section_icon text-danger me-2"/>
+                        <b>Trash</b>
+                    </div>
+                </div>
+            </t>
+        </xpath>
+    </t>
+</templates>

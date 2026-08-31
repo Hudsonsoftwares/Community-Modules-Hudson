@@ -6,75 +6,51 @@
         <delete model="ir.rule" id="dms_enterprise_features.dms_file_explicit_access_write"/>
         <delete model="ir.rule" id="dms_enterprise_features.dms_file_explicit_access_unlink"/>
 
-        <!-- Override Base DMS rules to make them non-global -->
-        <record id="dms.rule_file_computed_create" model="ir.rule">
-            <field name="global" eval="False"/>
-            <field name="groups" eval="[(4, ref('dms.group_dms_user'))]"/>
-        </record>
-        <record id="dms.rule_file_computed_read" model="ir.rule">
-            <field name="global" eval="False"/>
-            <field name="groups" eval="[(4, ref('dms.group_dms_user'))]"/>
-        </record>
-        <record id="dms.rule_file_computed_write" model="ir.rule">
-            <field name="global" eval="False"/>
-            <field name="groups" eval="[(4, ref('dms.group_dms_user'))]"/>
-        </record>
-        <record id="dms.rule_file_computed_unlink" model="ir.rule">
-            <field name="global" eval="False"/>
-            <field name="groups" eval="[(4, ref('dms.group_dms_user'))]"/>
-        </record>
-
-        <!-- Admin Bypass Rule (Administrators see everything) -->
-        <record id="dms_file_manager_bypass" model="ir.rule">
-            <field name="name">DMS File Manager Bypass</field>
-            <field name="model_id" ref="dms.model_dms_file"/>
-            <field name="global" eval="False"/>
-            <field name="domain_force">[(1, '=', 1)]</field>
-            <field name="groups" eval="[(4, ref('dms.group_dms_manager'))]"/>
-        </record>
-
-        <!-- Directory rules override -->
-        <record id="dms.rule_directory_computed_create" model="ir.rule">
-            <field name="global" eval="False"/>
-            <field name="groups" eval="[(4, ref('dms.group_dms_user'))]"/>
-        </record>
+        <!-- Base DMS rules are restricted to group_dms_user, allowing base.group_user members unrestricted access.
+             We MUST override them here to set global=True, clear their groups, and use direct domain_force calculation. -->
         <record id="dms.rule_directory_computed_read" model="ir.rule">
-            <field name="global" eval="False"/>
-            <field name="groups" eval="[(4, ref('dms.group_dms_user'))]"/>
+            <field name="global" eval="True"/>
+            <field name="groups" eval="[(5, 0, 0)]"/>
+            <field name="domain_force">user.env['dms.directory'].with_user(user)._get_permission_domain('=', True, 'read')</field>
         </record>
         <record id="dms.rule_directory_computed_write" model="ir.rule">
-            <field name="global" eval="False"/>
-            <field name="groups" eval="[(4, ref('dms.group_dms_user'))]"/>
+            <field name="global" eval="True"/>
+            <field name="groups" eval="[(5, 0, 0)]"/>
+            <field name="domain_force">user.env['dms.directory'].with_user(user)._get_permission_domain('=', True, 'write')</field>
+        </record>
+        <record id="dms.rule_directory_computed_create" model="ir.rule">
+            <field name="global" eval="True"/>
+            <field name="groups" eval="[(5, 0, 0)]"/>
+            <field name="domain_force">user.env['dms.directory'].with_user(user)._get_permission_domain('=', True, 'create')</field>
         </record>
         <record id="dms.rule_directory_computed_unlink" model="ir.rule">
-            <field name="global" eval="False"/>
-            <field name="groups" eval="[(4, ref('dms.group_dms_user'))]"/>
-        </record>
-        
-        <record id="dms_directory_manager_bypass" model="ir.rule">
-            <field name="name">DMS Directory Manager Bypass</field>
-            <field name="model_id" ref="dms.model_dms_directory"/>
-            <field name="global" eval="False"/>
-            <field name="domain_force">[(1, '=', 1)]</field>
-            <field name="groups" eval="[(4, ref('dms.group_dms_manager'))]"/>
+            <field name="global" eval="True"/>
+            <field name="groups" eval="[(5, 0, 0)]"/>
+            <field name="domain_force">user.env['dms.directory'].with_user(user)._get_permission_domain('=', True, 'unlink')</field>
         </record>
 
-        <!-- Global Rule to restrict access to Confidential / Restricted documents -->
-        <record id="dms_file_confidentiality_rule" model="ir.rule">
-            <field name="name">DMS File Confidentiality Rule</field>
-            <field name="model_id" ref="dms.model_dms_file"/>
-            <field name="global" eval="False"/>
-            <field name="groups" eval="[(4, ref('dms.group_dms_user'))]"/>
-            <field name="domain_force">
-                ['|',
-                 ('document_owner_id', '=', user.id), 
-                 ('access_ids.user_id', '=', user.id)]
-            </field>
-            <field name="perm_read" eval="True"/>
-            <field name="perm_write" eval="True"/>
-            <field name="perm_create" eval="True"/>
-            <field name="perm_unlink" eval="True"/>
+        <record id="dms.rule_file_computed_read" model="ir.rule">
+            <field name="global" eval="True"/>
+            <field name="groups" eval="[(5, 0, 0)]"/>
+            <field name="domain_force">user.env['dms.file'].with_user(user)._get_permission_domain('=', True, 'read')</field>
         </record>
+        <record id="dms.rule_file_computed_write" model="ir.rule">
+            <field name="global" eval="True"/>
+            <field name="groups" eval="[(5, 0, 0)]"/>
+            <field name="domain_force">user.env['dms.file'].with_user(user)._get_permission_domain('=', True, 'write')</field>
+        </record>
+        <record id="dms.rule_file_computed_create" model="ir.rule">
+            <field name="global" eval="True"/>
+            <field name="groups" eval="[(5, 0, 0)]"/>
+            <field name="domain_force">user.env['dms.file'].with_user(user)._get_permission_domain('=', True, 'create')</field>
+        </record>
+        <record id="dms.rule_file_computed_unlink" model="ir.rule">
+            <field name="global" eval="True"/>
+            <field name="groups" eval="[(5, 0, 0)]"/>
+            <field name="domain_force">user.env['dms.file'].with_user(user)._get_permission_domain('=', True, 'unlink')</field>
+        </record>
+
+        <delete model="ir.rule" id="dms_enterprise_features.dms_file_confidentiality_rule"/>
 
         <!-- Portal users can only see documents they are assigned to or own -->
         <record id="dms_file_portal_visibility_rule" model="ir.rule">

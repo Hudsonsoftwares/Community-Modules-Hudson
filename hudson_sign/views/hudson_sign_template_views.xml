@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <record id="hudson_sign_template_view_list" model="ir.ui.view">
+            <field name="name">hudson.sign.template.list</field>
+            <field name="model">hudson.sign.template</field>
+            <field name="arch" type="xml">
+                <list create="false" js_class="hudson_sign_template_list">
+                    <field name="name" string="Name"/>
+                    <field name="author_id" string="Author"/>
+                    <field name="count_in_progress" string="In Progress"/>
+                    <field name="count_signed" string="Signed"/>
+                    <button name="action_send" type="object" string="Send" class="btn btn-secondary"/>
+                    <button name="action_sign_now" type="object" string="Sign Now" class="btn btn-secondary"/>
+                    <button name="action_open_builder" type="object" string="Edit Fields" class="btn btn-secondary"/>
+                </list>
+            </field>
+        </record>
+
+        <record id="hudson_sign_template_view_search" model="ir.ui.view">
+            <field name="name">hudson.sign.template.search</field>
+            <field name="model">hudson.sign.template</field>
+            <field name="arch" type="xml">
+                <search>
+                    <field name="name"/>
+                    <searchpanel>
+                        <field name="tag_ids" icon="fa-tags" select="multi"/>
+                    </searchpanel>
+                </search>
+            </field>
+        </record>
+
+        <record id="hudson_sign_template_view_kanban" model="ir.ui.view">
+            <field name="name">hudson.sign.template.kanban</field>
+            <field name="model">hudson.sign.template</field>
+            <field name="arch" type="xml">
+                <kanban create="false" js_class="hudson_sign_template_kanban" action="action_open_builder" type="object" class="o_sign_kanban_list_view">
+                    <field name="id"/>
+                    <field name="name"/>
+                    <field name="author_id"/>
+                    <field name="create_date"/>
+                    <field name="tag_ids"/>
+                    <field name="count_in_progress"/>
+                    <field name="count_signed"/>
+                    <templates>
+                        <t t-name="card">
+                            <div class="oe_kanban_global_click d-flex align-items-center justify-content-between p-3 border-bottom w-100" style="border: none !important;">
+                                <div class="d-flex align-items-start" style="flex: 2; min-width: 0;">
+                                    <i class="fa fa-star text-warning me-2 mt-1" title="Favorite"/>
+                                    <div class="d-flex flex-column text-truncate">
+                                        <strong class="text-truncate text-dark" style="font-size: 14px;"><field name="name"/></strong>
+                                        <div class="text-muted d-flex align-items-center mt-1" style="font-size: 13px;">
+                                            <field name="author_id" widget="many2one_avatar_user" class="me-2"/>
+                                            <span class="me-2"><field name="author_id"/></span>
+                                            <span><field name="create_date" widget="date"/></span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="d-flex flex-wrap align-items-center justify-content-start" style="flex: 1.5; gap: 4px;">
+                                    <field name="tag_ids" widget="many2many_tags" options="{'color_field': 'color'}"/>
+                                </div>
+                                <div class="d-flex align-items-center justify-content-around text-center" style="flex: 1;">
+                                    <div class="d-flex flex-column align-items-center mx-2">
+                                        <span class="text-info fw-bold" style="font-size: 14px;"><field name="count_in_progress"/></span>
+                                        <span class="text-muted" style="font-size: 11px;">In Progress</span>
+                                    </div>
+                                    <div class="d-flex flex-column align-items-center mx-2">
+                                        <span class="text-info fw-bold" style="font-size: 14px;"><field name="count_signed"/></span>
+                                        <span class="text-muted" style="font-size: 11px;">Signed</span>
+                                    </div>
+                                </div>
+                                <div class="d-flex align-items-center justify-content-end" style="flex: 1.5;">
+                                    <button name="action_send" type="object" class="btn btn-secondary btn-sm me-2" style="background-color: #875a7b; color: white; border: none;">Send</button>
+                                    <button name="action_sign_now" type="object" class="btn btn-secondary btn-sm me-2" style="background-color: #875a7b; color: white; border: none;">Sign Now</button>
+                                    <button name="action_open_builder" type="object" class="btn btn-light btn-sm" style="background-color: #f1f1f1; border: none;">Share</button>
+                                </div>
+                            </div>
+                        </t>
+                    </templates>
+                </kanban>
+            </field>
+        </record>
+
+        <!-- Upload Wizard -->
+        <record id="hudson_sign_template_upload_wizard_form" model="ir.ui.view">
+            <field name="name">hudson.sign.template.upload.wizard.form</field>
+            <field name="model">hudson.sign.template.upload.wizard</field>
+            <field name="arch" type="xml">
+                <form>
+                    <sheet>
+                        <group>
+                            <field name="file_name" invisible="1"/>
+                            <field name="file_content" filename="file_name" widget="binary"/>
+                        </group>
+                    </sheet>
+                    <footer>
+                        <button string="Upload" name="action_upload" type="object" class="btn-primary"/>
+                        <button string="Cancel" class="btn-secondary" special="cancel"/>
+                    </footer>
+                </form>
+            </field>
+        </record>
+
+        <!-- Send Wizard -->
+        <record id="hudson_sign_send_request_wizard_form" model="ir.ui.view">
+            <field name="name">hudson.sign.send.request.wizard.form</field>
+            <field name="model">hudson.sign.send.request.wizard</field>
+            <field name="arch" type="xml">
+                <form>
+                    <sheet>
+                        <group>
+                            <field name="template_id" readonly="1"/>
+                            <field name="message"/>
+                        </group>
+                        <notebook>
+                            <page string="Signers">
+                                <field name="role_mapping_ids">
+                                    <list editable="bottom" create="false" delete="false">
+                                        <field name="role_id"/>
+                                        <field name="user_id" required="1"/>
+                                    </list>
+                                </field>
+                            </page>
+                        </notebook>
+                    </sheet>
+                    <footer>
+                        <button string="Send Request" name="action_send_request" type="object" class="btn-primary"/>
+                        <button string="Cancel" class="btn-secondary" special="cancel"/>
+                    </footer>
+                </form>
+            </field>
+        </record>
+
+        <!-- Main Action uses standard views but we add an action for "Upload PDF" -->
+        <record id="action_hudson_sign_template" model="ir.actions.act_window">
+            <field name="name">Templates</field>
+            <field name="res_model">hudson.sign.template</field>
+            <field name="view_mode">kanban,list</field>
+        </record>
+
+        <!-- Action for Upload -->
+        <record id="action_hudson_sign_template_upload" model="ir.actions.act_window">
+            <field name="name">Upload PDF</field>
+            <field name="res_model">hudson.sign.template.upload.wizard</field>
+            <field name="view_mode">form</field>
+            <field name="target">new</field>
+        </record>
+        
+        <!-- Create custom server action to replace standard menu item so it adds the button? No, we can just inject a header button in Odoo 19 via list view or just keep it simple -->
+
+    </data>
+</odoo>

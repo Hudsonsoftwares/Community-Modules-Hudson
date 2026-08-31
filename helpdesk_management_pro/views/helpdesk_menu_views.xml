@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Main Menu Action (Dashboard Placeholder) -->
+    <record id="helpdesk_management_pro_action_dashboard" model="ir.actions.act_window">
+        <field name="name">Dashboard</field>
+        <field name="res_model">helpdesk.management.team</field>
+        <field name="view_mode">kanban,form</field>
+        <!-- This will be updated later to the actual dashboard view -->
+    </record>
+
+    <!-- Root Menu -->
+    <menuitem id="helpdesk_management_pro_menu_root"
+              name="Helpdesk Pro"
+              sequence="50"
+              web_icon="helpdesk_management_pro,static/description/icon.png"/>
+
+    <!-- Top Level Menus -->
+    <menuitem id="helpdesk_management_pro_menu_dashboard"
+              name="Dashboard"
+              parent="helpdesk_management_pro_menu_root"
+              action="helpdesk_management_pro_action_dashboard"
+              sequence="10"/>
+              
+    <menuitem id="helpdesk_management_pro_menu_tickets_main"
+              name="Tickets"
+              parent="helpdesk_management_pro_menu_root"
+              sequence="20"/>
+              
+
+
+    <menuitem id="helpdesk_management_pro_menu_reporting"
+              name="Reporting"
+              parent="helpdesk_management_pro_menu_root"
+              sequence="40"
+              groups="helpdesk_management_pro.group_helpdesk_manager"/>
+
+    <menuitem id="helpdesk_management_pro_menu_config"
+              name="Configuration"
+              parent="helpdesk_management_pro_menu_root"
+              sequence="100"
+              groups="helpdesk_management_pro.group_helpdesk_admin"/>
+
+    <!-- Configuration Sub-menus -->
+
+    <menuitem id="helpdesk_management_pro_menu_config_canned_responses"
+              name="Canned Responses"
+              parent="helpdesk_management_pro_menu_config"
+              action="mail.mail_canned_response_action"
+              sequence="30"/>
+              
+    <menuitem id="helpdesk_management_pro_menu_config_chatbots"
+              name="Chatbots"
+              parent="helpdesk_management_pro_menu_config"
+              action="im_livechat.chatbot_script_action"
+              sequence="40"/>
+
+    <menuitem id="helpdesk_management_pro_menu_config_stages"
+              name="Stages"
+              parent="helpdesk_management_pro_menu_config"
+              sequence="50"/>
+</odoo>

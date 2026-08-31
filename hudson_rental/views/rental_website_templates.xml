@@ -1,0 +1,197 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        
+        <!-- Rental Products Page -->
+        <template id="rental_products_template" name="Rental Products">
+            <t t-call="website.layout">
+                <div id="wrap" class="oe_structure">
+                    <div class="container mt-5">
+                        <div class="row">
+                            <div class="col-12">
+                                <h1 class="text-center mb-4">Available Rentals</h1>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <t t-foreach="products" t-as="product">
+                                <div class="col-lg-3 col-md-4 col-sm-6 mb-4">
+                                    <div class="card h-100">
+                                        <t t-if="product.image_1920">
+                                            <img t-attf-src="data:image/png;base64,#{product.image_1920.decode()}" 
+                                                 class="card-img-top" alt="Product Image"/>
+                                        </t>
+                                        <div class="card-body d-flex flex-column">
+                                            <h5 class="card-title">
+                                                <a t-attf-href="/rental/product/#{product.id}" t-esc="product.name"/>
+                                            </h5>
+                                            <p class="card-text text-muted small flex-grow-1" t-if="product.description_sale">
+                                                <t t-esc="product.description_sale[:100]"/>...
+                                            </p>
+                                            <div class="mt-auto">
+                                                <t t-if="product.rental_pricing_ids">
+                                                    <p class="mb-1">
+                                                        <strong>Starting from:</strong><br/>
+                                                        <span class="text-primary h5">
+                                                            <t t-esc="product.rental_pricing_ids[0].price"/> 
+                                                            <t t-esc="product.currency_id.symbol"/>
+                                                        </span>
+                                                        / <t t-esc="product.rental_pricing_ids[0].duration_unit"/>
+                                                    </p>
+                                                </t>
+                                                <a t-attf-href="/rental/product/#{product.id}" 
+                                                   class="btn btn-primary btn-sm w-100">View Details</a>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </t>
+                        </div>
+                        
+                        <t t-if="not products">
+                            <div class="row">
+                                <div class="col-12 text-center">
+                                    <p class="alert alert-info">No rental products available at the moment.</p>
+                                </div>
+                            </div>
+                        </t>
+                    </div>
+                </div>
+            </t>
+        </template>
+
+        <!-- Rental Product Detail Page -->
+        <template id="rental_product_detail_template" name="Rental Product Detail">
+            <t t-call="website.layout">
+                <div id="wrap" class="oe_structure">
+                    <div class="container mt-5">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <t t-if="product.image_1920">
+                                    <img t-attf-src="data:image/png;base64,#{product.image_1920.decode()}" 
+                                         class="img-fluid" alt="Product Image"/>
+                                </t>
+                            </div>
+                            <div class="col-md-6">
+                                <h1 t-esc="product.name"/>
+                                <p class="lead" t-if="product.description_sale" t-esc="product.description_sale"/>
+                                
+                                <hr/>
+                                
+                                <h4>Rental Pricing</h4>
+                                <div class="list-group mb-4">
+                                    <t t-foreach="pricing_options" t-as="pricing">
+                                        <div class="list-group-item">
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <span>
+                                                    <t t-esc="pricing.duration"/> 
+                                                    <t t-esc="dict(pricing._fields['duration_unit'].selection).get(pricing.duration_unit)"/>
+                                                </span>
+                                                <span class="badge bg-primary rounded-pill">
+                                                    <t t-esc="pricing.price"/> <t t-esc="product.currency_id.symbol"/>
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </t>
+                                </div>
+                                
+                                <h4>Configure Your Rental</h4>
+                                <form id="rental_form" class="mb-4">
+                                    <div class="mb-3">
+                                        <label for="pickup_date" class="form-label">Pickup Date</label>
+                                        <input type="datetime-local" class="form-control" id="pickup_date" required="required"/>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="return_date" class="form-label">Return Date</label>
+                                        <input type="datetime-local" class="form-control" id="return_date" required="required"/>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="quantity" class="form-label">Quantity</label>
+                                        <input type="number" class="form-control" id="quantity" value="1" min="1" required="required"/>
+                                    </div>
+                                    <div class="alert alert-info" id="rental_calculation" style="display:none;">
+                                        <strong>Duration:</strong> <span id="duration_display"></span><br/>
+                                        <strong>Total Price:</strong> <span id="price_display"></span>
+                                    </div>
+                                    <button type="button" class="btn btn-primary btn-lg w-100" id="add_to_cart_btn">
+                                        <i class="fa fa-shopping-cart"/> Add to Cart
+                                    </button>
+                                </form>
+                                
+                                <div class="alert alert-success" id="success_message" style="display:none;">
+                                    Product added to cart!
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <script type="text/javascript">
+                    odoo.define('hudson_rental.product_detail', function (require) {
+                        'use strict';
+                        
+                        var ajax = require('web.ajax');
+                        var core = require('web.core');
+                        
+                        $(document).ready(function() {
+                            var productId = <t t-esc="product.product_variant_id.id"/>;
+                            
+                            function calculatePrice() {
+                                var pickupDate = $('#pickup_date').val();
+                                var returnDate = $('#return_date').val();
+                                var quantity = $('#quantity').val();
+                                
+                                if (!pickupDate || !returnDate) return;
+                                
+                                ajax.jsonRpc('/rental/configure', 'call', {
+                                    product_id: productId,
+                                    pickup_date: pickupDate,
+                                    return_date: returnDate,
+                                    quantity: quantity
+                                }).then(function(result) {
+                                    if (result.success) {
+                                        $('#duration_display').text(result.duration_days.toFixed(1) + ' days');
+                                        $('#price_display').text(result.total.toFixed(2) + ' ' + result.currency_symbol);
+                                        $('#rental_calculation').show();
+                                    } else if (result.error) {
+                                        alert(result.error);
+                                    }
+                                });
+                            }
+                            
+                            $('#pickup_date, #return_date, #quantity').on('change', calculatePrice);
+                            
+                            $('#add_to_cart_btn').click(function() {
+                                var pickupDate = $('#pickup_date').val();
+                                var returnDate = $('#return_date').val();
+                                var quantity = $('#quantity').val();
+                                
+                                if (!pickupDate || !returnDate) {
+                                    alert('Please select pickup and return dates');
+                                    return;
+                                }
+                                
+                                ajax.jsonRpc('/rental/add_to_cart', 'call', {
+                                    product_id: productId,
+                                    pickup_date: pickupDate,
+                                    return_date: returnDate,
+                                    quantity: quantity
+                                }).then(function(result) {
+                                    if (result.success) {
+                                        $('#success_message').show();
+                                        setTimeout(function() {
+                                            window.location.href = '/shop/cart';
+                                        }, 1500);
+                                    } else if (result.error) {
+                                        alert(result.error);
+                                    }
+                                });
+                            });
+                        });
+                    });
+                </script>
+            </t>
+        </template>
+
+    </data>
+</odoo>

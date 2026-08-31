@@ -7,7 +7,7 @@
                     <!-- Header -->
                     <div class="row mb-3">
                         <div class="col-8">
-                            <h2 style="font-weight:bold; color:#2c3e50;">Executive Summary</h2>
+                            <h2 style="font-weight:bold; color:#2c3e50;" t-esc="report_data.get('title', 'Executive Summary')"/>
                             <h4 t-esc="company.name" style="color:#7f8c8d;"/>
                             <p class="text-muted">
                                 <t t-esc="data.get('date_from')"/> — <t t-esc="data.get('date_to')"/>
@@ -18,178 +18,77 @@
                         </div>
                     </div>
                     <hr/>
+                    
+                    <style>
+                        .table-reports th {
+                            background-color: #f8f9fa;
+                            color: #495057;
+                            font-weight: bold;
+                            padding: 8px;
+                            border-bottom: 2px solid #dee2e6;
+                        }
+                        .table-reports td {
+                            padding: 6px 8px;
+                            border-bottom: 1px solid #e9ecef;
+                            vertical-align: middle;
+                        }
+                        .row-header td {
+                            background-color: #e9ecef;
+                            font-weight: bold;
+                        }
+                        .row-total td {
+                            background-color: #ffffff;
+                            font-weight: bold;
+                            border-top: 2px solid #343a40 !important;
+                            border-bottom: 2px solid #343a40 !important;
+                        }
+                    </style>
 
-                    <!-- ===== KPI CARDS ===== -->
-                    <t t-set="c" t-value="data.get('current', {})"/>
-                    <t t-set="p" t-value="data.get('comparison') or {}"/>
-
-                    <div class="row text-center mb-4">
-                        <!-- Revenue -->
-                        <div class="col-3" style="border:1px solid #bdc3c7; border-radius:8px; margin:4px; padding:12px; background:#eaf4fb;">
-                            <div style="font-size:11px; color:#7f8c8d; font-weight:bold; text-transform:uppercase;">Revenue</div>
-                            <div style="font-size:18px; font-weight:bold; color:#2980b9;">
-                                <span t-esc="c.get('revenue', 0)"
-                                      t-options="{'widget': 'monetary', 'display_currency': currency}"/>
-                            </div>
-                            <t t-if="p">
-                                <div style="font-size:11px; color:#95a5a6;">
-                                    vs <span t-esc="p.get('revenue', 0)"
-                                             t-options="{'widget': 'monetary', 'display_currency': currency}"/>
-                                </div>
-                            </t>
-                        </div>
-                        <!-- Gross Profit -->
-                        <div class="col-3" style="border:1px solid #bdc3c7; border-radius:8px; margin:4px; padding:12px; background:#eafaf1;">
-                            <div style="font-size:11px; color:#7f8c8d; font-weight:bold; text-transform:uppercase;">Gross Profit</div>
-                            <div style="font-size:18px; font-weight:bold; color:#27ae60;">
-                                <span t-esc="c.get('gross_profit', 0)"
-                                      t-options="{'widget': 'monetary', 'display_currency': currency}"/>
-                            </div>
-                            <div style="font-size:11px; color:#7f8c8d;">
-                                Margin: <t t-esc="c.get('gross_margin', 0)"/>%
-                            </div>
-                        </div>
-                        <!-- Net Profit -->
-                        <div class="col-3" style="border:1px solid #bdc3c7; border-radius:8px; margin:4px; padding:12px; background:#fef9e7;">
-                            <div style="font-size:11px; color:#7f8c8d; font-weight:bold; text-transform:uppercase;">Net Profit</div>
-                            <div t-attf-style="font-size:18px; font-weight:bold; color:{{ '#27ae60' if c.get('net_profit', 0) >= 0 else '#e74c3c' }};">
-                                <span t-esc="c.get('net_profit', 0)"
-                                      t-options="{'widget': 'monetary', 'display_currency': currency}"/>
-                            </div>
-                            <div style="font-size:11px; color:#7f8c8d;">
-                                Margin: <t t-esc="c.get('net_margin', 0)"/>%
-                            </div>
-                        </div>
-                        <!-- Cash -->
-                        <div class="col-3" style="border:1px solid #bdc3c7; border-radius:8px; margin:4px; padding:12px; background:#f5eef8;">
-                            <div style="font-size:11px; color:#7f8c8d; font-weight:bold; text-transform:uppercase;">Cash &amp; Bank</div>
-                            <div style="font-size:18px; font-weight:bold; color:#8e44ad;">
-                                <span t-esc="c.get('cash', 0)"
-                                      t-options="{'widget': 'monetary', 'display_currency': currency}"/>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- ===== DETAILED P&L TABLE ===== -->
-                    <h5 style="color:#2c3e50; font-weight:bold;">Income Statement Summary</h5>
-                    <table class="table table-sm table-reports" style="font-size:13px;">
+                    <table class="table table-sm table-reports" style="width: 100%; font-size: 13px;">
                         <thead>
-                            <tr style="background:#2c3e50; color:white;">
-                                <th style="width:50%;">Item</th>
-                                <th class="text-end">Current Period</th>
-                                <t t-if="data.get('comparison')">
-                                    <th class="text-end">Comparison Period</th>
-                                    <th class="text-end">Change</th>
+                            <tr>
+                                <t t-foreach="report_data.get('columns', [])" t-as="col">
+                                    <th t-att-class="col.get('type') == 'monetary' and 'text-end' or ''">
+                                        <span t-esc="col.get('label')"/>
+                                    </th>
                                 </t>
                             </tr>
                         </thead>
                         <tbody>
-                            <tr>
-                                <td>Revenue</td>
-                                <td class="text-end"><span t-esc="c.get('revenue', 0)" t-options="{'widget': 'monetary', 'display_currency': currency}"/></td>
-                                <t t-if="data.get('comparison')">
-                                    <td class="text-end"><span t-esc="p.get('revenue', 0)" t-options="{'widget': 'monetary', 'display_currency': currency}"/></td>
-                                    <td class="text-end"><span t-esc="c.get('revenue', 0) - p.get('revenue', 0)" t-options="{'widget': 'monetary', 'display_currency': currency}"/></td>
-                                </t>
-                            </tr>
-                            <tr>
-                                <td>Other Income</td>
-                                <td class="text-end"><span t-esc="c.get('other_income', 0)" t-options="{'widget': 'monetary', 'display_currency': currency}"/></td>
-                                <t t-if="data.get('comparison')">
-                                    <td class="text-end"><span t-esc="p.get('other_income', 0)" t-options="{'widget': 'monetary', 'display_currency': currency}"/></td>
-                                    <td class="text-end"><span t-esc="c.get('other_income', 0) - p.get('other_income', 0)" t-options="{'widget': 'monetary', 'display_currency': currency}"/></td>
-                                </t>
-                            </tr>
-                            <tr>
-                                <td>Cost of Revenue (COGS)</td>
-                                <td class="text-end"><span t-esc="-c.get('cogs', 0)" t-options="{'widget': 'monetary', 'display_currency': currency}"/></td>
-                                <t t-if="data.get('comparison')">
-                                    <td class="text-end"><span t-esc="-p.get('cogs', 0)" t-options="{'widget': 'monetary', 'display_currency': currency}"/></td>
-                                    <td class="text-end"><span t-esc="-(c.get('cogs', 0) - p.get('cogs', 0))" t-options="{'widget': 'monetary', 'display_currency': currency}"/></td>
-                                </t>
-                            </tr>
-                            <tr style="background:#d5e8d4; font-weight:bold;">
-                                <td>Gross Profit</td>
-                                <td class="text-end"><span t-esc="c.get('gross_profit', 0)" t-options="{'widget': 'monetary', 'display_currency': currency}"/></td>
-                                <t t-if="data.get('comparison')">
-                                    <td class="text-end"><span t-esc="p.get('gross_profit', 0)" t-options="{'widget': 'monetary', 'display_currency': currency}"/></td>
-                                    <td class="text-end"><span t-esc="c.get('gross_profit', 0) - p.get('gross_profit', 0)" t-options="{'widget': 'monetary', 'display_currency': currency}"/></td>
-                                </t>
-                            </tr>
-                            <tr>
-                                <td>Operating Expenses</td>
-                                <td class="text-end"><span t-esc="-c.get('opex', 0)" t-options="{'widget': 'monetary', 'display_currency': currency}"/></td>
-                                <t t-if="data.get('comparison')">
-                                    <td class="text-end"><span t-esc="-p.get('opex', 0)" t-options="{'widget': 'monetary', 'display_currency': currency}"/></td>
-                                    <td class="text-end"><span t-esc="-(c.get('opex', 0) - p.get('opex', 0))" t-options="{'widget': 'monetary', 'display_currency': currency}"/></td>
-                                </t>
-                            </tr>
-                            <tr style="background:#2c3e50; color:white; font-weight:bold;">
-                                <td>Net Profit / (Loss)</td>
-                                <td class="text-end"><span t-esc="c.get('net_profit', 0)" t-options="{'widget': 'monetary', 'display_currency': currency}"/></td>
-                                <t t-if="data.get('comparison')">
-                                    <td class="text-end"><span t-esc="p.get('net_profit', 0)" t-options="{'widget': 'monetary', 'display_currency': currency}"/></td>
-                                    <td class="text-end"><span t-esc="c.get('net_profit', 0) - p.get('net_profit', 0)" t-options="{'widget': 'monetary', 'display_currency': currency}"/></td>
-                                </t>
-                            </tr>
+                            <t t-foreach="report_data.get('lines', [])" t-as="line">
+                                <tr t-att-class="'row-header' if line.get('level') == 1 else 'row-normal'">
+                                    <t t-foreach="report_data.get('columns', [])" t-as="col">
+                                        <td t-att-class="col.get('type') == 'monetary' and 'text-end' or ''">
+                                            <t t-if="col.get('field') == 'name'">
+                                                <div t-att-style="'padding-left: ' + str((line.get('level', 1) - 1) * 20) + 'px;'">
+                                                    <span t-esc="line.get(col.get('field'))"/>
+                                                </div>
+                                            </t>
+                                            <t t-else="">
+                                                <t t-if="line.get('level') == 1">
+                                                    <!-- Empty for group headers -->
+                                                    <span></span>
+                                                </t>
+                                                <t t-elif="line.get('type') == 'percent'">
+                                                    <span t-esc="('%.2f' % (line.get(col.get('field')) or 0.0)) + ' %'"/>
+                                                </t>
+                                                <t t-elif="line.get('type') == 'number'">
+                                                    <span t-esc="'%.2f' % (line.get(col.get('field')) or 0.0)"/>
+                                                </t>
+                                                <t t-elif="col.get('type') == 'monetary'">
+                                                    <span t-esc="line.get(col.get('field')) or 0.0"
+                                                          t-options="{'widget': 'monetary', 'display_currency': currency}"/>
+                                                </t>
+                                                <t t-else="">
+                                                    <span t-esc="line.get(col.get('field'))"/>
+                                                </t>
+                                            </t>
+                                        </td>
+                                    </t>
+                                </tr>
+                            </t>
                         </tbody>
                     </table>
-
-                    <!-- ===== BALANCE SHEET KPIs ===== -->
-                    <div class="row mt-3">
-                        <div class="col-6">
-                            <h5 style="color:#2c3e50; font-weight:bold;">Balance Sheet Highlights</h5>
-                            <table class="table table-sm table-reports" style="font-size:13px;">
-                                <tbody>
-                                    <tr>
-                                        <td>Accounts Receivable</td>
-                                        <td class="text-end"><span t-esc="c.get('ar', 0)" t-options="{'widget': 'monetary', 'display_currency': currency}"/></td>
-                                    </tr>
-                                    <tr>
-                                        <td>Accounts Payable</td>
-                                        <td class="text-end"><span t-esc="c.get('ap', 0)" t-options="{'widget': 'monetary', 'display_currency': currency}"/></td>
-                                    </tr>
-                                    <tr>
-                                        <td>Current Assets</td>
-                                        <td class="text-end"><span t-esc="c.get('current_assets', 0)" t-options="{'widget': 'monetary', 'display_currency': currency}"/></td>
-                                    </tr>
-                                    <tr>
-                                        <td>Current Liabilities</td>
-                                        <td class="text-end"><span t-esc="c.get('current_liabilities', 0)" t-options="{'widget': 'monetary', 'display_currency': currency}"/></td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                        <div class="col-6">
-                            <h5 style="color:#2c3e50; font-weight:bold;">Key Ratios</h5>
-                            <table class="table table-sm table-reports" style="font-size:13px;">
-                                <tbody>
-                                    <tr>
-                                        <td>Gross Profit Margin</td>
-                                        <td class="text-end"><strong><t t-esc="c.get('gross_margin', 0)"/>%</strong></td>
-                                    </tr>
-                                    <tr>
-                                        <td>Net Profit Margin</td>
-                                        <td class="text-end"><strong><t t-esc="c.get('net_margin', 0)"/>%</strong></td>
-                                    </tr>
-                                    <tr>
-                                        <td>Current Ratio</td>
-                                        <td class="text-end">
-                                            <strong><t t-esc="c.get('current_ratio', 0)"/> : 1</strong>
-                                            <span style="font-size:11px; color:#7f8c8d;"> (≥ 1.5 healthy)</span>
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td>Quick Ratio</td>
-                                        <td class="text-end">
-                                            <strong><t t-esc="c.get('quick_ratio', 0)"/> : 1</strong>
-                                            <span style="font-size:11px; color:#7f8c8d;"> (≥ 1.0 healthy)</span>
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
                 </div>
             </t>
         </t>

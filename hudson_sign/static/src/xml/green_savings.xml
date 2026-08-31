@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-name="hudson_sign.GreenSavings" owl="1">
+        <div class="hudson_sign_green_savings p-4 bg-light h-100">
+            <div class="container-fluid">
+                <div class="row g-4">
+                    <!-- Paper Savings -->
+                    <div class="col-md-4">
+                        <div class="card h-100 border-0 shadow-sm d-flex flex-row align-items-center p-3">
+                            <div class="gs-icon text-secondary me-3">
+                                <i class="fa fa-leaf fa-3x"></i>
+                            </div>
+                            <div>
+                                <h5 class="fw-bold mb-1">Paper Savings</h5>
+                                <div class="text-muted"><t t-esc="state.paperSaved"/> sheets of paper saved</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Water -->
+                    <div class="col-md-4">
+                        <div class="card h-100 border-0 shadow-sm d-flex flex-row align-items-center p-3">
+                            <div class="gs-icon text-secondary me-3">
+                                <i class="fa fa-tint fa-3x"></i>
+                            </div>
+                            <div>
+                                <h5 class="fw-bold mb-1">Water</h5>
+                                <div class="text-muted"><t t-esc="state.waterSaved"/> L of water saved</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Wood -->
+                    <div class="col-md-4">
+                        <div class="card h-100 border-0 shadow-sm d-flex flex-row align-items-center p-3">
+                            <div class="gs-icon text-secondary me-3">
+                                <i class="fa fa-tree fa-3x"></i>
+                            </div>
+                            <div>
+                                <h5 class="fw-bold mb-1">Wood</h5>
+                                <div class="text-muted"><t t-esc="state.woodSaved"/> kg of wood saved</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Carbon Emissions -->
+                    <div class="col-md-4">
+                        <div class="card h-100 border-0 shadow-sm d-flex flex-row align-items-center p-3">
+                            <div class="gs-icon text-secondary me-3">
+                                <i class="fa fa-cloud fa-3x"></i>
+                            </div>
+                            <div>
+                                <h5 class="fw-bold mb-1">Carbon Emissions</h5>
+                                <div class="text-muted"><t t-esc="state.carbonReduced"/> kg of reduced carbon emissions</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Waste -->
+                    <div class="col-md-4">
+                        <div class="card h-100 border-0 shadow-sm d-flex flex-row align-items-center p-3">
+                            <div class="gs-icon text-secondary me-3">
+                                <i class="fa fa-trash fa-3x"></i>
+                            </div>
+                            <div>
+                                <h5 class="fw-bold mb-1">Waste</h5>
+                                <div class="text-muted"><t t-esc="state.wastePrevented"/> kg of waste prevented</div>
+                                <div class="text-muted small mt-1">that's <t t-esc="state.cansPrevented"/> cans</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Energy -->
+                    <div class="col-md-4">
+                        <div class="card h-100 border-0 shadow-sm d-flex flex-row align-items-center p-3">
+                            <div class="gs-icon text-secondary me-3">
+                                <i class="fa fa-bolt fa-3x"></i>
+                            </div>
+                            <div>
+                                <h5 class="fw-bold mb-1">Energy</h5>
+                                <div class="text-muted"><t t-esc="state.energySaved"/> kWh of energy saved</div>
+                                <div class="text-muted small mt-1">that's <t t-esc="state.computerHours"/> hour of computer use</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mt-4">
+                    <a href="#" class="text-info text-decoration-none" t-on-click="toggleModal">How are these results calculated?</a>
+                </div>
+                
+                <!-- Modal -->
+                <div t-if="state.showModal" class="modal d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+                    <div class="modal-dialog modal-lg modal-dialog-centered">
+                        <div class="modal-content">
+                            <div class="modal-header border-0 pb-0">
+                                <h5 class="modal-title fw-bold">How do we calculate?</h5>
+                                <button type="button" class="btn-close" t-on-click="toggleModal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <p class="small">The computation is based on the website <a href="https://c.environmentalpaper.org/" target="_blank">https://c.environmentalpaper.org/</a></p>
+                                <p class="small">The total of sheets you saved is based on: the number of sent sign requests x number of sheets in the document x (number of contacts who need to sign + number of contacts in copy if the sign request is signed) = total of pages. We assume that one page weighs 0.005 kilograms.</p>
+                                
+                                <h5 class="fw-bold mt-4">I've got a total weight, and now?</h5>
+                                <ol class="small">
+                                    <li>Based on https://c.environmentalpaper.org/ we've got a list of consumption for 1000 kg of paper usage.</li>
+                                    <li>We display to you a ratio based on the saved weight versus 1000 kg of paper usage.</li>
+                                    <li>For 1000kg of paper usage, with 10% of recycled paper, environmental savings are based on https://c.environmentalpaper.org/ and:
+                                        <ul class="list-unstyled mt-2 ms-3">
+                                            <li>a. <b>Wood Use:</b> 4 US Short Tons = 4*907.18474 = 3628.73 kg</li>
+                                            <li>b. <b>Total Energy:</b> 27 Millions BTU = 27,000,000*0.0002931 = 7.91 kWh</li>
+                                            <li>c. <b>Gas:</b> 18,700 Pounds of CO² = 18,700*0.4536 = 8482.32 kg</li>
+                                            <li>d. <b>Water:</b> 23,400 Gallons = 23,400*3.78541 = 88578.59 L</li>
+                                            <li>e. <b>Solid Waste:</b> 1290 Pounds = 1290*0.4536 = 585.14 kg</li>
+                                        </ul>
+                                    </li>
+                                </ol>
+                                
+                                <h5 class="fw-bold mt-4">What about those conversions I see?</h5>
+                                <p class="small">Based on various websites, here are our comparisons:</p>
+                                <ul class="small">
+                                    <li>A shower uses approximately 65 L of water</li>
+                                    <li>To produce 1000 kg of wood, we have to cut 12 trees</li>
+                                    <li>One liter of gas fuel will produce 8.9 kg of CO²</li>
+                                    <li>One can weighs 15 g</li>
+                                    <li>An average computer will consume 750 Wh</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </t>
+</templates>

@@ -1,5 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
+    <template id="cf_section">
+        <t t-if="round(section_data.get('total', 0.0), 2) != 0 or section_data.get('account_lines')">
+            <tr>
+                <td style="padding-left:30px;"><t t-esc="section_name"/></td>
+                <td class="text-end">
+                    <span t-esc="section_data.get('total', 0.0)" t-options="{'widget': 'monetary', 'display_currency': currency}"/>
+                </td>
+            </tr>
+            <t t-foreach="section_data.get('account_lines', [])" t-as="acc">
+                <tr>
+                    <td style="padding-left:45px; color:#555; font-size:12px;"><t t-esc="acc['name']"/></td>
+                    <td class="text-end" style="color:#555; font-size:12px;">
+                        <span t-esc="acc['balance']" t-options="{'widget': 'monetary', 'display_currency': currency}"/>
+                    </td>
+                </tr>
+            </t>
+        </t>
+    </template>
+
     <template id="report_cf">
         <t t-call="web.html_container">
             <t t-call="web.internal_layout">
@@ -18,7 +37,6 @@
                                 </t>
                             </p>
                             <p class="text-muted small">
-                                Method: Indirect Method |
                                 Entries: <t t-if="data.get('target_move') == 'posted'">Posted Only</t>
                                          <t t-else="">All Entries</t>
                             </p>
@@ -34,157 +52,83 @@
                         </thead>
                         <tbody>
 
-                            <!-- ===== A. OPERATING ACTIVITIES ===== -->
-                            <tr style="background:#ecf0f1;">
-                                <td colspan="2" style="font-weight:bold; font-size:14px; padding:8px;">
-                                    A. Cash Flow from Operating Activities
-                                </td>
-                            </tr>
-                            <tr>
-                                <td style="padding-left:20px;">Net Profit for the Period</td>
-                                <td class="text-end">
-                                    <span t-esc="data.get('net_profit', 0)"
-                                          t-options="{'widget': 'monetary', 'display_currency': currency}"/>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td style="padding-left:20px;">Add: Depreciation &amp; Amortisation</td>
-                                <td class="text-end">
-                                    <span t-esc="data.get('depreciation', 0)"
-                                          t-options="{'widget': 'monetary', 'display_currency': currency}"/>
+                            <!-- Opening Balance -->
+                            <tr style="background:#ecf0f1; font-weight:bold;">
+                                <td style="font-size:14px; padding:8px;">Cash and cash equivalents, beginning of period</td>
+                                <td class="text-end" style="font-size:14px; padding:8px;">
+                                    <span t-esc="data.get('opening_cash', 0)" t-options="{'widget': 'monetary', 'display_currency': currency}"/>
                                 </td>
                             </tr>
 
-                            <!-- Working Capital sub-header -->
-                            <tr>
-                                <td style="padding-left:12px; font-style:italic; color:#555;">
-                                    Changes in Working Capital:
-                                </td>
-                                <td></td>
-                            </tr>
-                            <tr>
-                                <td style="padding-left:30px;">(Increase)/Decrease in Trade Receivables</td>
-                                <td class="text-end">
-                                    <span t-esc="data.get('ar_change', 0)"
-                                          t-options="{'widget': 'monetary', 'display_currency': currency}"/>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td style="padding-left:30px;">(Increase)/Decrease in Inventories &amp; Prepayments</td>
-                                <td class="text-end">
-                                    <span t-esc="data.get('inv_change', 0)"
-                                          t-options="{'widget': 'monetary', 'display_currency': currency}"/>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td style="padding-left:30px;">(Increase)/Decrease in Other Current Assets</td>
-                                <td class="text-end">
-                                    <span t-esc="data.get('oca_change', 0)"
-                                          t-options="{'widget': 'monetary', 'display_currency': currency}"/>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td style="padding-left:30px;">Increase/(Decrease) in Trade Payables</td>
-                                <td class="text-end">
-                                    <span t-esc="data.get('ap_change', 0)"
-                                          t-options="{'widget': 'monetary', 'display_currency': currency}"/>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td style="padding-left:30px;">Increase/(Decrease) in Other Current Liabilities</td>
-                                <td class="text-end">
-                                    <span t-esc="data.get('ocl_change', 0)"
-                                          t-options="{'widget': 'monetary', 'display_currency': currency}"/>
-                                </td>
-                            </tr>
-                            <!-- Operating Total -->
-                            <tr style="background:#d5e8d4; font-weight:bold;">
-                                <td style="padding-left:12px;">Net Cash from Operating Activities (A)</td>
-                                <td class="text-end">
-                                    <span t-esc="data.get('operating_total', 0)"
-                                          t-options="{'widget': 'monetary', 'display_currency': currency}"/>
-                                </td>
-                            </tr>
-
-                            <!-- ===== B. INVESTING ACTIVITIES ===== -->
-                            <tr><td colspan="2" style="height:6px;"></td></tr>
-                            <tr style="background:#ecf0f1;">
-                                <td colspan="2" style="font-weight:bold; font-size:14px; padding:8px;">
-                                    B. Cash Flow from Investing Activities
-                                </td>
-                            </tr>
-                            <tr>
-                                <td style="padding-left:20px;">
-                                    Net Cash paid for Fixed Assets
-                                    <span style="font-size:11px; color:#7f8c8d;">
-                                        (gross purchases minus non-cash depreciation reduction)
-                                    </span>
-                                </td>
-                                <td class="text-end">
-                                    <span t-esc="data.get('gross_capex', 0)"
-                                          t-options="{'widget': 'monetary', 'display_currency': currency}"/>
-                                </td>
-                            </tr>
-                            <!-- Investing Total -->
-                            <tr style="background:#dae8fc; font-weight:bold;">
-                                <td style="padding-left:12px;">Net Cash from Investing Activities (B)</td>
-                                <td class="text-end">
-                                    <span t-esc="data.get('investing_total', 0)"
-                                          t-options="{'widget': 'monetary', 'display_currency': currency}"/>
-                                </td>
-                            </tr>
-
-                            <!-- ===== C. FINANCING ACTIVITIES ===== -->
-                            <tr><td colspan="2" style="height:6px;"></td></tr>
-                            <tr style="background:#ecf0f1;">
-                                <td colspan="2" style="font-weight:bold; font-size:14px; padding:8px;">
-                                    C. Cash Flow from Financing Activities
-                                </td>
-                            </tr>
-                            <tr>
-                                <td style="padding-left:20px;">Net Proceeds from Long-term Borrowings</td>
-                                <td class="text-end">
-                                    <span t-esc="data.get('borrowings', 0)"
-                                          t-options="{'widget': 'monetary', 'display_currency': currency}"/>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td style="padding-left:20px;">Changes in Equity (Capital Injection / Dividends)</td>
-                                <td class="text-end">
-                                    <span t-esc="data.get('equity_change', 0)"
-                                          t-options="{'widget': 'monetary', 'display_currency': currency}"/>
-                                </td>
-                            </tr>
-                            <!-- Financing Total -->
-                            <tr style="background:#fff2cc; font-weight:bold;">
-                                <td style="padding-left:12px;">Net Cash from Financing Activities (C)</td>
-                                <td class="text-end">
-                                    <span t-esc="data.get('financing_total', 0)"
-                                          t-options="{'widget': 'monetary', 'display_currency': currency}"/>
-                                </td>
-                            </tr>
-
-                            <!-- ===== D. NET CHANGE IN CASH ===== -->
-                            <tr><td colspan="2" style="height:6px;"></td></tr>
-                            <tr style="background:#2c3e50; color:white; font-weight:bold; font-size:14px;">
-                                <td style="padding:8px;">Net Increase / (Decrease) in Cash (A+B+C)</td>
+                            <!-- Net Increase -->
+                            <tr style="font-weight:bold;">
+                                <td style="padding:8px;">Net increase in cash and cash equivalents</td>
                                 <td class="text-end" style="padding:8px;">
-                                    <span t-esc="data.get('net_change', 0)"
-                                          t-options="{'widget': 'monetary', 'display_currency': currency}"/>
+                                    <span t-esc="data.get('net_increase', 0)" t-options="{'widget': 'monetary', 'display_currency': currency}"/>
                                 </td>
                             </tr>
-                            <tr>
-                                <td style="padding-left:20px;">Opening Cash &amp; Bank Balance</td>
-                                <td class="text-end">
-                                    <span t-esc="data.get('opening_cash', 0)"
-                                          t-options="{'widget': 'monetary', 'display_currency': currency}"/>
-                                </td>
+
+                            <!-- Operating -->
+                            <tr style="background:#f9f9f9; font-weight:bold;">
+                                <td colspan="2" style="padding:8px;">Cash flows from operating activities</td>
                             </tr>
-                            <tr style="background:#27ae60; color:white; font-weight:bold; font-size:14px;">
-                                <td style="padding:8px;">Closing Cash &amp; Bank Balance</td>
-                                <td class="text-end" style="padding:8px;">
-                                    <span t-esc="data.get('closing_cash', 0)"
-                                          t-options="{'widget': 'monetary', 'display_currency': currency}"/>
+                            <t t-set="section_name" t-value="'Advance Payments received from customers'"/>
+                            <t t-set="section_data" t-value="data['op_adv_in']"/>
+                            <t t-call="hudson_accounting_enhancements.cf_section"/>
+
+                            <t t-set="section_name" t-value="'Cash received from operating activities'"/>
+                            <t t-set="section_data" t-value="data['op_cash_in']"/>
+                            <t t-call="hudson_accounting_enhancements.cf_section"/>
+
+                            <t t-set="section_name" t-value="'Advance payments made to suppliers'"/>
+                            <t t-set="section_data" t-value="data['op_adv_out']"/>
+                            <t t-call="hudson_accounting_enhancements.cf_section"/>
+
+                            <t t-set="section_name" t-value="'Cash paid for operating activities'"/>
+                            <t t-set="section_data" t-value="data['op_cash_out']"/>
+                            <t t-call="hudson_accounting_enhancements.cf_section"/>
+
+                            <!-- Investing -->
+                            <tr style="background:#f9f9f9; font-weight:bold;">
+                                <td colspan="2" style="padding:8px; border-top: 1px solid #ddd;">Cash flows from Investing &amp; extraordinary activities</td>
+                            </tr>
+                            <t t-set="section_name" t-value="'Cash in'"/>
+                            <t t-set="section_data" t-value="data['inv_in']"/>
+                            <t t-call="hudson_accounting_enhancements.cf_section"/>
+
+                            <t t-set="section_name" t-value="'Cash out'"/>
+                            <t t-set="section_data" t-value="data['inv_out']"/>
+                            <t t-call="hudson_accounting_enhancements.cf_section"/>
+
+                            <!-- Financing -->
+                            <tr style="background:#f9f9f9; font-weight:bold;">
+                                <td colspan="2" style="padding:8px; border-top: 1px solid #ddd;">Cash flows from financing activities</td>
+                            </tr>
+                            <t t-set="section_name" t-value="'Cash in'"/>
+                            <t t-set="section_data" t-value="data['fin_in']"/>
+                            <t t-call="hudson_accounting_enhancements.cf_section"/>
+
+                            <t t-set="section_name" t-value="'Cash out'"/>
+                            <t t-set="section_data" t-value="data['fin_out']"/>
+                            <t t-call="hudson_accounting_enhancements.cf_section"/>
+
+                            <!-- Unclassified -->
+                            <tr style="background:#f9f9f9; font-weight:bold;">
+                                <td colspan="2" style="padding:8px; border-top: 1px solid #ddd;">Cash flows from unclassified activities</td>
+                            </tr>
+                            <t t-set="section_name" t-value="'Cash in'"/>
+                            <t t-set="section_data" t-value="data['unclass_in']"/>
+                            <t t-call="hudson_accounting_enhancements.cf_section"/>
+
+                            <t t-set="section_name" t-value="'Cash out'"/>
+                            <t t-set="section_data" t-value="data['unclass_out']"/>
+                            <t t-call="hudson_accounting_enhancements.cf_section"/>
+
+                            <!-- Closing Balance -->
+                            <tr style="background:#2c3e50; color:white; font-weight:bold;">
+                                <td style="font-size:14px; padding:8px;">Cash and cash equivalents, closing balance</td>
+                                <td class="text-end" style="font-size:14px; padding:8px;">
+                                    <span t-esc="data.get('closing_cash', 0)" t-options="{'widget': 'monetary', 'display_currency': currency}"/>
                                 </td>
                             </tr>
 
@@ -194,7 +138,7 @@
                     <div class="row mt-4">
                         <div class="col-12">
                             <p class="text-muted small">
-                                <strong>Note:</strong> Prepared using the Indirect Method. Positive values represent
+                                <strong>Note:</strong> Prepared using the Direct Method. Positive values represent
                                 cash inflows; negative values represent cash outflows. Opening and closing balances
                                 reflect bank and cash account balances as per the chart of accounts.
                             </p>

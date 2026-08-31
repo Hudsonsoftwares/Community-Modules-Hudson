@@ -43,6 +43,11 @@ class MrpEco(models.Model):
     approval_ids = fields.One2many('mrp.eco.approval', 'eco_id', string='Approvals')
     color = fields.Integer('Color')
 
+    user_can_approve = fields.Boolean(
+        'Can Approve', compute='_compute_user_can_approve')
+    user_can_reject = fields.Boolean(
+        'Can Reject', compute='_compute_user_can_approve')
+
     state = fields.Selection([
         ('progress', 'In Progress'),
         ('done', 'Done'),
@@ -65,6 +70,18 @@ class MrpEco(models.Model):
                 eco.state = 'conflict'
             else:
                 eco.state = 'progress'
+
+    def _compute_user_can_approve(self):
+        for eco in self:
+            can_approve = False
+            can_reject = False
+            for approval in eco.approval_ids.filtered(lambda a: a.status == 'none'):
+                if self.env.user in approval.approval_template_id.user_ids:
+                    can_approve = True
+                    can_reject = True
+                    break
+            eco.user_can_approve = can_approve
+            eco.user_can_reject = can_reject
 
     @api.model_create_multi
     def create(self, vals_list):
@@ -237,3 +254,15 @@ class MrpEco(models.Model):
                 'view_mode': 'form',
                 'context': {'active_test': False},
             }
+
+    def action_approve(self):
+        for eco in self:
+            for approval in eco.approval_ids.filtered(lambda a: a.status == 'none'):
+                if self.env.user in approval.approval_template_id.user_ids:
+                    approval.action_approve()
+
+    def action_reject(self):
+        for eco in self:
+            for approval in eco.approval_ids.filtered(lambda a: a.status == 'none'):
+                if self.env.user in approval.approval_template_id.user_ids:
+                    approval.action_reject()

@@ -16,6 +16,7 @@ _AREA_MODELS = {
     "project": ("project.project", "Projects"),
     "approvals": ("approval.request", "Approvals"),
     "sign": ("sign.request", "Sign"),
+    "fleet": ("fleet.vehicle", "Fleet"),
 }
 
 
@@ -158,6 +159,26 @@ class ResConfigSettings(models.TransientModel):
         string="Approvals Tags",
         compute="_compute_approvals_tag_ids",
         inverse="_set_approvals_tag_ids",
+    )
+
+    # ── Fleet ─────────────────────────────────────────────────────────────────
+    documents_fleet_enabled = fields.Boolean(
+        string="Fleet",
+        config_parameter="dms_enterprise.fleet_enabled",
+        help="Centralize your Fleet' documents (fines, etc.).",
+    )
+    documents_fleet_folder_id = fields.Many2one(
+        comodel_name="dms.directory",
+        string="Fleet Folder",
+        compute="_compute_fleet_folder_id",
+        inverse="_set_fleet_folder_id",
+    )
+    documents_fleet_tag_ids = fields.Many2many(
+        comodel_name="dms.tag",
+        relation="res_config_settings_fleet_tag_rel",
+        string="Fleet Tags",
+        compute="_compute_fleet_tag_ids",
+        inverse="_set_fleet_tag_ids",
     )
 
     # ── Sign ──────────────────────────────────────────────────────────────────
@@ -364,6 +385,34 @@ class ResConfigSettings(models.TransientModel):
         for rec in self:
             rec._set_tags_to_param(
                 "dms_enterprise.approvals_tag_ids", rec.documents_approvals_tag_ids
+            )
+
+    @api.depends_context("company")
+    def _compute_fleet_folder_id(self):
+        for rec in self:
+            rec.documents_fleet_folder_id = rec._get_folder_from_param(
+                "dms_enterprise.fleet_folder_id"
+            )
+
+    def _set_fleet_folder_id(self):
+        for rec in self:
+            rec._set_folder_to_param(
+                "dms_enterprise.fleet_folder_id",
+                rec.documents_fleet_folder_id.id,
+            )
+            rec._sync_rule("fleet", rec.documents_fleet_folder_id)
+
+    @api.depends_context("company")
+    def _compute_fleet_tag_ids(self):
+        for rec in self:
+            rec.documents_fleet_tag_ids = rec._get_tags_from_param(
+                "dms_enterprise.fleet_tag_ids"
+            )
+
+    def _set_fleet_tag_ids(self):
+        for rec in self:
+            rec._set_tags_to_param(
+                "dms_enterprise.fleet_tag_ids", rec.documents_fleet_tag_ids
             )
 
     @api.depends_context("company")

@@ -18,6 +18,7 @@
         "base_setup",
         "hr",
         "portal",
+        "fleet",
     ],
     "data": [
         # Security
@@ -30,8 +31,13 @@
         "data/default_dms_storage.xml",
         "data/default_dms_directories.xml",
         "data/default_folder_rules.xml",
+        "data/mail_template_data.xml",
+        "data/dms_cron.xml",
         # Views
+        "views/dms_menu.xml",
+
         "views/dms_folder_rule_views.xml",
+        "views/dms_access_groups_views.xml",
         "views/res_config_settings.xml",
         "views/dms_file_views.xml",
         "views/dms_directory_views.xml",
@@ -45,6 +51,9 @@
     "assets": {
         "web.assets_backend": [
             "dms_enterprise_features/static/src/js/signature_client_action.js",
+            "dms_enterprise_features/static/src/xml/signature_client_action.xml",
+            "dms_enterprise_features/static/src/js/search_panel_trash.js",
+            "dms_enterprise_features/static/src/xml/search_panel_trash.xml",
         ],
     },
     "application": True,

@@ -35,6 +35,6 @@
         <field name="res_model">account.tax.extended.wizard</field>
         <field name="view_mode">form</field>
         <field name="view_id" ref="view_account_tax_extended_wizard"/>
-        <field name="target">new</field>
+        <field name="target">current</field>
     </record>
 </odoo>

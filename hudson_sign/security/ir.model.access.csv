@@ -1,0 +1,11 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_hudson_sign_template,hudson.sign.template,model_hudson_sign_template,base.group_user,1,1,1,1
+access_hudson_sign_template_item,hudson.sign.template.item,model_hudson_sign_template_item,base.group_user,1,1,1,1
+access_hudson_sign_item_type,hudson.sign.item.type,model_hudson_sign_item_type,base.group_system,1,1,1,1
+access_hudson_sign_item_type_user,hudson.sign.item.type,model_hudson_sign_item_type,base.group_user,1,0,0,0
+access_hudson_sign_send_request_wizard,hudson.sign.send.request.wizard,model_hudson_sign_send_request_wizard,base.group_user,1,1,1,1
+access_hudson_sign_template_upload_wizard,hudson.sign.template.upload.wizard,model_hudson_sign_template_upload_wizard,base.group_user,1,1,1,1
+access_hudson_sign_template_role,hudson.sign.template.role,model_hudson_sign_template_role,base.group_user,1,1,1,1
+access_hudson_sign_template_tag,hudson.sign.template.tag,model_hudson_sign_template_tag,base.group_user,1,1,1,1
+access_hudson_sign_send_request_wizard_role,hudson.sign.send.request.wizard.role,model_hudson_sign_send_request_wizard_role,base.group_user,1,1,1,1
+access_hudson_sign_request,hudson.sign.request,model_hudson_sign_request,base.group_user,1,1,1,1

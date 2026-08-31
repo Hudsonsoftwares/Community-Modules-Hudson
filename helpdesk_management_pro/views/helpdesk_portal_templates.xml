@@ -1,0 +1,175 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <template id="portal_my_home_menu_helpdesk" name="Portal layout : helpdesk tickets menu entries" inherit_id="portal.portal_breadcrumbs" priority="20">
+        <xpath expr="//ol[hasclass('o_portal_submenu')]" position="inside">
+            <li t-if="page_name == 'ticket' or ticket" t-attf-class="breadcrumb-item #{'active ' if not ticket else ''}">
+                <a t-if="ticket" t-attf-href="/my/tickets?{{ keep_query() }}">Tickets</a>
+                <t t-else="">Tickets</t>
+            </li>
+            <li t-if="ticket" class="breadcrumb-item active">
+                <t t-esc="ticket.name"/>
+            </li>
+        </xpath>
+    </template>
+
+    <template id="portal_my_home_helpdesk" name="Show Tickets" customize_show="True" inherit_id="portal.portal_my_home" priority="20">
+        <xpath expr="//div[hasclass('o_portal_docs')]" position="inside">
+            <t t-call="portal.portal_docs_entry">
+                <t t-set="title">Tickets</t>
+                <t t-set="url" t-value="'/my/tickets'"/>
+                <t t-set="placeholder_count" t-value="'ticket_count'"/>
+            </t>
+        </xpath>
+    </template>
+
+    <template id="portal_my_tickets" name="My Tickets">
+        <t t-call="portal.portal_layout">
+            <t t-set="breadcrumbs_searchbar" t-value="True"/>
+            <t t-call="portal.portal_searchbar">
+                <t t-set="title">Tickets</t>
+            </t>
+            <t t-if="not tickets">
+                <p>There are currently no tickets for your account.</p>
+            </t>
+            <t t-if="tickets" t-call="portal.portal_table">
+                <thead>
+                    <tr class="active">
+                        <th>Ticket</th>
+                        <th>Subject</th>
+                        <th>Stage</th>
+                    </tr>
+                </thead>
+                <t t-foreach="tickets" t-as="ticket">
+                    <tr>
+                        <td>
+                            <a t-attf-href="/my/ticket/#{ticket.id}"><t t-esc="ticket.name"/></a>
+                        </td>
+                        <td><span t-field="ticket.subject"/></td>
+                        <td>
+                            <span class="badge rounded-pill text-bg-info" t-field="ticket.stage_id.name"/>
+                        </td>
+                    </tr>
+                </t>
+            </t>
+        </t>
+    </template>
+
+    <template id="portal_ticket_page" name="Ticket">
+        <t t-call="portal.portal_layout">
+            <div id="optional_layout">
+                <div class="container">
+                    <div class="card mt-3">
+                        <div class="card-header">
+                            <div class="row">
+                                <div class="col-lg-12">
+                                    <h4>
+                                        <span t-field="ticket.name"/> - <span t-field="ticket.subject"/>
+                                        <span class="badge rounded-pill text-bg-info float-end" t-field="ticket.stage_id.name"/>
+                                    </h4>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div t-if="ticket.description" t-raw="ticket.description"/>
+                        </div>
+                    </div>
+                    <div class="mt-4">
+                        <h4>Communication</h4>
+                        <t t-call="portal.message_thread">
+                            <t t-set="object" t-value="ticket"/>
+                        </t>
+                    </div>
+                </div>
+            </div>
+        </t>
+    </template>
+
+    <!-- Website Ticket Submission -->
+    <template id="helpdesk_submit_ticket" name="Submit Ticket">
+        <t t-call="website.layout">
+            <div id="wrap">
+                <div class="container mt-4 mb-4">
+                    <h1>Submit a Ticket</h1>
+                    <form action="/helpdesk/submit/process" method="post" enctype="multipart/form-data">
+                        <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                        <div class="mb-3">
+                            <label for="name" class="form-label">Name</label>
+                            <input type="text" class="form-control" name="name" required="1" t-att-value="request.env.user.name if request.env.user != request.env.ref('base.public_user') else ''"/>
+                        </div>
+                        <div class="mb-3">
+                            <label for="email" class="form-label">Email</label>
+                            <input type="email" class="form-control" name="email" required="1" t-att-value="request.env.user.email if request.env.user != request.env.ref('base.public_user') else ''"/>
+                        </div>
+                        <div class="mb-3">
+                            <label for="subject" class="form-label">Subject</label>
+                            <input type="text" class="form-control" name="subject" required="1"/>
+                        </div>
+                        <div class="mb-3">
+                            <label for="category_id" class="form-label">Category</label>
+                            <select name="category_id" class="form-select">
+                                <option value="">Select a Category...</option>
+                                <t t-foreach="categories" t-as="cat">
+                                    <option t-att-value="cat.id"><t t-esc="cat.name"/></option>
+                                </t>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="description" class="form-label">Description</label>
+                            <textarea class="form-control" name="description" rows="5" required="1"></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Submit Ticket</button>
+                    </form>
+                </div>
+            </div>
+        </t>
+    </template>
+
+    <template id="helpdesk_submit_success" name="Ticket Submitted Successfully">
+        <t t-call="website.layout">
+            <div id="wrap" class="oe_structure oe_empty">
+                <div class="container mt-5 mb-5 text-center">
+                    <div class="alert alert-success d-inline-block px-5 py-4">
+                        <i class="fa fa-check-circle fa-4x mb-3 text-success"></i>
+                        <h2 class="mb-3">Thank you!</h2>
+                        <p class="lead">Your ticket <strong><t t-esc="ticket_name"/></strong> has been submitted successfully.</p>
+                        <p>We will get back to you shortly.</p>
+                        <div class="mt-4">
+                            <a href="/" class="btn btn-primary">Return to Home</a>
+                            <a href="/my/tickets" class="btn btn-outline-primary ms-2">View My Tickets</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </t>
+    </template>
+
+    <template id="helpdesk_rating_success" name="Ticket Rating Submitted">
+        <t t-call="website.layout">
+            <div id="wrap" class="oe_structure oe_empty">
+                <div class="container mt-5 mb-5 text-center">
+                    <div class="alert alert-info d-inline-block px-5 py-4">
+                        <t t-if="rating == 5">
+                            <i class="fa fa-smile-o fa-4x mb-3 text-success"></i>
+                            <h2 class="mb-3">Awesome!</h2>
+                            <p class="lead">We're glad we could help you with ticket <strong><t t-esc="ticket.name"/></strong>.</p>
+                        </t>
+                        <t t-elif="rating == 3">
+                            <i class="fa fa-meh-o fa-4x mb-3 text-warning"></i>
+                            <h2 class="mb-3">Thank You</h2>
+                            <p class="lead">Your feedback for ticket <strong><t t-esc="ticket.name"/></strong> has been recorded.</p>
+                        </t>
+                        <t t-else="">
+                            <i class="fa fa-frown-o fa-4x mb-3 text-danger"></i>
+                            <h2 class="mb-3">We're Sorry</h2>
+                            <p class="lead">We will work on improving our service for ticket <strong><t t-esc="ticket.name"/></strong>.</p>
+                        </t>
+                        <p>Thank you for taking the time to provide your feedback!</p>
+                        <div class="mt-4">
+                            <a href="/" class="btn btn-primary">Return to Home</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </t>
+    </template>
+</odoo>

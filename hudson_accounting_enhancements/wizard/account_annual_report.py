@@ -157,3 +157,6 @@ class AccountAnnualReportWizard(models.TransientModel):
         return self.env.ref(
             'hudson_accounting_enhancements.action_report_annual'
         ).report_action(self, data={'form': data})
+
+    def check_report(self):
+        return self.action_print_report()

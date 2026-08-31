@@ -62,6 +62,8 @@ class FieldServiceOrder(models.Model):
         tracking=True,
         help='Optional: Link this field service order to a project.',
     )
+    
+
     task_id = fields.Many2one(
         'project.task',
         string='Project Task',
@@ -114,6 +116,12 @@ class FieldServiceOrder(models.Model):
         tracking=True,
         help="Additional technicians assigned to this job.",
     )
+    material_ids = fields.Many2many(
+        'field.service.material',
+        string='Materials',
+        tracking=True,
+        help="Materials assigned to this job.",
+    )
     team_leader_employee_id = fields.Many2one(
         'hr.employee',
         string='Team Leader',
@@ -122,16 +130,19 @@ class FieldServiceOrder(models.Model):
 
     # Scheduling
     date_planned = fields.Datetime(
-        string='Planned Date',
+        string='Start Date',
         tracking=True,
         index=True,
     )
-    date_deadline = fields.Date(
-        string='Deadline',
+    date_deadline = fields.Datetime(
+        string='End Date',
         tracking=True,
     )
     duration_planned = fields.Float(
         string='Total Scheduled Time (Hours)',
+        compute='_compute_duration_planned',
+        store=True,
+        readonly=False,
         help='Estimated total duration from start to finish.',
     )
     rest_time_planned = fields.Float(
@@ -377,6 +388,22 @@ class FieldServiceOrder(models.Model):
     def _compute_is_timer_running(self):
         for order in self:
             order.is_timer_running = bool(order.timer_start)
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        for vals in vals_list:
+            if vals.get('name', _('New')) == _('New'):
+                vals['name'] = self.env['ir.sequence'].next_by_code('field.service.order') or _('New')
+        return super().create(vals_list)
+
+    @api.depends('date_planned', 'date_deadline')
+    def _compute_duration_planned(self):
+        for order in self:
+            if order.date_planned and order.date_deadline:
+                diff = order.date_deadline - order.date_planned
+                order.duration_planned = max(0.0, diff.total_seconds() / 3600.0)
+            else:
+                order.duration_planned = 0.0
 
     @api.depends('duration_planned', 'rest_time_planned')
     def _compute_duration_working(self):
@@ -882,7 +909,59 @@ class FieldServiceOrder(models.Model):
             self.stage_id = new_stage
 
     def action_publish_order(self):
-        """Publish the order, making it visible to the technician and sending an email."""
+        """Publish the order, making it visible to the technician and sending an email.
+           Validates overlaps and working hours before publishing."""
+        
+        # Collect warnings
+        warnings = []
+        for order in self:
+            if not order.date_planned or not order.date_deadline:
+                continue
+            
+            # Check overlap for employees
+            domain = [
+                ('id', '!=', order.id),
+                ('date_planned', '<', order.date_deadline),
+                ('date_deadline', '>', order.date_planned),
+                ('is_published', '=', True),
+            ]
+            if order.employee_id:
+                emp_domain = domain + [('employee_id', '=', order.employee_id.id)]
+                overlapping = self.env['field.service.order'].search(emp_domain, limit=1)
+                if overlapping:
+                    warnings.append(f"Employee {order.employee_id.name} is double-booked with '{overlapping.name}'.")
+            
+            # Check overlap for materials
+            if order.material_ids:
+                for mat in order.material_ids:
+                    mat_domain = domain + [('material_ids', 'in', [mat.id])]
+                    overlapping = self.env['field.service.order'].search(mat_domain, limit=1)
+                    if overlapping:
+                        warnings.append(f"Material {mat.name} is double-booked with '{overlapping.name}'.")
+                        
+            # Check working hours (duration > standard)
+            if order.employee_id and order.employee_id.resource_calendar_id:
+                # Roughly check hours per day
+                hours = order.employee_id.resource_calendar_id.hours_per_day or 8.0
+                if order.duration_planned > hours:
+                    warnings.append(f"Order '{order.name}' exceeds the daily working hours ({hours}h) for {order.employee_id.name}.")
+
+        if warnings:
+            # Open wizard
+            wizard = self.env['fs.order.publish.wizard'].create({
+                'order_ids': [(6, 0, self.ids)],
+                'warning_message': "\n".join(warnings)
+            })
+            return {
+                'name': _('Validation Warnings'),
+                'type': 'ir.actions.act_window',
+                'res_model': 'fs.order.publish.wizard',
+                'res_id': wizard.id,
+                'view_mode': 'form',
+                'target': 'new',
+            }
+            
+        # Proceed with normal publish
         for order in self:
             if not order.is_published:
                 order.is_published = True

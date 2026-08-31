@@ -2,3 +2,4 @@
 
 from . import field_service_stop_wizard
 from . import field_service_create_invoice_wizard
+from . import fs_order_publish_wizard

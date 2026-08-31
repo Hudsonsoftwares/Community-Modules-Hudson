@@ -1,6 +1,7 @@
 import ast
 from odoo.osv import expression
 from odoo import api, models, fields
+from odoo.tools import Query
 
 
 class AccountMoveLine(models.Model):
@@ -108,7 +109,13 @@ class AccountMoveLine(models.Model):
 
             query = self._where_calc(domain)
             self._apply_ir_rules(query)
-            from_string, from_params = query.from_clause
-            where_string, where_params = query.where_clause
-            tables, where_clause, where_clause_params = from_string, where_string, from_params + where_params
+            if hasattr(query, 'from_clause') and hasattr(query.from_clause, 'code'):
+                from_string = query.from_clause.code
+                from_params = query.from_clause.params or []
+                where_string = query.where_clause.code
+                where_params = query.where_clause.params or []
+            else:
+                from_string, from_params = query.from_clause
+                where_string, where_params = query.where_clause
+            tables, where_clause, where_clause_params = from_string, where_string, list(from_params) + list(where_params)
         return tables, where_clause, where_clause_params

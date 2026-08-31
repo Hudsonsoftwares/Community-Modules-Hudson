@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="custom_barcode_client_action" model="ir.actions.client">
+        <field name="name">Barcode Scanner</field>
+        <field name="tag">custom_barcode_client_action</field>
+        <field name="target">fullscreen</field>
+    </record>
+
+    <!-- Top-level Menu Item -->
+    <menuitem id="menu_custom_barcode_root" 
+              name="Barcode" 
+              web_icon="Barcode,static/description/icon.png"
+              action="custom_barcode_client_action"
+              groups="stock.group_stock_user"
+              sequence="50"/>
+
+</odoo>

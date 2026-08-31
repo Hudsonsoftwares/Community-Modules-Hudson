@@ -56,53 +56,571 @@
     </template>
 
     <template id="portal_signature_page" name="Signature Request">
-        <t t-call="portal.portal_layout">
-            <div id="optional_layout">
-                <div class="container">
-                    <div class="card">
-                        <div class="card-header">
-                            <div class="row">
-                                <div class="col-lg-6">
-                                    <h4><span t-field="signature_req.revision_id.file_id.name"/></h4>
-                                </div>
-                                <div class="col-lg-6 text-right">
-                                    <span t-attf-class="badge badge-pill #{'badge-success' if signature_req.state == 'signed' else 'badge-info'}"><t t-esc="signature_req.state"/></span>
-                                </div>
-                            </div>
+        <!-- Standalone signing page — no portal layout, token-based access -->
+        <html>
+        <head>
+            <meta charset="utf-8"/>
+            <meta name="viewport" content="width=device-width, initial-scale=1"/>
+            <title><t t-esc="signature_req.revision_id.file_id.name"/> — Sign Document</title>
+            <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"/>
+            <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+            <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.0.0/dist/signature_pad.umd.min.js"></script>
+            <link rel="preconnect" href="https://fonts.googleapis.com"/>
+            <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous"/>
+            <link href="https://fonts.googleapis.com/css2?family=Great+Vibes&amp;display=swap" rel="stylesheet"/>
+            <style>
+                * { box-sizing: border-box; }
+                body { margin: 0; font-family: 'Segoe UI', Arial, sans-serif; background: #f0f1f5; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+                /* ── Top bar ── */
+                #sign-topbar {
+                    display: flex; align-items: center; justify-content: space-between;
+                    background: #fff; border-bottom: 1px solid #dee2e6;
+                    padding: 0 20px; height: 56px; flex-shrink: 0; z-index: 100;
+                    box-shadow: 0 2px 6px rgba(0,0,0,.07);
+                }
+                #sign-topbar .doc-title { font-weight: 600; font-size: 15px; color: #333; max-width: 400px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+                #sign-topbar .actions { display: flex; gap: 10px; align-items: center; }
+                #btn-complete {
+                    background: #714B67; color: #fff; border: none; padding: 8px 22px;
+                    border-radius: 5px; font-size: 14px; font-weight: 600; cursor: pointer; transition: background .2s;
+                }
+                #btn-complete:hover { background: #5a3a52; }
+                #btn-complete:disabled { background: #aaa; cursor: not-allowed; }
+                .signed-badge { background: #28a745; color: #fff; padding: 6px 16px; border-radius: 5px; font-size: 13px; font-weight: 600; }
+
+                /* ── Main layout ── */
+                #sign-body { display: flex; flex: 1; overflow: hidden; }
+
+                /* ── PDF area ── */
+                #pdf-area { flex: 1; overflow-y: auto; padding: 24px; background: #e0e2e5; }
+                .pdf-page-wrap { position: relative; margin: 0 auto 24px; box-shadow: 0 4px 16px rgba(0,0,0,.18); background: #fff; display: block; }
+                .pdf-page-wrap canvas { display: block; }
+                .sign-field {
+                    position: absolute; border: 2px solid #714B67; background: rgba(113,75,103,.08);
+                    display: flex; align-items: center; justify-content: center;
+                    overflow: hidden; cursor: pointer; transition: background .15s;
+                }
+                .sign-field:hover { background: rgba(113,75,103,.15); }
+                .sign-field.completed { border-color: #28a745; background: rgba(40,167,69,.1); }
+                .sign-field input, .sign-field textarea { width: 100%; height: 100%; border: none; background: transparent; padding: 4px; outline: none; font-size: 13px; }
+                .sign-field input[type="checkbox"], .sign-field input[type="radio"] { width: 18px; height: 18px; cursor: pointer; accent-color: #714B67; }
+                .sign-field .field-btn { width: 100%; height: 100%; border: none; background: transparent; color: #714B67; font-weight: 600; font-size: 12px; cursor: pointer; }
+                .sign-field img { width: 100%; height: 100%; object-fit: contain; }
+
+                /* ── Signature modal ── */
+                #sig-modal-overlay {
+                    display: none; position: fixed; inset: 0;
+                    background: rgba(0,0,0,.5); z-index: 9999;
+                    align-items: center; justify-content: center;
+                }
+                #sig-modal-overlay.show { display: flex; }
+                .sig-modal-box { background: #fff; border-radius: 10px; padding: 24px; width: 520px; max-width: 95vw; box-shadow: 0 20px 60px rgba(0,0,0,.3); }
+                .sig-modal-box h5 { margin: 0 0 16px; font-weight: 700; color: #333; }
+                .sig-pad-wrap { border: 1px solid #ccc; border-radius: 6px; background: #fafafa; margin-bottom: 14px; }
+                canvas#sig-canvas { width: 100%; height: 180px; touch-action: none; display: block; }
+                .sig-tabs { display: flex; gap: 6px; margin-bottom: 12px; }
+                .sig-tab { padding: 5px 14px; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; font-size: 13px; background: #f8f9fa; }
+                .sig-tab.active { background: #714B67; color: #fff; border-color: #714B67; }
+                .sig-modal-footer { display: flex; justify-content: flex-end; gap: 8px; }
+
+                /* ── Progress bar ── */
+                #progress-bar-wrap { background: #eee; height: 4px; }
+                #progress-bar { height: 4px; background: #714B67; width: 0; transition: width .3s; }
+
+                /* ── Navigation Arrow ── */
+                #nav-arrow-container {
+                    width: 140px; flex-shrink: 0; background: #f0f1f5;
+                    position: relative; overflow: visible; display: flex; align-items: center; justify-content: flex-end;
+                }
+                .nav-arrow-btn {
+                    background: #f0ad4e; color: #fff; border: none; padding: 10px 16px; border-radius: 4px;
+                    display: flex; align-items: center; gap: 8px; font-weight: bold; cursor: pointer;
+                    position: absolute; right: -20px; z-index: 50; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                    transition: top 0.3s ease, background 0.2s;
+                }
+                .nav-arrow-btn:hover { background: #ec971f; }
+                .nav-arrow-btn::after {
+                    content: ''; position: absolute; right: -12px; top: 50%; transform: translateY(-50%);
+                    border-width: 8px 0 8px 12px; border-style: solid; border-color: transparent transparent transparent #f0ad4e;
+                }
+                .nav-arrow-btn:hover::after { border-left-color: #ec971f; }
+            </style>
+        </head>
+        <body>
+            <!-- Top bar -->
+            <div id="sign-topbar">
+                <div class="doc-title"><t t-esc="signature_req.revision_id.file_id.name"/></div>
+                <div class="actions">
+                    <t t-set="is_expired" t-value="signature_req.valid_until and signature_req.valid_until &lt; datetime.date.today()"/>
+                    <t t-if="is_expired">
+                        <span class="signed-badge" style="background:#dc3545; color:white;">Expired</span>
+                    </t>
+                    <t t-elif="signature_req.state != 'signed'">
+                        <span id="progress-label" style="font-size:13px;color:#777;"></span>
+                        <button id="btn-complete">Complete &amp; Sign</button>
+                    </t>
+                    <t t-elif="signature_req.state == 'signed'">
+                        <span class="signed-badge">✓ Signed</span>
+                    </t>
+                </div>
+            </div>
+            <div id="progress-bar-wrap"><div id="progress-bar"></div></div>
+
+            <t t-if="is_expired">
+                <div style="text-align:center; padding: 50px; font-family: sans-serif;">
+                    <i class="fa fa-exclamation-triangle fa-4x text-danger mb-3"></i>
+                    <h2>This document has expired</h2>
+                    <p>The signature request was valid until <strong><t t-esc="signature_req.valid_until"/></strong> and can no longer be signed.</p>
+                </div>
+            </t>
+            <t t-else="">
+            <div id="sign-body">
+                <!-- Navigation arrow (left) -->
+                <div id="nav-arrow-container">
+                    <button id="btn-next-field" class="nav-arrow-btn" onclick="scrollToNextField()" style="display: none;">
+                        <span class="nav-arrow-text">Next Field</span>
+                        <div class="nav-arrow-icon">▶</div>
+                    </button>
+                </div>
+
+                <!-- PDF viewer -->
+                <div id="pdf-area">
+                    <div id="pdf-viewer"></div>
+                </div>
+            </div>
+
+            <!-- Signature modal -->
+            <div id="sig-modal-overlay">
+                <div class="sig-modal-box" style="width: 500px;">
+                    <h5 id="sig-modal-title">Sign Document</h5>
+                    <div class="sig-tabs" style="display: flex; gap: 10px; margin-bottom: 15px;">
+                        <div class="sig-tab active" id="tab-auto" onclick="switchTab('auto')">Auto</div>
+                        <div class="sig-tab" id="tab-draw" onclick="switchTab('draw')">Draw</div>
+                        <div class="sig-tab" id="tab-load" onclick="switchTab('load')">Load</div>
+                    </div>
+                    
+                    <div class="sig-pad-wrap" id="wrap-auto" style="height: 250px; background: #fff; padding: 15px; border: 1px solid #ddd; border-radius: 4px; display: flex; flex-direction: column;">
+                        <input type="text" id="auto-name-input" class="form-control mb-3" placeholder="Your Name" t-att-value="signature_req.recipient_id.name" oninput="updateAutoSignature()" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;"/>
+                        <canvas id="auto-canvas" style="flex-grow: 1; width: 100%;"></canvas>
+                    </div>
+                    
+                    <div class="sig-pad-wrap" id="wrap-draw" style="display:none; height: 250px; background: #fff; border: 1px solid #ddd; border-radius: 4px;">
+                        <canvas id="sig-canvas" style="width: 100%; height: 100%;"></canvas>
+                    </div>
+                    
+                    <div class="sig-pad-wrap" id="wrap-load" style="display:none; height: 250px; background: #fff; padding: 15px; border: 1px solid #ddd; border-radius: 4px;">
+                        <input type="file" id="load-file-input" class="form-control" accept="image/png, image/jpeg" onchange="handleSignatureUpload(event)" style="width: 100%; padding: 8px;"/>
+                        <div style="height: 100%; display: flex; align-items: center; justify-content: center; margin-top: 10px;">
+                            <img id="load-preview" style="max-height: 150px; max-width: 100%; display: none;"/>
                         </div>
-                        <div class="card-body">
-                            <div class="row">
-                                <div class="col-lg-12">
-                                    <p>Please review and sign the document.</p>
-                                    <a class="btn btn-secondary mb-3" t-att-href="'/web/content/dms.file.revision/%s/content' % signature_req.revision_id.id" target="_blank">
-                                        <i class="fa fa-download"/> Download Original Document
-                                    </a>
-                                </div>
-                            </div>
-                            <div class="row">
-                                <div class="col-lg-12">
-                                    <div t-if="signature_req.state != 'signed'" id="signature" class="mt-4">
-                                        <t t-call="portal.signature_form">
-                                            <t t-set="call_url" t-value="signature_req.get_portal_url(suffix='/accept')"/>
-                                            <t t-set="default_name" t-value="signature_req.recipient_id.name"/>
-                                        </t>
-                                    </div>
-                                    <div t-if="signature_req.state == 'signed'" class="mt-4">
-                                        <h3>Signature</h3>
-                                        <div class="row">
-                                            <div class="col-12 col-md-4">
-                                                <p>Signed by: <b t-field="signature_req.recipient_id.name"/></p>
-                                                <p>Date: <span t-field="signature_req.signed_date"/></p>
-                                                <img t-att-src="image_data_uri(signature_req.signature_image)" style="max-height: 150px;"/>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+                    </div>
+
+                    <div class="sig-modal-footer" style="margin-top: 20px;">
+                        <button class="btn btn-light border" onclick="clearSig()">Clear</button>
+                        <button class="btn btn-light border" onclick="closeSigModal()">Cancel</button>
+                        <button class="btn text-white" style="background:#714B67;" onclick="saveSig(true)">Sign All</button>
+                        <button class="btn text-white" style="background:#714B67;" onclick="saveSig(false)">Sign</button>
                     </div>
                 </div>
             </div>
-        </t>
+
+            <script>
+                const reqId = <t t-esc="signature_req.id"/>;
+                const accessToken = '<t t-esc="access_token or ''"/>';
+                const isSigned = '<t t-esc="signature_req.state"/>' === 'signed';
+                const origPdfUrl = isSigned
+                    ? '/web/content/dms.file.signature.request/' + reqId + '/pdf_content'
+                    : '/web/content/dms.file.revision/<t t-esc="signature_req.revision_id.id"/>/content';
+
+                const itemsData = [
+                    <t t-foreach="signature_req.item_ids" t-as="item">
+                    {
+                        id: <t t-esc="item.id"/>,
+                        type: '<t t-esc="item.item_type"/>',
+                        page: <t t-esc="item.page_number"/>,
+                        x: <t t-esc="item.pos_x"/>,
+                        y: <t t-esc="item.pos_y"/>,
+                        width: <t t-esc="item.width"/>,
+                        height: <t t-esc="item.height"/>,
+                        state: '<t t-esc="item.state"/>',
+                        valueText: `<t t-esc="item.value_text or ''"/>`,
+                        valueBool: !!<t t-esc="1 if item.value_bool else 0"/>,
+                        valueImage: `<t t-esc="item.value_image or ''"/>`,
+                        radioGroupName: `<t t-esc="item.radio_group_name or ''"/>`,
+                        radioOptionValue: `<t t-esc="item.radio_option_value or ''"/>`,
+                        placeholder: `<t t-esc="item.placeholder or ''"/>`,
+                        readonly: !!<t t-esc="1 if item.readonly else 0"/>
+                    },
+                    </t>
+                ];
+
+                let answers = {};
+                let currentItem = null;
+                let currentFieldDiv = null;
+                let radioGroups = {};
+                let signaturePad = null;
+                let totalFields = itemsData.filter(i => i.type !== 'strikethrough').length;
+
+                pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+                const scale = 1.4;
+                const viewer = document.getElementById('pdf-viewer');
+
+                pdfjsLib.getDocument(origPdfUrl).promise.then(function(pdfDoc) {
+                    const pages = [];
+                    for (let num = 1; num &lt;= pdfDoc.numPages; num++) pages.push(num);
+                    pages.reduce((p, num) => p.then(() => renderPage(pdfDoc, num)), Promise.resolve());
+                }).catch(err => {
+                    viewer.innerHTML = '&lt;p style="color:red;text-align:center;"&gt;Could not load PDF: ' + err.message + '&lt;/p&gt;';
+                });
+
+                function renderPage(pdfDoc, num) {
+                    return pdfDoc.getPage(num).then(function(page) {
+                        const viewport = page.getViewport({ scale });
+                        const wrap = document.createElement('div');
+                        wrap.className = 'pdf-page-wrap';
+                        wrap.style.width = viewport.width + 'px';
+                        wrap.style.height = viewport.height + 'px';
+
+                        const dpr = window.devicePixelRatio || 1;
+                        const canvas = document.createElement('canvas');
+                        canvas.width = Math.floor(viewport.width * dpr);
+                        canvas.height = Math.floor(viewport.height * dpr);
+                        canvas.style.width = viewport.width + 'px';
+                        canvas.style.height = viewport.height + 'px';
+                        wrap.appendChild(canvas);
+                        viewer.appendChild(wrap);
+
+                        const ctx = canvas.getContext('2d');
+                        const xform = dpr !== 1 ? [dpr, 0, 0, dpr, 0, 0] : null;
+                        return page.render({ canvasContext: ctx, transform: xform, viewport }).promise.then(() => {
+                            if (!isSigned) {
+                                itemsData.forEach(item => { if (item.page === num) renderField(item, wrap, viewport); });
+                            }
+                        });
+                    });
+                }
+
+                function renderField(item, container, viewport) {
+                    const fd = document.createElement('div');
+                    fd.className = 'sign-field';
+                    
+                    // Coordinates are stored as pure ratios (0.0–1.0) relative to page dimensions.
+                    fd.style.left = (item.x * viewport.width) + 'px';
+                    fd.style.top = (item.y * viewport.height) + 'px';
+                    fd.style.width = (item.width * viewport.width) + 'px';
+                    fd.style.height = (item.height * viewport.height) + 'px';
+
+                    const boxHeight = item.height * viewport.height;
+                    const dynamicFontSize = Math.max(10, boxHeight * 0.6) + 'px';
+
+                    if (['text','name','email','phone','company','date'].includes(item.type)) {
+                        const inp = document.createElement('input');
+                        inp.type = item.type === 'date' ? 'date' : 'text';
+                        inp.placeholder = item.placeholder || item.type;
+                        inp.value = item.valueText || '';
+                        inp.style.fontSize = dynamicFontSize;
+                        if (item.readonly) inp.disabled = true;
+                        inp.oninput = e => setAnswer(item.id, 'value_text', e.target.value, fd);
+                        fd.appendChild(inp);
+                    } else if (item.type === 'multiline') {
+                        const ta = document.createElement('textarea');
+                        ta.placeholder = item.placeholder || 'Enter text...';
+                        ta.value = item.valueText || '';
+                        ta.style.fontSize = Math.max(10, boxHeight * 0.3) + 'px'; // slightly smaller for multiline to fit more text
+                        if (item.readonly) ta.disabled = true;
+                        ta.oninput = e => setAnswer(item.id, 'value_text', e.target.value, fd);
+                        fd.appendChild(ta);
+                    } else if (item.type === 'checkbox' || item.type === 'radio') {
+                        const chk = document.createElement('input');
+                        chk.type = item.type;
+                        chk.checked = item.valueBool;
+                        if (item.type === 'radio') {
+                            chk.name = item.radioGroupName || 'rg_default';
+                            if (!radioGroups[chk.name]) radioGroups[chk.name] = [];
+                            radioGroups[chk.name].push({ item, fd });
+                        }
+                        chk.onchange = e => {
+                            setAnswer(item.id, 'value_bool', e.target.checked, fd);
+                            if (item.type === 'radio' &amp;&amp; e.target.checked) {
+                                (radioGroups[item.radioGroupName || 'rg_default'] || []).forEach(o => {
+                                    if (o.item.id !== item.id) setAnswer(o.item.id, 'value_bool', false, o.fd);
+                                });
+                            }
+                        };
+                        fd.appendChild(chk);
+                    } else if (['signature','initial','initials','stamp'].includes(item.type)) {
+                        if (item.valueImage) {
+                            const img = document.createElement('img');
+                            img.src = 'data:image/png;base64,' + item.valueImage;
+                            fd.appendChild(img); fd.classList.add('completed');
+                        } else {
+                            const btn = document.createElement('button');
+                            btn.className = 'field-btn';
+                            btn.innerHTML = '✍ ' + (item.type === 'signature' ? 'Sign here' : 'Initials');
+                            btn.onclick = () => openSigModal(item, fd);
+                            fd.appendChild(btn);
+                        }
+                    } else if (item.type === 'strikethrough') {
+                        fd.style.borderTop = '2px solid #333';
+                        fd.style.height = '2px';
+                        fd.style.background = 'transparent';
+                        setAnswer(item.id, 'value_bool', true, fd);
+                    }
+                    
+                    // Mark field element with id for navigation
+                    fd.id = 'sign-field-' + item.id;
+                    container.appendChild(fd);
+                }
+
+                function setAnswer(id, key, val, fd) {
+                    if (!answers[id]) answers[id] = {};
+                    answers[id][key] = val;
+                    if (val) fd.classList.add('completed'); else fd.classList.remove('completed');
+                    updateProgress();
+                }
+
+                function updateProgress() {
+                    const done = Object.keys(answers).length;
+                    const pct = totalFields ? Math.round((done / totalFields) * 100) : 100;
+                    document.getElementById('progress-bar').style.width = pct + '%';
+                    const progLabel = document.getElementById('progress-label');
+                    if (progLabel) progLabel.textContent = done + ' / ' + totalFields + ' fields completed';
+                    updateNavArrow();
+                }
+
+                // Arrow Navigation
+                function updateNavArrow() {
+                    const btn = document.getElementById('btn-next-field');
+                    if (!btn) return;
+                    
+                    if (isSigned || Object.keys(answers).length >= totalFields) {
+                        btn.style.display = 'none';
+                        return;
+                    }
+                    
+                    // Find first incomplete mandatory field
+                    const mandatory = itemsData.filter(i => !i.readonly &amp;&amp; i.type !== 'strikethrough');
+                    const nextField = mandatory.find(i => !answers[i.id]);
+                    
+                    if (nextField) {
+                        btn.style.display = 'flex';
+                        // Position arrow relative to the viewport height of the field
+                        const fieldEl = document.getElementById('sign-field-' + nextField.id);
+                        if (fieldEl) {
+                            const pdfArea = document.getElementById('pdf-area');
+                            const fieldRect = fieldEl.getBoundingClientRect();
+                            const areaRect = pdfArea.getBoundingClientRect();
+                            
+                            // Target scroll position
+                            const targetScroll = pdfArea.scrollTop + (fieldRect.top - areaRect.top) - (areaRect.height / 2);
+                            
+                            // Just position the arrow vertically in the center of the viewport for simplicity, 
+                            // as it stays fixed on the left sidebar
+                            btn.style.top = '50%';
+                        }
+                    } else {
+                        btn.style.display = 'none';
+                    }
+                }
+                
+                function scrollToNextField() {
+                    const mandatory = itemsData.filter(i => !i.readonly &amp;&amp; i.type !== 'strikethrough');
+                    const nextField = mandatory.find(i => !answers[i.id]);
+                    if (nextField) {
+                        const fieldEl = document.getElementById('sign-field-' + nextField.id);
+                        if (fieldEl) {
+                            fieldEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            // Highlight field briefly
+                            const origBg = fieldEl.style.backgroundColor;
+                            fieldEl.style.backgroundColor = 'rgba(240, 173, 78, 0.4)';
+                            setTimeout(() => { fieldEl.style.backgroundColor = origBg; }, 1000);
+                        }
+                    }
+                }
+
+                let currentTab = 'auto';
+                let loadedImageBase64 = null;
+
+                function switchTab(t) {
+                    currentTab = t;
+                    document.querySelectorAll('.sig-tab').forEach(el => el.classList.remove('active'));
+                    document.getElementById('tab-' + t).classList.add('active');
+                    
+                    document.getElementById('wrap-auto').style.display = 'none';
+                    document.getElementById('wrap-draw').style.display = 'none';
+                    document.getElementById('wrap-load').style.display = 'none';
+                    document.getElementById('wrap-' + t).style.display = (t === 'auto') ? 'flex' : 'block';
+                    
+                    if (t === 'auto') {
+                        updateAutoSignature();
+                    } else if (t === 'draw' &amp;&amp; signaturePad) {
+                        // resize canvas might be needed when switching
+                        const canvas = document.getElementById('sig-canvas');
+                        const dpr = window.devicePixelRatio || 1;
+                        canvas.width = canvas.parentElement.offsetWidth * dpr;
+                        canvas.height = canvas.parentElement.offsetHeight * dpr;
+                        canvas.getContext('2d').scale(dpr, dpr);
+                        signaturePad.clear();
+                    }
+                }
+
+                function updateAutoSignature() {
+                    const canvas = document.getElementById('auto-canvas');
+                    const ctx = canvas.getContext('2d');
+                    const text = document.getElementById('auto-name-input').value || 'Signature';
+                    
+                    // Simple resize based on wrapper
+                    canvas.width = canvas.parentElement.offsetWidth;
+                    canvas.height = canvas.parentElement.offsetHeight - 50; // account for input
+                    
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    ctx.font = "400 64px 'Great Vibes', cursive";
+                    ctx.fillStyle = "#000080";
+                    ctx.textAlign = "center";
+                    ctx.textBaseline = "middle";
+                    ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+                }
+
+                function handleSignatureUpload(e) {
+                    const file = e.target.files[0];
+                    if (!file) return;
+                    const reader = new FileReader();
+                    reader.onload = function(event) {
+                        loadedImageBase64 = event.target.result;
+                        const preview = document.getElementById('load-preview');
+                        preview.src = loadedImageBase64;
+                        preview.style.display = 'block';
+                    };
+                    reader.readAsDataURL(file);
+                }
+
+                // Signature modal
+                function openSigModal(item, fd) {
+                    currentItem = item;
+                    currentFieldDiv = fd;
+                    document.getElementById('sig-modal-title').textContent =
+                        item.type === 'signature' ? 'Sign Document' : 'Initial Document';
+                    document.getElementById('sig-modal-overlay').classList.add('show');
+                    
+                    switchTab('auto');
+                }
+                
+                function closeSigModal() { document.getElementById('sig-modal-overlay').classList.remove('show'); }
+                
+                function clearSig() {
+                    if (currentTab === 'draw' &amp;&amp; signaturePad) {
+                        signaturePad.clear();
+                    } else if (currentTab === 'auto') {
+                        document.getElementById('auto-name-input').value = '';
+                        updateAutoSignature();
+                    } else if (currentTab === 'load') {
+                        document.getElementById('load-file-input').value = '';
+                        document.getElementById('load-preview').style.display = 'none';
+                        loadedImageBase64 = null;
+                    }
+                }
+                
+                function getSignatureBase64() {
+                    if (currentTab === 'draw') {
+                        if (!signaturePad || signaturePad.isEmpty()) return null;
+                        return signaturePad.toDataURL();
+                    } else if (currentTab === 'auto') {
+                        const input = document.getElementById('auto-name-input').value;
+                        if (!input) return null;
+                        return document.getElementById('auto-canvas').toDataURL();
+                    } else if (currentTab === 'load') {
+                        return loadedImageBase64;
+                    }
+                    return null;
+                }
+
+                function saveSig(signAll = false) {
+                    const dataUrl = getSignatureBase64();
+                    if (!dataUrl) {
+                        alert('Please provide a signature first.');
+                        return;
+                    }
+                    
+                    const base64 = dataUrl.split(',')[1];
+                    
+                    if (signAll) {
+                        const typeToSign = currentItem.type; // sign all signatures or all initials
+                        const uncompleted = itemsData.filter(i => i.type === typeToSign &amp;&amp; !answers[i.id] &amp;&amp; !i.readonly);
+                        
+                        uncompleted.forEach(item => {
+                            const fd = document.getElementById('sign-field-' + item.id);
+                            if (fd) {
+                                setAnswer(item.id, 'value_image', base64, fd);
+                                fd.innerHTML = '';
+                                const img = document.createElement('img');
+                                img.src = dataUrl;
+                                img.style.width = '100%';
+                                img.style.height = '100%';
+                                img.style.objectFit = 'contain';
+                                fd.appendChild(img);
+                                fd.classList.add('completed');
+                            }
+                        });
+                    } else {
+                        setAnswer(currentItem.id, 'value_image', base64, currentFieldDiv);
+                        currentFieldDiv.innerHTML = '';
+                        const img = document.createElement('img');
+                        img.src = dataUrl;
+                        img.style.width = '100%';
+                        img.style.height = '100%';
+                        img.style.objectFit = 'contain';
+                        currentFieldDiv.appendChild(img);
+                        currentFieldDiv.classList.add('completed');
+                    }
+                    
+                    closeSigModal();
+                }
+
+                // Submit
+                document.getElementById('btn-complete') &amp;&amp; document.getElementById('btn-complete').addEventListener('click', function() {
+                    const mandatory = itemsData.filter(i => !i.readonly &amp;&amp; i.type !== 'strikethrough');
+                    const incomplete = mandatory.filter(i => !answers[i.id]);
+                    if (incomplete.length &amp;&amp; !confirm('You have ' + incomplete.length + ' unfilled field(s). Submit anyway?')) return;
+
+                    this.disabled = true;
+                    this.textContent = 'Submitting…';
+
+                    fetch('/my/dms/signature/' + reqId + '/accept', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ params: { items_data: answers, access_token: accessToken || null } })
+                    }).then(r => r.json()).then(data => {
+                        if (data.result &amp;&amp; data.result.error) {
+                            alert(data.result.error);
+                            this.disabled = false;
+                            this.textContent = 'Complete &amp; Sign';
+                        } else {
+                            document.querySelector('.actions').innerHTML = '&lt;span class="signed-badge"&gt;✓ Signed Successfully&lt;/span&gt;';
+                            document.getElementById('progress-bar').style.width = '100%';
+                            setTimeout(() => window.location.reload(), 1500);
+                        }
+                    }).catch(() => {
+                        this.disabled = false;
+                        this.textContent = 'Complete &amp; Sign';
+                        alert('An error occurred. Please try again.');
+                    });
+                });
+
+                updateProgress();
+
+                if (document.fonts &amp;&amp; document.fonts.ready) {
+                    document.fonts.ready.then(function() {
+                        if (currentTab === 'auto') {
+                            updateAutoSignature();
+                        }
+                    });
+                }
+            </script>
+            </t>
+        </body>
+        </html>
     </template>
 </odoo>
+
+

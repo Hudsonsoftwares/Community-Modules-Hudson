@@ -30,7 +30,8 @@ class DMSApprovalStep(models.Model):
     approver_id = fields.Many2one(
         comodel_name="res.users",
         string="Approver",
-        required=True
+        required=True,
+        domain="[('share', '=', False)]"
     )
 
 class DMSFileApproval(models.Model):
@@ -47,7 +48,8 @@ class DMSFileApproval(models.Model):
     approver_id = fields.Many2one(
         comodel_name="res.users",
         string="Approver",
-        required=True
+        required=True,
+        domain="[('share', '=', False)]"
     )
     status = fields.Selection(
         selection=[

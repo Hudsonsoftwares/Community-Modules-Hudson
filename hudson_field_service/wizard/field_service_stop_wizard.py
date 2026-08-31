@@ -38,7 +38,7 @@ class FieldServiceStopWizard(models.TransientModel):
         # Create timesheet entry
         self.env['field.service.timesheet'].create({
             'order_id': order.id,
-            'user_id': order.user_id.id or self.env.user.id,
+            'user_id': order.employee_id.user_id.id if order.employee_id.user_id else self.env.user.id,
             'date': fields.Date.context_today(self),
             'description': self.description or _('Timer session'),
             'duration': self.duration,

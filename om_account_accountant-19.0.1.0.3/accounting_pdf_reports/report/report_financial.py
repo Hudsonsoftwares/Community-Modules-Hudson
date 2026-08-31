@@ -123,7 +123,7 @@ class ReportFinancial(models.AbstractModel):
                     flag = False
                     account = self.env['account.account'].browse(account_id)
                     vals = {
-                        'name': account.code + ' ' + account.name,
+                        'name': (account.code + ' ' if account.code else '') + (account.name or ''),
                         'balance': value['balance'] * float(report.sign) or 0.0,
                         'type': 'account',
                         'level': report.display_detail == 'detail_with_hierarchy' and 4,
@@ -143,6 +143,28 @@ class ReportFinancial(models.AbstractModel):
                     if flag:
                         sub_lines.append(vals)
                 lines += sorted(sub_lines, key=lambda sub_line: sub_line['name'])
+
+        if account_report and 'balance sheet' in account_report.name.lower():
+            liabilities_val = sum(res[r.id]['balance'] * float(r.sign) for r in child_reports if r.name == 'Liabilities' and r.id in res)
+            equity_val = sum(res[r.id]['balance'] * float(r.sign) for r in child_reports if r.name == 'Equity' and r.id in res)
+            
+            summary_vals = {
+                'name': _('LIABILITIES + TOTAL EQUITY'),
+                'balance': liabilities_val + equity_val,
+                'type': 'report',
+                'level': 1,
+                'account_type': False,
+                'is_summary_total': True,
+            }
+            if data.get('debit_credit'):
+                summary_vals['debit'] = sum(res[r.id]['debit'] for r in child_reports if r.name in ('Liabilities', 'Equity') and r.id in res)
+                summary_vals['credit'] = sum(res[r.id]['credit'] for r in child_reports if r.name in ('Liabilities', 'Equity') and r.id in res)
+            if data.get('enable_filter'):
+                comp_liab = sum(res[r.id].get('comp_bal', 0.0) * float(r.sign) for r in child_reports if r.name == 'Liabilities' and r.id in res)
+                comp_eq = sum(res[r.id].get('comp_bal', 0.0) * float(r.sign) for r in child_reports if r.name == 'Equity' and r.id in res)
+                summary_vals['balance_cmp'] = comp_liab + comp_eq
+            lines.append(summary_vals)
+
         return lines
 
     @api.model

@@ -69,6 +69,22 @@
 
                     </block>
 
+                    <!-- PLANNING -->
+                    <block title="Planning" name="fs_planning_setting_container">
+                        <setting string="Planning Schedule"
+                                 help="Enable the full planning schedule with roles, shift templates, and resource allocation."
+                                 id="fs_planning_enabled_setting">
+                            <field name="fs_planning_enabled"/>
+                        </setting>
+
+                        <setting string="Auto Plan"
+                                 help="Automatically schedule unassigned orders based on role and availability."
+                                 id="fs_planning_auto_plan_setting"
+                                 invisible="not fs_planning_enabled">
+                            <field name="fs_planning_auto_plan"/>
+                        </setting>
+                    </block>
+
                     <!-- ─── Invoicing ───────────────────────────────────── -->
                     <block title="Invoicing">
 

@@ -1,0 +1,380 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-name="dms_enterprise_features.SignatureClientAction" owl="1">
+        <div class="o_action h-100 w-100 d-flex flex-column bg-view">
+            <!-- Custom Control Panel Header -->
+            <div class="o_control_panel d-flex justify-content-between align-items-center p-3 border-bottom bg-white" style="min-height: 60px;">
+                <div class="d-flex align-items-center">
+                    <h4 class="mb-0 text-dark fw-bold me-4" t-if="state.currentDocument" style="font-size: 18px;">
+                        <t t-esc="state.currentDocument.name"/>
+                    </h4>
+                    <div class="o_cp_buttons d-flex gap-2">
+                        <button type="button" class="btn fw-bold text-white shadow-sm" style="background:#714B67; border: none; padding: 6px 16px; border-radius: 4px;" t-on-click="() => this.openSendModal(false)">
+                            <i class="fa fa-paper-plane me-2"></i>Send
+                        </button>
+                        <button type="button" class="btn fw-bold text-white shadow-sm" style="background:#017e84; border: none; padding: 6px 16px; border-radius: 4px;" t-on-click="() => this.openSendModal(true)">
+                            <i class="fa fa-pencil me-2"></i>Sign Now
+                        </button>
+                    </div>
+                </div>
+                <div class="o_search_options"></div>
+            </div>
+
+            <!-- Toolbar & Document specific header -->
+            <div class="d-flex align-items-center justify-content-between p-2 border-bottom" style="background:#f8f9fa;">
+                <div class="d-flex align-items-center">
+                    <strong class="me-2">Documents</strong>
+                    <button class="btn btn-sm btn-link text-decoration-none" t-on-click="onAddDocument">Add</button>
+                    <input type="file" t-ref="docUploadInput" class="d-none" accept="application/pdf" t-on-change="onDocumentUpload" />
+                </div>
+                <div class="d-flex align-items-center">
+                    <input type="number" class="form-control form-control-sm text-center border-0 bg-transparent shadow-none px-0" 
+                           t-att-value="state.zoomLevel" 
+                           t-on-change="onZoomChange" 
+                           style="width: 45px; font-weight: bold;" />
+                    <span class="text-muted ms-1">%</span>
+                    <div class="ms-3 input-group input-group-sm" style="width: 150px;">
+                        <input type="text" class="form-control" placeholder="Search..." />
+                        <button class="btn btn-outline-secondary"><i class="fa fa-search"></i></button>
+                    </div>
+                </div>
+                <div>
+                    <button class="btn btn-sm btn-outline-secondary"><i class="fa fa-columns"></i></button>
+                </div>
+            </div>
+
+            <!-- Main Content Area -->
+            <div class="d-flex flex-grow-1 overflow-hidden">
+                <!-- Left Sidebar -->
+                <div class="border-end d-flex flex-column bg-white overflow-auto" style="width: 250px; flex-shrink: 0;">
+                    <!-- Documents -->
+                    <div class="p-2 border-bottom">
+                        <div class="d-flex justify-content-between align-items-center mb-2 px-2">
+                            <strong style="font-size: 14px;">Documents</strong>
+                            <button class="btn btn-sm btn-link text-decoration-none fw-bold" style="color: #017e84;" t-on-click="onAddDocument">Add</button>
+                        </div>
+                        <t t-foreach="state.documents" t-as="doc" t-key="doc.id">
+                            <div t-attf-class="p-2 cursor-pointer {{ state.currentDocIndex === doc_index ? 'bg-light fw-bold' : '' }}" 
+                                 t-on-click="() => this.selectDocument(doc_index)">
+                                <t t-esc="doc.name"/>
+                                <i class="fa fa-ellipsis-v float-end text-muted mt-1"></i>
+                            </div>
+                        </t>
+                    </div>
+
+                    <!-- Signers -->
+                    <div class="p-2 border-bottom">
+                        <div class="d-flex justify-content-between align-items-center mb-2 px-2">
+                            <strong style="font-size: 14px;">Signers</strong>
+                            <button class="btn btn-sm btn-link text-decoration-none fw-bold" style="color: #017e84;" t-on-click="onAddRole">Add</button>
+                        </div>
+                        <t t-foreach="state.roles" t-as="role" t-key="role.id">
+                            <div t-attf-class="d-flex justify-content-between align-items-center p-2 cursor-pointer {{ state.currentRoleIndex === role_index ? 'fw-bold' : '' }}" 
+                                 t-on-click="() => this.selectRole(role_index)">
+                                <span><t t-esc="role.name"/></span>
+                                <div class="d-flex align-items-center">
+                                    <span class="badge rounded-pill me-2 border text-dark" t-attf-style="background-color:{{ role.color }}; border-color: rgba(0,0,0,0.1) !important;">
+                                        <t t-esc="getRoleBoxCount(role.id)"/>
+                                    </span>
+                                    <div class="dropdown d-inline-block" t-on-click.stop="">
+                                        <i class="fa fa-ellipsis-v text-muted cursor-pointer" data-bs-toggle="dropdown" aria-expanded="false" style="padding: 0 4px;"></i>
+                                        <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0" style="min-width: 120px;">
+                                            <li><a class="dropdown-item" href="#" t-on-click.prevent="() => this.editRole(role.id)"><i class="fa fa-pencil me-2 text-muted"></i>Edit</a></li>
+                                            <li><a class="dropdown-item text-danger" href="#" t-on-click.prevent="() => this.deleteRole(role.id)"><i class="fa fa-trash me-2 text-danger"></i>Delete</a></li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </t>
+                    </div>
+
+                    <!-- Tool Palette -->
+                    <div class="p-2 flex-grow-1" style="background:#f8f9fa;">
+                        <div class="row g-2">
+                            <t t-foreach="state.tools" t-as="tool" t-key="tool.type">
+                                <div t-attf-class="{{ tool.span ? 'col-12' : 'col-6' }}">
+                                    <div class="btn btn-sm w-100 text-start d-flex align-items-center tool-btn shadow-sm" 
+                                         t-attf-style="background: {{ getRoleColor(state.roles[state.currentRoleIndex].id) }}; border:1px solid rgba(0,0,0,0.1); color:#333; cursor:grab; padding: 8px;"
+                                         t-on-mousedown="(e) => this.startDrag(e, tool.type)">
+                                        <i t-attf-class="fa {{ tool.icon }} me-2 text-success" style="width:16px; text-align:center;"></i>
+                                        <span style="font-size: 11px; font-weight: 500;"><t t-esc="tool.label"/></span>
+                                    </div>
+                                </div>
+                            </t>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PDF Viewer Canvas -->
+                <div class="flex-grow-1 position-relative overflow-auto d-flex flex-column align-items-center bg-view p-3 pb-5" t-ref="pdfContainer">
+                    <t t-foreach="state.pages" t-as="page" t-key="page.num">
+                        <div class="position-relative shadow-sm bg-white mb-4 pdf-page" 
+                             t-att-data-page-num="page.num"
+                             t-attf-style="width: {{ page.width }}px; height: {{ page.height }}px;">
+                            
+                            <canvas t-att-id="'pdf-canvas-' + page.num" style="display: block;"></canvas>
+                            
+                            <!-- Render Boxes for Current Page -->
+                            <t t-foreach="getCurrentBoxes(page.num)" t-as="box" t-key="box.id">
+                            <div class="position-absolute d-flex align-items-center justify-content-center signature-box shadow-sm" 
+                                 t-attf-style="left: {{ box.x }}px; top: {{ box.y }}px; width: {{ box.width }}px; height: {{ box.height }}px; border: 2px dashed #007bff; background: {{ getRoleColor(box.roleId) }}; cursor: move; user-select: none;"
+                                 t-on-mousedown="(e) => this.startBoxDrag(e, box)">
+                                
+                                <!-- Box Content -->
+                                <t t-if="box.type === 'checkbox' || box.type === 'radio'">
+                                    <div class="d-flex align-items-center justify-content-center w-100 h-100">
+                                        <t t-if="box.type === 'radio'">
+                                            <i class="fa fa-circle-o text-primary" style="font-size: 20px;"></i>
+                                        </t>
+                                        <t t-else="">
+                                            <i class="fa fa-check-square-o text-primary" style="font-size: 20px;"></i>
+                                        </t>
+                                    </div>
+                                </t>
+                                <t t-else="">
+                                    <div class="w-100 h-100 d-flex flex-column justify-content-center overflow-hidden px-1" t-attf-style="text-align: {{ box.alignment || 'left' }};">
+                                        <div t-if="box.type !== 'signature' and box.type !== 'initials'" style="color: #666; font-size: 14px; white-space: pre-wrap;"><t t-esc="box.placeholder"/></div>
+                                        <div t-else="" class="d-flex align-items-center justify-content-center w-100 h-100">
+                                            <i t-attf-class="fa {{ getToolIcon(box.type) }} me-2 text-primary" style="font-size: 16px;"></i>
+                                            <span style="font-size: 14px; font-weight:bold; color: #007bff;"><t t-esc="getToolLabel(box.type)"/></span>
+                                        </div>
+                                    </div>
+                                </t>
+                                
+                                <div class="position-absolute bg-danger text-white rounded-circle d-flex align-items-center justify-content-center delete-box-btn"
+                                     style="top: -10px; right: -10px; width: 20px; height: 20px; font-size: 12px; cursor: pointer;"
+                                     t-on-click.stop="() => this.deleteBox(box.id)">
+                                    <i class="fa fa-times"></i>
+                                </div>
+                                <div class="position-absolute bg-primary resize-box-handle"
+                                     style="bottom: -2px; right: -2px; width: 10px; height: 10px; cursor: nwse-resize;"
+                                     t-on-mousedown.stop="(e) => this.startBoxResize(e, box)">
+                                </div>
+                                
+                                <!-- Properties Popover -->
+                                <t t-if="state.editingBoxId === box.id">
+                                    <div class="position-absolute bg-white shadow rounded border" style="left: 105%; top: 0; min-width: 250px; z-index: 1050; cursor: default;" t-on-mousedown.stop="">
+                                        <div class="d-flex justify-content-between align-items-center p-2 bg-light border-bottom rounded-top">
+                                            <strong class="mb-0"><t t-esc="getToolLabel(box.type)"/></strong>
+                                            <i class="fa fa-times cursor-pointer text-muted" t-on-click.stop="closePopover"></i>
+                                        </div>
+                                        <div class="p-3">
+                                            
+                                            <!-- Options (Radio) -->
+                                            <t t-if="box.type === 'radio'">
+                                                <div class="mb-3">
+                                                    <label class="form-label text-muted small mb-1">Options</label>
+                                                    <input type="number" class="form-control form-control-sm border-0 border-bottom rounded-0 px-0" 
+                                                           t-att-value="getRadioGroupCount(box.radioGroupName)" 
+                                                           t-on-change="(e) => this.updateRadioGroupCount(box.radioGroupName, e.target.value)" 
+                                                           min="1" max="20" />
+                                                </div>
+                                            </t>
+                                            
+                                            <!-- Placeholder (Text fields) -->
+                                            <t t-if="['text', 'name', 'email', 'phone', 'company', 'date', 'stamp', 'multiline'].includes(box.type)">
+                                                <div class="mb-3">
+                                                    <label class="form-label text-muted small mb-1">Placeholder</label>
+                                                    <t t-if="box.type === 'multiline' || box.type === 'stamp'">
+                                                        <textarea class="form-control form-control-sm" rows="3" t-model="box.placeholder"></textarea>
+                                                    </t>
+                                                    <t t-else="">
+                                                        <input type="text" class="form-control form-control-sm" t-model="box.placeholder" />
+                                                    </t>
+                                                </div>
+                                            </t>
+                                            
+                                            <!-- Alignment -->
+                                            <t t-if="['text', 'name', 'email', 'phone', 'company', 'date', 'stamp', 'multiline'].includes(box.type)">
+                                                <div class="mb-3">
+                                                    <label class="form-label text-muted small mb-1 d-block">Alignment</label>
+                                                    <div class="btn-group w-100">
+                                                        <button t-attf-class="btn btn-sm btn-outline-secondary {{ box.alignment === 'left' ? 'active' : '' }}" t-on-click="() => box.alignment = 'left'"><i class="fa fa-align-left"></i></button>
+                                                        <button t-attf-class="btn btn-sm btn-outline-secondary {{ box.alignment === 'center' ? 'active' : '' }}" t-on-click="() => box.alignment = 'center'"><i class="fa fa-align-center"></i></button>
+                                                        <button t-attf-class="btn btn-sm btn-outline-secondary {{ box.alignment === 'right' ? 'active' : '' }}" t-on-click="() => box.alignment = 'right'"><i class="fa fa-align-right"></i></button>
+                                                    </div>
+                                                </div>
+                                            </t>
+                                            
+                                            <!-- Checkboxes -->
+                                            <div class="form-check mb-2">
+                                                <input class="form-check-input" type="checkbox" t-model="box.mandatory" t-att-id="'mand_' + box.id" t-on-change="(e) => box.type === 'radio' ? this.updateRadioGroupMandatory(box.radioGroupName, e.target.checked) : null" />
+                                                <label class="form-check-label" t-att-for="'mand_' + box.id">Mandatory field</label>
+                                            </div>
+                                            <div class="form-check mb-3" t-if="!['signature', 'initials'].includes(box.type)">
+                                                <input class="form-check-input" type="checkbox" t-model="box.readonly" t-att-id="'ro_' + box.id" />
+                                                <label class="form-check-label" t-att-for="'ro_' + box.id">Read-only</label>
+                                            </div>
+                                            
+                                            <!-- Actions -->
+                                            <div class="d-flex justify-content-between align-items-center mt-2">
+                                                <button class="btn btn-sm text-white px-3" style="background:#714B67;" t-on-click.stop="closePopover">Save</button>
+                                                <div class="d-flex gap-1">
+                                                    <button class="btn btn-sm btn-light border" t-on-click.stop="() => this.duplicateBox(box.id)"><i class="fa fa-clone"></i></button>
+                                                    <button class="btn btn-sm btn-light border" t-on-click.stop="() => this.deleteBox(box.id)"><i class="fa fa-trash"></i></button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </t>
+                            </div>
+                        </t>
+                        </div>
+                    </t>
+                </div>
+            </div>
+            
+            <!-- Ghost element for dragging tools from sidebar -->
+            <div t-if="state.dragType" class="position-fixed" t-attf-style="left: {{ state.mouseX }}px; top: {{ state.mouseY }}px; opacity: 0.7; pointer-events: none; z-index: 9999;">
+                <div class="btn btn-sm d-flex align-items-center" style="background:#e6f2eb; border:1px solid #c3e6cb; color:#155724;">
+                    <i t-attf-class="fa {{ getToolIcon(state.dragType) }} me-2"></i>
+                    <span style="font-size: 11px;"><t t-esc="getToolLabel(state.dragType)"/></span>
+                </div>
+            </div>
+            
+            <style>
+                .tool-btn:hover { background: #d4edda !important; }
+                .signature-box .delete-box-btn, .signature-box .resize-box-handle { display: none !important; }
+                .signature-box:hover .delete-box-btn { display: flex !important; }
+                .signature-box:hover .resize-box-handle { display: block !important; }
+                .bg-view { background-color: #e0e2e5; }
+                .cursor-pointer { cursor: pointer; }
+            </style>
+        </div>
+    </t>
+
+    <t t-name="dms_enterprise_features.SignerSettingsDialog" owl="1">
+        <Dialog title="'Signer Settings'">
+            <div class="d-flex flex-column">
+                <div class="mb-3 row align-items-center">
+                    <label class="col-sm-4 col-form-label fw-bold">Name</label>
+                    <div class="col-sm-8">
+                        <input type="text" class="form-control" t-model="state.name" />
+                    </div>
+                </div>
+                <div class="mb-3 row align-items-center">
+                    <label class="col-sm-4 col-form-label fw-bold">Extra Authentication Step <i class="fa fa-question-circle text-info"></i></label>
+                    <div class="col-sm-8">
+                        <select class="form-select border-0 border-bottom rounded-0 px-0 text-muted" t-model="state.authMethod">
+                            <option value="none">None</option>
+                            <option value="email">By Email</option>
+                            <option value="sms">By SMS</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="mb-3 row align-items-center">
+                    <label class="col-sm-4 col-form-label fw-bold">Can delegate <i class="fa fa-question-circle text-info"></i></label>
+                    <div class="col-sm-8">
+                        <input type="checkbox" class="form-check-input" t-model="state.canDelegate" />
+                    </div>
+                </div>
+            </div>
+            <t t-set-slot="footer">
+                <button class="btn text-white px-4" style="background:#714B67;" t-on-click="onConfirm">Save</button>
+                <button class="btn btn-light px-4 border" t-on-click="props.close">Discard</button>
+            </t>
+        </Dialog>
+    </t>
+
+    <t t-name="dms_enterprise_features.SignatureSendDialog" owl="1">
+        <Dialog title="props.title">
+            <div class="d-flex flex-column" style="min-width: 600px;">
+                <!-- Roles Section -->
+                <div class="mb-4">
+                    <div class="row w-100 mb-2">
+                        <div class="col-6">
+                            <t t-if="!props.isSignNow">
+                                <t t-foreach="props.rolesWithFields" t-as="roleId" t-key="roleId">
+                                    <t t-set="role" t-value="props.roles.find(r => r.id === roleId)"/>
+                                    <div class="d-flex align-items-center mb-3">
+                                        <div class="fw-bold me-3" style="width: 100px; display: flex; align-items: center;">
+                                            <span t-if="state.signingOrder" class="me-2 text-muted" style="border-bottom: 1px solid #ccc; width: 16px; text-align: center;"><t t-esc="roleId_index + 1"/></span>
+                                            <span t-if="!state.signingOrder" class="me-2" style="width: 16px;"></span>
+                                            <t t-esc="role.name"/>
+                                        </div>
+                                        <div class="flex-grow-1">
+                                            <input type="text" class="form-control border-0 border-bottom rounded-0 px-0" placeholder="Type a name or email..." t-on-change="(e) => this.onUserChange(roleId, e.target.value)" />
+                                        </div>
+                                    </div>
+                                </t>
+                                <div class="d-flex align-items-center mt-3">
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" role="switch" t-model="state.signingOrder" id="signingOrderSwitch"/>
+                                        <label class="form-check-label fw-bold" for="signingOrderSwitch">Signing Order <i class="fa fa-question-circle text-info"></i></label>
+                                    </div>
+                                </div>
+                            </t>
+                            <t t-else="">
+                                <t t-foreach="props.rolesWithFields" t-as="roleId" t-key="roleId">
+                                    <t t-set="role" t-value="props.roles.find(r => r.id === roleId)"/>
+                                    <div class="d-flex align-items-center mb-3">
+                                        <div class="fw-bold me-3" style="width: 100px; display: flex; align-items: center;">
+                                            <span t-if="state.signingOrder" class="me-2 text-muted" style="border-bottom: 1px solid #ccc; width: 16px; text-align: center;"><t t-esc="roleId_index + 1"/></span>
+                                            <span t-if="!state.signingOrder" class="me-2" style="width: 16px;"></span>
+                                            <t t-esc="role.name"/>
+                                        </div>
+                                        <div class="flex-grow-1">
+                                            <t t-if="roleId_index === 0">
+                                                <div class="text-muted"><t t-esc="env.session ? env.session.name : 'Current User'"/></div>
+                                            </t>
+                                            <t t-else="">
+                                                <input type="text" class="form-control border-0 border-bottom rounded-0 px-0" placeholder="Type a name or email..." t-on-change="(e) => this.onUserChange(roleId, e.target.value)" />
+                                            </t>
+                                        </div>
+                                    </div>
+                                </t>
+                            </t>
+                        </div>
+                        
+                        <div class="col-6">
+                            <t t-if="!props.isSignNow">
+                                <div class="d-flex align-items-center mb-3">
+                                    <div class="fw-bold me-3" style="width: 100px;">Valid Until <i class="fa fa-question-circle text-info"></i></div>
+                                    <div class="flex-grow-1">
+                                        <input type="date" class="form-control border-0 border-bottom rounded-0 px-0" t-model="state.validUntil" />
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="remindersCheck" t-model="state.reminders" />
+                                        <label class="form-check-label" for="remindersCheck">Reminders</label>
+                                    </div>
+                                    <div t-if="state.reminders" class="d-flex align-items-center mt-2 ms-4">
+                                        <span class="text-muted me-2">Remind every</span>
+                                        <input type="number" class="form-control form-control-sm text-center px-1 py-0 mx-1 border-0 border-bottom rounded-0" t-model="state.reminderDays" style="width: 40px; background: transparent;"/>
+                                        <span class="text-muted">days</span>
+                                    </div>
+                                </div>
+                            </t>
+                            <div class="form-check mb-3">
+                                <input class="form-check-input" type="checkbox" id="hideCertCheck" t-model="state.hideCertificateKey" />
+                                <label class="form-check-label" for="hideCertCheck">Hide certificate key on pages <i class="fa fa-question-circle text-info"></i></label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <hr class="my-3"/>
+                
+                <!-- Email Section -->
+                <div class="mb-3 d-flex align-items-center">
+                    <label class="fw-bold me-3" style="width: 80px;">Subject</label>
+                    <input type="text" class="form-control border-0 px-0" t-model="state.subject" />
+                </div>
+                
+                <div class="mb-3 d-flex align-items-center">
+                    <label class="fw-bold me-3" style="width: 80px;">CC <i class="fa fa-question-circle text-info"></i></label>
+                    <input type="text" class="form-control border-0 px-0 text-muted" t-model="state.cc" placeholder="Write email or search contact..." />
+                </div>
+                
+                <div class="mb-3">
+                    <textarea class="form-control border-0 px-0 text-muted" t-model="state.message" rows="4" placeholder="Enter your message"></textarea>
+                </div>
+            </div>
+            <t t-set-slot="footer">
+                <button class="btn text-white px-4" style="background:#714B67;" t-on-click="onConfirm"><t t-esc="props.isSignNow ? 'Sign Now' : 'Send'"/></button>
+                <button class="btn btn-light px-4 border" t-on-click="props.close">Discard</button>
+            </t>
+        </Dialog>
+    </t>
+</templates>

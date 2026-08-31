@@ -41,6 +41,13 @@
             <field name="domain_force">[('company_id', 'in', company_ids + [False])]</field>
         </record>
 
+        <!-- Planning Slot multi-company -->
+        <record model="ir.rule" id="fs_planning_slot_comp_rule">
+            <field name="name">Field Service Planning Slot: multi-company</field>
+            <field name="model_id" ref="model_fs_planning_slot"/>
+            <field name="domain_force">[('company_id', 'in', company_ids + [False])]</field>
+        </record>
+
         <!-- Manager: see all orders -->
         <record model="ir.rule" id="field_service_order_manager_rule">
             <field name="name">Field Service Order: manager sees all</field>

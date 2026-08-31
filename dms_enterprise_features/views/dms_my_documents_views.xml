@@ -5,7 +5,7 @@
         <field name="name">My Documents</field>
         <field name="res_model">dms.file</field>
         <field name="view_mode">kanban,list,form</field>
-        <field name="domain">['|', ('document_owner_id', '=', uid), ('access_ids.user_id', '=', uid)]</field>
+        <field name="context">{'search_default_filter_user': 1}</field>
         <field name="help" type="html">
             <p class="o_view_nocontent_smiling_face">
                 No documents found.
@@ -31,12 +31,12 @@
 
     <!-- Menus -->
     <menuitem id="menu_dms_my_documents_root" 
-              name="My Documents" 
+              name="Documents" 
               parent="dms.main_menu_dms" 
               sequence="5"/>
 
     <menuitem id="menu_dms_my_documents" 
-              name="Documents" 
+              name="My Documents" 
               action="action_dms_my_documents" 
               parent="menu_dms_my_documents_root" 
               sequence="10"/>

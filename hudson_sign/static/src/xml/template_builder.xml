@@ -1,0 +1,175 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-name="hudson_sign.TemplateBuilder" owl="1">
+        <div class="o_hudson_sign_template_builder h-100 d-flex flex-column bg-white">
+            <!-- Header (matches DMS module control panel) -->
+            <div class="o_control_panel d-flex justify-content-between align-items-center p-3 border-bottom bg-white" style="min-height: 60px;">
+                <div class="d-flex align-items-center">
+                    <button class="btn btn-secondary me-3" t-on-click="goBack">
+                        <i class="fa fa-arrow-left"/> Back
+                    </button>
+                    <h4 class="mb-0 text-dark fw-bold me-4" t-if="state.template" style="font-size: 18px;">
+                        <t t-esc="state.template.name"/>
+                    </h4>
+                    <div class="o_cp_buttons d-flex gap-2">
+                        <button type="button" class="btn fw-bold text-white shadow-sm" style="background:#714B67; border: none; padding: 6px 16px; border-radius: 4px;" t-on-click="actionSend">
+                            <i class="fa fa-paper-plane me-2"></i>Send
+                        </button>
+                        <button type="button" class="btn fw-bold text-white shadow-sm" style="background:#017e84; border: none; padding: 6px 16px; border-radius: 4px;" t-on-click="actionSignNow">
+                            <i class="fa fa-pencil me-2"></i>Sign Now
+                        </button>
+                    </div>
+                </div>
+                <!-- Tags section -->
+                <div class="d-flex align-items-center">
+                    <span class="me-2 text-muted fw-bold" style="font-size: 13px;">Tags:</span>
+                    <div class="d-flex gap-1 align-items-center flex-wrap">
+                        <t t-foreach="state.templateTags" t-as="tag" t-key="tag.id">
+                            <span class="badge rounded-pill d-flex align-items-center" t-attf-style="background-color: #{tag.color or '#6c757d'}; color: #{tag.color ? '#000' : '#fff'}; font-size: 11px;">
+                                <t t-esc="tag.name"/>
+                                <i class="fa fa-times ms-2" style="cursor: pointer;" t-on-click="() => this.removeTag(tag.id)"/>
+                            </span>
+                        </t>
+                        <select class="form-select form-select-sm border-0 bg-transparent ms-1" style="width: 120px; box-shadow: none;" t-on-change="addTag">
+                            <option value="">Add tag...</option>
+                            <t t-foreach="availableTags" t-as="tag" t-key="tag.id">
+                                <option t-att-value="tag.id"><t t-esc="tag.name"/></option>
+                            </t>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Toolbar -->
+            <div class="d-flex align-items-center justify-content-between p-2 border-bottom" style="background:#f8f9fa;">
+                <div class="d-flex align-items-center">
+                    <strong class="me-3">Template Builder</strong>
+                </div>
+                <div class="d-flex align-items-center">
+                    <input type="number" class="form-control form-control-sm text-center border-0 bg-transparent shadow-none px-0"
+                           t-att-value="state.zoomLevel"
+                           t-on-change="onZoomChange"
+                           style="width: 45px; font-weight: bold;" />
+                    <span class="text-muted ms-1">%</span>
+                </div>
+                <div></div>
+            </div>
+
+            <!-- Main Content -->
+            <div class="d-flex flex-grow-1 overflow-hidden">
+                <!-- Left Sidebar -->
+                <div class="border-end d-flex flex-column bg-white overflow-auto" style="width: 250px; flex-shrink: 0;">
+                    <!-- Signers Section -->
+                    <div class="p-2 border-bottom">
+                        <div class="d-flex justify-content-between align-items-center mb-2 px-2">
+                            <strong style="font-size: 14px;">Signers</strong>
+                            <button class="btn btn-sm btn-link text-decoration-none fw-bold" style="color: #017e84;" t-on-click="addRole">Add</button>
+                        </div>
+                        <t t-foreach="state.roles" t-as="role" t-key="role.id">
+                            <div t-attf-class="d-flex justify-content-between align-items-center p-2 cursor-pointer {{ state.currentRoleIndex === role_index ? 'fw-bold bg-light rounded' : '' }}"
+                                 t-on-click="() => this.selectRole(role_index)">
+                                <span><t t-esc="role.name"/></span>
+                                <div class="d-flex align-items-center">
+                                    <span class="badge rounded-pill me-2 border text-dark" t-attf-style="background-color:{{ role.color }}; border-color: rgba(0,0,0,0.1) !important;">
+                                        <t t-esc="getRoleItemCount(role.id)"/>
+                                    </span>
+                                </div>
+                            </div>
+                        </t>
+                    </div>
+
+                    <!-- Tool Palette -->
+                    <div class="p-2 flex-grow-1" style="background:#f8f9fa;">
+                        <div class="row g-2">
+                            <t t-foreach="state.tools" t-as="tool" t-key="tool.id">
+                                <div class="col-6">
+                                    <div class="btn btn-sm w-100 text-start d-flex align-items-center tool-btn shadow-sm"
+                                         t-attf-style="background: {{ getRoleColor(currentRoleId) }}; border:1px solid rgba(0,0,0,0.1); color:#333; cursor:grab; padding: 8px;"
+                                         t-on-mousedown="(e) => this.startDragTool(e, tool)">
+                                        <i t-attf-class="fa {{ tool.icon }} me-2 text-success" style="width:16px; text-align:center;"></i>
+                                        <span style="font-size: 11px; font-weight: 500;"><t t-esc="tool.label"/></span>
+                                    </div>
+                                </div>
+                            </t>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PDF Viewer Canvas -->
+                <div class="flex-grow-1 position-relative overflow-auto d-flex flex-column align-items-center bg-view p-3 pb-5" t-ref="pdfContainer">
+                    <t t-if="!state.pdfContent">
+                        <div class="d-flex h-100 justify-content-center align-items-center">
+                            <div class="spinner-border text-primary"/>
+                        </div>
+                    </t>
+                    <t t-foreach="state.pages" t-as="page" t-key="page.num">
+                        <div class="position-relative shadow-sm bg-white mb-4 pdf-page"
+                             t-att-data-page-num="page.num"
+                             t-attf-style="width: {{ page.width }}px; height: {{ page.height }}px;">
+
+                            <canvas t-att-id="'pdf-canvas-' + page.num" style="display: block;"></canvas>
+
+                            <!-- Render items for this page -->
+                            <t t-foreach="getItemsForPage(page.num)" t-as="item" t-key="item.id">
+                                <div class="position-absolute d-flex align-items-center justify-content-center signature-box shadow-sm"
+                                     t-attf-style="left: {{ item.x }}px; top: {{ item.y }}px; width: {{ item.width }}px; height: {{ item.height }}px; border: 2px dashed #007bff; background: {{ getRoleColor(item.roleId) }}; cursor: move; user-select: none;"
+                                     t-on-mousedown="(e) => this.startBoxDrag(e, item)">
+
+                                    <!-- Box Content -->
+                                    <t t-if="item.type === 'checkbox' || item.type === 'radio'">
+                                        <div class="d-flex align-items-center justify-content-center w-100 h-100">
+                                            <t t-if="item.type === 'radio'">
+                                                <i class="fa fa-circle-o text-primary" style="font-size: 20px;"></i>
+                                            </t>
+                                            <t t-else="">
+                                                <i class="fa fa-check-square-o text-primary" style="font-size: 20px;"></i>
+                                            </t>
+                                        </div>
+                                    </t>
+                                    <t t-else="">
+                                        <div class="w-100 h-100 d-flex flex-column justify-content-center overflow-hidden px-1">
+                                            <div class="d-flex align-items-center justify-content-center w-100 h-100">
+                                                <i t-attf-class="fa {{ getToolIcon(item.typeId) }} me-2 text-primary" style="font-size: 16px;"></i>
+                                                <span style="font-size: 14px; font-weight:bold; color: #007bff;"><t t-esc="getToolLabel(item.typeId)"/></span>
+                                            </div>
+                                        </div>
+                                    </t>
+
+                                    <!-- Delete Button -->
+                                    <div class="position-absolute bg-danger text-white rounded-circle d-flex align-items-center justify-content-center delete-box-btn"
+                                         style="top: -10px; right: -10px; width: 20px; height: 20px; font-size: 12px; cursor: pointer;"
+                                         t-on-mousedown.stop="(e) => this.removeItem(e, item)">
+                                        <i class="fa fa-times"></i>
+                                    </div>
+
+                                    <!-- Resize Handle -->
+                                    <div class="position-absolute bg-primary resize-box-handle"
+                                         style="bottom: -2px; right: -2px; width: 10px; height: 10px; cursor: nwse-resize;"
+                                         t-on-mousedown.stop="(e) => this.startBoxResize(e, item)">
+                                    </div>
+                                </div>
+                            </t>
+                        </div>
+                    </t>
+                </div>
+            </div>
+
+            <!-- Ghost element for dragging tools from sidebar -->
+            <div t-if="state.dragType" class="position-fixed" t-attf-style="left: {{ state.mouseX }}px; top: {{ state.mouseY }}px; opacity: 0.7; pointer-events: none; z-index: 9999;">
+                <div class="btn btn-sm d-flex align-items-center" style="background:#e6f2eb; border:1px solid #c3e6cb; color:#155724;">
+                    <i t-attf-class="fa {{ getToolIconByType(state.dragType) }} me-2"></i>
+                    <span style="font-size: 11px;"><t t-esc="getToolLabelByType(state.dragType)"/></span>
+                </div>
+            </div>
+
+            <style>
+                .tool-btn:hover { background: #d4edda !important; }
+                .signature-box .delete-box-btn, .signature-box .resize-box-handle { display: none !important; }
+                .signature-box:hover .delete-box-btn { display: flex !important; }
+                .signature-box:hover .resize-box-handle { display: block !important; }
+                .bg-view { background-color: #e0e2e5; }
+                .cursor-pointer { cursor: pointer; }
+            </style>
+        </div>
+    </t>
+</templates>

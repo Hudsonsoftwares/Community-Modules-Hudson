@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        
+        <!-- Rental Pricing Tree View (for One2many) -->
+        <record id="rental_pricing_tree_view" model="ir.ui.view">
+            <field name="name">rental.pricing.tree</field>
+            <field name="model">rental.pricing</field>
+            <field name="arch" type="xml">
+                <list editable="bottom">
+                    <field name="duration"/>
+                    <field name="duration_unit"/>
+                    <field name="price"/>
+                    <field name="currency_id" column_invisible="1"/>
+                    <field name="active" column_invisible="1"/>
+                </list>
+            </field>
+        </record>
+
+        <!-- Product Template Form View - Add Rental Fields -->
+        <record id="product_template_form_view_rental" model="ir.ui.view">
+            <field name="name">product.template.rental.form</field>
+            <field name="model">product.template</field>
+            <field name="inherit_id" ref="product.product_template_form_view"/>
+            <field name="arch" type="xml">
+                <xpath expr="//field[@name='sale_ok']" position="after">
+                    <field name="is_rental" invisible="1"/>
+                </xpath>
+                <xpath expr="//page[@name='sales']" position="inside">
+                    <group string="RENTAL" name="rental_config">
+                        <group>
+                            <field name="rental_periodicity" widget="selection" options="{'placeholder': 'Not for Rent'}"/>
+                            <field name="rental_pickup_time" widget="float_time" invisible="not rental_periodicity"/>
+                            <field name="rental_return_time" widget="float_time" invisible="not rental_periodicity"/>
+                        </group>
+                    </group>
+                </xpath>
+                <xpath expr="//page[@name='sales']" position="after">
+                    <page string="Rental" invisible="not is_rental">
+                        <group>
+                            <group string="Rental Settings">
+                                <field name="min_rental_duration"/>
+                                <field name="max_rental_duration"/>
+                                <field name="security_deposit"/>
+                                <field name="late_fee_per_day"/>
+                            </group>
+                            <group string="Availability">
+                                <field name="rental_ok" readonly="1"/>
+                                <field name="rental_stock_available"/>
+                                <field name="rental_order_count" invisible="1"/>
+                            </group>
+                        </group>
+                        <group string="Rental Pricing">
+                            <field name="rental_pricing_ids" nolabel="1" context="{'default_product_tmpl_id': id}"/>
+                        </group>
+                    </page>
+                </xpath>
+            </field>
+        </record>
+
+        <!-- Product Action for Rental -->
+        <record id="action_rental_products" model="ir.actions.act_window">
+            <field name="name">Rental Products</field>
+            <field name="res_model">product.template</field>
+            <field name="view_mode">kanban,list,form</field>
+            <field name="domain">[('is_rental', '=', True)]</field>
+            <field name="context">{'default_is_rental': True}</field>
+            <field name="help" type="html">
+                <p class="o_view_nocontent_smiling_face">
+                    Create a rental product
+                </p>
+            </field>
+        </record>
+
+    </data>
+</odoo>

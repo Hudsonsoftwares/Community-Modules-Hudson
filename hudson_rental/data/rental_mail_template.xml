@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        
+        <!-- Late Fee Product -->
+        <record id="product_late_fee" model="product.product">
+            <field name="name">Late Return Fee</field>
+            <field name="type">service</field>
+            <field name="list_price">0.0</field>
+            <field name="invoice_policy">order</field>
+            <field name="active">True</field>
+        </record>
+
+        <!-- Rental Confirmation Email -->
+        <record id="email_template_rental_confirmation" model="mail.template">
+            <field name="name">Rental Order: Confirmation</field>
+            <field name="model_id" ref="model_rental_order"/>
+            <field name="subject">Rental Order Confirmed - {{ object.name }}</field>
+            <field name="email_from">{{ (object.user_id.email_formatted or user.email_formatted) }}</field>
+            <field name="partner_to">{{ object.partner_id.id }}</field>
+            <field name="body_html" type="html">
+                <div style="font-family: Arial, sans-serif; padding: 20px;">
+                    <h2>Your Rental Order is Confirmed!</h2>
+                    <p>Dear {{ object.partner_id.name }},</p>
+                    <p>Your rental order <strong>{{ object.name }}</strong> has been confirmed.</p>
+                    
+                    <h3>Rental Details:</h3>
+                    <ul>
+                        <li><strong>Pickup Date:</strong> {{ object.pickup_date }}</li>
+                        <li><strong>Return Date:</strong> {{ object.return_date }}</li>
+                        <li><strong>Total Amount:</strong> {{ object.amount_total }} {{ object.currency_id.symbol }}</li>
+                    </ul>
+                    
+                    <h3>Rented Items:</h3>
+                    <table style="width:100%; border-collapse: collapse;">
+                        <tr style="background-color: #f2f2f2;">
+                            <th style="border: 1px solid #ddd; padding: 8px;">Product</th>
+                            <th style="border: 1px solid #ddd; padding: 8px;">Quantity</th>
+                            <th style="border: 1px solid #ddd; padding: 8px;">Duration</th>
+                            <th style="border: 1px solid #ddd; padding: 8px;">Price</th>
+                        </tr>
+                        {% for line in object.order_line_ids %}
+                        <tr>
+                            <td style="border: 1px solid #ddd; padding: 8px;">{{ line.product_id.name }}</td>
+                            <td style="border: 1px solid #ddd; padding: 8px;">{{ line.quantity }}</td>
+                            <td style="border: 1px solid #ddd; padding: 8px;">{{ line.duration_days }} days</td>
+                            <td style="border: 1px solid #ddd; padding: 8px;">{{ line.price_total }} {{ object.currency_id.symbol }}</td>
+                        </tr>
+                        {% endfor %}
+                    </table>
+                    
+                    <p style="margin-top: 20px;">Thank you for choosing our rental service!</p>
+                </div>
+            </field>
+        </record>
+
+        <!-- Rental Pickup Reminder Email -->
+        <record id="email_template_rental_pickup_reminder" model="mail.template">
+            <field name="name">Rental Order: Pickup Reminder</field>
+            <field name="model_id" ref="model_rental_order"/>
+            <field name="subject">Reminder: Pickup Your Rental - {{ object.name }}</field>
+            <field name="email_from">{{ (object.user_id.email_formatted or user.email_formatted) }}</field>
+            <field name="partner_to">{{ object.partner_id.id }}</field>
+            <field name="body_html" type="html">
+                <div style="font-family: Arial, sans-serif; padding: 20px;">
+                    <h2>Rental Pickup Reminder</h2>
+                    <p>Dear {{ object.partner_id.name }},</p>
+                    <p>This is a reminder that your rental order <strong>{{ object.name }}</strong> is ready for pickup.</p>
+                    <p><strong>Pickup Date:</strong> {{ object.pickup_date }}</p>
+                    <p>Please ensure you collect your items on time.</p>
+                    <p>Thank you!</p>
+                </div>
+            </field>
+        </record>
+
+        <!-- Rental Return Reminder Email -->
+        <record id="email_template_rental_return_reminder" model="mail.template">
+            <field name="name">Rental Order: Return Reminder</field>
+            <field name="model_id" ref="model_rental_order"/>
+            <field name="subject">Reminder: Return Your Rental - {{ object.name }}</field>
+            <field name="email_from">{{ (object.user_id.email_formatted or user.email_formatted) }}</field>
+            <field name="partner_to">{{ object.partner_id.id }}</field>
+            <field name="body_html" type="html">
+                <div style="font-family: Arial, sans-serif; padding: 20px;">
+                    <h2>Rental Return Reminder</h2>
+                    <p>Dear {{ object.partner_id.name }},</p>
+                    <p>This is a reminder that your rental period for order <strong>{{ object.name }}</strong> is ending soon.</p>
+                    <p><strong>Expected Return Date:</strong> {{ object.return_date }}</p>
+                    <p>Please return the items on time to avoid late fees.</p>
+                    <p>Thank you!</p>
+                </div>
+            </field>
+        </record>
+
+    </data>
+</odoo>

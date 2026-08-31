@@ -42,50 +42,50 @@ A comprehensive field service management module for Odoo 19 that provides:
         'account',
         'uom',
         'survey',           # Required: Customer satisfaction survey feature
+        'hudson_planning',
     ],
     'data': [
         # Security (must be loaded first)
         'security/field_service_security.xml',
         'security/ir.model.access.csv',
-        # Data
         'data/field_service_sequence_data.xml',
         'data/field_service_stage_data.xml',
         'data/field_service_mail_template.xml',
-        'data/field_service_survey_data.xml',           # Install-time satisfaction survey
-        'data/field_service_rating_mail_template.xml',  # Survey invitation email template
-        'data/field_service_publish_mail_template.xml', # Publish email template
-        'data/mail_template_data.xml',                  # Field Service Report email
-        # Wizard Views
+        'data/field_service_survey_data.xml',
+        'data/field_service_rating_mail_template.xml',
+        'data/field_service_publish_mail_template.xml',
+        'data/mail_template_data.xml',
         'wizard/field_service_stop_wizard_views.xml',
         'wizard/field_service_create_invoice_wizard_views.xml',
-        # Views
+        'wizard/fs_order_publish_wizard_views.xml',
         'views/field_service_order_views.xml',
+        'views/field_service_material_views.xml',
         'views/field_service_dashboard_views.xml',
-        'views/field_service_planning_board_views.xml',
         'views/field_service_stage_views.xml',
         'views/field_service_tag_views.xml',
-        'views/field_service_live_map_views.xml',       # Live Technician Map client action
+        'views/field_service_live_map_views.xml',
         'views/res_config_settings_views.xml',
-        # Reports
         'report/field_service_report_views.xml',
         'report/field_service_report_templates.xml',
-        # Menus (must be loaded last — references actions from views)
         'views/field_service_menus.xml',
-        # Portal
         'views/field_service_portal_templates.xml',
     ],
     'assets': {
         'web.assets_backend': [
             # Existing assets
-            'hudson_field_service/static/src/css/fs_planning_board.css',
             'hudson_field_service/static/src/js/geolocation_action.js',
             'hudson_field_service/static/src/xml/geolocation_action.xml',
-            'hudson_field_service/static/src/js/fs_planning_board.js',
-            'hudson_field_service/static/src/xml/fs_planning_board.xml',
             # Live Map (new)
             'hudson_field_service/static/src/css/fs_live_map.css',
             'hudson_field_service/static/src/js/fs_live_map.js',
             'hudson_field_service/static/src/xml/fs_live_map.xml',
+            # Field Service Board
+            'hudson_field_service/static/src/css/fs_board.css',
+            'hudson_field_service/static/src/js/fs_board.js',
+            'hudson_field_service/static/src/xml/fs_board.xml',
+        ],
+        'web.assets_frontend': [
+            'hudson_field_service/static/src/js/portal_fix.js',
         ],
     },
     'installable': True,

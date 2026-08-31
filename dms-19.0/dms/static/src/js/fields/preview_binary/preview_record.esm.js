@@ -18,13 +18,25 @@ export class PreviewRecordField extends BinaryField {
 
     onFilePreview() {
         const self = this;
-        const attachment = this.store.Attachment.insert({
+        const data = {
             id: self.props.record.resId,
             filename: self.props.record.data.display_name || "",
             name: self.props.record.data.display_name || "",
             mimetype: self.props.record.data.mimetype,
             model_name: self.props.record.resModel,
-        });
+        };
+
+        let attachment;
+        if (this.store && this.store["ir.attachment"]) {
+            attachment = this.store["ir.attachment"].insert(data);
+        } else if (this.store && this.store.Attachment) {
+            attachment = this.store.Attachment.insert(data);
+        } else if (this.store && this.store.models && this.store.models.Attachment) {
+            attachment = this.store.models.Attachment.insert(data);
+        } else {
+            attachment = data;
+        }
+
         this.fileViewer.open(attachment);
     }
 }

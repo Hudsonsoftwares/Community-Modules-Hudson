@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="fs_shift_template_view_tree" model="ir.ui.view">
+        <field name="name">fs.shift.template.tree</field>
+        <field name="model">fs.shift.template</field>
+        <field name="arch" type="xml">
+            <list string="Shift Templates">
+                <field name="name"/>
+                <field name="start_time_select"/>
+                <field name="end_time_select"/>
+                <field name="start_time" invisible="1"/>
+                <field name="end_time" invisible="1"/>
+                <field name="role_id"/>
+                <field name="project_id" optional="show"/>
+                <field name="task_id" optional="hide"/>
+                <field name="partner_id" optional="show"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="fs_shift_template_view_form" model="ir.ui.view">
+        <field name="name">fs.shift.template.form</field>
+        <field name="model">fs.shift.template</field>
+        <field name="arch" type="xml">
+            <form string="Shift Template">
+                <sheet>
+                    <widget name="web_ribbon" title="Archived" bg_color="bg-danger" invisible="active"/>
+                    <div class="oe_title">
+                        <label for="name" class="oe_edit_only"/>
+                        <h1>
+                            <field name="name" placeholder="e.g. Morning Shift"/>
+                        </h1>
+                    </div>
+                    <group>
+                        <group name="schedule" string="Schedule">
+                            <field name="start_time_select"/>
+                            <field name="end_time_select"/>
+                            <field name="start_time" invisible="1"/>
+                            <field name="end_time" invisible="1"/>
+                            <field name="duration" widget="float_time"/>
+                            <field name="role_id"/>
+                        </group>
+                        <group name="assignment" string="Assignment">
+                            <field name="project_id"/>
+                            <field name="task_id"/>
+                            <field name="sale_order_id"/>
+                            <field name="partner_id"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Note" name="note">
+                            <field name="note" placeholder="Any internal notes for this template..."/>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_fs_shift_template" model="ir.actions.act_window">
+        <field name="name">Shift Templates</field>
+        <field name="res_model">fs.shift.template</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Create a Shift Template
+            </p>
+            <p>
+                Shift templates allow you to quickly assign common shifts to employees in the planning view.
+            </p>
+        </field>
+    </record>
+
+</odoo>

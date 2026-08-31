@@ -91,4 +91,11 @@
         <field name="group_ids" eval="[(4, ref('dms_access_group_enterprise'))]"/>
     </record>
 
+    <!-- Fleet -->
+    <record id="dms_directory_fleet" model="dms.directory">
+        <field name="name">Fleet</field>
+        <field name="is_root_directory">True</field>
+        <field name="storage_id" ref="dms_storage_enterprise"/>
+    </record>
+
 </odoo>

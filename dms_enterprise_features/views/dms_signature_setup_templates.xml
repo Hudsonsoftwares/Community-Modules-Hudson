@@ -5,65 +5,282 @@
         <html>
             <head>
                 <title>Setup Signatures</title>
-                <!-- Include Bootstrap for styling -->
                 <link rel="stylesheet" href="/web/static/lib/bootstrap/css/bootstrap.css"/>
                 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+                <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" />
                 <style>
-                    body { background: #f0f2f5; margin: 0; padding: 20px; font-family: sans-serif; display: flex; }
-                    #pdf-container { position: relative; border: 1px solid #ccc; box-shadow: 0 4px 8px rgba(0,0,0,0.1); background: white; margin-right: 20px; }
-                    .signature-box { position: absolute; border: 2px dashed #007bff; background: rgba(0, 123, 255, 0.2); width: 150px; height: 50px; cursor: move; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #007bff; }
-                    .sidebar { width: 300px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+                    body { background: #f0f2f5; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; display: flex; height: 100vh; overflow: hidden; }
+                    .sidebar { width: 300px; background: white; border-right: 1px solid #ddd; display: flex; flex-direction: column; box-shadow: 2px 0 8px rgba(0,0,0,0.05); z-index: 10; flex-shrink: 0; }
+                    .sidebar-section { border-bottom: 1px solid #eee; }
+                    .sidebar-section-header { padding: 15px; display: flex; justify-content: space-between; align-items: center; font-weight: bold; font-size: 16px; }
+                    .sidebar-section-header a { color: #00a09d; text-decoration: none; font-size: 14px; font-weight: normal; cursor: pointer; }
+                    
+                    .doc-list, .role-list { list-style: none; padding: 0; margin: 0; }
+                    .doc-list li, .role-list li { padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #eee; cursor: pointer; }
+                    .doc-list li.active, .role-list li.active { background: #f8f9fa; font-weight: bold; }
+                    .role-list li .badge { background: #e0e0ff; color: #555; border-radius: 50%; padding: 5px 8px; font-weight: normal; }
+                    
+                    .tool-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 15px; background: #f8f9fa; overflow-y: auto; flex: 1; }
+                    .tool-btn { background: #e6f2eb; border: 1px solid #c3e6cb; border-radius: 4px; padding: 8px 10px; cursor: grab; font-weight: 500; color: #155724; display: flex; align-items: center; font-size: 13px; user-select: none; }
+                    .tool-btn i { margin-right: 8px; width: 16px; text-align: center; }
+                    .tool-btn:hover { background: #d4edda; }
+                    
+                    #main-content { flex: 1; display: flex; flex-direction: column; background: #e0e2e5; overflow: hidden; }
+                    .toolbar { background: white; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #ddd; }
+                    
+                    #pdf-container-wrapper { flex: 1; overflow: auto; padding: 20px; display: flex; justify-content: center; }
+                    #pdf-container { position: relative; box-shadow: 0 4px 12px rgba(0,0,0,0.15); background: white; transform-origin: top left; }
+                    
+                    .signature-box { position: absolute; border: 2px dashed #007bff; background: rgba(0, 123, 255, 0.1); display: flex; align-items: center; justify-content: center; font-weight: bold; color: #007bff; cursor: move; border-radius: 4px; padding: 5px; box-sizing: border-box; }
+                    .signature-box .delete-btn { position: absolute; top: -10px; right: -10px; background: red; color: white; border-radius: 50%; width: 20px; height: 20px; text-align: center; line-height: 20px; cursor: pointer; display: none; font-size: 10px; z-index: 10; }
+                    .signature-box:hover .delete-btn { display: block; }
+                    .signature-box .resize-handle { position: absolute; right: 0; bottom: 0; width: 10px; height: 10px; background: #007bff; cursor: nwse-resize; display: none; }
+                    .signature-box:hover .resize-handle { display: block; }
+                    
+                    /* Modal styles */
+                    #send-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1050; align-items: center; justify-content: center; }
+                    .send-modal-content { background: white; border-radius: 8px; width: 600px; max-width: 90%; box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
+                    .send-modal-header { padding: 15px 20px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
+                    .send-modal-body { padding: 20px; max-height: 70vh; overflow-y: auto; }
+                    .send-modal-footer { padding: 15px 20px; border-top: 1px solid #eee; display: flex; justify-content: flex-start; gap: 10px; }
+                    
+                    .role-mapping-row { display: flex; align-items: center; margin-bottom: 15px; }
+                    .role-mapping-label { width: 100px; font-weight: bold; }
+                    .role-mapping-input { flex: 1; }
                 </style>
             </head>
             <body>
-                <div id="pdf-container-wrapper" style="display: flex; flex-direction: column; align-items: center; background: white; border: 1px solid #ccc; box-shadow: 0 4px 8px rgba(0,0,0,0.1); margin-right: 20px;">
-                    <div style="padding: 10px; width: 100%; border-bottom: 1px solid #ccc; display: flex; justify-content: center; align-items: center; gap: 10px;">
-                        <button id="prev-page" class="btn btn-sm btn-secondary">Previous</button>
-                        <span>Page <span id="page-num"></span> of <span id="page-count"></span></span>
-                        <button id="next-page" class="btn btn-sm btn-secondary">Next</button>
+                <div class="sidebar">
+                    <!-- Documents Section -->
+                    <div class="sidebar-section">
+                        <div class="sidebar-section-header">
+                            Documents
+                            <a id="add-doc-btn">Add</a>
+                            <input type="file" id="doc-upload-input" style="display:none" accept="application/pdf" />
+                        </div>
+                        <ul class="doc-list" id="doc-list">
+                            <!-- Populated via JS -->
+                        </ul>
                     </div>
-                    <div id="pdf-container">
-                        <canvas id="pdf-canvas"></canvas>
+                    
+                    <!-- Signers Section -->
+                    <div class="sidebar-section">
+                        <div class="sidebar-section-header">
+                            Signers
+                            <a id="add-role-btn">Add</a>
+                        </div>
+                        <ul class="role-list" id="role-list">
+                            <!-- Populated via JS -->
+                        </ul>
+                    </div>
+                    
+                    <!-- Tool Palette -->
+                    <div class="tool-grid">
+                        <div class="tool-btn" data-type="signature"><i class="fas fa-edit"></i> Signature</div>
+                        <div class="tool-btn" data-type="initial"><i class="fas fa-edit"></i> Initials</div>
+                        <div class="tool-btn" data-type="name"><i class="fas fa-user"></i> Name</div>
+                        <div class="tool-btn" data-type="email"><i class="fas fa-envelope"></i> Email</div>
+                        <div class="tool-btn" data-type="phone"><i class="fas fa-phone-alt"></i> Phone</div>
+                        <div class="tool-btn" data-type="company"><i class="fas fa-building"></i> Company</div>
+                        <div class="tool-btn" data-type="text"><i class="fas fa-font"></i> Text</div>
+                        <div class="tool-btn" data-type="multiline"><i class="fas fa-align-justify"></i> Multiline</div>
+                        <div class="tool-btn" data-type="checkbox"><i class="fas fa-check-square"></i> Checkbox</div>
+                        <div class="tool-btn" data-type="radio"><i class="fas fa-dot-circle"></i> Radio</div>
+                        <div class="tool-btn" data-type="selection"><i class="fas fa-chevron-down"></i> Selection</div>
+                        <div class="tool-btn" data-type="date"><i class="far fa-calendar-alt"></i> Date</div>
+                        <div class="tool-btn" data-type="strikethrough"><i class="fas fa-strikethrough"></i> Strikethrough</div>
+                        <div class="tool-btn" data-type="stamp"><i class="fas fa-stamp"></i> Stamp</div>
+                        <div class="tool-btn" style="grid-column: span 2; justify-content: center;"><i class="fas fa-plus"></i> Add Field</div>
                     </div>
                 </div>
-                <div class="sidebar">
-                    <h4>Setup Signatures</h4>
-                    <p>Click on the PDF to place a signature box.</p>
-                    <div class="form-group mt-3">
-                        <label>Assign to User:</label>
-                        <select id="user-select" class="form-control">
-                            <t t-foreach="users" t-as="user">
-                                <option t-att-value="user.id"><t t-esc="user.name"/></option>
-                            </t>
-                        </select>
+                
+                <div id="main-content">
+                    <div class="toolbar">
+                        <div style="display:flex; align-items:center; gap: 15px;">
+                            <strong>Document:</strong>
+                            <select id="doc-select-top" class="form-select form-select-sm" style="width: auto; min-width: 200px;"></select>
+                            <button id="prev-page" class="btn btn-sm btn-outline-secondary">&lt; Prev</button>
+                            <span class="text-muted">Page <strong id="page-num">1</strong> of <strong id="page-count">1</strong></span>
+                            <button id="next-page" class="btn btn-sm btn-outline-secondary">Next &gt;</button>
+                        </div>
+                        <div>
+                            <button id="open-send-modal-btn" class="btn btn-primary" style="background:#714B67; border-color:#714B67;">
+                                <i class="fas fa-paper-plane"></i> Send
+                            </button>
+                        </div>
                     </div>
-                    <button id="add-box-btn" class="btn btn-outline-primary btn-block mt-3">Add Box at Center</button>
-                    <hr/>
-                    <ul id="box-list" class="list-group mb-3"></ul>
-                    <button id="save-btn" class="btn btn-success btn-block">Save and Send Requests</button>
+                    
+                    <div id="pdf-container-wrapper">
+                        <div id="pdf-container">
+                            <canvas id="pdf-canvas"></canvas>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Send Modal -->
+                <div id="send-modal">
+                    <div class="send-modal-content">
+                        <div class="send-modal-header">
+                            <h5 class="m-0">New Signature Request</h5>
+                            <button type="button" class="close" id="close-modal-btn" style="background:none; border:none; font-size:24px; cursor:pointer;">&#215;</button>
+                        </div>
+                        <div class="send-modal-body">
+                            <div id="role-mapping-container" class="mb-4">
+                                <!-- Role mapping rows generated here -->
+                            </div>
+                            
+                            <hr/>
+                            
+                            <div class="form-group mb-3">
+                                <label class="font-weight-bold">Subject</label>
+                                <input type="text" id="email-subject" class="form-control" placeholder="Signature Request" />
+                            </div>
+                            
+                            <div class="form-group mb-3">
+                                <label class="font-weight-bold">CC <i class="far fa-question-circle text-muted"></i></label>
+                                <input type="text" id="email-cc" class="form-control" placeholder="Write email or search contact..." />
+                            </div>
+                            
+                            <div class="form-group">
+                                <textarea id="email-message" class="form-control" rows="3" placeholder="Enter your message"></textarea>
+                            </div>
+                        </div>
+                        <div class="send-modal-footer">
+                            <button id="sign-now-btn" class="btn text-white" style="background:#714B67;">Sign Now</button>
+                            <button id="send-email-btn" class="btn text-white" style="background:#00a09d;">Send</button>
+                            <button id="discard-btn" class="btn btn-light border">Discard</button>
+                        </div>
+                    </div>
                 </div>
                 
                 <script>
-                    const url = "<t t-esc="pdf_url"/>";
-                    const revisionId = <t t-esc="revision.id"/>;
+                    const odooUsers = [
+                        <t t-foreach="users" t-as="user">
+                            { id: <t t-esc="user.id"/>, name: "<t t-esc="user.name"/>" },
+                        </t>
+                    ];
                     
+                    const revisionsData = JSON.parse('<t t-esc="revisions_json" />'.replace(/&amp;quot;/g, '"').replace(/&quot;/g, '"'));
+                    
+                    let roles = [
+                        { id: 'role_1', name: 'Signer 1', color: '#e0e0ff' },
+                        { id: 'role_2', name: 'Signer 2', color: '#e0ffe0' }
+                    ];
+                    let currentRoleIndex = 0;
+                    
+                    let currentDocIndex = 0;
+                    let allBoxes = {}; 
+                    
+                    revisionsData.forEach((rev, idx) => {
+                        allBoxes[rev.id] = [];
+                    });
+                    
+                    // --- UI UPDATES ---
+                    function renderDocList() {
+                        const list = document.getElementById('doc-list');
+                        const select = document.getElementById('doc-select-top');
+                        list.innerHTML = '';
+                        select.innerHTML = '';
+                        
+                        revisionsData.forEach((rev, idx) => {
+                            const li = document.createElement('li');
+                            li.className = idx === currentDocIndex ? 'active' : '';
+                            li.innerHTML = `<span>${rev.name}</span> <i class="fas fa-ellipsis-v text-muted"></i>`;
+                            li.onclick = () => {
+                                currentDocIndex = idx;
+                                pageNum = 1;
+                                loadDocument(rev.url);
+                                renderDocList();
+                            };
+                            list.appendChild(li);
+                            
+                            const opt = document.createElement('option');
+                            opt.value = idx;
+                            opt.textContent = rev.name;
+                            if (idx === currentDocIndex) opt.selected = true;
+                            select.appendChild(opt);
+                        });
+                    }
+                    
+                    document.getElementById('doc-select-top').addEventListener('change', function(e) {
+                        currentDocIndex = parseInt(e.target.value);
+                        pageNum = 1;
+                        loadDocument(revisionsData[currentDocIndex].url);
+                        renderDocList();
+                    });
+                    
+                    function renderRoleList() {
+                        const list = document.getElementById('role-list');
+                        list.innerHTML = '';
+                        
+                        roles.forEach((role, idx) => {
+                            const li = document.createElement('li');
+                            li.className = idx === currentRoleIndex ? 'active' : '';
+                            
+                            // count fields for this role
+                            let count = 0;
+                            for (let docId in allBoxes) {
+                                count += allBoxes[docId].filter(b => b.roleId === role.id).length;
+                            }
+                            
+                            li.innerHTML = `<span>${role.name}</span> <div style="display:flex; align-items:center; gap:10px;"><span class="badge" style="background:${role.color}">${count}</span> <i class="fas fa-ellipsis-v text-muted"></i></div>`;
+                            li.onclick = () => {
+                                currentRoleIndex = idx;
+                                renderRoleList();
+                            };
+                            list.appendChild(li);
+                        });
+                    }
+                    
+                    document.getElementById('add-role-btn').addEventListener('click', () => {
+                        const newId = 'role_' + (roles.length + 1);
+                        roles.push({ id: newId, name: 'Signer ' + (roles.length + 1), color: '#ffe0e0' });
+                        currentRoleIndex = roles.length - 1;
+                        renderRoleList();
+                    });
+                    
+                    // --- DOC UPLOAD ---
+                    document.getElementById('add-doc-btn').addEventListener('click', () => {
+                        document.getElementById('doc-upload-input').click();
+                    });
+                    
+                    document.getElementById('doc-upload-input').addEventListener('change', function(e) {
+                        if (!this.files.length) return;
+                        const file = this.files[0];
+                        const formData = new FormData();
+                        formData.append('file', file);
+                        
+                        fetch('/dms/signature/setup/upload', {
+                            method: 'POST',
+                            body: formData
+                        }).then(r => r.json()).then(data => {
+                            revisionsData.push(data);
+                            allBoxes[data.id] = [];
+                            currentDocIndex = revisionsData.length - 1;
+                            pageNum = 1;
+                            loadDocument(data.url);
+                            renderDocList();
+                        });
+                    });
+                    
+                    
+                    // --- PDF VIEWING ---
                     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
-                    
                     let pdfDoc = null;
                     let pageNum = 1;
                     let canvas = document.getElementById('pdf-canvas');
                     let ctx = canvas.getContext('2d');
                     let container = document.getElementById('pdf-container');
-                    let scale = 1.2;
+                    let scale = 1.3;
                     let viewport = null;
                     
-                    let boxes = [];
-                    
-                    pdfjsLib.getDocument(url).promise.then(function(pdfDoc_) {
-                        pdfDoc = pdfDoc_;
-                        document.getElementById('page-count').textContent = pdfDoc.numPages;
-                        renderPage(pageNum);
-                    });
+                    function loadDocument(url) {
+                        pdfjsLib.getDocument(url).promise.then(function(pdfDoc_) {
+                            pdfDoc = pdfDoc_;
+                            document.getElementById('page-count').textContent = pdfDoc.numPages;
+                            renderPage(pageNum);
+                        });
+                    }
                     
                     function renderPage(num) {
                         pdfDoc.getPage(num).then(function(page) {
@@ -73,162 +290,299 @@
                             container.style.width = viewport.width + 'px';
                             container.style.height = viewport.height + 'px';
                             
-                            var renderContext = {
-                                canvasContext: ctx,
-                                viewport: viewport
-                            };
+                            var renderContext = { canvasContext: ctx, viewport: viewport };
                             page.render(renderContext);
                             
                             document.getElementById('page-num').textContent = num;
                             
-                            // Show only boxes for current page
-                            boxes.forEach(box => {
+                            // Render boxes
+                            const currentBoxes = allBoxes[revisionsData[currentDocIndex].id];
+                            document.querySelectorAll('.signature-box').forEach(el => el.remove());
+                            
+                            currentBoxes.forEach(box => {
                                 if (box.page === num) {
-                                    box.element.style.display = 'flex';
-                                } else {
-                                    box.element.style.display = 'none';
+                                    container.appendChild(box.element);
                                 }
                             });
+                            renderRoleList();
                         });
                     }
-
-                    document.getElementById('prev-page').addEventListener('click', function() {
-                        if (pageNum &lt;= 1) return;
-                        pageNum--;
-                        renderPage(pageNum);
-                    });
-
-                    document.getElementById('next-page').addEventListener('click', function() {
-                        if (pageNum >= pdfDoc.numPages) return;
-                        pageNum++;
-                        renderPage(pageNum);
+                    
+                    document.getElementById('prev-page').addEventListener('click', () => { if(pageNum > 1) { pageNum--; renderPage(pageNum); } });
+                    document.getElementById('next-page').addEventListener('click', () => { if(pageNum &lt; pdfDoc.numPages) { pageNum++; renderPage(pageNum); } });
+                    
+                    
+                    // --- CUSTOM DRAG &amp; DROP OVER PDF ---
+                    let isToolDragging = false;
+                    let currentDragType = null;
+                    let ghostElement = null;
+                    
+                    document.querySelectorAll('.tool-btn').forEach(btn => {
+                        btn.addEventListener('mousedown', (e) => {
+                            isToolDragging = true;
+                            currentDragType = btn.getAttribute('data-type');
+                            
+                            ghostElement = btn.cloneNode(true);
+                            ghostElement.style.position = 'fixed';
+                            ghostElement.style.opacity = '0.7';
+                            ghostElement.style.pointerEvents = 'none';
+                            ghostElement.style.zIndex = '9999';
+                            document.body.appendChild(ghostElement);
+                            
+                            moveGhost(e);
+                            e.preventDefault();
+                        });
                     });
                     
-                    container.addEventListener('click', function(e) {
-                        if (e.target.classList.contains('signature-box')) return;
-                        const rect = container.getBoundingClientRect();
-                        const x = e.clientX - rect.left;
-                        const y = e.clientY - rect.top;
-                        addBox(x, y);
+                    document.addEventListener('mousemove', (e) => {
+                        if (isToolDragging &amp;&amp; ghostElement) {
+                            moveGhost(e);
+                        }
                     });
                     
-                    document.getElementById('add-box-btn').addEventListener('click', function() {
-                        addBox(viewport.width/2 - 75, viewport.height/2 - 25);
+                    function moveGhost(e) {
+                        ghostElement.style.left = (e.clientX + 10) + 'px';
+                        ghostElement.style.top = (e.clientY + 10) + 'px';
+                    }
+                    
+                    document.addEventListener('mouseup', (e) => {
+                        if (isToolDragging) {
+                            isToolDragging = false;
+                            ghostElement.remove();
+                            ghostElement = null;
+                            
+                            // Check if dropped inside PDF container
+                            const rect = container.getBoundingClientRect();
+                            if (e.clientX >= rect.left &amp;&amp; e.clientX &lt;= rect.right &amp;&amp; e.clientY >= rect.top &amp;&amp; e.clientY &lt;= rect.bottom) {
+                                const x = e.clientX - rect.left;
+                                const y = e.clientY - rect.top;
+                                addBox(x, y, currentDragType);
+                            }
+                            currentDragType = null;
+                        }
                     });
                     
-                    function addBox(x, y) {
-                        const select = document.getElementById('user-select');
-                        const userId = select.value;
-                        const userName = select.options[select.selectedIndex].text;
+                    function getBoxSize(type) {
+                        switch(type) {
+                            case 'checkbox': case 'radio': return { w: 30, h: 30 };
+                            case 'strikethrough': return { w: 200, h: 20 };
+                            case 'multiline': return { w: 200, h: 100 };
+                            case 'stamp': return { w: 100, h: 100 };
+                            default: return { w: 150, h: 40 };
+                        }
+                    }
+                    
+                    function getLabel(type) { return type.charAt(0).toUpperCase() + type.slice(1); }
+                    
+                    function addBox(x, y, type) {
+                        const role = roles[currentRoleIndex];
+                        const size = getBoxSize(type);
                         
                         const boxDiv = document.createElement('div');
                         boxDiv.className = 'signature-box';
                         boxDiv.style.left = x + 'px';
                         boxDiv.style.top = y + 'px';
-                        boxDiv.innerText = userName;
+                        boxDiv.style.width = size.w + 'px';
+                        boxDiv.style.height = size.h + 'px';
+                        boxDiv.style.borderColor = role.color !== '#e0e0ff' ? '#28a745' : '#007bff';
+                        boxDiv.style.backgroundColor = role.color;
+                        
+                        const iconClass = document.querySelector(`.tool-btn[data-type="\${type}"] i`).className;
+                        boxDiv.innerHTML = `&lt;i class="\${iconClass} me-2"&gt;&lt;/i&gt;&lt;span style="font-size:12px;"&gt;\${getLabel(type)}&lt;/span&gt;`;
+                        
+                        const delBtn = document.createElement('div');
+                        delBtn.className = 'delete-btn';
+                        delBtn.innerHTML = '&lt;i class="fas fa-times"&gt;&lt;/i&gt;';
+                        boxDiv.appendChild(delBtn);
+                        
+                        const resHandle = document.createElement('div');
+                        resHandle.className = 'resize-handle';
+                        boxDiv.appendChild(resHandle);
+                        
                         container.appendChild(boxDiv);
                         
-                        const boxId = boxes.length;
+                        const docId = revisionsData[currentDocIndex].id;
+                        const boxId = Date.now().toString();
                         
-                        boxes.push({
-                            id: boxId,
-                            x: x,
-                            y: y,
-                            page: pageNum,
-                            userId: userId,
-                            userName: userName,
-                            element: boxDiv
-                        });
+                        const boxData = {
+                            id: boxId, x: x, y: y, width: size.w, height: size.h,
+                            page: pageNum, roleId: role.id, type: type, element: boxDiv
+                        };
+                        allBoxes[docId].push(boxData);
                         
-                        updateBoxList();
-                        makeDraggable(boxDiv, boxId);
+                        delBtn.onclick = () => {
+                            boxDiv.remove();
+                            allBoxes[docId] = allBoxes[docId].filter(b => b.id !== boxId);
+                            renderRoleList();
+                        };
+                        
+                        renderRoleList();
+                        makeDraggableAndResizable(boxDiv, boxData);
                     }
                     
-                    function updateBoxList() {
-                        const list = document.getElementById('box-list');
-                        list.innerHTML = '';
-                        boxes.forEach((box, index) => {
-                            const li = document.createElement('li');
-                            li.className = 'list-group-item d-flex justify-content-between align-items-center';
-                            li.innerText = box.userName + " (Page " + box.page + ")";
-                            const btn = document.createElement('button');
-                            btn.className = 'btn btn-sm btn-danger';
-                            btn.innerText = 'X';
-                            btn.onclick = () => {
-                                box.element.remove();
-                                boxes.splice(index, 1);
-                                updateBoxList();
-                            };
-                            li.appendChild(btn);
-                            list.appendChild(li);
-                        });
-                    }
-                    
-                    function makeDraggable(elmnt, boxId) {
-                        var pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
-                        elmnt.onmousedown = dragMouseDown;
+                    function makeDraggableAndResizable(elmnt, boxData) {
+                        let isDragging = false, isResizing = false;
+                        let startX, startY, startW, startH, startLeft, startTop;
                         
-                        function dragMouseDown(e) {
-                            e = e || window.event;
-                            e.preventDefault();
-                            pos3 = e.clientX;
-                            pos4 = e.clientY;
-                            document.onmouseup = closeDragElement;
-                            document.onmousemove = elementDrag;
-                        }
-                        
-                        function elementDrag(e) {
-                            e = e || window.event;
-                            e.preventDefault();
-                            pos1 = pos3 - e.clientX;
-                            pos2 = pos4 - e.clientY;
-                            pos3 = e.clientX;
-                            pos4 = e.clientY;
-                            elmnt.style.top = (elmnt.offsetTop - pos2) + "px";
-                            elmnt.style.left = (elmnt.offsetLeft - pos1) + "px";
+                        elmnt.onmousedown = function(e) {
+                            if (e.target.closest('.delete-btn')) return;
+                            if (e.target.classList.contains('resize-handle')) {
+                                isResizing = true;
+                                startW = parseFloat(getComputedStyle(elmnt).width);
+                                startH = parseFloat(getComputedStyle(elmnt).height);
+                            } else {
+                                isDragging = true;
+                                startLeft = elmnt.offsetLeft;
+                                startTop = elmnt.offsetTop;
+                            }
+                            startX = e.clientX; startY = e.clientY;
                             
-                            boxes.find(b => b.id === boxId).x = elmnt.offsetLeft;
-                            boxes.find(b => b.id === boxId).y = elmnt.offsetTop;
-                        }
-                        
-                        function closeDragElement() {
-                            document.onmouseup = null;
-                            document.onmousemove = null;
-                        }
+                            document.onmouseup = () => {
+                                isDragging = false; isResizing = false;
+                                document.onmousemove = null; document.onmouseup = null;
+                            };
+                            
+                            document.onmousemove = (e) => {
+                                if (isDragging) {
+                                    const newX = startLeft + (e.clientX - startX);
+                                    const newY = startTop + (e.clientY - startY);
+                                    elmnt.style.left = newX + "px";
+                                    elmnt.style.top = newY + "px";
+                                    boxData.x = newX; boxData.y = newY;
+                                } else if (isResizing) {
+                                    const newW = Math.max(30, startW + (e.clientX - startX));
+                                    const newH = Math.max(20, startH + (e.clientY - startY));
+                                    elmnt.style.width = newW + "px";
+                                    elmnt.style.height = newH + "px";
+                                    boxData.width = newW; boxData.height = newH;
+                                }
+                            };
+                        };
                     }
                     
-                    document.getElementById('save-btn').addEventListener('click', function() {
-                        const payload = boxes.map(b => {
-                            // Convert HTML y to PDF y (bottom-up). ReportLab uses bottom-up coordinates.
-                            // However, we can just pass the scale and HTML coordinates to the backend
-                            // and let the backend do the math, OR do it here.
-                            // The backend assumes A4 (595x842) by default, but let's pass the exact canvas coords and canvas size
-                            return {
-                                recipient_id: b.userId,
-                                pos_x: b.x / scale,
-                                pos_y: (viewport.height - b.y - 50) / scale, // 50 is box height
-                                page_number: b.page
+                    // --- MODAL &amp; SAVE LOGIC ---
+                    const sendModal = document.getElementById('send-modal');
+                    const closeModalBtn = document.getElementById('close-modal-btn');
+                    const discardBtn = document.getElementById('discard-btn');
+                    
+                    document.getElementById('open-send-modal-btn').addEventListener('click', () => {
+                        // Check if at least one field exists
+                        let hasFields = false;
+                        for (let d in allBoxes) if (allBoxes[d].length > 0) hasFields = true;
+                        if (!hasFields) { alert("Please add at least one field."); return; }
+                        
+                        // Populate role mappings
+                        const mappingContainer = document.getElementById('role-mapping-container');
+                        mappingContainer.innerHTML = '';
+                        
+                        // User options
+                        let optionsHtml = '&lt;option value=""&gt;Select User...&lt;/option&gt;';
+                        odooUsers.forEach(u => optionsHtml += `&lt;option value="\${u.id}"&gt;\${u.name}&lt;/option&gt;`);
+                        
+                        roles.forEach(role => {
+                            // Only show roles that have fields
+                            let hasRoleFields = false;
+                            for (let d in allBoxes) if (allBoxes[d].some(b => b.roleId === role.id)) hasRoleFields = true;
+                            
+                            if (hasRoleFields) {
+                                const row = document.createElement('div');
+                                row.className = 'role-mapping-row';
+                                row.innerHTML = `
+                                    &lt;div class="role-mapping-label"&gt;\${role.name}&lt;/div&gt;
+                                    &lt;div class="role-mapping-input"&gt;
+                                        &lt;select class="form-select user-select-for-role" data-role-id="\${role.id}"&gt;
+                                            \${optionsHtml}
+                                        &lt;/select&gt;
+                                    &lt;/div&gt;
+                                `;
+                                mappingContainer.appendChild(row);
                             }
                         });
+                        
+                        if (revisionsData.length > 0) {
+                            document.getElementById('email-subject').value = "Signature Request - " + revisionsData[0].name;
+                        }
+                        
+                        sendModal.style.display = 'flex';
+                    });
+                    
+                    const closeModal = () => { sendModal.style.display = 'none'; };
+                    closeModalBtn.onclick = closeModal;
+                    discardBtn.onclick = closeModal;
+                    
+                    function submitSignatureSetup(isSignNow) {
+                        const rolesMapping = {};
+                        let allAssigned = true;
+                        
+                        document.querySelectorAll('.user-select-for-role').forEach(select => {
+                            const roleId = select.getAttribute('data-role-id');
+                            const userId = select.value;
+                            if (!userId) allAssigned = false;
+                            rolesMapping[roleId] = userId;
+                        });
+                        
+                        if (!allAssigned) { alert("Please assign a user to all signers."); return; }
+                        
+                        const payloads = [];
+                        for (const docId in allBoxes) {
+                            if (allBoxes[docId].length > 0) {
+                                const payloadBoxes = allBoxes[docId].map(b => {
+                                    return {
+                                        recipient_id: b.roleId, // Send roleId, backend maps it
+                                        type: b.type,
+                                        pos_x: b.x / scale,
+                                        pos_y: (viewport.height - b.y - b.height) / scale,
+                                        width: b.width / scale,
+                                        height: b.height / scale,
+                                        page_number: b.page
+                                    }
+                                });
+                                payloads.push({ revision_id: parseInt(docId), boxes: payloadBoxes });
+                            }
+                        }
+                        
+                        const subject = document.getElementById('email-subject').value;
+                        const cc = document.getElementById('email-cc').value;
+                        
+                        document.getElementById('sign-now-btn').disabled = true;
+                        document.getElementById('send-email-btn').disabled = true;
                         
                         fetch('/dms/signature/setup/save', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
                                 params: {
-                                    revision_id: revisionId,
-                                    boxes: payload
+                                    payloads: payloads,
+                                    roles_mapping: rolesMapping,
+                                    subject: subject,
+                                    cc: cc
                                 }
                             })
-                        }).then(response => response.json())
-                          .then(data => {
-                              if (data.result &amp;&amp; data.result.success) {
-                                  alert('Signature requests created successfully! You can close this window.');
-                              } else {
-                                  alert('An error occurred while saving.');
-                              }
-                          });
-                    });
+                        }).then(r => r.json()).then(data => {
+                            if (data.result &amp;&amp; data.result.success) {
+                                if (isSignNow) {
+                                    window.location.href = '/my/dms/signatures';
+                                } else {
+                                    alert('Requests sent successfully!');
+                                    window.location.href = '/web';
+                                }
+                            } else {
+                                alert('An error occurred.');
+                                document.getElementById('sign-now-btn').disabled = false;
+                                document.getElementById('send-email-btn').disabled = false;
+                            }
+                        });
+                    }
+                    
+                    document.getElementById('sign-now-btn').onclick = () => submitSignatureSetup(true);
+                    document.getElementById('send-email-btn').onclick = () => submitSignatureSetup(false);
+                    
+                    // Init
+                    if (revisionsData.length > 0) {
+                        renderDocList();
+                        renderRoleList();
+                        loadDocument(revisionsData[0].url);
+                    }
                 </script>
             </body>
         </html>
