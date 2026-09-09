@@ -59,9 +59,10 @@
             <field name="global" eval="False"/>
             <field name="groups" eval="[(4, ref('base.group_portal'))]"/>
             <field name="domain_force">
-                ['|',
+                ['|', '|',
                  ('document_owner_id', '=', user.id), 
-                 ('access_ids.user_id', '=', user.id)]
+                 ('access_ids.user_id', '=', user.id),
+                 ('access_ids.partner_id', '=', user.partner_id.id)]
             </field>
             <field name="perm_read" eval="True"/>
             <field name="perm_write" eval="False"/>

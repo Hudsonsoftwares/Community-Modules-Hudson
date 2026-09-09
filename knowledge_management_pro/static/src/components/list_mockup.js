@@ -1,133 +1,248 @@
-/** @odoo-module **/
-
-import { Component, xml, useState } from "@odoo/owl";
+﻿/** @odoo-module **/
+import { Component, useState, xml, onWillStart } from "@odoo/owl";
+import { session } from "@web/session";
 
 export class KnowledgeListMockup extends Component {
+    static template = xml`
+        <div class="km_pro_list_board" t-on-click="closeMenus">
+            <!-- Header Toolbar -->
+            <div class="km_pro_list_header">
+                <div class="km_pro_list_header_left">
+                    <button class="km_pro_list_btn_new" t-on-click="addNewItem">New</button>
+                    <div class="km_pro_list_title_wrap">
+                        <span>List of <t t-esc="props.itemName || 'Items'"/></span>
+                    </div>
+                </div>
+                <div class="km_pro_list_header_right">
+                    <div class="km_pro_list_search_box">
+                        <i class="fa fa-search km_pro_list_search_icon"></i>
+                        <input type="text" class="km_pro_list_search_input" placeholder="Search..." t-model="state.searchQuery" />
+                        <i t-if="state.searchQuery" class="fa fa-times km_pro_list_search_clear" t-on-click="clearSearch"></i>
+                        <i class="fa fa-caret-down km_pro_list_search_caret"></i>
+                    </div>
+                    <div class="km_pro_list_pagination">
+                        <span class="km_pro_list_page_info">
+                            <t t-esc="filteredItems.length"/> / <t t-esc="state.items.length"/>
+                        </span>
+                        <button class="km_pro_list_page_btn" disabled="1"><i class="fa fa-angle-left"></i></button>
+                        <button class="km_pro_list_page_btn" disabled="1"><i class="fa fa-angle-right"></i></button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- List Table -->
+            <div class="km_pro_list_body">
+                <table class="km_pro_list_table">
+                    <thead>
+                        <tr>
+                            <th class="col-checkbox"><input type="checkbox" /></th>
+                            <th class="col-name">Name</th>
+                            <th class="col-star"></th>
+                            <th class="col-created-by" t-if="state.visibleColumns.createdBy">Created by</th>
+                            <th class="col-created-on" t-if="state.visibleColumns.createdOn">Created on</th>
+                            <th class="col-section" t-if="state.visibleColumns.section">Section</th>
+                            <th class="col-menu-article" t-if="state.visibleColumns.menuArticle">Menu Article</th>
+                            <th class="col-last-edited-by" t-if="state.visibleColumns.lastEditedBy">Last Edited by</th>
+                            <th class="col-last-edit-date" t-if="state.visibleColumns.lastEditDate">Last Edit Date</th>
+                            <!-- Column toggle icon in last header cell -->
+                            <th class="col-col-toggle" style="position: relative;">
+                                <span class="km_pro_col_toggle_btn" t-on-click.stop="toggleSettingsMenu" title="Toggle Columns">
+                                    <i class="fa fa-exchange"></i>
+                                </span>
+                                <t t-if="state.showSettingsMenu">
+                                    <div class="km_pro_list_settings_menu shadow" t-on-click.stop="">
+                                        <div class="km_pro_list_settings_item" t-on-click="() => this.toggleColumn('createdBy')">
+                                            <i t-attf-class="fa {{ state.visibleColumns.createdBy ? 'fa-check-square text-primary' : 'fa-square-o' }}"></i> Created by
+                                        </div>
+                                        <div class="km_pro_list_settings_item" t-on-click="() => this.toggleColumn('createdOn')">
+                                            <i t-attf-class="fa {{ state.visibleColumns.createdOn ? 'fa-check-square text-primary' : 'fa-square-o' }}"></i> Created on
+                                        </div>
+                                        <div class="km_pro_list_settings_item" t-on-click="() => this.toggleColumn('section')">
+                                            <i t-attf-class="fa {{ state.visibleColumns.section ? 'fa-check-square text-primary' : 'fa-square-o' }}"></i> Section
+                                        </div>
+                                        <div class="km_pro_list_settings_item" t-on-click="() => this.toggleColumn('menuArticle')">
+                                            <i t-attf-class="fa {{ state.visibleColumns.menuArticle ? 'fa-check-square text-primary' : 'fa-square-o' }}"></i> Menu Article
+                                        </div>
+                                        <div class="km_pro_list_settings_item" t-on-click="() => this.toggleColumn('lastEditedBy')">
+                                            <i t-attf-class="fa {{ state.visibleColumns.lastEditedBy ? 'fa-check-square text-primary' : 'fa-square-o' }}"></i> Last Edited by
+                                        </div>
+                                        <div class="km_pro_list_settings_item" t-on-click="() => this.toggleColumn('lastEditDate')">
+                                            <i t-attf-class="fa {{ state.visibleColumns.lastEditDate ? 'fa-check-square text-primary' : 'fa-square-o' }}"></i> Last Edit Date
+                                        </div>
+                                    </div>
+                                </t>
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <t t-foreach="filteredItems" t-as="item" t-key="item.id">
+                            <tr class="km_pro_list_row" t-on-click="() => this.openItem(item)">
+                                <td class="col-checkbox" t-on-click.stop=""><input type="checkbox" /></td>
+                                <td class="col-name">
+                                    <span class="km_pro_list_name_inner">
+                                        <i class="fa fa-bars km_pro_drag_handle"></i>
+                                        <i class="fa fa-file-text-o km_pro_item_icon"></i>
+                                        <span class="km_pro_item_name"><t t-esc="item.name || 'Untitled'"/></span>
+                                    </span>
+                                </td>
+                                <td class="col-star" t-on-click.stop="() => this.toggleFavorite(item)">
+                                    <i t-attf-class="fa {{ item.isFavorite ? 'fa-star km_pro_star_on' : 'fa-star-o km_pro_star_off' }}"></i>
+                                </td>
+                                <td class="col-created-by" t-if="state.visibleColumns.createdBy">
+                                    <div class="km_pro_avatar_label">
+                                        <div class="km_pro_list_avatar" t-attf-style="background-color: {{ this.getAvatarColor(item.createdBy) }}">
+                                            <t t-esc="item.createdBy ? item.createdBy.charAt(0).toUpperCase() : 'U'"/>
+                                        </div>
+                                        <span t-esc="item.createdBy || 'Unknown'"/>
+                                    </div>
+                                </td>
+                                <td class="col-created-on" t-if="state.visibleColumns.createdOn"><t t-esc="item.createdOn || ''"/></td>
+                                <td class="col-section" t-if="state.visibleColumns.section"><t t-esc="item.section || ''"/></td>
+                                <td class="col-menu-article" t-if="state.visibleColumns.menuArticle"><t t-esc="item.menuArticle || ''"/></td>
+                                <td class="col-last-edited-by" t-if="state.visibleColumns.lastEditedBy">
+                                    <t t-if="item.lastEditedBy">
+                                        <div class="km_pro_avatar_label">
+                                            <div class="km_pro_list_avatar" t-attf-style="background-color: {{ this.getAvatarColor(item.lastEditedBy) }}">
+                                                <t t-esc="item.lastEditedBy.charAt(0).toUpperCase()"/>
+                                            </div>
+                                            <span t-esc="item.lastEditedBy"/>
+                                        </div>
+                                    </t>
+                                </td>
+                                <td class="col-last-edit-date" t-if="state.visibleColumns.lastEditDate"><t t-esc="item.lastEditDate || ''"/></td>
+                                <td class="col-col-toggle" t-on-click.stop=""></td>
+                            </tr>
+                        </t>
+                        <tr t-if="filteredItems.length === 0" class="km_pro_list_empty_row">
+                            <td colspan="10">
+                                <div class="km_pro_list_empty_state">
+                                    <i class="fa fa-list-ul"></i>
+                                    <span>No items. Click <strong>New</strong> to create one.</span>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    `;
+
+    static props = {
+        itemName: { type: String, optional: true },
+        initialData: { type: String, optional: true },
+        onChange: { type: Function, optional: true },
+        onNewItem: { type: Function, optional: true }
+    };
+
     setup() {
         this.state = useState({
             items: [],
-            searchQuery: "",
-            isAddingItem: false,
-            newItemTitle: "",
+            visibleColumns: {
+                createdBy: true,
+                createdOn: true,
+                section: false,
+                menuArticle: false,
+                lastEditedBy: false,
+                lastEditDate: false
+            },
+            showSettingsMenu: false,
+            searchQuery: ""
+        });
+
+        onWillStart(() => {
+            this.parseInitialData();
         });
     }
 
-    onAddItem() {
-        this.state.isAddingItem = true;
-        this.state.newItemTitle = "";
+    parseInitialData() {
+        if (this.props.initialData) {
+            try {
+                const parsed = JSON.parse(this.props.initialData);
+                if (parsed && Array.isArray(parsed.items)) {
+                    this.state.items = parsed.items;
+                }
+                if (parsed && parsed.visibleColumns) {
+                    Object.assign(this.state.visibleColumns, parsed.visibleColumns);
+                }
+            } catch (e) {
+                console.warn("Failed to parse list data", e);
+            }
+        }
     }
 
-    saveNewItem() {
-        if (this.state.newItemTitle.trim()) {
-            this.state.items.unshift({
-                id: Date.now(),
-                title: this.state.newItemTitle.trim()
-            });
+    get filteredItems() {
+        if (!this.state.searchQuery) return this.state.items;
+        const q = this.state.searchQuery.toLowerCase();
+        return this.state.items.filter(item =>
+            (item.name || '').toLowerCase().includes(q) ||
+            (item.createdBy || '').toLowerCase().includes(q)
+        );
+    }
+
+    getCurrentDateStr() {
+        const d = new Date();
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sept', 'Oct', 'Nov', 'Dec'];
+        let hours = d.getHours();
+        const ampm = hours >= 12 ? 'pm' : 'am';
+        hours = hours % 12;
+        hours = hours ? hours : 12;
+        const minutes = d.getMinutes().toString().padStart(2, '0');
+        return `${d.getDate()} ${months[d.getMonth()]}, ${hours}:${minutes} ${ampm}`;
+    }
+
+    addNewItem() {
+        // Delegate to parent editor which will create a real Odoo article
+        if (this.props.onNewItem) {
+            this.props.onNewItem();
         }
-        this.state.isAddingItem = false;
-        this.state.newItemTitle = "";
+    }
+
+    openItem(item) {
+        // Navigate to the article: item.articleId is the real Odoo article ID
+        if (item.articleId && this.props.onNewItem) {
+            // We reuse onNewItem with the articleId to navigate
+            this.props.onNewItem(item.articleId);
+        }
+    }
+
+    toggleFavorite(item) {
+        item.isFavorite = !item.isFavorite;
+        this.notifyChange();
+    }
+
+    toggleSettingsMenu() {
+        this.state.showSettingsMenu = !this.state.showSettingsMenu;
+    }
+
+    closeMenus() {
+        this.state.showSettingsMenu = false;
+    }
+
+    toggleColumn(colName) {
+        this.state.visibleColumns[colName] = !this.state.visibleColumns[colName];
+        this.notifyChange();
+    }
+
+    clearSearch() {
+        this.state.searchQuery = "";
+    }
+
+    notifyChange() {
+        if (this.props.onChange) {
+            this.props.onChange(JSON.stringify({
+                items: this.state.items,
+                visibleColumns: this.state.visibleColumns
+            }));
+        }
+    }
+
+    getAvatarColor(name) {
+        const colors = ['#714B67', '#017E84', '#e65100', '#2e7d32', '#1565c0'];
+        if (!name) return colors[0];
+        let hash = 0;
+        for (let i = 0; i < name.length; i++) {
+            hash = name.charCodeAt(i) + ((hash << 5) - hash);
+        }
+        return colors[Math.abs(hash) % colors.length];
     }
 }
-
-KnowledgeListMockup.template = xml`
-    <div class="km_pro_list_view" style="display: flex; flex-direction: column; height: 100%; background: #1c1d21; color: #e0e0e0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
-        
-        <!-- Header -->
-        <div class="km_pro_list_header" style="display: flex; align-items: center; padding: 16px 24px; border-bottom: 1px solid #36363a; gap: 16px;">
-            <button class="btn" style="background: #7f4a7c; color: #fff; border: none; padding: 6px 12px; border-radius: 4px; font-weight: 600; font-size: 0.9rem; cursor: pointer;" t-on-click="onAddItem">New</button>
-            <h3 style="margin: 0; font-size: 1.1rem; font-weight: 500; display: flex; align-items: center; gap: 8px;">
-                List of <t t-esc="props.itemName"/>
-                <i class="fa fa-cog" style="color: #a0a0a0; font-size: 0.95rem; cursor: pointer;"></i>
-            </h3>
-            <div style="flex: 1; display: flex; justify-content: center;">
-                <div style="position: relative; width: 300px;">
-                    <i class="fa fa-search" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #a0a0a0;"></i>
-                    <input type="text" placeholder="Search..." t-model="state.searchQuery" style="width: 100%; background: #161719; border: 1px solid #36363a; color: #fff; padding: 6px 12px 6px 36px; border-radius: 4px; outline: none; font-size: 0.9rem;" />
-                    <i class="fa fa-caret-down" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: #a0a0a0; cursor: pointer;"></i>
-                </div>
-            </div>
-            <div style="flex: 1;"></div>
-        </div>
-
-        <!-- Table Header -->
-        <div class="km_pro_list_table_header" style="display: flex; align-items: center; padding: 12px 24px; border-bottom: 1px solid #36363a; font-weight: 600; font-size: 0.9rem;">
-            <div style="width: 40px; display: flex; justify-content: center;">
-                <div style="width: 16px; height: 16px; border: 1px solid #5c5c5e; border-radius: 3px;"></div>
-            </div>
-            <div style="flex: 2; padding-left: 8px;">Name</div>
-            <div style="flex: 1; text-align: center;">Created by</div>
-            <div style="flex: 1; text-align: right; padding-right: 24px;">Created on</div>
-            <div style="width: 32px; display: flex; justify-content: center;">
-                <i class="fa fa-sliders" style="color: #a0a0a0; cursor: pointer;"></i>
-            </div>
-        </div>
-
-        <!-- Body / Empty State -->
-        <div class="km_pro_list_body" style="flex: 1; display: flex; flex-direction: column; overflow-y: auto;">
-            <t t-if="state.items.length === 0 and !state.isAddingItem">
-                <div style="text-align: center; max-width: 500px; margin: 60px auto 0 auto;">
-                    <div style="background: #e9e3eb; width: 100px; height: 100px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 24px auto; position: relative;">
-                        <!-- Mockup for the document icon with smile -->
-                        <div style="background: white; border: 2px solid #a0a0a0; border-radius: 4px; width: 50px; height: 65px; position: relative; border-top-right-radius: 12px;">
-                            <div style="position: absolute; top: -2px; right: -2px; border-bottom: 12px solid #a0a0a0; border-right: 12px solid transparent;"></div>
-                            <div style="display: flex; justify-content: space-between; padding: 16px 8px 0;">
-                                <div style="width: 4px; height: 4px; background: #a0a0a0; border-radius: 50%;"></div>
-                                <div style="width: 4px; height: 4px; background: #a0a0a0; border-radius: 50%;"></div>
-                            </div>
-                            <div style="border-bottom: 2px solid #a0a0a0; width: 20px; margin: 6px auto 0; border-radius: 50%; height: 4px;"></div>
-                            <div style="margin-top: 12px; display: flex; flex-direction: column; gap: 4px; align-items: center;">
-                                <div style="width: 30px; height: 2px; background: #e0e0e0;"></div>
-                                <div style="width: 20px; height: 2px; background: #e0e0e0;"></div>
-                            </div>
-                        </div>
-                        <!-- Sparkles -->
-                        <div style="position: absolute; top: -10px; left: 10px; color: #fff; font-size: 1.2rem;">✨</div>
-                    </div>
-                    <h5 style="margin: 0 0 12px 0; font-size: 1.25rem; font-weight: 700; color: #fff;">Create an Article Item</h5>
-                    <p style="margin: 0; font-size: 0.95rem; color: #a0a0a0; line-height: 1.5; text-align: center;">
-                        Article items are articles that exist inside their parents but are not displayed in the menu. They can be used to handle lists (Buildings, Tasks, ...).
-                    </p>
-                </div>
-            </t>
-            <t t-else="">
-                <t t-if="state.isAddingItem">
-                    <div style="display: flex; align-items: center; padding: 12px 24px; border-bottom: 1px solid #36363a; background: #242426;">
-                        <div style="width: 40px; display: flex; justify-content: center;">
-                            <div style="width: 16px; height: 16px; border: 1px solid #5c5c5e; border-radius: 3px;"></div>
-                        </div>
-                        <div style="flex: 2; padding-left: 8px;">
-                            <input type="text" t-model="state.newItemTitle" placeholder="My New Item" style="width: 100%; background: transparent; border: none; border-bottom: 1px solid #00a09d; color: #fff; outline: none; font-size: 0.95rem; padding-bottom: 4px;" t-on-keydown="(ev) => ev.key === 'Enter' and this.saveNewItem()" autofocus="autofocus" />
-                        </div>
-                        <div style="flex: 1; text-align: center;"></div>
-                        <div style="flex: 1; text-align: right; padding-right: 24px;"></div>
-                        <div style="width: 32px; display: flex; justify-content: center;">
-                            <button t-on-click="saveNewItem" style="background: #7f4a7c; color: #fff; border: none; padding: 4px 8px; border-radius: 4px; font-weight: 600; cursor: pointer; font-size: 0.8rem;">Save</button>
-                        </div>
-                    </div>
-                </t>
-                
-                <t t-foreach="state.items" t-as="item" t-key="item.id">
-                    <div style="display: flex; align-items: center; padding: 12px 24px; border-bottom: 1px solid #36363a; cursor: pointer;" onmouseover="this.style.backgroundColor='#242426'" onmouseout="this.style.backgroundColor='transparent'">
-                        <div style="width: 40px; display: flex; justify-content: center;">
-                            <div style="width: 16px; height: 16px; border: 1px solid #5c5c5e; border-radius: 3px;"></div>
-                        </div>
-                        <div style="flex: 2; padding-left: 8px; display: flex; align-items: center; gap: 8px;">
-                            <span style="font-size: 1.1rem;">📄</span>
-                            <span style="font-weight: 500; font-size: 0.95rem;"><t t-esc="item.title"/></span>
-                        </div>
-                        <div style="flex: 1; text-align: center; display: flex; align-items: center; justify-content: center; gap: 8px;">
-                            <div style="width: 24px; height: 24px; background: #d84b4b; color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: bold;">M</div>
-                            <span style="color: #a0a0a0; font-size: 0.85rem;">Mitchell Admin</span>
-                        </div>
-                        <div style="flex: 1; text-align: right; padding-right: 24px; color: #a0a0a0; font-size: 0.85rem;">
-                            Just now
-                        </div>
-                        <div style="width: 32px; display: flex; justify-content: center;">
-                             <i class="fa fa-ellipsis-v" style="color: #5c5c5e;"></i>
-                        </div>
-                    </div>
-                </t>
-            </t>
-        </div>
-    </div>
-`;

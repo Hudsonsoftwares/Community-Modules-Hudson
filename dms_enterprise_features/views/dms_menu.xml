@@ -15,9 +15,14 @@
     <record id="action_dms_file_trash" model="ir.actions.act_window">
         <field name="name">Trash</field>
         <field name="res_model">dms.file</field>
-        <field name="view_mode">kanban,list,form</field>
+        <field name="view_mode">kanban,list,activity,form</field>
         <field name="domain">[('is_trashed', '=', True)]</field>
         <field name="context">{'active_test': False}</field>
+
+        <field name="view_ids" eval="[(5, 0, 0),
+            (0, 0, {'view_mode': 'kanban', 'view_id': ref('dms_enterprise_features.view_dms_file_kanban_trash_specific')}),
+            (0, 0, {'view_mode': 'list', 'view_id': ref('dms_enterprise_features.view_dms_file_tree_trash_specific')})
+        ]"/>
         <field name="help" type="html">
             <p class="o_view_nocontent_empty_folder">
                 Your Trash is empty.

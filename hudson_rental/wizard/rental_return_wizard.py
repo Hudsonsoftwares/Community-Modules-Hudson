@@ -107,7 +107,8 @@ class RentalReturnWizard(models.TransientModel):
         
         # Create moves
         for line in self.line_ids:
-            if line.product_id.type == 'product' and line.returned_quantity > 0:
+            is_storable = getattr(line.product_id, 'is_storable', line.product_id.type == 'product')
+            if is_storable and line.returned_quantity > 0:
                 self.env['stock.move'].create({
                     'name': line.product_id.name,
                     'product_id': line.product_id.id,
@@ -122,7 +123,12 @@ class RentalReturnWizard(models.TransientModel):
         picking.action_confirm()
         picking.action_assign()
         for move in picking.move_ids:
-            move.quantity_done = move.product_uom_qty
+            if hasattr(move, 'quantity_done'):
+                move.quantity_done = move.product_uom_qty
+            if hasattr(move, 'quantity'):
+                move.quantity = move.product_uom_qty
+            if hasattr(move, 'picked'):
+                move.picked = True
         picking.button_validate()
 
 

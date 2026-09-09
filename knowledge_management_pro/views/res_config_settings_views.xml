@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="res_config_settings_view_form" model="ir.ui.view">
+        <field name="name">res.config.settings.view.form.inherit.knowledge</field>
+        <field name="model">res.config.settings</field>
+        <field name="priority" eval="90"/>
+        <field name="inherit_id" ref="base.res_config_settings_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//form" position="inside">
+                <app data-string="Knowledge" string="Knowledge" name="knowledge_management_pro" groups="knowledge_management_pro.group_knowledge_management_pro_manager">
+                    <block title="Unsplash Integration" name="unsplash_setting_container">
+                        <setting id="unsplash_integration" help="Configure Unsplash API for Article Covers">
+                            <div class="content-group">
+                                <div class="row mt16">
+                                    <label for="unsplash_access_key" class="col-lg-3 o_light_label"/>
+                                    <field name="unsplash_access_key" class="col-lg-9"/>
+                                </div>
+                                <div class="row mt16">
+                                    <label for="unsplash_app_id" class="col-lg-3 o_light_label"/>
+                                    <field name="unsplash_app_id" class="col-lg-9"/>
+                                </div>
+                            </div>
+                        </setting>
+                    </block>
+                    <block title="Editor Settings" name="editor_setting_container">
+                        <setting id="editor_auto_save" help="Configure auto save interval for the editor">
+                            <div class="content-group">
+                                <div class="row mt16">
+                                    <label for="auto_save_interval" class="col-lg-3 o_light_label"/>
+                                    <field name="auto_save_interval" class="col-lg-9"/>
+                                </div>
+                            </div>
+                        </setting>
+                    </block>
+                </app>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="knowledge_config_settings_action" model="ir.actions.act_window">
+        <field name="name">Settings</field>
+        <field name="res_model">res.config.settings</field>
+        <field name="view_mode">form</field>
+        <field name="target">current</field>
+        <field name="context">{'module' : 'knowledge_management_pro', 'bin_size': False}</field>
+    </record>
+
+    <menuitem id="knowledge_menu_configuration_settings"
+        name="Settings"
+        parent="knowledge_management_pro.knowledge_management_pro_menu_configuration"
+        sequence="10"
+        action="knowledge_config_settings_action"/>
+
+</odoo>

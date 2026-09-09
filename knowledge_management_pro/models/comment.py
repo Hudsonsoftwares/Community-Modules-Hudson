@@ -10,3 +10,4 @@ class KnowledgeComment(models.Model):
     date = fields.Datetime(string='Date', default=fields.Datetime.now)
     parent_id = fields.Many2one('knowledge.management.comment', string='Parent Comment', index=True, ondelete='cascade')
     is_resolved = fields.Boolean(string='Resolved', default=False)
+    anchor_id = fields.Char(string='Anchor ID', help="ID of the HTML element this comment is anchored to")

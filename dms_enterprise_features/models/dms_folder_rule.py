@@ -1,10 +1,11 @@
 # Copyright 2024 Hudson Community
 # License LGPL-3.0 or later (http://www.gnu.org/licenses/lgpl).
 
+import ast
 import logging
 
 from odoo import _, api, fields, models
-from odoo.exceptions import ValidationError
+from odoo.exceptions import UserError, ValidationError
 
 _logger = logging.getLogger(__name__)
 
@@ -32,14 +33,39 @@ class DmsFolderRule(models.Model):
     )
     sequence = fields.Integer(
         default=10,
-        help="Rules are evaluated in ascending sequence order. "
-             "The first matching rule wins.",
+        help="Rules are evaluated in ascending sequence order. The first matching rule wins.",
     )
     company_id = fields.Many2one(
         comodel_name="res.company",
         string="Company",
         default=lambda self: self.env.company,
         help="If set, this rule only applies to attachments from the given company.",
+    )
+
+    # ── Business Trigger Preset ───────────────────────────────────────────────
+    trigger_type = fields.Selection(
+        selection=[
+            ("account_vendor_bill", "Vendor Bills (Accounting)"),
+            ("account_customer_invoice", "Customer Invoices (Accounting)"),
+            ("account_all", "All Accounting Entries (Accounting)"),
+            ("sale_order", "Sales Orders & Quotations (Sales)"),
+            ("purchase_order", "Purchase Orders & RFQs (Purchasing)"),
+            ("hr_employee", "Employee Records (HR)"),
+            ("hr_contract", "Employee Contracts (HR)"),
+            ("hr_applicant", "Job Applicant CVs / Resumes (Recruitment)"),
+            ("hr_expense", "Expenses & Receipts (HR)"),
+            ("project_project", "Project Documents (Projects)"),
+            ("project_task", "Task Attachments (Projects)"),
+            ("helpdesk_ticket", "Ticket Attachments (Helpdesk)"),
+            ("stock_picking", "Delivery & Receipt Notes (Inventory)"),
+            ("res_partner", "Customer / Vendor Documents (Contacts)"),
+            ("fleet_vehicle", "Vehicle Documents (Fleet)"),
+            ("custom", "Custom Model..."),
+        ],
+        string="Document Type / Trigger",
+        default="custom",
+        required=True,
+        help="Select a business trigger to automatically set up model, domain and target folder.",
     )
 
     # ── Source Model ─────────────────────────────────────────────────────────
@@ -59,8 +85,7 @@ class DmsFolderRule(models.Model):
     domain = fields.Char(
         string="Filter Domain",
         default="[]",
-        help="Optional domain expression to further filter which records "
-             "trigger this rule. Example: [('state','=','done')]",
+        help="Optional domain expression to further filter which records trigger this rule. Example: [('state','=','done')]",
     )
 
     # ── Target Directory ─────────────────────────────────────────────────────
@@ -70,6 +95,11 @@ class DmsFolderRule(models.Model):
         required=True,
         ondelete="restrict",
         help="DMS folder where matched documents will be routed.",
+    )
+    category_id = fields.Many2one(
+        comodel_name="dms.category",
+        string="Default Category",
+        help="Category automatically assigned to documents routed by this rule.",
     )
     tag_ids = fields.Many2many(
         comodel_name="dms.tag",
@@ -84,25 +114,26 @@ class DmsFolderRule(models.Model):
     create_subfolder = fields.Boolean(
         string="Create Per-Record Subfolder",
         default=False,
-        help="When enabled, a subfolder named after the record is created "
-             "inside the target folder. Each record gets its own subfolder.",
+        help="When enabled, a subfolder named after the record is created inside the target folder (e.g. Accounting/Vendor Bills/BILL-2026-0001/).",
     )
     subfolder_name_field = fields.Many2one(
         comodel_name="ir.model.fields",
         string="Subfolder Name Field",
         domain="[('model_id', '=', model_id), ('ttype', 'in', ['char','name','text'])]",
-        help="Field from the source record used as the subfolder name. "
-             "Defaults to display_name if not set.",
+        help="Field from the source record used as the subfolder name. Defaults to display_name if not set.",
     )
 
-    # ── Business Area Label (for config settings grouping) ───────────────────
+    # ── Business Area Label ───────────────────────────────────────────────────
     area = fields.Selection(
         selection=[
             ("hr", "Human Resources"),
             ("recruitment", "Recruitment"),
             ("accounting", "Accounting"),
+            ("sale", "Sales"),
+            ("purchase", "Purchases"),
             ("product", "Products"),
             ("project", "Projects"),
+            ("helpdesk", "Helpdesk"),
             ("approvals", "Approvals"),
             ("sign", "Sign"),
             ("fleet", "Fleet"),
@@ -110,8 +141,7 @@ class DmsFolderRule(models.Model):
         ],
         string="Business Area",
         default="other",
-        help="Business area this rule belongs to. Used to group rules in the "
-             "settings panel.",
+        help="Business area this rule belongs to.",
     )
 
     # ── Computed ──────────────────────────────────────────────────────────────
@@ -120,6 +150,171 @@ class DmsFolderRule(models.Model):
         string="Target Folder Path",
         readonly=True,
     )
+    file_count = fields.Integer(
+        string="Routed Files Count",
+        compute="_compute_file_count",
+    )
+
+    def _compute_file_count(self):
+        for rec in self:
+            if rec.model_name and rec.directory_id:
+                rec.file_count = self.env["dms.file"].sudo().search_count([
+                    ("res_model", "=", rec.model_name),
+                    ("directory_id", "child_of", rec.directory_id.id),
+                ])
+            else:
+                rec.file_count = 0
+
+    @api.onchange("trigger_type")
+    def _onchange_trigger_type(self):
+        """Auto-populate model, domain, target directory and name when a preset trigger is selected."""
+        if not self.trigger_type or self.trigger_type == "custom":
+            return
+
+        presets = {
+            "account_vendor_bill": {
+                "name": "Route Vendor Bills",
+                "model": "account.move",
+                "domain": "[('move_type', 'in', ('in_invoice', 'in_refund', 'in_receipt'))]",
+                "area": "accounting",
+                "folder_name": "Accounting",
+                "create_subfolder": True,
+            },
+            "account_customer_invoice": {
+                "name": "Route Customer Invoices",
+                "model": "account.move",
+                "domain": "[('move_type', 'in', ('out_invoice', 'out_refund', 'out_receipt'))]",
+                "area": "accounting",
+                "folder_name": "Accounting",
+                "create_subfolder": True,
+            },
+            "account_all": {
+                "name": "Route All Accounting Documents",
+                "model": "account.move",
+                "domain": "[]",
+                "area": "accounting",
+                "folder_name": "Accounting",
+                "create_subfolder": False,
+            },
+            "sale_order": {
+                "name": "Route Sales Orders & Quotations",
+                "model": "sale.order",
+                "domain": "[]",
+                "area": "sale",
+                "folder_name": "Sales",
+                "create_subfolder": True,
+            },
+            "purchase_order": {
+                "name": "Route Purchase Orders",
+                "model": "purchase.order",
+                "domain": "[]",
+                "area": "purchase",
+                "folder_name": "Purchases",
+                "create_subfolder": True,
+            },
+            "hr_employee": {
+                "name": "Route Employee Documents",
+                "model": "hr.employee",
+                "domain": "[]",
+                "area": "hr",
+                "folder_name": "Employees",
+                "create_subfolder": True,
+            },
+            "hr_contract": {
+                "name": "Route Employee Contracts",
+                "model": "hr.contract",
+                "domain": "[]",
+                "area": "hr",
+                "folder_name": "Employees",
+                "create_subfolder": True,
+            },
+            "hr_applicant": {
+                "name": "Route Job Applicant CVs / Resumes",
+                "model": "hr.applicant",
+                "domain": "[]",
+                "area": "recruitment",
+                "folder_name": "Recruitment",
+                "create_subfolder": True,
+            },
+            "hr_expense": {
+                "name": "Route Expenses & Receipts",
+                "model": "hr.expense",
+                "domain": "[]",
+                "area": "hr",
+                "folder_name": "Finance",
+                "create_subfolder": False,
+            },
+            "project_project": {
+                "name": "Route Project Documents",
+                "model": "project.project",
+                "domain": "[]",
+                "area": "project",
+                "folder_name": "Projects",
+                "create_subfolder": True,
+            },
+            "project_task": {
+                "name": "Route Task Attachments",
+                "model": "project.task",
+                "domain": "[]",
+                "area": "project",
+                "folder_name": "Projects",
+                "create_subfolder": True,
+            },
+            "helpdesk_ticket": {
+                "name": "Route Helpdesk Tickets",
+                "model": "helpdesk.ticket",
+                "domain": "[]",
+                "area": "helpdesk",
+                "folder_name": "Helpdesk",
+                "create_subfolder": True,
+            },
+            "stock_picking": {
+                "name": "Route Delivery & Receipt Notes",
+                "model": "stock.picking",
+                "domain": "[]",
+                "area": "other",
+                "folder_name": "Finance",
+                "create_subfolder": False,
+            },
+            "res_partner": {
+                "name": "Route Contact Documents",
+                "model": "res.partner",
+                "domain": "[]",
+                "area": "other",
+                "folder_name": "Finance",
+                "create_subfolder": True,
+            },
+            "fleet_vehicle": {
+                "name": "Route Vehicle Documents",
+                "model": "fleet.vehicle",
+                "domain": "[]",
+                "area": "fleet",
+                "folder_name": "Fleet",
+                "create_subfolder": True,
+            },
+        }
+
+        conf = presets.get(self.trigger_type)
+        if conf:
+            self.name = conf["name"]
+            self.area = conf["area"]
+            self.domain = conf["domain"]
+            self.create_subfolder = conf["create_subfolder"]
+
+            # Find model
+            ir_model = self.env["ir.model"].sudo().search([("model", "=", conf["model"])], limit=1)
+            if ir_model:
+                self.model_id = ir_model.id
+
+            # Find target directory
+            folder = self.env["dms.directory"].sudo().search([
+                ("name", "ilike", conf["folder_name"]),
+                ("is_root_directory", "=", True),
+            ], limit=1)
+            if not folder:
+                folder = self.env["dms.directory"].sudo().search([("name", "ilike", conf["folder_name"])], limit=1)
+            if folder:
+                self.directory_id = folder.id
 
     # ── Actions ───────────────────────────────────────────────────────────────
     def action_open_directory(self):
@@ -134,15 +329,79 @@ class DmsFolderRule(models.Model):
             "target": "current",
         }
 
+    def action_view_routed_files(self):
+        """View all files routed to the target directory or created from this model."""
+        self.ensure_one()
+        return {
+            "name": _("Routed Documents — %s") % self.name,
+            "type": "ir.actions.act_window",
+            "res_model": "dms.file",
+            "view_mode": "kanban,list,form",
+            "domain": [
+                ("res_model", "=", self.model_name),
+                ("directory_id", "child_of", self.directory_id.id),
+            ],
+            "context": {"default_directory_id": self.directory_id.id},
+        }
+
+    def action_route_existing_attachments(self):
+        """Retroactively route all historical attachments matching this rule into DMS."""
+        self.ensure_one()
+        if not self.model_name or self.model_name not in self.env:
+            raise UserError(_("Please select a valid installed model first."))
+
+        domain = []
+        if self.domain and self.domain.strip() != "[]":
+            try:
+                domain = ast.literal_eval(self.domain)
+            except Exception as e:
+                raise UserError(_("Invalid filter domain syntax: %s") % e)
+
+        # Search matching records in the source model
+        matching_records = self.env[self.model_name].sudo().search(domain)
+        if not matching_records:
+            return {
+                "type": "ir.actions.client",
+                "tag": "display_notification",
+                "params": {
+                    "title": _("No Matching Records"),
+                    "message": _("No %s records match the configured domain filter.") % self.model_id.name,
+                    "type": "warning",
+                    "sticky": False,
+                }
+            }
+
+        # Find attachments linked to these records
+        attachments = self.env["ir.attachment"].sudo().search([
+            ("res_model", "=", self.model_name),
+            ("res_id", "in", matching_records.ids),
+        ])
+
+        count = 0
+        for att in attachments:
+            dms_file = self.route_attachment(att)
+            if dms_file:
+                count += 1
+
+        return {
+            "type": "ir.actions.client",
+            "tag": "display_notification",
+            "params": {
+                "title": _("Documents Routed"),
+                "message": _("Processed %d attachment(s) into '%s'.") % (count, self.directory_id.complete_name or self.directory_id.name),
+                "type": "success",
+                "sticky": False,
+            }
+        }
+
     # ── Business Logic ────────────────────────────────────────────────────────
     def _evaluate_domain(self, record):
         """Return True if the record matches the rule's domain filter."""
         if not self.domain or self.domain.strip() == "[]":
             return True
         try:
-            import ast
             domain = ast.literal_eval(self.domain)
-            return bool(self.env[self.model_name].search(
+            return bool(self.env[self.model_name].sudo().search(
                 [("id", "=", record.id)] + domain, limit=1
             ))
         except Exception:
@@ -155,7 +414,6 @@ class DmsFolderRule(models.Model):
 
     def _get_or_create_subfolder(self, record, parent_directory):
         """Find or create a per-record subfolder inside parent_directory."""
-        # Determine subfolder name
         if self.subfolder_name_field:
             field_name = self.subfolder_name_field.name
             subfolder_name = str(record[field_name] or record.display_name or "Unknown")
@@ -182,14 +440,7 @@ class DmsFolderRule(models.Model):
 
     @api.model
     def find_matching_rule(self, res_model, record=None):
-        """Return the first active rule matching the given model (and record).
-
-        Args:
-            res_model (str): Odoo model technical name, e.g. 'hr.employee'
-            record: optional browse record for domain evaluation
-        Returns:
-            dms.folder.rule or empty recordset
-        """
+        """Return the first active rule matching the given model (and record)."""
         rules = self.sudo().search([
             ("model_name", "=", res_model),
             ("active", "=", True),
@@ -200,14 +451,7 @@ class DmsFolderRule(models.Model):
         return self.browse()
 
     def route_attachment(self, attachment):
-        """Route a single ir.attachment to the DMS directory configured in
-        this rule. Creates a dms.file and optionally a per-record subfolder.
-
-        Args:
-            attachment: ir.attachment record
-        Returns:
-            dms.file record or False
-        """
+        """Route a single ir.attachment to the DMS directory configured in this rule."""
         self.ensure_one()
         if not attachment.res_model or not attachment.res_id:
             return False
@@ -219,7 +463,10 @@ class DmsFolderRule(models.Model):
             try:
                 record = self.env[attachment.res_model].sudo().browse(attachment.res_id)
                 if record.exists():
-                    target_dir = self._get_or_create_subfolder(record, target_dir)
+                    if hasattr(record, "dms_directory_id") and record.dms_directory_id:
+                        target_dir = record.dms_directory_id
+                    else:
+                        target_dir = self._get_or_create_subfolder(record, target_dir)
             except Exception as e:
                 _logger.warning("DMS Folder Rule: could not create subfolder: %s", e)
 
@@ -233,14 +480,19 @@ class DmsFolderRule(models.Model):
 
         # Create the DMS file
         try:
-            dms_file = self.env["dms.file"].sudo().create({
+            vals = {
                 "name": attachment.name,
                 "directory_id": target_dir.id,
                 "attachment_id": attachment.id,
                 "res_model": attachment.res_model,
                 "res_id": attachment.res_id,
-                "tag_ids": [(6, 0, self.tag_ids.ids)] if self.tag_ids else False,
-            })
+            }
+            if self.tag_ids:
+                vals["tag_ids"] = [(6, 0, self.tag_ids.ids)]
+            if self.category_id:
+                vals["category_id"] = self.category_id.id
+
+            dms_file = self.env["dms.file"].sudo().create(vals)
             _logger.info(
                 "DMS: Routed attachment '%s' (id=%s) → folder '%s' via rule '%s'",
                 attachment.name, attachment.id, target_dir.complete_name, self.name,
@@ -256,7 +508,6 @@ class DmsFolderRule(models.Model):
     # ── Constraints ───────────────────────────────────────────────────────────
     @api.constrains("domain")
     def _check_domain(self):
-        import ast
         for rule in self:
             if rule.domain and rule.domain.strip() != "[]":
                 try:
@@ -264,8 +515,7 @@ class DmsFolderRule(models.Model):
                 except (ValueError, SyntaxError):
                     raise ValidationError(
                         _(
-                            "Rule '%(name)s': domain '%(domain)s' is not a valid "
-                            "Python expression.",
+                            "Rule '%(name)s': domain '%(domain)s' is not a valid Python expression.",
                             name=rule.name,
                             domain=rule.domain,
                         )

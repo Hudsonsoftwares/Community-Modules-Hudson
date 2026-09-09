@@ -74,24 +74,43 @@
                 <attribute name="invisible">1</attribute>
             </xpath>
 
-            <!-- Rebuild Access Information tab -->
-            <xpath expr="//page[@name='page_access']" position="attributes">
-                <attribute name="invisible">0</attribute>
-            </xpath>
-            <xpath expr="//page[@name='page_access']/group[@name='permissions']" position="replace">
-                <field name="permission_line_ids">
-                    <list editable="bottom">
-                        <field name="group_id"/>
-                        <field name="perm_view"/>
-                        <field name="perm_download"/>
-                        <field name="perm_upload"/>
-                        <field name="perm_edit"/>
-                        <field name="perm_rename"/>
-                        <field name="perm_move"/>
-                        <field name="perm_delete"/>
-                        <field name="perm_share"/>
-                    </list>
-                </field>
+            <!-- Rebuild Access Control tab with nested tabs -->
+            <xpath expr="//page[@name='page_access']" position="replace">
+                <page name="page_access" string="Access Control">
+                    <notebook>
+                        <page name="page_access_groups" string="Access Groups">
+                            <field name="group_permission_ids" context="{'default_directory_id': id}">
+                                <list editable="bottom">
+                                    <field name="group_id" required="1"/>
+                                    <field name="perm_view"/>
+                                    <field name="perm_download"/>
+                                    <field name="perm_upload"/>
+                                    <field name="perm_edit"/>
+                                    <field name="perm_rename"/>
+                                    <field name="perm_move"/>
+                                    <field name="perm_delete"/>
+                                    <field name="perm_share"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page name="page_user_access" string="Users">
+                            <field name="user_permission_ids" context="{'default_directory_id': id}">
+                                <list editable="bottom">
+                                    <field name="partner_id" string="Contact" options="{'no_create_edit': True}"/>
+                                    <field name="user_id" string="User" optional="show" options="{'no_create_edit': True}"/>
+                                    <field name="perm_view"/>
+                                    <field name="perm_download"/>
+                                    <field name="perm_upload"/>
+                                    <field name="perm_edit"/>
+                                    <field name="perm_rename"/>
+                                    <field name="perm_move"/>
+                                    <field name="perm_delete"/>
+                                    <field name="perm_share"/>
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
+                </page>
             </xpath>
             
             <!-- Hide Complete Groups tab -->
@@ -122,11 +141,14 @@
                 <attribute name="delete">0</attribute>
             </xpath>
             <xpath expr="//field[@name='permission_unlink']" position="after">
+                <field name="is_trashed" />
                 <field name="permission_download" />
                 <field name="permission_view" />
                 <field name="permission_edit" />
                 <field name="permission_upload" />
                 <field name="permission_delete" />
+                <field name="permission_move" />
+                <field name="parent_is_trashed" />
             </xpath>
             <xpath expr="//div[contains(@t-attf-class, 'oe_kanban_global_click')]" position="replace">
                 <a type="object" name="action_dms_files_all_directory" role="button" class="oe_kanban_content row g-0 text-decoration-none text-reset cursor-pointer d-flex">
@@ -144,12 +166,12 @@
                             widget="many2many_tags"
                             options="{'color_field': 'color'}"
                         />
-                        <field name="write_date" widget="date" />
+                        <field name="write_date" />
                     </div>
                 </a>
             </xpath>
             <xpath expr="//a[i[hasclass('fa-external-link')]]/.." position="replace">
-                <div role="menuitem" t-if="record.permission_download and record.permission_download.raw_value">
+                <div role="menuitem" t-if="!record.is_trashed.raw_value and record.permission_download and record.permission_download.raw_value">
                     <a type="object" name="action_download_directory_zip" class="dropdown-item">
                         <i class="fa fa-download" />
                         Download
@@ -157,18 +179,36 @@
                 </div>
             </xpath>
             <xpath expr="//a[i[hasclass('fa-pencil')]]/.." position="replace">
-                <div role="menuitem" t-if="record.permission_write and record.permission_write.raw_value">
+                <div role="menuitem" t-if="!record.is_trashed.raw_value and record.permission_write and record.permission_write.raw_value">
                     <a type="object" name="action_open_form_view" class="dropdown-item">
                         <i class="fa fa-pencil" />
                         Edit
                     </a>
                 </div>
+                <div role="menuitem" t-if="!record.is_trashed.raw_value and record.permission_move and record.permission_move.raw_value">
+                    <a type="object" name="action_open_move_wizard" class="dropdown-item">
+                        <i class="fa fa-arrows" />
+                        Move
+                    </a>
+                </div>
             </xpath>
             <xpath expr="//a[@type='delete']" position="replace">
-                <div role="menuitem" t-if="record.permission_unlink and record.permission_unlink.raw_value">
+                <div role="menuitem" t-if="!record.is_trashed.raw_value and record.permission_unlink and record.permission_unlink.raw_value">
                     <a type="object" name="action_send_to_trash" class="dropdown-item">
                         <i class="fa fa-trash-o" />
                         Send to Trash
+                    </a>
+                </div>
+                <div role="menuitem" t-if="record.is_trashed.raw_value and record.permission_unlink and record.permission_unlink.raw_value and !record.parent_is_trashed.raw_value">
+                    <a type="object" name="action_restore" class="dropdown-item">
+                        <i class="fa fa-undo" />
+                        Restore
+                    </a>
+                </div>
+                <div role="menuitem" t-if="record.is_trashed.raw_value and record.permission_unlink and record.permission_unlink.raw_value">
+                    <a type="delete" class="dropdown-item">
+                        <i class="fa fa-trash-o" />
+                        Delete permanently
                     </a>
                 </div>
             </xpath>
@@ -183,6 +223,19 @@
             <xpath expr="//list" position="attributes">
                 <attribute name="delete">0</attribute>
             </xpath>
+        </field>
+    </record>
+
+    <!-- Server Action for Move in Action Menu -->
+    <record id="action_server_dms_directory_move" model="ir.actions.server">
+        <field name="name">Move</field>
+        <field name="model_id" ref="dms.model_dms_directory"/>
+        <field name="binding_model_id" ref="dms.model_dms_directory"/>
+        <field name="binding_view_types">form,list</field>
+        <field name="state">code</field>
+        <field name="code">
+            if records:
+                action = records.action_open_move_wizard()
         </field>
     </record>
 
@@ -223,3 +276,4 @@
         </field>
     </record>
 </odoo>
+

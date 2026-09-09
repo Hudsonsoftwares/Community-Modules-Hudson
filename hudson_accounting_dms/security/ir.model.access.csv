@@ -1,0 +1,2 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_hudson_report_export_dms_wizard,hudson.report.export.dms.wizard,model_hudson_report_export_dms_wizard,base.group_user,1,1,1,1

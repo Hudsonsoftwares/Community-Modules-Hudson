@@ -1,15 +1,55 @@
 /** @odoo-module **/
 
-import { Component, xml, useState, onWillStart } from "@odoo/owl";
+import { Component, xml, useState, onWillStart, onWillUnmount } from "@odoo/owl";
 import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
+import { session } from "@web/session";
 import { KnowledgeManagementSidebar } from "./sidebar";
 import { KnowledgeManagementEditor } from "./editor";
+
+export function getOdooColorScheme() {
+    const doc = document.documentElement;
+    const body = document.body;
+    
+    // 1. Check explicit data attributes on html/body (Bootstrap 5.3 & Odoo 17/18/19)
+    const bsTheme = doc.getAttribute("data-bs-theme") || (body && body.getAttribute("data-bs-theme"));
+    if (bsTheme === "light") return "light";
+    if (bsTheme === "dark") return "dark";
+    
+    const colorScheme = doc.getAttribute("data-color-scheme") || (body && body.getAttribute("data-color-scheme"));
+    if (colorScheme === "light") return "light";
+    if (colorScheme === "dark") return "dark";
+    
+    // 2. Check class o_dark_mode on html or body
+    if (doc.classList.contains("o_dark_mode") || (body && body.classList.contains("o_dark_mode"))) {
+        return "dark";
+    }
+    
+    // 3. Check cookie or localStorage
+    try {
+        const match = document.cookie && document.cookie.match(/(?:^|;\s*)color_scheme=([^;]+)/);
+        if (match && (match[1] === "dark" || match[1] === "light")) {
+            return match[1];
+        }
+        const lsScheme = localStorage.getItem("color_scheme");
+        if (lsScheme === "dark" || lsScheme === "light") {
+            return lsScheme;
+        }
+    } catch (e) {}
+    
+    // 4. Fall back to system preference
+    if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) {
+        return "dark";
+    }
+    
+    return "light";
+}
 
 export class KnowledgeManagementApp extends Component {
     setup() {
         this.orm = useService("orm");
         this.state = useState({
+            colorScheme: getOdooColorScheme(),
             activeArticleId: null,
             favoriteArticles: [],
             workspaceArticles: [],
@@ -28,26 +68,66 @@ export class KnowledgeManagementApp extends Component {
             isTemplatesModalOpen: false,
             templates: [],
             isTrashModalOpen: false,
-            trashArticles: []
+            trashArticles: [],
+            expandedArticleIds: new Set()
         });
+
+        const updateTheme = () => {
+            const current = getOdooColorScheme();
+            if (this.state.colorScheme !== current) {
+                this.state.colorScheme = current;
+            }
+        };
+
+        // MutationObserver for dynamic preference changes without page reload
+        let observer = null;
+        if (typeof MutationObserver !== "undefined") {
+            observer = new MutationObserver(() => updateTheme());
+            observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-bs-theme", "data-color-scheme", "class"] });
+            if (document.body) {
+                observer.observe(document.body, { attributes: true, attributeFilter: ["data-bs-theme", "data-color-scheme", "class"] });
+            }
+        }
+
+        const mediaQuery = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
+        if (mediaQuery) {
+            mediaQuery.addEventListener("change", updateTheme);
+        }
 
         onWillStart(async () => {
             await this.loadArticles();
         });
+
+        onWillUnmount(() => {
+            if (observer) observer.disconnect();
+            if (mediaQuery) mediaQuery.removeEventListener("change", updateTheme);
+        });
+    }
+
+    stripHtml(html) {
+        if (!html) return 'Untitled';
+        const tmp = document.createElement("DIV");
+        tmp.innerHTML = html;
+        return tmp.textContent || tmp.innerText || "Untitled";
+    }
+
+    toggleExpand(id) {
+        if (this.state.expandedArticleIds.has(id)) {
+            this.state.expandedArticleIds.delete(id);
+        } else {
+            this.state.expandedArticleIds.add(id);
+        }
     }
 
     async loadArticles() {
         const result = await this.orm.searchRead(
             "knowledge.management.article",
             [["state", "!=", "archived"]],
-            ["id", "name", "write_date", "write_uid", "favorite_user_ids", "parent_id", "is_private"],
-            { order: "id desc", limit: 200 }
+            ["id", "name", "write_date", "write_uid", "is_favorite", "favorite_user_ids", "parent_id", "is_private", "icon", "sequence", "is_locked", "in_trash"]
         );
-        
         // Build tree
         const articleMap = {};
         const rootArticles = [];
-        const userId = this.env.session ? this.env.session.uid : 2;
         
         result.forEach(a => { articleMap[a.id] = { ...a, children: [] }; });
         
@@ -64,7 +144,7 @@ export class KnowledgeManagementApp extends Component {
         const privateArticles = [];
         
         rootArticles.forEach(a => {
-            const isFavorite = a.favorite_user_ids && a.favorite_user_ids.includes(userId);
+            const isFavorite = a.is_favorite;
             if (isFavorite) {
                 favoriteArticles.push(a);
             }
@@ -83,24 +163,31 @@ export class KnowledgeManagementApp extends Component {
     }
 
     // --- Search Handlers ---
-    get filteredArticles() {
-        if (!this.state.searchQuery.trim()) return [];
+    get filteredSearchArticles() {
+        const list = this.state.allArticlesList || [];
+        if (!this.state.searchQuery || !this.state.searchQuery.trim()) {
+            return list;
+        }
         const query = this.state.searchQuery.toLowerCase();
-        return this.state.allArticlesList.filter(a => (a.name || 'Untitled').toLowerCase().includes(query));
+        return list.filter(a => (a.name || 'Untitled').toLowerCase().includes(query));
+    }
+
+    get filteredArticles() {
+        return this.filteredSearchArticles;
     }
 
     get filteredMoveTargets() {
-        let targets = this.state.allArticlesList;
+        let targets = this.state.allArticlesList || [];
         // Don't allow moving an article into itself or its own children (we skip complex cycle detection for mockup)
         if (this.state.articleToMove) {
             targets = targets.filter(a => a.id !== this.state.articleToMove.id);
         }
         
-        if (this.state.moveSearchQuery.trim()) {
+        if (this.state.moveSearchQuery && this.state.moveSearchQuery.trim()) {
             const query = this.state.moveSearchQuery.toLowerCase();
             targets = targets.filter(a => (a.name || 'Untitled').toLowerCase().includes(query));
         }
-        return targets;
+        return targets || [];
     }
 
     openSearchModal() {
@@ -132,12 +219,7 @@ export class KnowledgeManagementApp extends Component {
     }
 
     async toggleFavorite(article) {
-        const userId = this.env.session ? this.env.session.uid : 2; // Fallback to 2 for mockup
-        const isFavorite = article.favorite_user_ids && article.favorite_user_ids.includes(userId);
-        const command = isFavorite ? 3 : 4; // 3 to unlink, 4 to link
-        await this.orm.write("knowledge.management.article", [article.id], {
-            favorite_user_ids: [[command, userId]]
-        });
+        await this.orm.call("knowledge.management.article", "action_toggle_favorite", [[article.id]]);
         await this.loadArticles();
     }
 
@@ -170,18 +252,16 @@ export class KnowledgeManagementApp extends Component {
     }
 
     async duplicateArticle(id) {
-        await this.orm.call("knowledge.management.article", "copy", [[id]]);
+        await this.orm.call("knowledge.management.article", "action_duplicate", [[id]]);
         await this.loadArticles();
     }
 
     async deleteArticle(id) {
-        if (window.confirm("Are you sure you want to send this article to trash?")) {
-            await this.orm.write("knowledge.management.article", [id], { state: "archived" });
-            if (this.state.activeArticleId === id) {
-                this.state.activeArticleId = null;
-            }
-            await this.loadArticles();
+        await this.orm.call("knowledge.management.article", "action_move_to_trash", [[id]]);
+        if (this.state.activeArticleId === id) {
+            this.state.activeArticleId = null;
         }
+        await this.loadArticles();
     }
 
     shareArticle(id) {
@@ -238,8 +318,9 @@ export class KnowledgeManagementApp extends Component {
         try {
             const trash = await this.orm.searchRead(
                 "knowledge.management.article",
-                [["state", "=", "archived"]],
-                ["id", "name", "write_date"]
+                [["in_trash", "=", true]],
+                ["id", "name", "write_date", "icon"],
+                { context: { active_test: false } }
             );
             this.state.trashArticles = trash;
         } catch (e) {
@@ -253,12 +334,29 @@ export class KnowledgeManagementApp extends Component {
     
     async restoreFromTrash(id) {
         try {
-            await this.orm.write("knowledge.management.article", [id], { state: "draft" });
+            await this.orm.call("knowledge.management.article", "action_restore_from_trash", [[id]], { context: { active_test: false } });
             this.state.trashArticles = this.state.trashArticles.filter(a => a.id !== id);
             await this.loadArticles();
         } catch (e) {
             console.error("Failed to restore", e);
         }
+    }
+
+    async permanentDeleteArticle(id) {
+        if (window.confirm("Are you sure you want to permanently delete this article? This cannot be undone.")) {
+            try {
+                await this.orm.call("knowledge.management.article", "action_permanent_delete", [[id]], { context: { active_test: false } });
+                this.state.trashArticles = this.state.trashArticles.filter(a => a.id !== id);
+            } catch (e) {
+                console.error("Failed to delete", e);
+            }
+        }
+    }
+
+    async toggleLock(id) {
+        if (!id) return;
+        await this.orm.call("knowledge.management.article", "action_toggle_lock", [[id]]);
+        await this.loadArticles();
     }
 
     // --- Templates Modal Handlers ---
@@ -268,7 +366,7 @@ export class KnowledgeManagementApp extends Component {
             const templates = await this.orm.searchRead(
                 "knowledge.management.template",
                 [],
-                ["id", "name", "description", "content"]
+                ["id", "name", "description", "content", "icon", "cover_image", "cover_position"]
             );
             this.state.templates = templates;
         } catch (e) {
@@ -284,12 +382,19 @@ export class KnowledgeManagementApp extends Component {
         this.closeTemplatesModal();
         if (this.state.activeArticleId) {
             const activeArticle = this.state.allArticlesMap[this.state.activeArticleId];
-            if (activeArticle && (!activeArticle.content || activeArticle.content === '<p><br></p>' || activeArticle.content.trim() === '')) {
+            const content = activeArticle && activeArticle.content ? activeArticle.content.trim() : '';
+            if (activeArticle && (content === '' || content === '<p><br></p>' || content === '<p></p>' || content === '<br>')) {
                 // Load into current empty article
-                await this.orm.write("knowledge.management.article", [this.state.activeArticleId], {
+                const updateVals = {
                     content: template.content,
                     name: activeArticle.name && activeArticle.name !== 'Untitled' ? activeArticle.name : template.name
-                });
+                };
+                if (template.icon) updateVals.icon = template.icon;
+                if (template.cover_image) {
+                    updateVals.cover_image = template.cover_image;
+                    updateVals.cover_position = template.cover_position;
+                }
+                await this.orm.write("knowledge.management.article", [this.state.activeArticleId], updateVals);
                 // Force reload of editor component is tricky, so we'll just reload the whole list and reset active
                 const currentId = this.state.activeArticleId;
                 this.state.activeArticleId = null;
@@ -300,10 +405,16 @@ export class KnowledgeManagementApp extends Component {
         }
         
         // Otherwise, create new article from template
-        const newArticleIds = await this.orm.create("knowledge.management.article", [{
+        const createVals = {
             name: template.name,
             content: template.content
-        }]);
+        };
+        if (template.icon) createVals.icon = template.icon;
+        if (template.cover_image) {
+            createVals.cover_image = template.cover_image;
+            createVals.cover_position = template.cover_position;
+        }
+        const newArticleIds = await this.orm.create("knowledge.management.article", [createVals]);
         await this.loadArticles();
         this.setActiveArticle(newArticleIds[0] || newArticleIds);
     }
@@ -313,17 +424,32 @@ export class KnowledgeManagementApp extends Component {
         this.state.isCreating = true;
         
         try {
+            // Smart contextual parent logic
+            if (parentId === false && this.state.activeArticleId) {
+                parentId = this.state.activeArticleId;
+            }
+
             const vals = {
                 name: "Untitled",
                 state: "draft",
                 is_private: true,
             };
+            
             if (parentId && typeof parentId === 'number') {
                 vals.parent_id = parentId;
+                
+                // Inherit privacy
+                const parentArticle = this.state.allArticlesMap[parentId];
+                if (parentArticle) {
+                    vals.is_private = parentArticle.is_private;
+                }
+                
+                // Auto-expand the parent folder
+                this.state.expandedArticleIds.add(parentId);
             }
             const articleId = await this.orm.create("knowledge.management.article", [vals]);
             
-            this.state.activeArticleId = articleId[0];
+            this.state.activeArticleId = Array.isArray(articleId) ? articleId[0] : articleId;
             await this.loadArticles();
         } catch (error) {
             console.error("Failed to create article", error);
@@ -346,10 +472,8 @@ export class KnowledgeManagementApp extends Component {
                 // Prevent drag and drop from Workspace to Favorites
                 return;
             }
-            const userId = this.env.session ? this.env.session.uid : 2;
-            this.orm.write("knowledge.management.article", [articleId], {
-                favorite_user_ids: [[4, userId]]
-            }).then(() => this.loadArticles());
+            this.orm.call("knowledge.management.article", "action_toggle_favorite", [[articleId]])
+                .then(() => this.loadArticles());
         } else if (targetSection === 'workspace') {
             // Check if it's currently private
             const isPrivate = this.state.privateArticles.some(a => a.id === articleId) || 
@@ -386,10 +510,23 @@ export class KnowledgeManagementApp extends Component {
     setActiveArticle(id) {
         this.state.activeArticleId = id;
     }
+
+    async onDropArticle(ev, targetId) {
+        const articleId = parseInt(ev.dataTransfer.getData("article_id"));
+        if (!articleId || articleId === targetId) return;
+
+        try {
+            await this.orm.call("knowledge.management.article", "move_article", [articleId, targetId]);
+            await this.loadArticles();
+        } catch (error) {
+            console.error("Failed to move article", error);
+            window.alert(error.message || "Cannot move article here.");
+        }
+    }
 }
 
 KnowledgeManagementApp.template = xml`
-    <div class="km_pro_app">
+    <div t-attf-class="km_pro_app {{ state.colorScheme === 'dark' ? 'km_dark_mode' : 'km_light_mode' }}">
 
         <div class="km_pro_main_container">
             <KnowledgeManagementSidebar 
@@ -408,19 +545,26 @@ KnowledgeManagementApp.template = xml`
                 shareArticle="(id) => this.shareArticle(id)"
                 moveArticle="(id) => this.moveArticle(id)"
                 onDropSection="(ev, targetSection) => this.onDropSection(ev, targetSection)"
+                onDropArticle="(ev, id) => this.onDropArticle(ev, id)"
                 openSearchModal="() => this.openSearchModal()"
                 openTemplatesModal="() => this.openTemplatesModal()"
                 openTrashModal="() => this.openTrashModal()"
+                expandedArticleIds="state.expandedArticleIds"
+                toggleExpand="(id) => this.toggleExpand(id)"
             />
             <KnowledgeManagementEditor 
                 activeArticleId="state.activeArticleId"
-                isFavorite="state.activeArticleId and state.allArticlesMap[state.activeArticleId] and state.allArticlesMap[state.activeArticleId].favorite_user_ids and state.allArticlesMap[state.activeArticleId].favorite_user_ids.includes(env.session ? env.session.uid : 2)"
+                article="state.activeArticleId ? state.allArticlesMap[state.activeArticleId] : null"
+                isFavorite="state.activeArticleId and state.allArticlesMap[state.activeArticleId] and state.allArticlesMap[state.activeArticleId].is_favorite"
                 toggleFavorite="() => this.toggleFavoriteById(state.activeArticleId)"
                 duplicateArticle="() => this.duplicateArticle(state.activeArticleId)"
                 deleteArticle="() => this.deleteArticle(state.activeArticleId)"
                 moveArticle="() => this.moveArticle(state.activeArticleId)"
+                toggleLock="() => this.toggleLock(state.activeArticleId)"
                 openTemplatesModal="() => this.openTemplatesModal()"
                 onTitleChange="(newTitle) => this.onTitleChange(newTitle)"
+                createNewArticle="(parentId) => this.createNewArticle(parentId)"
+                setActiveArticle="(id) => this.setActiveArticle(id)"
             />
             
             <!-- Confirmation Popup -->
@@ -448,15 +592,13 @@ KnowledgeManagementApp.template = xml`
                     <div class="km_pro_move_modal shadow" t-on-click="(ev) => ev.stopPropagation()">
                         <div class="move-modal-header">
                             <h3>Move an Article</h3>
-                            <i class="fa fa-times move-close-btn" t-on-click="() => this.closeMoveModal()"></i>
+                            <button class="modal-close-btn" t-on-click="() => this.closeMoveModal()"><i class="fa fa-times"></i></button>
                         </div>
-                        
                         <div class="move-modal-body">
-                            <div class="move-subtitle">
-                                Move "<span t-esc="state.articleToMove ? state.articleToMove.name : 'Untitled'"/>" under:
-                            </div>
-                            <div class="move-search-box">
-                                <input type="text" placeholder="Choose an Article..." 
+                            <div class="move-search-wrapper">
+                                <input type="text" 
+                                       class="move-search-input" 
+                                       placeholder="Search for an article or category..." 
                                        t-att-value="state.moveSearchQuery" 
                                        t-on-input="(ev) => this.onMoveSearchInput(ev)" 
                                        autofocus="autofocus"/>
@@ -471,21 +613,21 @@ KnowledgeManagementApp.template = xml`
                                         <span>Private</span>
                                     </div>
                                     <div class="move-list-item">
-                                        <div class="move-cat-icon"><i class="fa fa-users" style="color: #a0a0a0;"></i></div>
+                                        <div class="move-cat-icon"><i class="fa fa-users" style="color: var(--km-text-muted);"></i></div>
                                         <span>Shared</span>
                                     </div>
                                     <div class="move-list-item" t-on-click="() => this.confirmMove('workspace')">
-                                        <div class="move-cat-icon"><i class="fa fa-building-o" style="color: #a0a0a0;"></i></div>
+                                        <div class="move-cat-icon"><i class="fa fa-building-o" style="color: var(--km-text-muted);"></i></div>
                                         <span>Workspace</span>
                                     </div>
                                 </div>
                                 
                                 <div class="move-list-section" style="margin-top: 8px;">
                                     <div class="move-list-header">Articles</div>
-                                    <t t-foreach="this.filteredMoveTargets" t-as="targetArticle" t-key="targetArticle.id">
+                                    <t t-foreach="this.filteredMoveTargets || []" t-as="targetArticle" t-key="targetArticle.id">
                                         <div class="move-list-item" t-on-click="() => this.confirmMove('article', targetArticle.id)">
-                                            <div class="move-cat-icon"><i class="fa fa-file-text-o" style="color: #a0a0a0;"></i></div>
-                                            <span t-esc="targetArticle.name || 'Untitled'"></span>
+                                            <div class="move-cat-icon"><i class="fa fa-file-text-o" style="color: var(--km-text-muted);"></i></div>
+                                            <span t-esc="this.stripHtml(targetArticle.name || 'Untitled')"></span>
                                         </div>
                                     </t>
                                 </div>
@@ -508,16 +650,19 @@ KnowledgeManagementApp.template = xml`
                             <i class="fa fa-search search-magnify"></i>
                         </div>
                         
-                        <div class="km_pro_search_results" t-if="this.filteredArticles.length > 0">
-                            <t t-foreach="this.filteredArticles" t-as="article" t-key="article.id">
+                        <div class="km_pro_search_results">
+                            <t t-foreach="this.filteredSearchArticles || []" t-as="article" t-key="article.id">
                                 <div class="km_pro_search_result_item" t-on-click="(ev) => this.selectSearchResult(ev, article.id)">
                                     <div class="result-left">
-                                        <span class="result-icon">📄</span>
-                                        <span class="result-name" t-esc="article.name || 'Untitled'"></span>
-                                        <i t-if="article.favorite_user_ids and article.favorite_user_ids.includes(env.session ? env.session.uid : 2)" class="fa fa-star result-favorite"></i>
+                                        <div class="result-icon">
+                                            <t t-if="article.icon" t-esc="article.icon"/>
+                                            <t t-else="">📄</t>
+                                        </div>
+                                        <span class="result-name" t-esc="this.stripHtml(article.name || 'Untitled')"></span>
+                                        <i t-if="article.is_favorite" class="fa fa-star result-favorite"></i>
                                     </div>
                                     <div class="result-shortcuts">
-                                        <span class="shortcut-badge">CTRL</span> + <span class="shortcut-badge">↵</span> new tab
+                                        <span class="shortcut-badge">JUMP</span>
                                     </div>
                                 </div>
                             </t>
@@ -533,7 +678,7 @@ KnowledgeManagementApp.template = xml`
                         </div>
                         
                         <div class="km_pro_search_footer">
-                            <span class="tip-label">TIP</span> — search for <span class="tip-pink">/menus</span>, <span class="tip-pink">@conversations</span> and <span class="tip-pink">?articles</span>
+                            <span class="tip-label">TIP</span> — search for <span class="tip-pink">/menus</span>, <span class="tip-@">@conversations</span> and <span class="tip-?">?articles</span>
                         </div>
                     </div>
                 </div>
@@ -542,16 +687,16 @@ KnowledgeManagementApp.template = xml`
             <t t-if="state.isTemplatesModalOpen">
                 <div class="km_pro_modal_backdrop" t-on-click="() => this.closeTemplatesModal()">
                     <div class="km_pro_search_modal shadow" t-on-click="(ev) => ev.stopPropagation()">
-                        <div class="search-modal-header" style="padding: 20px; border-bottom: 1px solid #36363a;">
-                            <h3 style="margin: 0; color: white;">Browse Templates</h3>
-                            <i class="fa fa-times" style="position: absolute; right: 20px; top: 20px; cursor: pointer; color: #a0a0a0;" t-on-click="() => this.closeTemplatesModal()"></i>
+                        <div class="search-modal-header" style="padding: 20px; border-bottom: 1px solid var(--km-border-color); display: flex; justify-content: space-between; align-items: center;">
+                            <h3 style="margin: 0; color: var(--km-text-title);">Browse Templates</h3>
+                            <i class="fa fa-times" style="cursor: pointer; color: var(--km-text-muted); font-size: 1.1rem;" t-on-click="() => this.closeTemplatesModal()"></i>
                         </div>
                         <div class="search-results">
-                            <t t-foreach="state.templates" t-as="template" t-key="template.id">
+                            <t t-foreach="state.templates || []" t-as="template" t-key="template.id">
                                 <div class="search-result-item" t-on-click="() => this.selectTemplate(template)">
                                     <div class="result-icon"><i class="fa fa-file-text-o"></i></div>
                                     <div class="result-details">
-                                        <div class="result-title" t-esc="template.name"></div>
+                                        <div class="result-title" t-esc="this.stripHtml(template.name)"></div>
                                         <div class="result-path" t-esc="template.description || 'No description available'"></div>
                                     </div>
                                 </div>
@@ -568,20 +713,26 @@ KnowledgeManagementApp.template = xml`
             <t t-if="state.isTrashModalOpen">
                 <div class="km_pro_modal_backdrop" t-on-click="() => this.closeTrashModal()">
                     <div class="km_pro_search_modal shadow" t-on-click="(ev) => ev.stopPropagation()">
-                        <div class="search-modal-header" style="padding: 20px; border-bottom: 1px solid #36363a;">
-                            <h3 style="margin: 0; color: white;"><i class="fa fa-trash"></i> Trash</h3>
-                            <i class="fa fa-times" style="position: absolute; right: 20px; top: 20px; cursor: pointer; color: #a0a0a0;" t-on-click="() => this.closeTrashModal()"></i>
+                        <div class="search-modal-header" style="padding: 20px; border-bottom: 1px solid var(--km-border-color); display: flex; justify-content: space-between; align-items: center;">
+                            <h3 style="margin: 0; color: var(--km-text-title);"><i class="fa fa-trash"></i> Trash</h3>
+                            <i class="fa fa-times" style="cursor: pointer; color: var(--km-text-muted); font-size: 1.1rem;" t-on-click="() => this.closeTrashModal()"></i>
                         </div>
                         <div class="search-results">
-                            <t t-foreach="state.trashArticles" t-as="article" t-key="article.id">
+                            <t t-foreach="state.trashArticles || []" t-as="article" t-key="article.id">
                                 <div class="search-result-item" style="display: flex; justify-content: space-between; align-items: center;">
                                     <div style="display: flex; align-items: center;">
-                                        <div class="result-icon"><i class="fa fa-file-text-o"></i></div>
+                                        <div class="result-icon">
+                                            <t t-if="article.icon" t-esc="article.icon"/>
+                                            <t t-else=""><i class="fa fa-file-text-o"></i></t>
+                                        </div>
                                         <div class="result-details">
-                                            <div class="result-title" t-esc="article.name || 'Untitled'"></div>
+                                            <div class="result-title" t-esc="this.stripHtml(article.name || 'Untitled')"></div>
                                         </div>
                                     </div>
-                                    <button t-on-click="() => this.restoreFromTrash(article.id)" style="background: #2b2e3b; border: 1px solid #36363a; color: #e0e0e0; padding: 4px 12px; border-radius: 4px; cursor: pointer;">Restore</button>
+                                    <div style="display: flex; gap: 8px;">
+                                        <button t-on-click="() => this.restoreFromTrash(article.id)" style="background: var(--km-bg-secondary); border: 1px solid var(--km-border-color); color: var(--km-text-main); padding: 4px 12px; border-radius: 4px; cursor: pointer;">Restore</button>
+                                        <button t-on-click="() => this.permanentDeleteArticle(article.id)" style="background: #d8576b; border: 1px solid #c24659; color: white; padding: 4px 12px; border-radius: 4px; cursor: pointer;">Delete</button>
+                                    </div>
                                 </div>
                             </t>
                             <t t-if="state.trashArticles.length === 0">

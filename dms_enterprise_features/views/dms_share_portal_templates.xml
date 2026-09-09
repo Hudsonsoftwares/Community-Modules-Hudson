@@ -1,0 +1,274 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <template id="portal_share_file_page" name="Share File Public View">
+        <html lang="en">
+            <head>
+                <meta charset="utf-8"/>
+                <meta name="viewport" content="width=device-width, initial-scale=1"/>
+                <title t-if="has_access and file"><t t-esc="file.name"/> - Hudson Documents</title>
+                <title t-else="">Hudson Documents</title>
+                <link rel="stylesheet" href="/web/static/lib/fontawesome/css/font-awesome.css"/>
+                <style>
+                    * {
+                        box-sizing: border-box;
+                        margin: 0;
+                        padding: 0;
+                    }
+                    body {
+                        background: linear-gradient(135deg, #eef0f6 0%, #e2e6f0 50%, #f4f6fa 100%);
+                        min-height: 100vh;
+                        display: flex;
+                        flex-direction: column;
+                        justify-content: space-between;
+                        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+                    }
+                    header {
+                        display: flex;
+                        align-items: center;
+                        justify-content: space-between;
+                        padding: 24px 36px;
+                    }
+                    .company-logo-container {
+                        display: flex;
+                        align-items: center;
+                        font-size: 20px;
+                        font-weight: 700;
+                        color: #4a5568;
+                    }
+                    .btn-login {
+                        padding: 6px 18px;
+                        border: 1px solid #cbd5e1;
+                        background: #ffffff;
+                        color: #334155;
+                        border-radius: 6px;
+                        text-decoration: none;
+                        font-size: 14px;
+                        font-weight: 500;
+                        transition: all 0.2s ease;
+                    }
+                    .btn-login:hover {
+                        background: #f1f5f9;
+                        border-color: #94a3b8;
+                    }
+                    main {
+                        flex: 1;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        padding: 20px;
+                    }
+                    .share-card {
+                        background: #ffffff;
+                        border-radius: 16px;
+                        box-shadow: 0 15px 35px rgba(0, 0, 0, 0.07);
+                        width: 100%;
+                        max-width: 420px;
+                        padding: 40px 32px 36px;
+                        text-align: center;
+                    }
+                    .icon-circle {
+                        width: 80px;
+                        height: 80px;
+                        border-radius: 50%;
+                        border: 3px solid #b0bac3;
+                        margin: 0 auto 20px;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        color: #64748b;
+                        background: #f8fafc;
+                    }
+                    .doc-title {
+                        font-size: 16px;
+                        font-weight: 700;
+                        color: #1e293b;
+                        margin-bottom: 6px;
+                        word-break: break-word;
+                    }
+                    .doc-size {
+                        font-size: 13px;
+                        color: #64748b;
+                        margin-bottom: 24px;
+                    }
+                    .btn-download {
+                        background-color: #714B67;
+                        color: #ffffff;
+                        border: none;
+                        border-radius: 8px;
+                        padding: 12px 20px;
+                        width: 100%;
+                        font-size: 15px;
+                        font-weight: 600;
+                        cursor: pointer;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        text-decoration: none;
+                        transition: background-color 0.2s ease;
+                        margin-bottom: 12px;
+                    }
+                    .btn-download:hover {
+                        background-color: #5d3d54;
+                        color: #ffffff;
+                    }
+                    .btn-replace {
+                        background-color: #e9ecef;
+                        color: #334155;
+                        border: 1px solid #ced4da;
+                        border-radius: 8px;
+                        padding: 10px 20px;
+                        width: 100%;
+                        font-size: 14px;
+                        font-weight: 600;
+                        cursor: pointer;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        transition: all 0.2s ease;
+                    }
+                    .btn-replace:hover {
+                        background-color: #dde2e6;
+                        color: #1e293b;
+                    }
+                    .preview-link {
+                        display: inline-block;
+                        margin-top: 14px;
+                        color: #0d6efd;
+                        font-size: 14px;
+                        font-weight: 500;
+                        text-decoration: none;
+                    }
+                    .preview-link:hover {
+                        text-decoration: underline;
+                    }
+                    .alert-success-msg {
+                        background: #ecfdf5;
+                        color: #065f46;
+                        border: 1px solid #a7f3d0;
+                        padding: 10px 14px;
+                        border-radius: 8px;
+                        font-size: 13px;
+                        margin-bottom: 16px;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                    }
+                    footer {
+                        text-align: center;
+                        padding: 24px 20px;
+                        font-size: 13px;
+                        color: #64748b;
+                    }
+                    footer strong {
+                        color: #1e293b;
+                    }
+                </style>
+            </head>
+            <body>
+                <!-- Top Navbar -->
+                <header>
+                    <div class="company-logo-container">
+                        <img t-if="res_company and res_company.logo" t-att-src="image_data_uri(res_company.logo)" alt="Logo" style="max-height: 42px; object-fit: contain;"/>
+                        <div t-else="" style="display: flex; align-items: center; gap: 8px;">
+                            <i class="fa fa-camera-retro"></i>
+                            <span>Your logo</span>
+                        </div>
+                    </div>
+                    <div>
+                        <a t-if="request.env.user._is_public()" href="/web/login" class="btn-login">
+                            Login
+                        </a>
+                        <span t-else="" style="font-size: 13px; color: #64748b;">
+                            Logged in as <strong><t t-esc="request.env.user.name"/></strong>
+                        </span>
+                    </div>
+                </header>
+
+                <!-- Center Main Card Container -->
+                <main>
+                    <div class="share-card">
+                        <t t-if="has_access and file">
+                            <!-- Circular Icon with Download Arrow -->
+                            <div class="icon-circle">
+                                <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                                    <polyline points="19 12 12 19 5 12"></polyline>
+                                </svg>
+                            </div>
+
+                            <!-- Document Name -->
+                            <div class="doc-title" t-att-title="file.name">
+                                <t t-esc="file.name"/>
+                            </div>
+
+                            <!-- File Size -->
+                            <div class="doc-size">
+                                Size: <t t-esc="formatted_file_size"/>
+                            </div>
+
+                            <!-- Lock Banner -->
+                            <div t-if="is_locked" style="background: #fffbeb; color: #92400e; border: 1px solid #fde68a; padding: 10px 14px; border-radius: 8px; font-size: 13px; margin-bottom: 16px; display: flex; align-items: center; justify-content: center;">
+                                <i class="fa fa-lock text-warning" style="margin-right: 6px;"></i> Locked by <strong style="margin-left: 4px;"><t t-esc="locked_by"/></strong>
+                            </div>
+
+                            <!-- Success Banner -->
+                            <div t-if="upload_success" class="alert-success-msg">
+                                <i class="fa fa-check-circle" style="margin-right: 6px;"></i> File replaced successfully!
+                            </div>
+
+                            <!-- Action Buttons -->
+                            <div>
+                                <!-- Download Button -->
+                                <a t-attf-href="/dms/share/file/#{access_token}/download" class="btn-download">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 8px;">
+                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                        <polyline points="7 10 12 15 17 10"></polyline>
+                                        <line x1="12" y1="15" x2="12" y2="3"></line>
+                                    </svg>
+                                    Download file
+                                </a>
+
+                                <!-- Replace File (Only for Editor) -->
+                                <t t-if="can_replace">
+                                    <form t-attf-action="/dms/share/file/#{access_token}/replace" method="post" enctype="multipart/form-data" id="replace_file_form" style="margin-bottom: 4px;">
+                                        <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                        <input type="file" name="replacement_file" id="replacement_file_input" style="display: none;" onchange="if(this.files.length > 0) { document.getElementById('replace_file_form').submit(); }"/>
+                                        <button type="button" class="btn-replace" onclick="document.getElementById('replacement_file_input').click();">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 8px;">
+                                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                                <polyline points="17 8 12 3 7 8"></polyline>
+                                                <line x1="12" y1="3" x2="12" y2="15"></line>
+                                            </svg>
+                                            Replace file
+                                        </button>
+                                    </form>
+                                </t>
+
+                                <!-- Preview Document Link -->
+                                <a t-attf-href="/dms/share/file/#{access_token}/preview?v=#{file_timestamp}" target="_blank" class="preview-link">
+                                    Preview document
+                                </a>
+                            </div>
+                        </t>
+
+                        <!-- No Access State -->
+                        <t t-else="">
+                            <div class="icon-circle" style="border-color: #cbd5e1;">
+                                <i class="fa fa-lock fa-2x text-muted"></i>
+                            </div>
+                            <h4 style="font-size: 18px; font-weight: 700; color: #1e293b; margin-bottom: 8px;">Access Denied</h4>
+                            <p style="font-size: 14px; color: #64748b; line-height: 1.5;">
+                                There is no document associated or publicly available.
+                            </p>
+                        </t>
+                    </div>
+                </main>
+
+                <!-- Footer -->
+                <footer>
+                    Powered by <strong>Hudson Documents</strong>
+                </footer>
+            </body>
+        </html>
+    </template>
+</odoo>

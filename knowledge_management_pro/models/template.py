@@ -8,3 +8,6 @@ class KnowledgeTemplate(models.Model):
     description = fields.Text(string='Description')
     content = fields.Html(string='Template Content')
     category_id = fields.Many2one('knowledge.management.category', string='Category')
+    icon = fields.Char(string='Icon', size=20)
+    cover_image = fields.Binary(string='Cover Image', attachment=True)
+    cover_position = fields.Float(string='Cover Position Y', default=50.0)

@@ -37,6 +37,7 @@
               name="Tags"
               parent="knowledge_management_pro_menu_configuration"
               action="knowledge_management_pro_action_tags"
-              sequence="30"/>
+              sequence="30"
+              active="True"/>
 
 </odoo>

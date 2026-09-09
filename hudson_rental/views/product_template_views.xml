@@ -23,31 +23,31 @@
             <field name="model">product.template</field>
             <field name="inherit_id" ref="product.product_template_form_view"/>
             <field name="arch" type="xml">
-                <xpath expr="//field[@name='sale_ok']" position="after">
-                    <field name="is_rental" invisible="1"/>
+                <xpath expr="//div[@name='button_box']" position="inside">
+                    <button name="action_view_rental_orders" type="object"
+                            class="oe_stat_button" icon="fa-retweet"
+                            invisible="not is_rental or rental_order_count == 0">
+                        <field name="rental_order_count" widget="statinfo" string="Rentals"/>
+                    </button>
                 </xpath>
-                <xpath expr="//page[@name='sales']" position="inside">
-                    <group string="RENTAL" name="rental_config">
-                        <group>
-                            <field name="rental_periodicity" widget="selection" options="{'placeholder': 'Not for Rent'}"/>
-                            <field name="rental_pickup_time" widget="float_time" invisible="not rental_periodicity"/>
-                            <field name="rental_return_time" widget="float_time" invisible="not rental_periodicity"/>
-                        </group>
-                    </group>
+                <xpath expr="//field[@name='sale_ok']" position="after">
+                    <field name="is_rental"/>
                 </xpath>
                 <xpath expr="//page[@name='sales']" position="after">
                     <page string="Rental" invisible="not is_rental">
                         <group>
                             <group string="Rental Settings">
+                                <field name="rental_periodicity" widget="selection"/>
+                                <field name="rental_pickup_time" widget="float_time"/>
+                                <field name="rental_return_time" widget="float_time"/>
                                 <field name="min_rental_duration"/>
                                 <field name="max_rental_duration"/>
+                            </group>
+                            <group string="Financials &amp; Stock">
                                 <field name="security_deposit"/>
                                 <field name="late_fee_per_day"/>
-                            </group>
-                            <group string="Availability">
                                 <field name="rental_ok" readonly="1"/>
                                 <field name="rental_stock_available"/>
-                                <field name="rental_order_count" invisible="1"/>
                             </group>
                         </group>
                         <group string="Rental Pricing">

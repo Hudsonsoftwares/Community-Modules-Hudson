@@ -1,83 +1,120 @@
 # Copyright 2024 Hudson Community
 # License LGPL-3.0 or later (http://www.gnu.org/licenses/lgpl).
 
-from odoo import api, fields, models
-
-class DMSApprovalWorkflow(models.Model):
-    _name = "dms.approval.workflow"
-    _description = "Document Approval Workflow"
-    
-    name = fields.Char(string="Name", required=True)
-    step_ids = fields.One2many(
-        comodel_name="dms.approval.step",
-        inverse_name="workflow_id",
-        string="Steps"
-    )
-
-class DMSApprovalStep(models.Model):
-    _name = "dms.approval.step"
-    _description = "Approval Step"
-    _order = "sequence, id"
-
-    workflow_id = fields.Many2one(
-        comodel_name="dms.approval.workflow",
-        string="Workflow",
-        required=True,
-        ondelete="cascade"
-    )
-    sequence = fields.Integer(string="Sequence", default=10)
-    name = fields.Char(string="Step Name", required=True)
-    approver_id = fields.Many2one(
-        comodel_name="res.users",
-        string="Approver",
-        required=True,
-        domain="[('share', '=', False)]"
-    )
+from odoo import api, fields, models, _
+from odoo.exceptions import UserError
 
 class DMSFileApproval(models.Model):
     _name = "dms.file.approval"
-    _description = "File Approval"
-    _order = "create_date desc"
+    _description = "Document Approval Step"
+    _order = "sequence asc, id asc"
     
+    file_id = fields.Many2one(
+        comodel_name="dms.file",
+        string="Document",
+        required=True,
+        ondelete="cascade",
+    )
     revision_id = fields.Many2one(
         comodel_name="dms.file.revision",
         string="Revision",
-        required=True,
-        ondelete="cascade"
+        ondelete="set null",
+    )
+    sequence = fields.Integer(
+        string="Order",
+        default=10,
     )
     approver_id = fields.Many2one(
         comodel_name="res.users",
         string="Approver",
         required=True,
-        domain="[('share', '=', False)]"
+        domain="[('share', '=', False)]",
     )
     status = fields.Selection(
         selection=[
-            ('pending', 'Pending'),
+            ('draft', 'Draft'),
+            ('waiting', 'Waiting'),
+            ('pending', 'Pending Approval'),
             ('approved', 'Approved'),
             ('rejected', 'Rejected'),
-            ('request_changes', 'Requested Changes')
         ],
         string="Status",
-        default="pending"
+        default="draft",
+        required=True,
     )
-    comments = fields.Text(string="Comments")
-    date = fields.Datetime(string="Date")
+    comments = fields.Text(string="Comments / Rejection Reason")
+    date = fields.Datetime(string="Action Date")
 
-    def action_approve(self):
-        self.write({'status': 'approved', 'date': fields.Datetime.now()})
+    is_current_approver = fields.Boolean(
+        string="Is Current Approver",
+        compute="_compute_is_current_approver",
+    )
+
+    def _compute_is_current_approver(self):
+        current_uid = self.env.uid
         for record in self:
-            record.revision_id.file_id.check_approval_status()
+            record.is_current_approver = (
+                record.status == 'pending'
+                and record.approver_id.id == current_uid
+            )
+
+    def action_approve_step(self):
+        current_uid = self.env.uid
+        for record in self:
+            if record.approver_id.id != current_uid:
+                raise UserError(_("Only the assigned approver (%s) can approve this step.") % record.approver_id.name)
+            record.file_id.action_approve_step(approver_user=record.approver_id)
         return True
 
-    def action_reject(self):
-        self.write({'status': 'rejected', 'date': fields.Datetime.now()})
-        for record in self:
-            record.revision_id.file_id.check_approval_status()
-        return True
+    def action_open_reject_wizard(self):
+        self.ensure_one()
+        if self.approver_id.id != self.env.uid:
+            raise UserError(_("Only the assigned approver (%s) can reject this step.") % self.approver_id.name)
+        return {
+            'name': _('Reject Approval: %s') % (self.file_id.name or ''),
+            'type': 'ir.actions.act_window',
+            'res_model': 'dms.file.reject.wizard',
+            'view_mode': 'form',
+            'target': 'new',
+            'context': {
+                'default_file_id': self.file_id.id,
+            }
+        }
 
-    def action_request_changes(self):
-        self.write({'status': 'request_changes', 'date': fields.Datetime.now()})
-        for record in self:
-            record.revision_id.file_id.check_approval_status()
-        return True
+
+class DMSUserDefaultApproval(models.Model):
+    _name = "dms.user.default.approval"
+    _description = "User Default Document Approver"
+    _order = "sequence asc, id asc"
+
+    user_id = fields.Many2one(
+        comodel_name="res.users",
+        string="User",
+        required=True,
+        ondelete="cascade",
+    )
+    sequence = fields.Integer(
+        string="Order",
+        default=10,
+    )
+    approver_id = fields.Many2one(
+        comodel_name="res.users",
+        string="Default Approver",
+        required=True,
+        domain="[('share', '=', False)]",
+    )
+
+
+class ResUsers(models.Model):
+    _inherit = "res.users"
+
+    default_approval_ids = fields.One2many(
+        comodel_name="dms.user.default.approval",
+        inverse_name="user_id",
+        string="Default Document Approvers",
+    )
+    default_is_sequential_approval = fields.Boolean(
+        string="Sequential Approval by Default",
+        default=True,
+        help="If checked, document approval requests will be sent sequentially in order. If unchecked, all approvers receive requests at the same time.",
+    )

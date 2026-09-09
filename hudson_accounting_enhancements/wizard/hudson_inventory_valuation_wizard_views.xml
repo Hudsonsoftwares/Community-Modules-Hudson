@@ -25,11 +25,4 @@
         <field name="view_mode">form</field>
         <field name="target">current</field>
     </record>
-
-    <!-- Menu Item (Add under Review -> Inventory) -->
-    <menuitem id="menu_hudson_inventory_valuation"
-              name="Inventory Valuation"
-              parent="hudson_accounting_enhancements.menu_review_inventory"
-              action="action_hudson_inventory_valuation"
-              sequence="30"/>
 </odoo>

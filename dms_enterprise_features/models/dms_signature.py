@@ -73,6 +73,7 @@ class DMSFileSignatureRequest(models.Model):
         required=True,
         ondelete="cascade"
     )
+    is_sign_now = fields.Boolean("Is Sign Now", default=False)
     pdf_content = fields.Binary(
         compute="_compute_pdf_content",
         string="Document Preview",
@@ -120,65 +121,84 @@ class DMSFileSignatureRequest(models.Model):
     def get_portal_url(self):
         """Return a secure URL for the signer to access the document."""
         self.ensure_one()
-        base_url = self.env['ir.config_parameter'].sudo().get_param('web.base.url')
+        base_url = self.get_base_url()
         return f"{base_url}/dms/signature/{self.id}/{self.access_token}"
 
     @api.model
     def _get_or_create_user(self, user_string):
-        """Get or create a portal user from an email address or name string."""
+        """Get or create a portal user from a partner ID, email address, or name string."""
         if not user_string:
             return False
 
-        user_string = user_string.strip()
-        email = user_string if '@' in user_string else False
-        name = email.split('@')[0].replace('.', ' ').title() if email else user_string
+        partner = False
 
-        # 1. Search existing user by login/email
-        if email:
-            user = self.env['res.users'].sudo().search([('login', '=', email)], limit=1)
-            if user:
-                return user.id
+        # Case 1: user_string is a partner ID (numeric string or int)
+        user_str = str(user_string).strip()
+        if user_str.isdigit():
+            partner = self.env['res.partner'].sudo().browse(int(user_str))
+            if not partner.exists():
+                partner = False
 
-        # 2. Search by name (no email)
-        if not email:
-            user = self.env['res.users'].sudo().search([('name', '=', name)], limit=1)
-            if user:
-                return user.id
-
-        # 3. Find or create partner
-        if email:
-            partner = self.env['res.partner'].sudo().search([('email', '=', email)], limit=1)
-        else:
-            partner = self.env['res.partner'].sudo().search([('name', '=', name)], limit=1)
+        # Case 2: user_string is an email address
+        if not partner:
+            if '@' in user_str:
+                email = user_str
+                user = self.env['res.users'].sudo().search(['|', ('login', '=', email), ('email', '=', email)], limit=1)
+                if user:
+                    return user.id
+                partner = self.env['res.partner'].sudo().search([('email', '=', email)], limit=1)
+                if not partner:
+                    name = email.split('@')[0].replace('.', ' ').title()
+                    partner = self.env['res.partner'].sudo().create({
+                        'name': name,
+                        'email': email,
+                    })
+            else:
+                # Case 3: name string
+                name = user_str
+                user = self.env['res.users'].sudo().search([('name', '=', name)], limit=1)
+                if user:
+                    return user.id
+                partner = self.env['res.partner'].sudo().search([('name', '=', name)], limit=1)
+                if not partner:
+                    partner = self.env['res.partner'].sudo().create({
+                        'name': name,
+                        'email': False,
+                    })
 
         if not partner:
-            partner = self.env['res.partner'].sudo().create({
-                'name': name,
-                'email': email or False,
-            })
+            return False
 
-        # 4. Create portal user linked to partner using Odoo 19 compatible method
-        portal_group = self.env.ref('base.group_portal')
-        public_group = self.env.ref('base.group_public')
+        # If partner already has a linked active user, return it
+        user = partner.user_ids.filtered(lambda u: u.active)[:1] or partner.user_ids[:1]
+        if user:
+            return user.id
+
+        # Otherwise create a portal user for this partner
+        portal_group = self.env.ref('base.group_portal', raise_if_not_found=False)
+        public_group = self.env.ref('base.group_public', raise_if_not_found=False)
+        login = partner.email or f'portal_user_{partner.id}'
         try:
             user = self.env['res.users'].sudo().with_context(no_reset_password=True)._create_user_from_template({
-                'name': name,
-                'login': email or f'portal_user_{partner.id}',
+                'name': partner.name,
+                'login': login,
                 'partner_id': partner.id,
-                'email': email or False,
+                'email': partner.email or False,
             })
-            # Assign portal group, remove public group (Odoo 19 uses group_ids)
-            user.sudo().write({
-                'active': True,
-                'group_ids': [(4, portal_group.id), (3, public_group.id)],
-            })
+            group_commands = []
+            if portal_group:
+                group_commands.append((4, portal_group.id))
+            if public_group:
+                group_commands.append((3, public_group.id))
+            if group_commands:
+                user.sudo().write({
+                    'active': True,
+                    'group_ids': group_commands,
+                })
             return user.id
         except Exception as e:
-            _logger.warning("Could not create portal user for %s: %s", user_string, e)
-            # Fallback: fetch any user already linked to this partner
-            user = self.env['res.users'].sudo().search(
-                [('partner_id', '=', partner.id)], limit=1
-            )
+            _logger.warning("Could not create portal user for partner %s (%s): %s", partner.name, user_string, e)
+            user = self.env['res.users'].sudo().search([('partner_id', '=', partner.id)], limit=1)
             return user.id if user else False
 
 
@@ -186,7 +206,8 @@ class DMSFileSignatureRequest(models.Model):
         """Queue signature request emails via mail.mail (non-blocking)."""
         for req in self:
             recipient = req.recipient_id
-            if not recipient or not recipient.email:
+            recipient_email = (recipient.email or (recipient.partner_id and recipient.partner_id.email) or '').strip()
+            if not recipient or not recipient_email:
                 _logger.warning(
                     "Skipping signature email for request %s: recipient has no email.", req.id
                 )
@@ -204,10 +225,9 @@ class DMSFileSignatureRequest(models.Model):
             sender_name = self.env.user.name or self.env.company.name
             sender_email = self.env.user.email or self.env.company.email
             company_name = self.env.company.name
+            recipient_name = recipient.name or (recipient.partner_id and recipient.partner_id.name) or recipient_email
             
             message_html = ""
-            # We don't have the message stored on the request model directly in this implementation,
-            # but if it was passed, we'd add it. Since we don't store it, we'll omit the grey box.
             
             valid_until_text = ""
             if req.valid_until:
@@ -221,7 +241,7 @@ class DMSFileSignatureRequest(models.Model):
     </div>
     
     <div style="padding: 20px 0;">
-        <p style="margin-top: 0;">Hello <a href="mailto:{recipient.email}" style="color: #0066cc; text-decoration: none;">{recipient.email}</a>,</p>
+        <p style="margin-top: 0;">Hello <strong>{recipient_name}</strong> (<a href="mailto:{recipient_email}" style="color: #0066cc; text-decoration: none;">{recipient_email}</a>),</p>
         
         <p style="margin-bottom: 25px;">
             {sender_name} (<a href="mailto:{sender_email}" style="color: #0066cc; text-decoration: none;">{sender_email}</a>) has requested your signature on the document {doc_name}.
@@ -266,7 +286,7 @@ class DMSFileSignatureRequest(models.Model):
             mail = self.env['mail.mail'].sudo().create({
                 'subject': f'{doc_name} - Signature Request',
                 'email_from': sender_email,
-                'email_to': recipient.email,
+                'email_to': recipient_email,
                 'body_html': body_html,
                 'auto_delete': False,           # visible in Technical > Emails
                 'state': 'outgoing',
@@ -279,12 +299,12 @@ class DMSFileSignatureRequest(models.Model):
                 mail.send(raise_exception=False)  # non-blocking: log failure, don't crash
                 _logger.info(
                     "Queued/sent signature email to %s (mail.mail id=%s, request id=%s)",
-                    recipient.email, mail_id, req.id
+                    recipient_email, mail_id, req.id
                 )
             except Exception as e:
                 _logger.warning(
                     "send() raised for mail %s to %s: %s — email queued for scheduler retry",
-                    mail_id, recipient.email, e
+                    mail_id, recipient_email, e
                 )
 
 
@@ -327,23 +347,26 @@ class DMSFileSignatureRequest(models.Model):
                 recipients[user_id].append(item)
                 
             seq = 1
+            requests_created = []
             for user_id in ordered_users:
                 items = recipients[user_id]
                 
                 # Determine state and sequence
-                state = 'sent' if not signing_order or seq == 1 else 'draft'
+                # For is_sign_now, all requests are immediately active (sent)
+                state = 'sent' if not signing_order or seq == 1 or is_sign_now else 'draft'
                 
                 req = self.create({
                     'revision_id': revision.id,
                     'recipient_id': user_id,
                     'state': state,
                     'sequence': seq,
+                    'is_sign_now': is_sign_now,
                     'reminders_enabled': reminders_enabled,
                     'reminder_days': reminder_days,
                     'valid_until': valid_until,
                     'hide_certificate_key': hide_certificate_key,
                 })
-                
+                requests_created.append(req)
                 seq += 1
                 
                 if state == 'sent' and not is_sign_now:
@@ -368,7 +391,42 @@ class DMSFileSignatureRequest(models.Model):
                     })
                     
             revision.file_id.status = 'in_approval'
-        return True
+            
+        if is_sign_now and payload.get('documents'):
+            # Find the very first request created for the first document
+            first_req = self.search([
+                ('revision_id', '=', payload['documents'][0]['revision_id']),
+                ('state', '=', 'sent'),
+                ('is_sign_now', '=', True)
+            ], order='id asc', limit=1)
+            
+            if first_req:
+                url = first_req.get_portal_url()
+                # Redirect back to backend document if it's a backend user doing "Sign Now"
+                if first_req.revision_id and first_req.revision_id.file_id:
+                    file_id = first_req.revision_id.file_id.id
+                    url += f"?return_url=/web#id={file_id}&model=dms.file&view_type=form"
+                return {
+                    'type': 'ir.actions.act_url',
+                    'url': url,
+                    'target': 'self',
+                }
+
+        # If not sign_now (or if it didn't return act_url), go back to the document
+        if payload.get('documents'):
+            rev_id = payload['documents'][0]['revision_id']
+            revision = self.env['dms.file.revision'].browse(rev_id)
+            if revision.exists() and revision.file_id:
+                return {
+                    'type': 'ir.actions.act_window',
+                    'name': revision.file_id.name,
+                    'res_model': 'dms.file',
+                    'res_id': revision.file_id.id,
+                    'view_mode': 'form',
+                    'views': [[False, 'form']],
+                    'target': 'main',
+                }
+        return {'type': 'ir.actions.client', 'tag': 'reload'}
 
     def write(self, vals):
         res = super().write(vals)
@@ -526,8 +584,11 @@ class DMSFileSignatureRequest(models.Model):
         company_name = self.env.company.name
         
         for req in all_requests:
-            if not req.recipient_id or not req.recipient_id.email:
+            recipient = req.recipient_id
+            recipient_email = (recipient.email or (recipient.partner_id and recipient.partner_id.email) or '').strip()
+            if not recipient or not recipient_email:
                 continue
+            recipient_name = recipient.name or (recipient.partner_id and recipient.partner_id.name) or recipient_email
                 
             body_html = f"""
 <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 650px; margin: 0 auto; color: #444;">
@@ -537,7 +598,7 @@ class DMSFileSignatureRequest(models.Model):
     </div>
     
     <div style="padding: 20px 0;">
-        <p style="margin-top: 0;">Hello <a href="mailto:{req.recipient_id.email}" style="color: #0066cc; text-decoration: none;">{req.recipient_id.email}</a>,</p>
+        <p style="margin-top: 0;">Hello <strong>{recipient_name}</strong> (<a href="mailto:{recipient_email}" style="color: #0066cc; text-decoration: none;">{recipient_email}</a>),</p>
         
         <p style="margin-bottom: 25px;">
             All parties have finished signing the document {doc_name}. Please find the final signed copy attached to this email.
@@ -663,11 +724,9 @@ class DMSFileSignatureRequest(models.Model):
                         img_data = base64.b64decode(item.value_image)
                         img = ImageReader(io.BytesIO(img_data))
                         
-                        # When anchor='c', (x,y) must be the center of the bounding box.
-                        # Previously this was bottom-left, causing the signature to be cut off and appear small.
-                        cx = real_x + (real_w / 2.0)
-                        cy = real_y_reportlab + (real_h / 2.0)
-                        c.drawImage(img, cx, cy, width=real_w, height=real_h, mask='auto', preserveAspectRatio=True, anchor='c')
+                        # Reportlab drawImage x,y are ALWAYS the bottom-left of the bounding box.
+                        # The anchor parameter only controls how the image is aligned WITHIN that bounding box when preserveAspectRatio=True.
+                        c.drawImage(img, real_x, real_y_reportlab, width=real_w, height=real_h, mask='auto', preserveAspectRatio=True, anchor='c')
                 elif item.item_type in ['text', 'name', 'email', 'phone', 'company', 'date', 'selection']:
                     if item.value_text:
                         c.setFillColor(black)

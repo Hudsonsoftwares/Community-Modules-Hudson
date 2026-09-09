@@ -91,6 +91,30 @@
         <field name="group_ids" eval="[(4, ref('dms_access_group_enterprise'))]"/>
     </record>
 
+    <!-- ── Root: Sales ────────────────────────────────────────────── -->
+    <record id="dms_dir_sales" model="dms.directory">
+        <field name="name">Sales</field>
+        <field name="is_root_directory">True</field>
+        <field name="storage_id" ref="dms_storage_enterprise"/>
+        <field name="group_ids" eval="[(4, ref('dms_access_group_enterprise'))]"/>
+    </record>
+
+    <!-- ── Root: Purchases ────────────────────────────────────────── -->
+    <record id="dms_dir_purchases" model="dms.directory">
+        <field name="name">Purchases</field>
+        <field name="is_root_directory">True</field>
+        <field name="storage_id" ref="dms_storage_enterprise"/>
+        <field name="group_ids" eval="[(4, ref('dms_access_group_enterprise'))]"/>
+    </record>
+
+    <!-- ── Root: Helpdesk ─────────────────────────────────────────── -->
+    <record id="dms_dir_helpdesk" model="dms.directory">
+        <field name="name">Helpdesk</field>
+        <field name="is_root_directory">True</field>
+        <field name="storage_id" ref="dms_storage_enterprise"/>
+        <field name="group_ids" eval="[(4, ref('dms_access_group_enterprise'))]"/>
+    </record>
+
     <!-- Fleet -->
     <record id="dms_directory_fleet" model="dms.directory">
         <field name="name">Fleet</field>

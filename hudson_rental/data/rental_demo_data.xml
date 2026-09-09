@@ -5,11 +5,12 @@
         <!-- Demo Rental Products -->
         <record id="product_rental_camera" model="product.template">
             <field name="name">Professional Camera</field>
-            <field name="type">product</field>
+            <field name="type">consu</field>
+            <field name="is_rental">True</field>
             <field name="rental_periodicity">day</field>
             <field name="list_price">100.0</field>
             <field name="standard_price">500.0</field>
-            <field name="categ_id" ref="product.product_category_all"/>
+            <field name="categ_id" ref="product.product_category_1"/>
             <field name="description">High-end professional camera for rent</field>
             <field name="min_rental_duration">1.0</field>
             <field name="max_rental_duration">30.0</field>
@@ -19,11 +20,12 @@
 
         <record id="product_rental_laptop" model="product.template">
             <field name="name">Laptop Dell XPS 15</field>
-            <field name="type">product</field>
+            <field name="type">consu</field>
+            <field name="is_rental">True</field>
             <field name="rental_periodicity">day</field>
             <field name="list_price">50.0</field>
             <field name="standard_price">1200.0</field>
-            <field name="categ_id" ref="product.product_category_all"/>
+            <field name="categ_id" ref="product.product_category_1"/>
             <field name="description">High-performance laptop for rent</field>
             <field name="min_rental_duration">1.0</field>
             <field name="max_rental_duration">60.0</field>
@@ -33,11 +35,12 @@
 
         <record id="product_rental_projector" model="product.template">
             <field name="name">HD Projector</field>
-            <field name="type">product</field>
+            <field name="type">consu</field>
+            <field name="is_rental">True</field>
             <field name="rental_periodicity">day</field>
             <field name="list_price">75.0</field>
             <field name="standard_price">800.0</field>
-            <field name="categ_id" ref="product.product_category_all"/>
+            <field name="categ_id" ref="product.product_category_1"/>
             <field name="description">Full HD projector for events and presentations</field>
             <field name="min_rental_duration">1.0</field>
             <field name="max_rental_duration">14.0</field>

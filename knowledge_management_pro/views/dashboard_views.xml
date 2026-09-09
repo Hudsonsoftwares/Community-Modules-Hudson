@@ -28,10 +28,4 @@
         <field name="view_mode">pivot,graph</field>
     </record>
 
-    <menuitem id="knowledge_management_pro_menu_dashboard"
-              name="Dashboard"
-              parent="knowledge_management_pro_menu_configuration"
-              action="knowledge_management_pro_action_dashboard"
-              sequence="50"/>
-
 </odoo>

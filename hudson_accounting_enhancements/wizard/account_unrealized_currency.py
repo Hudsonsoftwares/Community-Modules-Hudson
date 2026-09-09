@@ -169,15 +169,15 @@ class AccountUnrealizedCurrencyAdjustmentWizard(models.TransientModel):
         company = self.env.company
         return (
             company.expense_currency_exchange_account_id
-            or self.env['account.account'].search([('company_id', '=', company.id), ('account_type', '=', 'expense')], limit=1)
+            or self.env['account.account'].search([('account_type', '=', 'expense')], limit=1)
         )
 
     def _default_income_account(self):
         company = self.env.company
         return (
             company.income_currency_exchange_account_id
-            or self.env['account.account'].search([('company_id', '=', company.id), ('account_type', '=', 'income_other')], limit=1)
-            or self.env['account.account'].search([('company_id', '=', company.id), ('account_type', '=', 'income')], limit=1)
+            or self.env['account.account'].search([('account_type', '=', 'income_other')], limit=1)
+            or self.env['account.account'].search([('account_type', '=', 'income')], limit=1)
         )
 
     def _default_reversal_date(self):
@@ -197,14 +197,16 @@ class AccountUnrealizedCurrencyAdjustmentWizard(models.TransientModel):
         'account.account',
         string='Expense Account',
         required=True,
-        domain="[('company_id', '=', company_id)]",
+        check_company=True,
+        domain="[('account_type', '=', 'expense')]",
         default=_default_expense_account,
     )
     income_account_id = fields.Many2one(
         'account.account',
         string='Income Account',
         required=True,
-        domain="[('company_id', '=', company_id)]",
+        check_company=True,
+        domain="[('account_type', 'in', ['income', 'income_other'])]",
         default=_default_income_account,
     )
     date = fields.Date(
@@ -242,9 +244,11 @@ class AccountUnrealizedCurrencyAdjustmentWizard(models.TransientModel):
                 continue
 
             company = wiz.company_id
+            as_of = wiz.date
             domain = [
                 ('company_id', '=', company.id),
                 ('date', '<=', as_of),
+
                 ('reconciled', '=', False),
                 ('currency_id', '!=', False),
                 ('currency_id', '!=', company.currency_id.id),

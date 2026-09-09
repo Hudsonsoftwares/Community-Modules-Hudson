@@ -1,0 +1,715 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-name="hudson_dynamic_reports.DynamicReport" owl="1">
+        <div class="o_dynamic_report_container d-flex flex-column">
+            <div class="o_dynamic_report_header mb-3 mt-3 d-flex justify-content-between align-items-center px-3 position-relative" style="z-index: 20;">
+                <div class="d-flex align-items-center">
+                    <h2 class="text-dark fw-bold mb-0 d-flex align-items-center" style="font-size: 1.35rem;">
+                        <span t-esc="state.title"/>
+                        <div class="dropdown ms-2" t-if="state.integrations.dms || state.integrations.knowledge">
+                            <i class="fa fa-cog text-dark opacity-75" data-bs-toggle="dropdown" aria-expanded="false" style="font-size: 1rem; cursor: pointer;" title="Settings"></i>
+                            <ul class="dropdown-menu shadow">
+                                <li t-if="state.integrations.dms">
+                                    <a class="dropdown-item cursor-pointer" t-on-click="onExportToDocuments"><i class="fa fa-folder-open-o me-2"></i>Copy to Documents</a>
+                                </li>
+                                <li t-if="state.integrations.knowledge">
+                                    <a class="dropdown-item cursor-pointer" t-on-click="onInsertInArticle"><i class="fa fa-file-text-o me-2"></i>Insert in Article</a>
+                                </li>
+                            </ul>
+                        </div>
+                    </h2>
+                </div>
+                <div class="o_dynamic_report_buttons">
+                    <button class="btn btn-secondary text-white me-2" t-if="state.model_name === 'account.unrealized.currency.wizard' || state.model_name === 'account.unrealized.currency.report'" t-on-click="createAdjustmentEntry"><i class="fa fa-pencil-square-o me-1"></i> Adjustment Entry</button>
+                    <button class="btn btn-danger me-2" t-on-click="exportPDF"><i class="fa fa-file-pdf-o me-1"></i> PDF</button>
+                    <button class="btn btn-success me-2" t-on-click="exportXLSX"><i class="fa fa-file-excel-o me-1"></i> XLSX</button>
+                    <button class="btn btn-primary me-2" t-on-click="exportCSV"><i class="fa fa-file-text-o me-1"></i> CSV</button>
+                    <button class="btn btn-info text-white" t-on-click="exportJSON"><i class="fa fa-file-code-o me-1"></i> JSON</button>
+                </div>
+            </div>
+            
+            <div class="o_dynamic_report_filters d-flex gap-1 mb-2 px-3 flex-shrink-0 align-items-center position-relative" style="overflow: visible; z-index: 10; padding-bottom: 2px;">
+                <!-- Search Box -->
+                <div class="o_dynamic_report_search position-relative flex-shrink-0" style="width: 120px; min-width: 110px; max-width: 130px;">
+                    <i class="fa fa-search position-absolute text-muted" style="left: 8px; top: 50%; transform: translateY(-50%); font-size: 0.8rem;"></i>
+                    <input type="text" class="form-control form-control-sm ps-4 bg-white border" placeholder="Search..." t-model="state.searchQuery" t-on-input="onSearchInput" style="border-radius: 4px; height: 30px; font-size: 0.8rem;"/>
+                </div>
+
+                <!-- Date Filter -->
+                <t t-if="state.model_name === 'account.aged.report' || state.model_name === 'account.unrealized.currency.wizard' || state.model_name === 'account.unrealized.currency.report'">
+                    <div class="dropdown flex-shrink-0">
+                        <button class="btn btn-light border dropdown-toggle fw-semibold text-dark py-1 px-2" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="border-radius: 4px; height: 30px; font-size: 0.8rem;">
+                            <i class="fa fa-calendar me-1 text-secondary"></i>
+                            <span t-esc="'As of ' + formatDateDisplay(state.filterSummary.date)"/>
+                        </button>
+                        <ul class="dropdown-menu p-3 shadow" style="min-width: 250px; border-radius: 4px;">
+                            <li class="d-flex justify-content-between align-items-center mb-2 px-2 cursor-pointer hover-bg-light" t-on-click="() => this.onAgedDateFilter('today')">
+                                <span>Today</span>
+                            </li>
+                            <li class="d-flex justify-content-between align-items-center mb-2 px-2 cursor-pointer hover-bg-light" t-on-click="() => this.onAgedDateFilter('end_last_month')">
+                                <span>End of Last Month</span>
+                            </li>
+                            <li class="d-flex justify-content-between align-items-center mb-2 px-2 cursor-pointer hover-bg-light" t-on-click="() => this.onAgedDateFilter('end_last_quarter')">
+                                <span>End of Last Quarter</span>
+                            </li>
+                            <li class="d-flex justify-content-between align-items-center mb-3 px-2 cursor-pointer hover-bg-light" t-on-click="() => this.onAgedDateFilter('end_last_year')">
+                                <span>End of Last Financial Year</span>
+                            </li>
+                            <li><hr class="dropdown-divider"/></li>
+                            <li class="px-2">
+                                <span class="text-muted small mb-2 d-block">Custom Date</span>
+                                <div class="d-flex gap-2 align-items-center">
+                                    <input type="date" class="form-control form-control-sm" t-model="state.customDateFrom"/>
+                                    <button class="btn btn-sm btn-primary" t-on-click="() => this.onAgedDateFilter('custom')">Apply</button>
+                                </div>
+                            </li>
+                        </ul>
+                    </div>
+                </t>
+                <t t-else="">
+                    <div class="dropdown flex-shrink-0">
+                        <button class="btn btn-light border dropdown-toggle fw-semibold text-dark py-1 px-2" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="border-radius: 4px; height: 30px; font-size: 0.8rem;">
+                            <i class="fa fa-calendar me-1 text-secondary"></i>
+                            <span t-esc="state.filterSummary.date || 'Date Range'"/>
+                        </button>
+                        <ul class="dropdown-menu p-3 shadow" style="min-width: 300px; border-radius: 4px;">
+                            <li class="d-flex justify-content-between align-items-center mb-2 px-2 cursor-pointer hover-bg-light" t-on-click="() => this.onDateFilter('today')">
+                                <span t-att-class="state.filterSummary.date_type === 'today' ? 'fw-bold' : ''">Today</span>
+                            </li>
+                            <li class="d-flex justify-content-between align-items-center mb-2 px-2 cursor-pointer hover-bg-light" t-on-click="() => this.onDateFilter('this_month')">
+                                <span t-att-class="state.filterSummary.date_type === 'this_month' ? 'fw-bold' : ''">This Month</span>
+                            </li>
+                            <li class="d-flex justify-content-between align-items-center mb-2 px-2 cursor-pointer hover-bg-light" t-on-click="() => this.onDateFilter('this_quarter')">
+                                <span t-att-class="state.filterSummary.date_type === 'this_quarter' ? 'fw-bold' : ''">This Quarter</span>
+                            </li>
+                            <li class="d-flex justify-content-between align-items-center mb-3 px-2 cursor-pointer hover-bg-light" t-on-click="() => this.onDateFilter('this_year')">
+                                <span t-att-class="state.filterSummary.date_type === 'this_year' ? 'fw-bold' : ''">Fiscal Year</span>
+                            </li>
+                            <li><hr class="dropdown-divider"/></li>
+                            <li class="px-2">
+                                <span class="text-muted small mb-2 d-block">Custom Dates</span>
+                                <div class="d-flex gap-2 align-items-center">
+                                    <input type="date" class="form-control form-control-sm" t-model="state.customDateFrom"/>
+                                    <span>to</span>
+                                    <input type="date" class="form-control form-control-sm" t-model="state.customDateTo"/>
+                                    <button class="btn btn-sm btn-primary" t-on-click="applyCustomDates">Apply</button>
+                                </div>
+                            </li>
+                        </ul>
+                    </div>
+                </t>
+
+                <!-- GAAP / Multi-Selection Filter -->
+                <div class="dropdown flex-shrink-0">
+                    <button class="btn btn-light border dropdown-toggle fw-semibold text-dark py-1 px-2" type="button" data-bs-toggle="dropdown" aria-expanded="false" data-bs-auto-close="outside" style="border-radius: 4px; height: 30px; font-size: 0.8rem;">
+                        <i class="fa fa-book me-1 text-secondary"></i>
+                        <span t-esc="getGaapButtonLabel()"/>
+                    </button>
+                    <ul class="dropdown-menu shadow p-2" style="border-radius: 4px; min-width: 170px;">
+                        <li>
+                            <a class="dropdown-item cursor-pointer d-flex align-items-center py-2" t-on-click="() => this.toggleGaap('local_gaap')">
+                                <input type="checkbox" class="form-check-input me-2 my-0 cursor-pointer" t-att-checked="(state.filterSummary.gaap_options &amp;&amp; state.filterSummary.gaap_options.local_gaap) ? 'checked' : undefined" style="pointer-events: none;"/>
+                                <span>Local Gaap</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item cursor-pointer d-flex align-items-center py-2" t-on-click="() => this.toggleGaap('ifrs')">
+                                <input type="checkbox" class="form-check-input me-2 my-0 cursor-pointer" t-att-checked="(state.filterSummary.gaap_options &amp;&amp; state.filterSummary.gaap_options.ifrs) ? 'checked' : undefined" style="pointer-events: none;"/>
+                                <span>IFRS</span>
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- Account Filter -->
+                <t t-if="state.model_name === 'account.aged.report'">
+                    <div class="dropdown flex-shrink-0">
+                        <button class="btn btn-light border dropdown-toggle fw-semibold text-dark py-1 px-2" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="border-radius: 4px; height: 30px; font-size: 0.8rem;">
+                            <i class="fa fa-user me-1 text-secondary"></i>
+                            <span t-esc="getAgedAccountLabel()"/>
+                        </button>
+                        <ul class="dropdown-menu shadow p-2" style="border-radius: 4px; min-width: 200px;">
+                            <li><a class="dropdown-item cursor-pointer py-1" t-on-click="() => this.onAgedAccountFilter('payable')"><i t-att-class="state.filterSummary.account_type === 'payable' ? 'fa fa-check me-2 text-primary' : 'fa fa-fw me-2'"/>Payable</a></li>
+                            <li><a class="dropdown-item cursor-pointer py-1" t-on-click="() => this.onAgedAccountFilter('non_trade_payable')"><i t-att-class="state.filterSummary.account_type === 'non_trade_payable' ? 'fa fa-check me-2 text-primary' : 'fa fa-fw me-2'"/>Non Trade Payable</a></li>
+                            <li><a class="dropdown-item cursor-pointer py-1" t-on-click="() => this.onAgedAccountFilter('receivable')"><i t-att-class="state.filterSummary.account_type === 'receivable' ? 'fa fa-check me-2 text-primary' : 'fa fa-fw me-2'"/>Receivable</a></li>
+                            <li><a class="dropdown-item cursor-pointer py-1" t-on-click="() => this.onAgedAccountFilter('non_trade_receivable')"><i t-att-class="state.filterSummary.account_type === 'non_trade_receivable' ? 'fa fa-check me-2 text-primary' : 'fa fa-fw me-2'"/>Non Trade Receivable</a></li>
+                        </ul>
+                    </div>
+                </t>
+                <t t-elif="['account.partner.ledger', 'account.report.partner.ledger'].includes(state.model_name)">
+                    <div class="dropdown flex-shrink-0">
+                        <button class="btn btn-light border dropdown-toggle fw-semibold text-dark py-1 px-2" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="border-radius: 4px; height: 30px; font-size: 0.8rem;">
+                            <i class="fa fa-user me-1 text-secondary"></i>
+                            <span t-esc="'Account: ' + (state.filterSummary.account_type === 'payable' ? 'Payable' : (state.filterSummary.account_type === 'receivable' ? 'Receivable' : (state.filterSummary.account_type === 'all' ? 'All Accounts' : 'Trade Partners')))"/>
+                        </button>
+                        <ul class="dropdown-menu shadow" style="border-radius: 4px;">
+                            <li><a class="dropdown-item cursor-pointer" t-on-click="() => this.onPartnerAccountFilter('trade')">Trade Partners</a></li>
+                            <li><a class="dropdown-item cursor-pointer" t-on-click="() => this.onPartnerAccountFilter('receivable')">Receivable</a></li>
+                            <li><a class="dropdown-item cursor-pointer" t-on-click="() => this.onPartnerAccountFilter('payable')">Payable</a></li>
+                            <li><a class="dropdown-item cursor-pointer" t-on-click="() => this.onPartnerAccountFilter('all')">All Accounts</a></li>
+                        </ul>
+                    </div>
+                </t>
+
+                <!-- Partners -->
+                <t t-if="['account.annual.report', 'account.profit.and.loss', 'account.aged.report', 'account.partner.ledger', 'account.report.partner.ledger', 'accounting.report', 'account.common.report'].includes(state.model_name)">
+                    <div class="dropdown flex-shrink-0">
+                        <button class="btn btn-light border dropdown-toggle fw-semibold text-dark py-1 px-2" type="button" data-bs-toggle="dropdown" aria-expanded="false" data-bs-auto-close="outside" style="border-radius: 4px; height: 30px; font-size: 0.8rem;">
+                            <i class="fa fa-folder-open me-1 text-secondary"></i>
+                            <t t-if="(state.filterSummary.partners &amp;&amp; state.filterSummary.partners.length) || (state.filterSummary.tags &amp;&amp; state.filterSummary.tags.length)">
+                                <span>Partners (<t t-esc="(state.filterSummary.partners ? state.filterSummary.partners.length : 0) + (state.filterSummary.tags ? state.filterSummary.tags.length : 0)"/>)</span>
+                            </t>
+                            <t t-else="">
+                                <span>Partners</span>
+                            </t>
+                        </button>
+                        <ul class="dropdown-menu p-3 shadow" style="min-width: 300px; border-radius: 4px;">
+                            <li class="mb-3">
+                                <label class="form-label text-muted small fw-bold mb-1">Partners</label>
+                                <div class="position-relative">
+                                    <input type="text" class="form-control form-control-sm" placeholder="Search Partners..." t-on-keyup="onPartnerSearch" t-on-focus="loadDefaultPartners" t-on-click="loadDefaultPartners" t-model="state.partnerSearch"/>
+                                    <div class="position-absolute w-100 bg-white border shadow-sm" style="max-height: 200px; overflow-y: auto; z-index: 1050;" t-if="state.partnerResults &amp;&amp; state.partnerResults.length &gt; 0">
+                                        <div t-foreach="state.partnerResults" t-as="p" t-key="p.id" class="p-2 border-bottom cursor-pointer text-truncate hover-bg-light" t-on-click="() => this.selectPartner(p)">
+                                            <t t-esc="p.name"/>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="mt-2 d-flex flex-wrap gap-1">
+                                    <t t-foreach="state.filterSummary.partners || []" t-as="p" t-key="p.id">
+                                        <span class="badge bg-light text-dark border d-flex align-items-center">
+                                            <t t-esc="p.name"/>
+                                            <i class="fa fa-times ms-2 cursor-pointer text-danger" t-on-click="() => this.removePartner(p.id)"></i>
+                                        </span>
+                                    </t>
+                                </div>
+                            </li>
+                            <li class="mb-2">
+                                <label class="form-label text-muted small fw-bold mb-1">Partner Tags</label>
+                                <div class="position-relative">
+                                    <input type="text" class="form-control form-control-sm" placeholder="Search Tags..." t-on-keyup="onTagSearch" t-model="state.tagSearch"/>
+                                    <div class="position-absolute w-100 bg-white border shadow-sm" style="max-height: 200px; overflow-y: auto; z-index: 1050;" t-if="state.tagResults &amp;&amp; state.tagResults.length &gt; 0">
+                                        <div t-foreach="state.tagResults" t-as="t" t-key="t.id" class="p-2 border-bottom cursor-pointer text-truncate hover-bg-light" t-on-click="() => this.selectTag(t)">
+                                            <t t-esc="t.name"/>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="mt-2 d-flex flex-wrap gap-1">
+                                    <t t-foreach="state.filterSummary.tags || []" t-as="t" t-key="t.id">
+                                        <span class="badge bg-light text-dark border d-flex align-items-center">
+                                            <t t-esc="t.name"/>
+                                            <i class="fa fa-times ms-2 cursor-pointer text-danger" t-on-click="() => this.removeTag(t.id)"></i>
+                                        </span>
+                                    </t>
+                                </div>
+                            </li>
+                            <li class="mt-3 text-end">
+                                <button class="btn btn-sm btn-primary" t-on-click="applyPartnerFilters">Apply</button>
+                            </li>
+                        </ul>
+                    </div>
+                </t>
+
+                <!-- Date Basis Filter for Aged Reports -->
+                <t t-if="state.model_name === 'account.aged.report'">
+                    <div class="dropdown flex-shrink-0">
+                        <button class="btn btn-light border dropdown-toggle fw-semibold text-dark py-1 px-2" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="border-radius: 4px; height: 30px; font-size: 0.8rem;">
+                            <i class="fa fa-file-text-o me-1 text-secondary"></i>
+                            <span t-esc="state.filterSummary.date_basis === 'date' ? 'Based on Invoice Date' : 'Based on Due Date'"/>
+                        </button>
+                        <ul class="dropdown-menu shadow p-2" style="border-radius: 4px; min-width: 190px;">
+                            <li><a class="dropdown-item cursor-pointer py-1" t-on-click="() => this.onAgedBasisFilter('date_maturity')"><i t-att-class="state.filterSummary.date_basis !== 'date' ? 'fa fa-check me-2 text-primary' : 'fa fa-fw me-2'"/>Based on Due Date</a></li>
+                            <li><a class="dropdown-item cursor-pointer py-1" t-on-click="() => this.onAgedBasisFilter('date')"><i t-att-class="state.filterSummary.date_basis === 'date' ? 'fa fa-check me-2 text-primary' : 'fa fa-fw me-2'"/>Based on Invoice Date</a></li>
+                        </ul>
+                    </div>
+                </t>
+
+                <!-- Period Interval Filter for Aged Reports -->
+                <t t-if="state.model_name === 'account.aged.report'">
+                    <div class="dropdown flex-shrink-0">
+                        <button class="btn btn-light border dropdown-toggle fw-semibold text-dark py-1 px-2" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="border-radius: 4px; height: 30px; font-size: 0.8rem;">
+                            <i class="fa fa-calendar-o me-1 text-secondary"></i>
+                            <span t-esc="(state.filterSummary.period_length || 30) + ' Days'"/>
+                        </button>
+                        <ul class="dropdown-menu shadow p-2" style="border-radius: 4px; min-width: 140px;">
+                            <li><a class="dropdown-item cursor-pointer py-1" t-on-click="() => this.onAgedPeriodFilter(15)"><i t-att-class="state.filterSummary.period_length === 15 ? 'fa fa-check me-2 text-primary' : 'fa fa-fw me-2'"/>15 Days</a></li>
+                            <li><a class="dropdown-item cursor-pointer py-1" t-on-click="() => this.onAgedPeriodFilter(30)"><i t-att-class="state.filterSummary.period_length === 30 || !state.filterSummary.period_length ? 'fa fa-check me-2 text-primary' : 'fa fa-fw me-2'"/>30 Days</a></li>
+                            <li><a class="dropdown-item cursor-pointer py-1" t-on-click="() => this.onAgedPeriodFilter(60)"><i t-att-class="state.filterSummary.period_length === 60 ? 'fa fa-check me-2 text-primary' : 'fa fa-fw me-2'"/>60 Days</a></li>
+                            <li><a class="dropdown-item cursor-pointer py-1" t-on-click="() => this.onAgedPeriodFilter(90)"><i t-att-class="state.filterSummary.period_length === 90 ? 'fa fa-check me-2 text-primary' : 'fa fa-fw me-2'"/>90 Days</a></li>
+                            <li><a class="dropdown-item cursor-pointer py-1" t-on-click="() => this.onAgedPeriodFilter(120)"><i t-att-class="state.filterSummary.period_length === 120 ? 'fa fa-check me-2 text-primary' : 'fa fa-fw me-2'"/>120 Days</a></li>
+                        </ul>
+                    </div>
+                </t>
+
+                <!-- Comparison Dropdown -->
+                <t t-if="['account.annual.report', 'account.profit.and.loss', 'account.trial.balance', 'accounting.report', 'account.common.report'].includes(state.model_name)">
+                    <div class="dropdown">
+                        <button class="btn btn-light border dropdown-toggle fw-semibold text-dark" type="button" data-bs-toggle="dropdown" aria-expanded="false" data-bs-auto-close="outside" style="border-radius: 4px; height: 32px; font-size: 0.85rem;">
+                            <span class="fw-bold px-1 text-dark">Comparison</span>
+                        </button>
+                        <ul class="dropdown-menu p-3 shadow" style="min-width: 300px; border-radius: 4px;">
+                            <li>
+                                <a class="dropdown-item cursor-pointer d-flex align-items-center" t-on-click="() => this.onComparisonFilter('no_comparison')">
+                                    <i t-att-class="state.filterSummary.comparison === 'no_comparison' || !state.filterSummary.comparison ? 'fa fa-check me-2' : 'fa fa-fw me-2'" style="color: #017e84;"/> No Comparison
+                                </a>
+                            </li>
+                            <li>
+                                <div class="dropdown-item d-flex align-items-center py-1 bg-light">
+                                    <a class="cursor-pointer d-flex align-items-center flex-grow-1 text-decoration-none text-dark fw-bold" t-on-click="() => this.onComparisonFilter('previous_period')">
+                                        <i t-att-class="state.filterSummary.comparison === 'previous_period' ? 'fa fa-check me-2' : 'fa fa-fw me-2'" style="color: #017e84;"/> Previous Period
+                                    </a>
+                                    <input type="number" class="form-control form-control-sm text-end mx-2" style="width: 60px; border: 1px solid #ced4da; background-color: #fff;" t-model.number="state.filterSummary.previous_periods" min="1" t-on-change="() => this.onComparisonFilter('previous_period')"/>
+                                    <span class="fw-bold">Period</span>
+                                </div>
+                            </li>
+                            <li>
+                                <a class="dropdown-item cursor-pointer d-flex align-items-center" t-on-click="() => this.onComparisonFilter('same_last_year')">
+                                    <i t-att-class="state.filterSummary.comparison === 'same_last_year' ? 'fa fa-check me-2' : 'fa fa-fw me-2'" style="color: #017e84;"/> Same Period Last Year
+                                </a>
+                            </li>
+                            <li>
+                                <div class="dropdown-item d-flex align-items-center py-1">
+                                    <i t-att-class="state.filterSummary.comparison === 'percentage' ? 'fa fa-check me-2' : 'fa fa-fw me-2'" style="color: #017e84;"/> Percentage of
+                                    <input type="text" class="form-control form-control-sm ms-2" style="width: 100px; border-top: none; border-left: none; border-right: none; border-radius: 0; background-color: transparent;" t-on-click="() => this.onComparisonFilter('percentage')"/>
+                                </div>
+                            </li>
+                            <li class="px-3 py-1">
+                                <div class="d-flex align-items-center">
+                                    <a class="cursor-pointer d-flex align-items-center flex-grow-1 text-decoration-none text-dark fw-bold" t-on-click="() => this.onComparisonFilter('specific_date')">
+                                        <i t-att-class="state.filterSummary.comparison === 'specific_date' ? 'fa fa-check me-2' : 'fa fa-fw me-2'" style="color: #017e84;"/> Specific Date
+                                    </a>
+                                </div>
+                                <div class="ps-4 mt-1" t-if="state.filterSummary.comparison === 'specific_date'">
+                                    <input type="date" class="form-control form-control-sm border" t-model="state.filterSummary.date_to_cmp" t-on-change="() => this.onComparisonFilter('specific_date')"/>
+                                </div>
+                            </li>
+                            <li><hr class="dropdown-divider"/></li>
+                            <li class="px-3 py-1 d-flex justify-content-between align-items-center">
+                                <span class="text-muted">Period order</span>
+                                <select class="form-select form-select-sm border-0 w-auto shadow-none text-end" t-model="state.filterSummary.period_order">
+                                    <option value="descending">Descending</option>
+                                    <option value="ascending">Ascending</option>
+                                </select>
+                            </li>
+                            <li class="px-3 py-1 d-flex justify-content-between align-items-center">
+                                <span class="text-muted">Comparison in</span>
+                                <select class="form-select form-select-sm border-0 w-auto shadow-none text-end" t-model="state.filterSummary.comparison_in">
+                                    <option value="percentage">Percentage</option>
+                                    <option value="amount">Amount</option>
+                                </select>
+                            </li>
+                        </ul>
+                    </div>
+                </t>
+
+                <!-- Analytic Dropdown (Accounts & Plans) -->
+                <t t-if="['account.annual.report', 'account.profit.and.loss', 'account.trial.balance', 'account.balance.report', 'account.report.general.ledger', 'accounting.report', 'account.common.report', 'account.partner.ledger', 'account.report.partner.ledger'].includes(state.model_name)">
+                    <div class="dropdown">
+                        <button class="btn btn-light border dropdown-toggle fw-semibold text-dark d-flex align-items-center" type="button" data-bs-toggle="dropdown" aria-expanded="false" data-bs-auto-close="outside" style="border-radius: 4px; height: 32px; font-size: 0.85rem;">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="me-1"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
+                            <span class="ms-1" t-esc="(state.filterSummary.analytic_accounts &amp;&amp; state.filterSummary.analytic_accounts.length) || (state.filterSummary.analytic_plans &amp;&amp; state.filterSummary.analytic_plans.length) ? 'Analytic (' + ((state.filterSummary.analytic_accounts ? state.filterSummary.analytic_accounts.length : 0) + (state.filterSummary.analytic_plans ? state.filterSummary.analytic_plans.length : 0)) + ')' : 'Analytic'"/>
+                        </button>
+                        <div class="dropdown-menu p-3 shadow" style="min-width: 320px; border-radius: 4px; border-color: #e2e8f0;">
+                            <!-- Accounts Row -->
+                            <div class="mb-3">
+                                <div class="d-flex align-items-center">
+                                    <span class="text-dark me-3" style="min-width: 70px; font-size: 0.88rem; font-weight: 500;">Accounts</span>
+                                    <div class="flex-grow-1 position-relative">
+                                        <input type="text" 
+                                               class="form-control form-control-sm border-0 border-bottom rounded-0 px-1 py-1 shadow-none bg-transparent" 
+                                               style="border-bottom: 1px solid #cbd5e1 !important; font-size: 0.85rem;"
+                                               placeholder="" 
+                                               t-on-keyup="onAnalyticSearch" 
+                                               t-on-focus="loadDefaultAnalytics" 
+                                               t-on-click="loadDefaultAnalytics" 
+                                               t-model="state.analyticSearch"/>
+                                        <div class="position-absolute w-100 bg-white border shadow-sm" style="max-height: 180px; overflow-y: auto; z-index: 1050; top: 100%; left: 0;" t-if="state.analyticResults &amp;&amp; state.analyticResults.length &gt; 0">
+                                            <div t-foreach="state.analyticResults" t-as="a" t-key="a.id" class="p-2 border-bottom cursor-pointer text-truncate hover-bg-light" t-on-click="() => this.selectAnalyticAccount(a)">
+                                                <t t-esc="a.name"/>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="mt-2 d-flex flex-wrap gap-1 ps-5" t-if="state.filterSummary.analytic_accounts &amp;&amp; state.filterSummary.analytic_accounts.length">
+                                    <t t-foreach="state.filterSummary.analytic_accounts" t-as="a" t-key="a.id">
+                                        <span class="badge bg-light text-dark border d-flex align-items-center py-1 px-2" style="font-size: 0.75rem;">
+                                            <t t-esc="a.name"/>
+                                            <i class="fa fa-times ms-2 cursor-pointer text-danger" t-on-click="() => this.removeAnalyticAccount(a.id)"></i>
+                                        </span>
+                                    </t>
+                                </div>
+                            </div>
+
+                            <!-- Plans Row -->
+                            <div class="mb-3">
+                                <div class="d-flex align-items-center">
+                                    <span class="text-dark me-3" style="min-width: 70px; font-size: 0.88rem; font-weight: 500;">Plans</span>
+                                    <div class="flex-grow-1 position-relative">
+                                        <input type="text" 
+                                               class="form-control form-control-sm border-0 border-bottom rounded-0 px-1 py-1 shadow-none bg-transparent" 
+                                               style="border-bottom: 1px solid #cbd5e1 !important; font-size: 0.85rem;"
+                                               placeholder="" 
+                                               t-on-keyup="onAnalyticPlanSearch" 
+                                               t-on-focus="loadDefaultAnalyticPlans" 
+                                               t-on-click="loadDefaultAnalyticPlans" 
+                                               t-model="state.analyticPlanSearch"/>
+                                        <div class="position-absolute w-100 bg-white border shadow-sm" style="max-height: 180px; overflow-y: auto; z-index: 1050; top: 100%; left: 0;" t-if="state.analyticPlanResults &amp;&amp; state.analyticPlanResults.length &gt; 0">
+                                            <div t-foreach="state.analyticPlanResults" t-as="p" t-key="p.id" class="p-2 border-bottom cursor-pointer text-truncate hover-bg-light" t-on-click="() => this.selectAnalyticPlan(p)">
+                                                <t t-esc="p.name"/>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="mt-2 d-flex flex-wrap gap-1 ps-5" t-if="state.filterSummary.analytic_plans &amp;&amp; state.filterSummary.analytic_plans.length">
+                                    <t t-foreach="state.filterSummary.analytic_plans" t-as="p" t-key="p.id">
+                                        <span class="badge bg-light text-dark border d-flex align-items-center py-1 px-2" style="font-size: 0.75rem;">
+                                            <t t-esc="p.name"/>
+                                            <i class="fa fa-times ms-2 cursor-pointer text-danger" t-on-click="() => this.removeAnalyticPlan(p.id)"></i>
+                                        </span>
+                                    </t>
+                                </div>
+                            </div>
+
+                            <!-- Apply Action Button -->
+                            <div class="mt-3 text-end pt-2 border-top">
+                                <button class="btn btn-sm btn-primary px-3" style="border-radius: 4px; font-size: 0.82rem;" t-on-click="applyAnalyticFilters">Apply</button>
+                            </div>
+                        </div>
+                    </div>
+                </t>
+
+                <!-- Exchange Rates Button (Unrealized Currency) -->
+                <button class="btn btn-light border py-1 px-2 fw-semibold text-dark flex-shrink-0" 
+                        t-if="state.model_name === 'account.unrealized.currency.wizard' || state.model_name === 'account.unrealized.currency.report'"
+                        t-on-click="openExchangeRates" 
+                        style="border-radius: 4px; height: 30px; font-size: 0.8rem;">
+                    <i class="fa fa-line-chart me-1 text-secondary"></i> Exchange Rates
+                </button>
+
+                <!-- Target Moves Dropdown (Posted Entries / Options) -->
+                <div class="dropdown flex-shrink-0">
+                    <button class="btn btn-light border dropdown-toggle fw-semibold text-dark py-1 px-2" type="button" data-bs-toggle="dropdown" aria-expanded="false" data-bs-auto-close="outside" style="border-radius: 4px; height: 30px; font-size: 0.8rem;">
+                        <i class="fa fa-sliders me-1 text-secondary"></i>
+                        <span t-esc="state.filterSummary.target_move === 'All Entries' ? 'Draft Entries' : 'Posted Entries'"/>
+                    </button>
+                    <ul class="dropdown-menu shadow p-2" style="border-radius: 4px; min-width: 190px;">
+                        <li>
+                            <a class="dropdown-item cursor-pointer d-flex align-items-center py-2" t-on-click="toggleDraftEntries">
+                                <i t-att-class="state.filterSummary.target_move === 'All Entries' ? 'fa fa-check me-2 text-primary' : 'fa fa-fw me-2'"/>
+                                <span>Draft Entries</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item cursor-pointer d-flex align-items-center py-2" t-on-click="toggleAnalyticSimulations">
+                                <i t-att-class="state.filterSummary.analytic_simulations ? 'fa fa-check me-2 text-primary' : 'fa fa-fw me-2'"/>
+                                <span>Analytic Simulations</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item cursor-pointer d-flex align-items-center py-2" t-on-click="toggleSubtotals">
+                                <i t-att-class="state.filterSummary.subtotals ? 'fa fa-check me-2 text-primary' : 'fa fa-fw me-2'"/>
+                                <span>Subtotals</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item cursor-pointer d-flex align-items-center py-2" t-on-click="onUnfoldAllToggle">
+                                <i t-att-class="state.unfoldAll ? 'fa fa-check me-2 text-primary' : 'fa fa-fw me-2'"/>
+                                <span t-esc="state.unfoldAll ? 'Fold All' : 'Unfold All'"/>
+                            </a>
+                        </li>
+                        <li><hr class="dropdown-divider my-2 border-top" style="border-color: #cbd5e1; opacity: 1; margin: 6px 0;"/></li>
+                        <li>
+                            <a class="dropdown-item cursor-pointer d-flex align-items-center py-2" t-on-click="toggleHideLinesAt0">
+                                <i t-att-class="state.filterSummary.hide_lines_at_0 ? 'fa fa-check me-2 text-primary' : 'fa fa-fw me-2'"/>
+                                <span>Hide lines at 0</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item cursor-pointer d-flex align-items-center py-2" t-on-click="toggleSplitHorizontally">
+                                <i t-att-class="state.filterSummary.split_horizontally ? 'fa fa-check me-2 text-primary' : 'fa fa-fw me-2'"/>
+                                <span>Split Horizontally</span>
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- Currency Rounding Toggle dropdown -->
+                <div class="dropdown flex-shrink-0">
+                    <button class="btn btn-light border dropdown-toggle fw-semibold text-dark py-1 px-2" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="border-radius: 4px; height: 30px; font-size: 0.8rem;">
+                        <span t-esc="'In ' + (state.filterSummary.rounding !== undefined ? state.filterSummary.rounding : '') + (state.currency_symbol || '₹')"/>
+                    </button>
+                    <ul class="dropdown-menu shadow" style="border-radius: 4px; min-width: 120px;">
+                        <li><a class="dropdown-item cursor-pointer d-flex align-items-center fw-bold" t-on-click="() => this.onRounding('.')"><i t-att-class="(state.filterSummary.rounding === undefined || state.filterSummary.rounding === '.') ? 'fa fa-check me-2' : 'fa fa-fw me-2'" style="color: #017e84;"/> In .<t t-esc="state.currency_symbol || '₹'"/></a></li>
+                        <li><a class="dropdown-item cursor-pointer d-flex align-items-center" t-on-click="() => this.onRounding('')"><i t-att-class="state.filterSummary.rounding === '' ? 'fa fa-check me-2' : 'fa fa-fw me-2'" style="color: #017e84;"/> In <t t-esc="state.currency_symbol || '₹'"/></a></li>
+                        <li><a class="dropdown-item cursor-pointer d-flex align-items-center" t-on-click="() => this.onRounding('K')"><i t-att-class="state.filterSummary.rounding === 'K' ? 'fa fa-check me-2' : 'fa fa-fw me-2'" style="color: #017e84;"/> In K<t t-esc="state.currency_symbol || '₹'"/></a></li>
+                        <li><a class="dropdown-item cursor-pointer d-flex align-items-center" t-on-click="() => this.onRounding('L')"><i t-att-class="state.filterSummary.rounding === 'L' ? 'fa fa-check me-2' : 'fa fa-fw me-2'" style="color: #017e84;"/> In L<t t-esc="state.currency_symbol || '₹'"/></a></li>
+                        <li><a class="dropdown-item cursor-pointer d-flex align-items-center" t-on-click="() => this.onRounding('M')"><i t-att-class="state.filterSummary.rounding === 'M' ? 'fa fa-check me-2' : 'fa fa-fw me-2'" style="color: #017e84;"/> In M<t t-esc="state.currency_symbol || '₹'"/></a></li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Unposted Notice Banner -->
+            <div t-if="state.alert_message" class="alert text-center py-2 px-3 mb-2 border-0 mx-3" style="background-color: #d1ecf1; color: #0c5460; font-size: 0.88rem; border-radius: 6px;">
+                <span>There are <strong>unposted Journal Entries</strong> prior or included in this period.</span>
+            </div>
+            
+            <!-- Secondary Alert Banner (e.g. Active Company Only) -->
+            <div t-if="state.secondary_alert_message" class="alert text-center py-2 px-3 mb-3 border-0 mx-3" style="background-color: #fff3cd; color: #856404; font-size: 0.88rem; border-radius: 6px;">
+                <span t-esc="state.secondary_alert_message"/>
+            </div>
+            <div class="o_dynamic_report_content bg-white p-0">
+                <!-- Split Horizontally View (Two Columns) -->
+                <t t-if="isSplitHorizontally()">
+                    <div class="row g-3 p-3 m-0">
+                        <!-- Left Column (Assets) -->
+                        <div class="col-12 col-lg-6">
+                            <div class="card border shadow-sm p-0 bg-white" style="border-radius: 6px; overflow: hidden;">
+                                <table class="table enterprise-table table-hover table-sm mb-0" style="table-layout: auto; width: 100%; border-collapse: collapse;">
+                                    <thead class="table-light">
+                                        <tr style="border-bottom: 2px solid #cbd5e1;">
+                                            <t t-foreach="state.columns" t-as="col" t-key="col.field">
+                                                <th t-att-class="col.type === 'monetary' ? 'text-end text-nowrap py-2 px-2' : 'text-nowrap py-2 px-2'" 
+                                                    t-att-style="col.field === 'name' ? 'min-width: 140px;' : 'min-width: 80px;' + ' font-size: 0.82rem; color: var(--body-color); font-weight: 600; background-color: var(--o-view-background-color);'" 
+                                                    t-esc="col.label"/>
+                                            </t>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <t t-foreach="getLeftSplitLines()" t-as="line" t-key="line.id">
+                                            <tr t-if="isVisible(line)" 
+                                                t-att-class="{
+                                                    'fw-bold': line.level === 1 || line.is_summary_total, 
+                                                    'text-muted': line.level > 2 and !line.is_summary_total, 
+                                                    'o_dynamic_report_clickable': ['account', 'move_line'].includes(line.type) || line.move_id
+                                                }"
+                                                t-on-click="() => this.onLineClicked(line)"
+                                                t-att-style="(line.level === 1 ? 'background-color: var(--o-view-background-color); border-top: 1px solid var(--border-color); border-bottom: 1px solid var(--border-color);' : '') + 
+                                                             (line.is_summary_total ? 'background-color: var(--o-view-background-color); border-top: 1px solid var(--border-color); border-bottom: 2px solid var(--border-color); font-weight: 700;' : '') + 
+                                                             'cursor: ' + (['account', 'move_line'].includes(line.type) || line.move_id ? 'pointer' : 'default') + '; font-size: 0.84rem;'">
+                                                <t t-foreach="state.columns" t-as="col" t-key="col.field">
+                                                    <td t-att-class="col.type === 'monetary' ? 'text-end text-nowrap py-2 px-2' : 'text-nowrap py-2 px-2'" 
+                                                        style="vertical-align: middle; border-bottom: 1px solid #f1f5f9;">
+                                                        <t t-if="col.field === 'name'">
+                                                            <div t-att-style="'padding-left: ' + ((line.level - 1) * 16) + 'px; display: flex; align-items: center;'">
+                                                                <span t-if="hasChildren(line)" 
+                                                                      class="me-2 text-primary" 
+                                                                      style="cursor: pointer; width: 14px; display: inline-block; text-align: center;"
+                                                                      t-on-click.stop="() => this.toggleExpand(line.id)">
+                                                                    <i t-att-class="state.expandedLines[line.id] ? 'fa fa-caret-down' : 'fa fa-caret-right'"/>
+                                                                </span>
+                                                                <span t-else="" class="me-2" style="width: 14px; display: inline-block;"/>
+                                                                <span class="text-truncate" t-att-title="line[col.field]" t-esc="line[col.field]"/>
+                                                            </div>
+                                                        </t>
+                                                        <t t-else="">
+                                                            <span t-esc="col.type === 'monetary' ? formatMonetary(line[col.field], line, col) : line[col.field]"
+                                                                  t-att-style="col.type === 'monetary' ? (line[col.field] &gt; 0 ? 'color: #00a09d;' : (line[col.field] &lt; 0 ? 'color: red;' : '')) : ''"/>
+                                                        </t>
+                                                    </td>
+                                                </t>
+                                            </tr>
+                                        </t>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Right Column (Liabilities & Equity) -->
+                        <div class="col-12 col-lg-6">
+                            <div class="card border shadow-sm p-0 bg-white" style="border-radius: 6px; overflow: hidden;">
+                                <table class="table enterprise-table table-hover table-sm mb-0" style="table-layout: auto; width: 100%; border-collapse: collapse;">
+                                    <thead class="table-light">
+                                        <tr style="border-bottom: 2px solid #cbd5e1;">
+                                            <t t-foreach="state.columns" t-as="col" t-key="col.field">
+                                                <th t-att-class="col.type === 'monetary' ? 'text-end text-nowrap py-2 px-2' : 'text-nowrap py-2 px-2'" 
+                                                    t-att-style="col.field === 'name' ? 'min-width: 140px;' : 'min-width: 80px;' + ' font-size: 0.82rem; color: var(--body-color); font-weight: 600; background-color: var(--o-view-background-color);'" 
+                                                    t-esc="col.label"/>
+                                            </t>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <t t-foreach="getRightSplitLines()" t-as="line" t-key="line.id">
+                                            <tr t-if="isVisible(line)" 
+                                                t-att-class="{
+                                                    'fw-bold': line.level === 1 || line.is_summary_total, 
+                                                    'text-muted': line.level > 2 and !line.is_summary_total, 
+                                                    'o_dynamic_report_clickable': ['account', 'move_line'].includes(line.type) || line.move_id
+                                                }"
+                                                t-on-click="() => this.onLineClicked(line)"
+                                                t-att-style="(line.level === 1 ? 'background-color: var(--o-view-background-color); border-top: 1px solid var(--border-color); border-bottom: 1px solid var(--border-color);' : '') + 
+                                                             (line.is_summary_total ? 'background-color: var(--o-view-background-color); border-top: 1px solid var(--border-color); border-bottom: 2px solid var(--border-color); font-weight: 700;' : '') + 
+                                                             'cursor: ' + (['account', 'move_line'].includes(line.type) || line.move_id ? 'pointer' : 'default') + '; font-size: 0.84rem;'">
+                                                <t t-foreach="state.columns" t-as="col" t-key="col.field">
+                                                    <td t-att-class="col.type === 'monetary' ? 'text-end text-nowrap py-2 px-2' : 'text-nowrap py-2 px-2'" 
+                                                        style="vertical-align: middle; border-bottom: 1px solid #f1f5f9;">
+                                                        <t t-if="col.field === 'name'">
+                                                            <div t-att-style="'padding-left: ' + ((line.level - 1) * 16) + 'px; display: flex; align-items: center;'">
+                                                                <span t-if="hasChildren(line)" 
+                                                                      class="me-2 text-primary" 
+                                                                      style="cursor: pointer; width: 14px; display: inline-block; text-align: center;"
+                                                                      t-on-click.stop="() => this.toggleExpand(line.id)">
+                                                                    <i t-att-class="state.expandedLines[line.id] ? 'fa fa-caret-down' : 'fa fa-caret-right'"/>
+                                                                </span>
+                                                                <span t-else="" class="me-2" style="width: 14px; display: inline-block;"/>
+                                                                <span class="text-truncate" t-att-title="line[col.field]" t-esc="line[col.field]"/>
+                                                            </div>
+                                                        </t>
+                                                        <t t-else="">
+                                                            <span t-esc="col.type === 'monetary' ? formatMonetary(line[col.field]) : line[col.field]"
+                                                                  t-att-style="col.type === 'monetary' ? (line[col.field] &gt; 0 ? 'color: #00a09d;' : (line[col.field] &lt; 0 ? 'color: red;' : '')) : ''"/>
+                                                        </t>
+                                                    </td>
+                                                </t>
+                                            </tr>
+                                        </t>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </t>
+
+                <!-- Standard Single Table View -->
+                <t t-else="">
+                    <div t-if="state.companies_description" class="small fw-semibold py-2 px-3 text-uppercase border-bottom" style="color: var(--body-color, #94a3b8); font-size: 0.78rem; letter-spacing: 0.03em; background-color: var(--o-view-background-color);">
+                        <t t-esc="state.companies_description"/>
+                    </div>
+                    <table class="table enterprise-table table-hover table-sm mb-0" style="table-layout: auto; width: 100%; border-collapse: collapse;">
+                        <thead class="table-light">
+                            <tr t-if="state.column_groups &amp;&amp; state.column_groups.length">
+                                <t t-foreach="state.column_groups" t-as="cgrp" t-key="cgrp_index">
+                                    <th t-att-colspan="cgrp.colspan" 
+                                        class="text-center text-nowrap py-2 px-2 border-bottom font-weight-bold" 
+                                        style="background-color: var(--o-view-background-color); font-size: 0.82rem; border-color: var(--border-color, #e2e8f0);"
+                                        t-esc="cgrp.label"/>
+                                </t>
+                            </tr>
+                            <tr style="border-bottom: 2px solid #cbd5e1;">
+                                <t t-foreach="state.columns" t-as="col" t-key="col.field">
+                                    <th t-att-class="col.type === 'monetary' ? 'text-end text-nowrap py-2 px-2' : 'text-nowrap py-2 px-2'" 
+                                        t-att-style="(col.field === 'name' ? 'min-width: 200px;' : (col.field === 'invoice_date' ? 'width: 120px; min-width: 110px;' : (col.field === 'journal' ? 'width: 65px; min-width: 60px;' : (col.field === 'account' ? 'min-width: 110px;' : (col.field === 'date' || col.field === 'date_maturity' ? 'width: 85px; min-width: 80px;' : (col.field === 'matching' ? 'width: 60px; min-width: 50px;' : (col.field === 'partner' ? 'min-width: 120px;' : 'min-width: 90px;'))))))) + ' font-size: 0.82rem; color: var(--body-color); font-weight: 600; background-color: var(--o-view-background-color);'">
+                                        <span t-if="state.model_name === 'account.aged.report' &amp;&amp; col.field !== 'name'" class="me-1 text-muted opacity-50" style="font-size: 0.75rem;"><i class="fa fa-sort"></i></span>
+                                        <span t-esc="col.label"/>
+                                    </th>
+                                </t>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <t t-foreach="state.lines" t-as="line" t-key="line.id">
+                                <tr t-if="isVisible(line)" 
+                                    t-att-class="{
+                                        'fw-bold': line.level === 1 || line.is_summary_total, 
+                                        'text-muted': line.level > 2 and !line.is_summary_total, 
+                                        'o_dynamic_report_clickable': ['account', 'move_line'].includes(line.type) || line.move_id
+                                    }"
+                                    t-on-click="() => this.onLineClicked(line)"
+                                    t-att-style="(line.level === 1 &amp;&amp; !line.is_summary_total ? 'background-color: var(--o-view-background-color); border-bottom: 1px solid var(--border-color, #f1f5f9);' : '') + 
+                                                 (line.is_summary_total ? 'background-color: var(--o-view-background-color); border-top: 1px solid var(--border-color, #cbd5e1); border-bottom: 2px solid var(--border-color, #0f172a); font-weight: 700;' : '') + 
+                                                 'cursor: ' + (['account', 'move_line'].includes(line.type) || line.move_id ? 'pointer' : 'default') + '; font-size: 0.84rem;'">
+                                    <t t-foreach="state.columns" t-as="col" t-key="col.field">
+                                        <td t-att-class="col.type === 'monetary' ? 'text-end text-nowrap py-2 px-2' : 'text-nowrap py-2 px-2'" 
+                                            style="vertical-align: middle; border-bottom: 1px solid #f1f5f9;">
+                                            <t t-if="col.field === 'name'">
+                                                <div t-att-style="'padding-left: ' + ((line.level - 1) * 20) + 'px; display: flex; align-items: center;'">
+                                                    <span t-if="hasChildren(line)" 
+                                                          class="me-2" 
+                                                          style="cursor: pointer; width: 14px; display: inline-block; text-align: center; color: #94a3b8;"
+                                                          t-on-click.stop="() => this.toggleExpand(line.id)">
+                                                        <i t-att-class="state.expandedLines[line.id] ? 'fa fa-caret-down text-dark' : 'fa fa-caret-right'"/>
+                                                    </span>
+                                                    <span t-else="" class="me-2" style="width: 14px; display: inline-block;"/>
+                                                    
+                                                    <!-- Transaction or Invoice Icon -->
+                                                    <t t-if="line.type === 'move_line' || line.move_id">
+                                                        <i t-if="['out_invoice', 'out_refund'].includes(line.move_type)" class="fa fa-file-text-o text-primary me-2" title="Customer Invoice"/>
+                                                        <i t-elif="['in_invoice', 'in_refund'].includes(line.move_type)" class="fa fa-file-text text-danger me-2" title="Vendor Bill"/>
+                                                        <i t-else="" class="fa fa-pencil-square-o text-secondary me-2" title="Journal Entry"/>
+                                                    </t>
+                                                    
+                                                    <span class="text-truncate" t-att-title="line[col.field]" t-esc="line[col.field]"/>
+                                                    
+                                                    <!-- Action buttons (e.g. Partner, Statement) -->
+                                                    <t t-if="line.action_buttons &amp;&amp; line.action_buttons.length">
+                                                        <t t-foreach="line.action_buttons" t-as="btn" t-key="btn.action">
+                                                            <button class="btn btn-sm btn-outline-secondary py-0 px-2 ms-2 rounded-pill shadow-none" 
+                                                                    style="font-size: 0.72rem; border-color: var(--border-color, #cbd5e1); color: var(--body-color); background-color: var(--o-view-background-color); font-weight: normal;"
+                                                                    t-on-click.stop="() => this.onActionClicked(line, btn.action)">
+                                                                <t t-esc="btn.label"/>
+                                                            </button>
+                                                        </t>
+                                                    </t>
+
+                                                    <!-- GL Journal Items Button -->
+                                                    <t t-if="state.model_name === 'account.report.general.ledger' &amp;&amp; ['group', 'account'].includes(line.type)">
+                                                        <button class="btn btn-sm btn-light border py-0 px-2 ms-2 text-muted shadow-none" 
+                                                                style="font-size: 0.72rem; border-color: #cbd5e1; border-radius: 4px; line-height: 1.3;"
+                                                                title="View Journal Items"
+                                                                t-on-click.stop="() => this.onActionClicked(line, 'open_journal_items')">
+                                                            Journal Items
+                                                        </button>
+                                                    </t>
+
+                                                    <!-- 3-Dot Dropdown Menu for Move Lines, Accounts and other reports -->
+                                                    <t t-elif="['account', 'move_line'].includes(line.type) || line.move_id || line.move_line_id || (line.type === 'tax' &amp;&amp; line.tax_id)">
+                                                        <div class="dropdown d-inline-block ms-2 position-relative o_dynamic_report_dropdown" style="vertical-align: middle;">
+                                                            <button class="btn btn-sm btn-link p-0 px-1 border-0 shadow-none" 
+                                                                    type="button" 
+                                                                    style="color: #00a09d !important; font-size: 0.95rem; line-height: 1; text-decoration: none; cursor: pointer;"
+                                                                    title="Options"
+                                                                    t-on-click.stop="(ev) => this.toggleLineDropdown(line.id, ev)">
+                                                                <i class="fa fa-ellipsis-v"></i>
+                                                            </button>
+                                                            <div t-if="state.openDropdownLineId === line.id" 
+                                                                 class="dropdown-menu show shadow border py-1 bg-white" 
+                                                                 t-att-style="(state.dropdownIsDropup ? 'bottom: 100%; top: auto; margin-bottom: 6px;' : 'top: 100%; margin-top: 2px;') + ' display: block; position: absolute; left: 0; z-index: 9999; min-width: 170px; border-radius: 6px; box-shadow: 0 8px 24px rgba(0,0,0,0.18); border: 1px solid #cbd5e1;'">
+                                                                <t t-if="line.move_id">
+                                                                    <a class="dropdown-item py-1 px-3 text-dark cursor-pointer d-flex align-items-center" 
+                                                                       style="font-size: 0.85rem;"
+                                                                       t-on-click.stop="() => { this.toggleLineDropdown(null); this.onActionClicked(line, 'open_journal_entry'); }">
+                                                                        <i class="fa fa-file-text-o me-2 text-primary"></i>
+                                                                        <span>
+                                                                            <t t-if="['out_invoice', 'out_refund'].includes(line.move_type)">View Invoice</t>
+                                                                            <t t-elif="['in_invoice', 'in_refund'].includes(line.move_type)">View Bill</t>
+                                                                            <t t-else="">View Journal Entry</t>
+                                                                        </span>
+                                                                    </a>
+                                                                </t>
+                                                                <a class="dropdown-item py-1 px-3 text-dark cursor-pointer d-flex align-items-center" 
+                                                                   style="font-size: 0.85rem;"
+                                                                   t-on-click.stop="() => { this.toggleLineDropdown(null); this.onActionClicked(line, 'open_journal_items'); }">
+                                                                    <i class="fa fa-list me-2 text-secondary"></i>
+                                                                    <span>Journal Items</span>
+                                                                </a>
+                                                                <a class="dropdown-item py-1 px-3 text-dark cursor-pointer d-flex align-items-center" 
+                                                                   style="font-size: 0.85rem;"
+                                                                   t-on-click.stop="() => { this.toggleLineDropdown(null); this.onActionClicked(line, 'open_general_ledger'); }">
+                                                                    <i class="fa fa-book me-2 text-secondary"></i>
+                                                                    <span>General Ledger</span>
+                                                                </a>
+                                                                <t t-if="line.type === 'tax' &amp;&amp; line.tax_id">
+                                                                    <a class="dropdown-item py-1 px-3 text-dark cursor-pointer d-flex align-items-center" 
+                                                                       style="font-size: 0.85rem;"
+                                                                       t-on-click.stop="() => { this.toggleLineDropdown(null); this.onAuditTax(line); }">
+                                                                        <i class="fa fa-search me-2 text-info"></i>
+                                                                        <span>Audit Tax</span>
+                                                                    </a>
+                                                                </t>
+                                                            </div>
+                                                        </div>
+                                                    </t>
+                                                </div>
+                                            </t>
+                                            <t t-else="">
+                                                <span t-esc="col.type === 'monetary' ? formatMonetary(line[col.field], line, col) : line[col.field]"
+                                                      t-att-style="col.type === 'monetary' ? (isZeroValue(line[col.field]) ? 'color: #cbd5e1;' : 'color: #334155; font-weight: inherit;') : ''"/>
+                                            </t>
+                                        </td>
+                                    </t>
+                                </tr>
+                            </t>
+                        </tbody>
+                    </table>
+                </t>
+            </div>
+        </div>
+    </t>
+</templates>

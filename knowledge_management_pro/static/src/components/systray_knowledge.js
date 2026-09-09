@@ -1,6 +1,6 @@
 /** @odoo-module **/
 
-import { Component, xml, useState, onWillStart } from "@odoo/owl";
+import { Component, xml, useState, onWillStart, onWillDestroy } from "@odoo/owl";
 import { useService } from "@web/core/utils/hooks";
 import { registry } from "@web/core/registry";
 import { KnowledgeManagementEditor } from "./editor";
@@ -25,13 +25,23 @@ export class KnowledgeSystrayItem extends Component {
         });
         
         // Close dropdown when clicking outside
-        const closeMenu = (ev) => {
+        this.onClickOutside = (ev) => {
             if (this.state.isOpen && !ev.target.closest(".o_knowledge_systray_item")) {
                 this.state.isOpen = false;
             }
         };
-        document.addEventListener("click", closeMenu);
-        // Clean up inside destroy... but Owl 2 manages events better with hooks.
+        document.addEventListener("click", this.onClickOutside);
+        
+        onWillDestroy(() => {
+            document.removeEventListener("click", this.onClickOutside);
+        });
+    }
+
+    stripHtml(html) {
+        if (!html) return 'Untitled';
+        const tmp = document.createElement("DIV");
+        tmp.innerHTML = html;
+        return tmp.textContent || tmp.innerText || "Untitled";
     }
 
     async toggleMenu(ev) {
@@ -135,7 +145,7 @@ KnowledgeSystrayItem.template = xml`
                                     <t t-else="">📄</t>
                                 </span>
                                 <div class="flex-grow-1 text-truncate">
-                                    <div class="font-weight-bold text-dark text-truncate" t-esc="article.name || 'Untitled'"></div>
+                                    <div class="font-weight-bold text-dark text-truncate" t-esc="this.stripHtml(article.name || 'Untitled')"></div>
                                 </div>
                             </div>
                         </div>
@@ -184,4 +194,5 @@ export const systrayItem = {
     Component: KnowledgeSystrayItem,
 };
 
-registry.category("systray").add("KnowledgeSystrayItem", systrayItem, { sequence: 90 });
+// Removed as per user request to hide the book icon from the top navbar
+// registry.category("systray").add("KnowledgeSystrayItem", systrayItem, { sequence: 90 });

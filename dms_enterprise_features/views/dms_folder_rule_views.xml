@@ -5,26 +5,45 @@
 -->
 <odoo>
 
+    <!-- ── Search View ────────────────────────────────────────────────── -->
+    <record id="view_dms_folder_rule_search" model="ir.ui.view">
+        <field name="name">dms.folder.rule.search</field>
+        <field name="model">dms.folder.rule</field>
+        <field name="arch" type="xml">
+            <search string="Search Auto-Assignment Rules">
+                <field name="name" string="Rule Name"/>
+                <field name="trigger_type"/>
+                <field name="model_id"/>
+                <field name="directory_id"/>
+                <field name="category_id"/>
+                <field name="area"/>
+                <filter name="active_rules" string="Active" domain="[('active', '=', True)]"/>
+                <filter name="archived_rules" string="Archived" domain="[('active', '=', False)]"/>
+                <separator/>
+                <filter name="group_by_area" string="Business Area" context="{'group_by': 'area'}"/>
+                <filter name="group_by_trigger" string="Trigger Type" context="{'group_by': 'trigger_type'}"/>
+                <filter name="group_by_directory" string="Target Folder" context="{'group_by': 'directory_id'}"/>
+            </search>
+        </field>
+    </record>
+
     <!-- ── List View ──────────────────────────────────────────────────── -->
     <record id="view_dms_folder_rule_list" model="ir.ui.view">
         <field name="name">dms.folder.rule.list</field>
         <field name="model">dms.folder.rule</field>
         <field name="arch" type="xml">
-            <list string="Folder Auto-Assignment Rules"
-                  decoration-muted="not active">
+            <list string="Folder Auto-Assignment Rules" decoration-muted="not active">
                 <field name="sequence" widget="handle"/>
                 <field name="active" widget="boolean_toggle"/>
                 <field name="name"/>
-                <field name="area" widget="badge"
-                       decoration-info="area == 'hr'"
-                       decoration-success="area == 'accounting'"
-                       decoration-warning="area == 'recruitment'"
-                       decoration-primary="area == 'project'"/>
+                <field name="trigger_type" widget="badge"/>
                 <field name="model_id"/>
                 <field name="directory_path" string="Target Folder"/>
-                <field name="tag_ids" widget="many2many_tags"/>
-                <field name="create_subfolder"/>
-                <field name="company_id" groups="base.group_multi_company"/>
+                <field name="category_id" optional="show"/>
+                <field name="tag_ids" widget="many2many_tags" optional="show"/>
+                <field name="create_subfolder" optional="show"/>
+                <field name="file_count" string="Files Routed" optional="show"/>
+                <field name="company_id" groups="base.group_multi_company" optional="hide"/>
             </list>
         </field>
     </record>
@@ -35,63 +54,61 @@
         <field name="model">dms.folder.rule</field>
         <field name="arch" type="xml">
             <form string="Folder Auto-Assignment Rule">
+                <header>
+                    <button name="action_route_existing_attachments"
+                            string="Route Existing Documents Now"
+                            type="object"
+                            class="btn-primary"
+                            icon="fa-bolt"
+                            help="Search existing documents in Odoo matching this rule and route them into the folder."/>
+                </header>
                 <sheet>
-                    <!-- Header Status Bar -->
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_view_routed_files"
+                                type="object"
+                                class="oe_stat_button"
+                                icon="fa-file-text-o">
+                            <field name="file_count" widget="statinfo" string="Routed Files"/>
+                        </button>
+                    </div>
+
+                    <widget name="web_ribbon" title="Archived" bg_color="text-bg-danger" invisible="active"/>
+
                     <div class="oe_title">
                         <label for="name" string="Rule Name"/>
                         <h1>
-                            <field name="name" placeholder="e.g. Route HR Documents"/>
+                            <field name="name" placeholder="e.g., Route Vendor Bills"/>
                         </h1>
                     </div>
 
-                    <group col="4">
-                        <field name="active" widget="boolean_toggle"/>
-                        <field name="area"/>
-                        <field name="sequence"/>
-                        <field name="company_id"
-                               groups="base.group_multi_company"/>
+                    <div class="alert alert-info py-2" role="alert">
+                        <strong>Quick Setup:</strong> Select a <em>Trigger Preset</em> below to automatically configure the source model, domain filter, and recommended destination folder.
+                    </div>
+
+                    <group>
+                        <group string="Trigger &amp; Source Document">
+                            <field name="trigger_type" widget="selection"/>
+                            <field name="model_id" options="{'no_create': True}" required="1"/>
+                            <field name="model_name" invisible="1"/>
+                            <field name="domain" widget="domain" options="{'model': 'model_name'}"/>
+                            <field name="area"/>
+                            <field name="active" widget="boolean_toggle"/>
+                            <field name="sequence"/>
+                            <field name="company_id" groups="base.group_multi_company"/>
+                        </group>
+
+                        <group string="Destination &amp; Organization">
+                            <field name="directory_id" options="{'no_create': False}" required="1"/>
+                            <field name="directory_path" string="Folder Path" readonly="1"/>
+                            <field name="category_id" options="{'no_create': True}" placeholder="Assign Category..."/>
+                            <field name="tag_ids" widget="many2many_tags" placeholder="Assign Tags..."/>
+                            <separator string="Subfolder Organization" class="mt-3"/>
+                            <field name="create_subfolder"/>
+                            <field name="subfolder_name_field"
+                                   invisible="not create_subfolder"
+                                   placeholder="Default: Record Name"/>
+                        </group>
                     </group>
-
-                    <notebook>
-                        <!-- ── Source Tab ── -->
-                        <page string="Source" name="source">
-                            <group string="Document Source">
-                                <group>
-                                    <field name="model_id"
-                                           options="{'no_create': True}"
-                                           help="Odoo model whose attachments will be auto-routed."/>
-                                    <field name="model_name" invisible="1"/>
-                                    <field name="domain" widget="domain"
-                                           options="{'model': 'model_name'}"
-                                           help="Optional filter. Only matching records trigger this rule."/>
-                                </group>
-                            </group>
-                        </page>
-
-                        <!-- ── Target Tab ── -->
-                        <page string="Target" name="target">
-                            <group string="Destination Folder">
-                                <group>
-                                    <field name="directory_id"
-                                           options="{'no_create': False}"/>
-                                    <field name="directory_path"
-                                           string="Full Path"
-                                           readonly="True"/>
-                                    <field name="tag_ids"
-                                           widget="many2many_tags"
-                                           help="Tags applied to every document routed by this rule."/>
-                                </group>
-                            </group>
-
-                            <group string="Per-Record Subfolder">
-                                <group>
-                                    <field name="create_subfolder"/>
-                                    <field name="subfolder_name_field"
-                                           invisible="not create_subfolder"/>
-                                </group>
-                            </group>
-                        </page>
-                    </notebook>
                 </sheet>
             </form>
         </field>
@@ -102,13 +119,14 @@
         <field name="name">Folder Auto-Assignment Rules</field>
         <field name="res_model">dms.folder.rule</field>
         <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_dms_folder_rule_search"/>
         <field name="help" type="html">
             <p class="o_view_nocontent_smiling_face">
                 Create your first auto-assignment rule!
             </p>
             <p>
                 Rules automatically route documents from Odoo business records
-                (HR, Accounting, Projects, etc.) into the right DMS folder.
+                (Vendor Bills, Sales Orders, Recruitment CVs, Helpdesk Tickets, etc.) into organized DMS folders.
             </p>
         </field>
     </record>
@@ -122,5 +140,4 @@
         action="action_dms_folder_rules"
         groups="dms.group_dms_manager"
     />
-
 </odoo>

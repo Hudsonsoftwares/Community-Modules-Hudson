@@ -15,3 +15,6 @@ from . import account_budget
 from . import res_company
 from . import res_config_settings
 from . import account_analytic_line
+from . import html_reports
+from . import dynamic_report
+

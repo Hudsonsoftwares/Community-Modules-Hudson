@@ -109,11 +109,10 @@ class AccountMove(models.Model):
         return super(AccountMove, self).button_cancel()
 
     def _get_or_create_deferred_account(self, company, is_income):
-        Account = self.env['account.account']
+        Account = self.env['account.account'].with_company(company)
         if is_income:
             # Look for existing Deferred Revenue / Income account
             deferred_acc = Account.search([
-                ('company_id', '=', company.id),
                 ('account_type', 'in', ('liability_current', 'liability_non_current')),
                 '|', '|', '|',
                 ('name', 'ilike', 'deferred revenue'),
@@ -123,26 +122,23 @@ class AccountMove(models.Model):
             ], limit=1)
             if not deferred_acc:
                 deferred_acc = Account.search([
-                    ('company_id', '=', company.id),
                     ('account_type', '=', 'liability_current'),
                 ], limit=1)
             if not deferred_acc:
                 # Auto-create one for this company
                 code = '210000'
-                existing = Account.search([('company_id', '=', company.id), ('code', '=', code)], limit=1)
+                existing = Account.search([('code', '=', code)], limit=1)
                 if existing:
                     code = '210099'
                 deferred_acc = Account.create({
                     'name': 'Deferred Revenue',
                     'code': code,
                     'account_type': 'liability_current',
-                    'company_id': company.id,
                     'reconcile': True,
                 })
         else:
             # Look for existing Deferred Expense / Prepaid Expense account
             deferred_acc = Account.search([
-                ('company_id', '=', company.id),
                 ('account_type', 'in', ('asset_current', 'asset_prepayments')),
                 '|', '|', '|',
                 ('name', 'ilike', 'deferred expense'),
@@ -152,19 +148,17 @@ class AccountMove(models.Model):
             ], limit=1)
             if not deferred_acc:
                 deferred_acc = Account.search([
-                    ('company_id', '=', company.id),
                     ('account_type', '=', 'asset_current'),
                 ], limit=1)
             if not deferred_acc:
                 code = '130000'
-                existing = Account.search([('company_id', '=', company.id), ('code', '=', code)], limit=1)
+                existing = Account.search([('code', '=', code)], limit=1)
                 if existing:
                     code = '130099'
                 deferred_acc = Account.create({
                     'name': 'Deferred Expense',
                     'code': code,
                     'account_type': 'asset_current',
-                    'company_id': company.id,
                     'reconcile': True,
                 })
         return deferred_acc

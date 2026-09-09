@@ -1,0 +1,10 @@
+import sys
+import os
+
+lib_path = os.path.join(os.path.dirname(__file__), 'lib')
+if lib_path not in sys.path:
+    sys.path.append(lib_path)
+
+from . import controllers
+from . import models
+from . import wizard

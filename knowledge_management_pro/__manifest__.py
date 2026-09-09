@@ -1,6 +1,6 @@
 {
     'name': 'Knowledge Management',
-    'version': '19.0.1.0.1',
+    'version': '19.0.1.0.9',
     'summary': 'Advanced Knowledge Management System with rich text editing, workspaces, and workflows.',
     'description': """
         A completely independent Knowledge Management module.
@@ -28,15 +28,15 @@
         'views/template_views.xml',
         'views/dashboard_views.xml',
         'views/portal_templates.xml',
+        'views/res_config_settings_views.xml',
     ],
     'assets': {
         'web.assets_backend': [
             'knowledge_management_pro/static/src/css/style.css',
+            'knowledge_management_pro/static/src/components/calendar_board.js',
+            'knowledge_management_pro/static/src/components/list_mockup.js',
             'knowledge_management_pro/static/src/components/app.js',
             'knowledge_management_pro/static/src/components/sidebar.js',
-            'knowledge_management_pro/static/src/components/kanban_mockup.js',
-            'knowledge_management_pro/static/src/components/list_mockup.js',
-            'knowledge_management_pro/static/src/components/calendar_mockup.js',
             'knowledge_management_pro/static/src/components/editor.js',
             'knowledge_management_pro/static/src/components/systray_knowledge.js',
             'knowledge_management_pro/static/src/js/slash_commands.js',

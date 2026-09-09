@@ -45,6 +45,28 @@ class DmsDirectory(models.Model):
             record.size = 0
             record.human_size = ""
 
+    @api.model
+    def search_panel_select_range(self, field_name, **kwargs):
+        res = super().search_panel_select_range(field_name, **kwargs)
+        if isinstance(res, list):
+            res = {"values": res}
+        elif not isinstance(res, dict):
+            res = {"values": []}
+        elif "values" not in res:
+            res["values"] = []
+        return res
+
+    @api.model
+    def search_panel_select_multi_range(self, field_name, **kwargs):
+        res = super().search_panel_select_multi_range(field_name, **kwargs)
+        if isinstance(res, list):
+            res = {"values": res}
+        elif not isinstance(res, dict):
+            res = {"values": []}
+        elif "values" not in res:
+            res["values"] = []
+        return res
+
     @api.depends("name", "parent_id.complete_name")
     def _compute_complete_name(self):
         """Override to neutralize recursive full path computation."""
@@ -65,6 +87,18 @@ class DmsDirectory(models.Model):
         "directory_id",
         string="Permission Lines",
     )
+    group_permission_ids = fields.One2many(
+        "dms.directory.permission",
+        "directory_id",
+        domain=[("group_id", "!=", False)],
+        string="Access Group Permissions",
+    )
+    user_permission_ids = fields.One2many(
+        "dms.directory.permission",
+        "directory_id",
+        domain=[("group_id", "=", False)],
+        string="User Permissions",
+    )
 
     complete_permission_line_ids = fields.Many2many(
         "dms.directory.permission",
@@ -73,6 +107,7 @@ class DmsDirectory(models.Model):
         column2="perm_id",
         compute="_compute_complete_permission_line_ids",
         store=True,
+        recursive=True,
     )
 
     @api.depends(
@@ -108,32 +143,53 @@ class DmsDirectory(models.Model):
     trash_date = fields.Datetime(
         string="Trash Date"
     )
+    parent_is_trashed = fields.Boolean(
+        related='parent_id.is_trashed',
+        string="Parent is Trashed"
+    )
+
+    def action_open_move_wizard(self):
+        return {
+            'name': _('Move Folder(s)'),
+            'type': 'ir.actions.act_window',
+            'res_model': 'dms.move.wizard',
+            'view_mode': 'form',
+            'target': 'new',
+            'context': {
+                'active_model': 'dms.directory',
+                'active_ids': self.ids,
+            },
+        }
 
     def action_send_to_trash(self):
         for record in self:
             record.write({
                 'is_trashed': True,
-                'trash_date': fields.Datetime.now(),
-                'active': False
+                'trash_date': fields.Datetime.now()
             })
             # Also trash all files within
             record.file_ids.action_send_to_trash()
             # And child directories
             record.child_directory_ids.action_send_to_trash()
-        return True
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'reload',
+        }
 
     def action_restore(self):
         for record in self:
             record.write({
                 'is_trashed': False,
-                'trash_date': False,
-                'active': True
+                'trash_date': False
             })
             # Restore files within
             record.file_ids.with_context(active_test=False).filtered('is_trashed').action_restore()
             # Restore child directories
             record.child_directory_ids.with_context(active_test=False).filtered('is_trashed').action_restore()
-        return True
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'reload',
+        }
 
     def unlink(self):
         # Soft delete logic: if not in trash, send to trash instead.

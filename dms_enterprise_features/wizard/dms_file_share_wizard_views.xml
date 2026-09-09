@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_dms_file_share_wizard_form" model="ir.ui.view">
+        <field name="name">dms.file.share.wizard.form</field>
+        <field name="model">dms.file.share.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Share">
+                <field name="file_id" invisible="1"/>
+                <field name="file_name" invisible="1"/>
+                <field name="share_link_url" invisible="1"/>
+
+                <div class="px-2 py-1">
+                    <!-- Share Mode Selector: Add People vs Add Groups -->
+                    <div class="mb-3">
+                        <field name="share_mode" widget="radio" options="{'horizontal': True}" class="fw-semibold"/>
+                    </div>
+
+                    <!-- Add Input Row with Role and Add Button -->
+                    <div class="row g-2 align-items-center mb-4 pb-2 border-bottom">
+                        <div class="col-7" invisible="share_mode != 'people'">
+                            <field name="partner_ids" widget="many2many_tags" placeholder="Add contacts, people or email addresses..." options="{'no_create_edit': True}"/>
+                        </div>
+                        <div class="col-7" invisible="share_mode != 'groups'">
+                            <field name="group_ids" widget="many2many_tags" placeholder="Add groups..." options="{'no_create': True, 'no_create_edit': True}"/>
+                        </div>
+                        <div class="col-3">
+                            <field name="new_access_role" class="form-select"/>
+                        </div>
+                        <div class="col-2">
+                            <button name="action_add_access" string="Add" type="object" class="btn btn-outline-primary w-100"/>
+                        </div>
+                    </div>
+
+                    <!-- People with access Section -->
+                    <div class="mb-4">
+                        <h6 class="fw-bold text-dark mb-2">People with access</h6>
+                        <div class="border rounded px-3 py-1 bg-white" style="max-height: 180px; overflow-y: auto;">
+                            <field name="people_with_access_html" widget="html" readonly="1" nolabel="1"/>
+                        </div>
+                    </div>
+
+                    <!-- General Access Section -->
+                    <div class="mb-2">
+                        <h6 class="fw-bold text-dark mb-3">General Access</h6>
+                        
+                        <!-- Internal Users -->
+                        <div class="d-flex align-items-center justify-content-between py-2 border-bottom">
+                            <div>
+                                <div class="fw-bold text-dark">Internal users</div>
+                                <div class="text-muted small">Only people with access can open with the link</div>
+                            </div>
+                            <div style="min-width: 130px;">
+                                <field name="share_internal_access" class="form-select"/>
+                            </div>
+                        </div>
+
+                        <!-- Access through link -->
+                        <div class="d-flex align-items-center justify-content-between py-2 border-bottom">
+                            <div>
+                                <div class="fw-bold text-dark">Access through link</div>
+                                <div class="text-muted small" invisible="share_link_access != 'viewer'">Can only view and download. Cannot replace or edit.</div>
+                                <div class="text-muted small" invisible="share_link_access != 'editor'">Can view, download, and replace document.</div>
+                                <div class="text-muted small" invisible="share_link_access != 'none'">Link is restricted. No public access.</div>
+                            </div>
+                            <div style="min-width: 130px;">
+                                <field name="share_link_access" class="form-select"/>
+                            </div>
+                        </div>
+
+                        <!-- Discoverable -->
+                        <div class="d-flex align-items-center justify-content-between py-2">
+                            <div>
+                                <div class="fw-bold text-dark">Discoverable</div>
+                                <div class="text-muted small">Allow discovery through search portal</div>
+                            </div>
+                            <div style="min-width: 130px;">
+                                <field name="share_is_discoverable" class="form-select"/>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <footer class="d-flex align-items-center justify-content-between pt-3 border-top">
+                    <button name="action_save_and_close" string="Done" type="object" class="btn btn-primary px-4" style="background-color: #714B67; border-color: #714B67;"/>
+                    
+                    <div class="d-flex align-items-center">
+                        <field name="share_link_url" widget="CopyClipboardChar" readonly="1"/>
+                    </div>
+                </footer>
+
+            </form>
+        </field>
+    </record>
+
+    <!-- Action for Share Wizard -->
+    <record id="action_dms_file_share_wizard" model="ir.actions.act_window">
+        <field name="name">Share</field>
+        <field name="res_model">dms.file.share.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+        <field name="view_id" ref="view_dms_file_share_wizard_form"/>
+    </record>
+</odoo>

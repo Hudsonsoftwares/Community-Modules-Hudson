@@ -40,45 +40,27 @@ class IrAttachment(models.Model):
         for attachment in self:
             if not attachment.res_model or not attachment.res_id:
                 continue
-            # Check if the area for this model is enabled in settings
-            if not self._is_area_enabled(attachment.res_model):
+            # Avoid routing files belonging directly to dms.file or dms.directory
+            if attachment.res_model in ("dms.file", "dms.directory"):
                 continue
-            rule = FolderRule.find_matching_rule(attachment.res_model)
+
+            record = None
+            if attachment.res_model in self.env:
+                try:
+                    record = self.env[attachment.res_model].sudo().browse(attachment.res_id)
+                    if not record.exists():
+                        record = None
+                except Exception:
+                    record = None
+
+            rule = FolderRule.find_matching_rule(attachment.res_model, record=record)
             if rule:
                 try:
                     rule.route_attachment(attachment)
                 except Exception as e:
                     _logger.warning(
-                        "DMS Enterprise: failed to route attachment %s: %s",
+                        "DMS Enterprise: failed to route attachment %s (rule '%s'): %s",
                         attachment.id,
+                        rule.name,
                         e,
                     )
-
-    def _is_area_enabled(self, model_name):
-        """Check if the DMS auto-routing is enabled for the given model's area."""
-        ICP = self.env["ir.config_parameter"].sudo()
-        _model_to_param = {
-            "hr.employee": "dms_enterprise.hr_enabled",
-            "hr.contract": "dms_enterprise.hr_enabled",
-            "hr.payslip": "dms_enterprise.hr_enabled",
-            "hr.applicant": "dms_enterprise.recruitment_enabled",
-            "hr.job": "dms_enterprise.recruitment_enabled",
-            "account.move": "dms_enterprise.accounting_enabled",
-            "account.journal": "dms_enterprise.accounting_enabled",
-            "product.template": "dms_enterprise.product_enabled",
-            "product.product": "dms_enterprise.product_enabled",
-            "project.project": "dms_enterprise.project_enabled",
-            "project.task": "dms_enterprise.project_enabled",
-            "approval.request": "dms_enterprise.approvals_enabled",
-            "sign.request": "dms_enterprise.sign_enabled",
-        }
-        param_key = _model_to_param.get(model_name)
-        if not param_key:
-            # Unknown model — check if any active rule exists
-            return bool(
-                self.env["dms.folder.rule"].sudo().search(
-                    [("model_name", "=", model_name), ("active", "=", True)],
-                    limit=1,
-                )
-            )
-        return ICP.get_param(param_key, "False") in ("True", "1", "true")

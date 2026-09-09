@@ -20,17 +20,8 @@
                         <field name="rental_end_date" invisible="1"/>
                     </div>
                 </xpath>
-            </field>
-        </record>
-
-        <!-- Sale Order Line Tree View - Add Rental Fields -->
-        <record id="sale_order_line_tree_view_rental" model="ir.ui.view">
-            <field name="name">sale.order.line.rental.tree</field>
-            <field name="model">sale.order.line</field>
-            <field name="inherit_id" ref="sale.view_order_line_tree"/>
-            <field name="arch" type="xml">
-                <xpath expr="//field[@name='name']" position="after">
-                    <field name="is_rental" optional="hide"/>
+                <xpath expr="//field[@name='order_line']//field[@name='name']" position="after">
+                    <field name="is_rental" column_invisible="1"/>
                     <field name="rental_start_date" optional="hide" invisible="not is_rental"/>
                     <field name="rental_end_date" optional="hide" invisible="not is_rental"/>
                 </xpath>

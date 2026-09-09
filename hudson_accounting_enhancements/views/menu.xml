@@ -308,14 +308,14 @@ action = {'name': 'Journal Audit', 'type': 'ir.actions.client', 'tag': 'hudson_d
               sequence="20"/>
 
     <!-- Deferred Revenues Action -->
-    <record id="action_hudson_deferred_revenues" model="ir.actions.client">
+    <record id="action_client_hudson_deferred_revenues" model="ir.actions.client">
         <field name="name">Deferred Revenues</field>
         <field name="tag">hudson_dynamic_reports.dynamic_report</field>
         <field name="params" eval="{'model_name': 'account.deferred.revenue.report'}"/>
     </record>
 
     <!-- Deferred Expenses Action -->
-    <record id="action_hudson_deferred_expenses" model="ir.actions.client">
+    <record id="action_client_hudson_deferred_expenses" model="ir.actions.client">
         <field name="name">Deferred Expenses</field>
         <field name="tag">hudson_dynamic_reports.dynamic_report</field>
         <field name="params" eval="{'model_name': 'account.deferred.expense.report'}"/>
@@ -325,31 +325,17 @@ action = {'name': 'Journal Audit', 'type': 'ir.actions.client', 'tag': 'hudson_d
     <menuitem id="menu_hudson_deferred_revenues"
               name="Deferred Revenues"
               parent="menu_account_review_regularization"
-              action="action_hudson_deferred_revenues"
+              action="action_client_hudson_deferred_revenues"
               sequence="5"
               groups="account.group_account_user,account.group_account_manager"/>
 
     <menuitem id="menu_hudson_deferred_expenses"
               name="Deferred Expenses"
               parent="menu_account_review_regularization"
-              action="action_hudson_deferred_expenses"
+              action="action_client_hudson_deferred_expenses"
               sequence="6"
               groups="account.group_account_user,account.group_account_manager"/>
 
-    <!-- Reporting -> Management -> Deferred Revenues / Expenses -->
-    <menuitem id="menu_hudson_report_deferred_revenues"
-              name="Deferred Revenues"
-              parent="account.account_reports_management_menu"
-              action="action_hudson_deferred_revenues"
-              sequence="50"
-              groups="account.group_account_user,account.group_account_manager"/>
-
-    <menuitem id="menu_hudson_report_deferred_expenses"
-              name="Deferred Expenses"
-              parent="account.account_reports_management_menu"
-              action="action_hudson_deferred_expenses"
-              sequence="60"
-              groups="account.group_account_user,account.group_account_manager"/>
 
     <!-- Unrealized Currencies -->
     <record id="action_server_report_unrealized" model="ir.actions.server">
@@ -398,6 +384,13 @@ action = {'name': 'Unrealized Currency Gains/Losses', 'type': 'ir.actions.client
         <field name="parent_id" ref="hudson_accounting_enhancements.menu_assets_and_liabilities"/>
         <field name="sequence">10</field>
     </record>
+
+    <!-- Loans under Assets & Liabilities -->
+    <menuitem id="menu_hudson_loan_root"
+              name="Loans"
+              parent="hudson_accounting_enhancements.menu_assets_and_liabilities"
+              sequence="20"
+              action="action_hudson_loan"/>
     
     <!-- Link Fleet Vehicles under Assets & Liabilities -->
     <menuitem id="menu_accounting_fleet_vehicles"
@@ -425,6 +418,13 @@ action = {'name': 'Unrealized Currency Gains/Losses', 'type': 'ir.actions.client
         <field name="name">Depreciation Schedule</field>
         <field name="sequence">20</field>
     </record>
+
+    <!-- Inventory Valuation under Review -> Inventory -->
+    <menuitem id="menu_hudson_inventory_valuation"
+              name="Inventory Valuation"
+              parent="hudson_accounting_enhancements.menu_review_inventory"
+              action="action_hudson_inventory_valuation"
+              sequence="30"/>
     <!-- ========================================================================= -->
     <!-- HIDE UNWANTED MENUS (from community modules that pollute the menu)        -->
     <!-- ========================================================================= -->

@@ -96,8 +96,4 @@
         </field>
     </record>
 
-    <!-- Menu Item (Assuming there is a top-level or standard accounting menu, we will place it under accounting root or similar. If account_asset is not installed, we can put it under Accounting -> Management) -->
-    <!-- Loans root menu under the existing Assets & Liabilities menu -->
-    <menuitem id="menu_hudson_loan_root" name="Loans" parent="hudson_accounting_enhancements.menu_assets_and_liabilities" sequence="20" action="action_hudson_loan"/>
-
 </odoo>

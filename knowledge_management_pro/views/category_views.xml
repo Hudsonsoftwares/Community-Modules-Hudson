@@ -33,10 +33,6 @@
         <field name="view_mode">list,form</field>
     </record>
 
-    <menuitem id="knowledge_management_pro_menu_categories"
-              name="Categories"
-              parent="knowledge_management_pro_menu_configuration"
-              action="knowledge_management_pro_action_categories"
-              sequence="20"/>
+
 
 </odoo>

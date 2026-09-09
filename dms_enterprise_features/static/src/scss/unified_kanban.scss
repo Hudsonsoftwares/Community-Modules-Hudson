@@ -1,0 +1,69 @@
+/* DMS Unified Kanban Grid Layout */
+.o_kanban_renderer.o_kanban_ungrouped,
+.mk_file_kanban_view .o_kanban_renderer.o_kanban_ungrouped,
+.o_kanban_view .o_kanban_renderer.o_kanban_ungrouped {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)) !important;
+    gap: 1rem !important;
+    padding: 1rem !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    align-content: start !important;
+}
+
+@media (min-width: 1200px) {
+    .o_kanban_renderer.o_kanban_ungrouped,
+    .mk_file_kanban_view .o_kanban_renderer.o_kanban_ungrouped,
+    .o_kanban_view .o_kanban_renderer.o_kanban_ungrouped {
+        grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    }
+}
+
+.o_kanban_renderer.o_kanban_ungrouped > .o_dms_directories_container,
+.mk_file_kanban_view .o_kanban_renderer.o_kanban_ungrouped > .o_dms_directories_container {
+    grid-column: 1 / -1 !important;
+    width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    box-sizing: border-box !important;
+}
+
+.o_dms_folders_grid {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)) !important;
+    gap: 1rem !important;
+    width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    box-sizing: border-box !important;
+}
+
+@media (min-width: 1200px) {
+    .o_dms_folders_grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    }
+}
+
+.o_kanban_renderer.o_kanban_ungrouped .o_kanban_record,
+.mk_file_kanban_view .o_kanban_renderer.o_kanban_ungrouped .o_kanban_record {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    flex: none !important;
+    margin: 0 !important;
+    box-sizing: border-box !important;
+}
+
+.o_kanban_renderer.o_kanban_ungrouped .o_kanban_ghost {
+    display: none !important;
+}
+
+.o_dms_folder_card {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    min-height: 90px;
+    position: relative;
+    margin: 0 !important;
+    box-sizing: border-box !important;
+}

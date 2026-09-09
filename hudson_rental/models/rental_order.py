@@ -124,7 +124,8 @@ class RentalOrder(models.Model):
         for order in self:
             # Check stock availability
             for line in order.order_line_ids:
-                if line.product_id.type == 'product':
+                is_storable = getattr(line.product_id, 'is_storable', line.product_id.type == 'product')
+                if is_storable and order.company_id.rental_location_id:
                     available = line.product_id.with_context(
                         location=order.company_id.rental_location_id.id
                     ).qty_available
@@ -233,7 +234,8 @@ class RentalOrder(models.Model):
             
             # Create moves for each line
             for line in order.order_line_ids:
-                if line.product_id.type == 'product':
+                is_storable = getattr(line.product_id, 'is_storable', line.product_id.type == 'product')
+                if is_storable:
                     self.env['stock.move'].create({
                         'name': line.product_id.name,
                         'product_id': line.product_id.id,

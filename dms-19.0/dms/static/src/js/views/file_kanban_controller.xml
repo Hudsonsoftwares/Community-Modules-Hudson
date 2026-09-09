@@ -8,16 +8,16 @@
     >
         <xpath expr="//div[hasclass('o_selection_container')]" position="inside">
             <t t-if="!env.isSmall">
-                <button class="btn btn-secondary me-1" t-on-click="() => this.onDownload()">
+                <button t-if="this.isDownloadVisible" class="btn btn-secondary me-1" t-on-click="() => this.onDownload()">
                     <i class="fa fa-download me-1"/>Download
                 </button>
-                <button class="btn btn-secondary me-1" t-on-click="() => this.onShare()">
+                <button t-if="this.isShareVisible" class="btn btn-secondary me-1" t-on-click="() => this.onShare()">
                     <i class="fa fa-share-alt me-1"/>Share
                 </button>
                 <button t-if="this.isSignVisible" class="btn btn-secondary me-1" t-on-click="() => this.onSign()">
                     <i class="fa fa-pencil-square-o me-1"/>Sign
                 </button>
-                <div class="dropdown me-1 d-inline-block">
+                <div t-if="this.isMoreVisible" class="dropdown me-1 d-inline-block">
                     <button class="btn btn-secondary dropdown-toggle" data-bs-toggle="dropdown">
                         More
                     </button>

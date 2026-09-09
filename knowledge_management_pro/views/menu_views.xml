@@ -27,7 +27,7 @@
               name="Configuration"
               parent="knowledge_management_pro_menu_root"
               sequence="100"
-              active="False"
+              active="True"
               groups="knowledge_management_pro.group_knowledge_management_pro_manager"/>
 
 </odoo>

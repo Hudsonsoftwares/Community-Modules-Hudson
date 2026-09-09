@@ -584,41 +584,36 @@ export class HudsonSignTemplateBuilder extends Component {
             return;
         }
 
-        this.dialog.add(SignatureSendDialog, {
-            title: "New Signature Request",
-            isSignNow: isSignNow,
-            roles: this.state.roles,
-            rolesWithFields: Array.from(rolesWithFields),
-            users: this.state.allUsers,
-            defaultSubject: this.state.template ? "Signature Request - " + this.state.template.name : "Signature Request",
-            onConfirm: async (data) => {
-                await this.submitSignatureRequest(data, isSignNow);
+        const defaultRoles = Array.from(rolesWithFields).map((roleId, index) => {
+            const role = this.state.roles.find(r => r.id === roleId);
+            return [0, 0, {
+                role_id: roleId,
+                role_name: role ? role.name : roleId,
+                sequence: index + 1
+            }];
+        });
+
+        // For templates, we pass the templateId instead of the massive documents/items payload
+        // The wizard needs to call the template's create_requests_from_ui
+        // We can pass the template ID via context!
+        
+        const payload = { template_id: this.state.templateId };
+
+        this.action.doAction({
+            type: "ir.actions.act_window",
+            name: isSignNow ? "Sign Now" : "New Signature Request",
+            res_model: "dms.signature.send.wizard",
+            views: [[false, "form"]],
+            target: "new",
+            context: {
+                default_subject: this.state.template ? "Signature Request - " + this.state.template.name : "Signature Request",
+                default_payload: JSON.stringify(payload),
+                default_role_ids: defaultRoles,
+                default_single_role_id: rolesWithFields.size === 1 ? Array.from(rolesWithFields)[0] : false,
+                default_is_sign_now: isSignNow,
+                is_from_template: true
             }
         });
-    }
-
-    async submitSignatureRequest(data, isSignNow) {
-        try {
-            const resultAction = await this.orm.call("hudson.sign.template", "create_requests_from_ui", [
-                this.state.templateId,
-                { ...data, isSignNow }
-            ]);
-
-            this.notification.add("Signature request created successfully!", { type: "success" });
-
-            if (resultAction) {
-                if (resultAction.type === 'ir.actions.act_url') {
-                    window.location.href = resultAction.url;
-                } else {
-                    this.action.doAction(resultAction);
-                }
-            } else {
-                this.goBack();
-            }
-        } catch (err) {
-            console.error(err);
-            this.notification.add("Failed to create signature request: " + (err.message || ''), { type: "danger" });
-        }
     }
 }
 

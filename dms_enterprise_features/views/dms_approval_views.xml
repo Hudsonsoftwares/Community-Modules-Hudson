@@ -1,61 +1,60 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <!-- Workflow Form -->
-    <record id="view_dms_approval_workflow_form" model="ir.ui.view">
-        <field name="name">dms.approval.workflow.form</field>
-        <field name="model">dms.approval.workflow</field>
-        <field name="arch" type="xml">
-            <form>
-                <sheet>
-                    <group>
-                        <field name="name"/>
-                    </group>
-                    <notebook>
-                        <page string="Steps">
-                            <field name="step_ids">
-                                <list editable="bottom">
-                                    <field name="sequence" widget="handle"/>
-                                    <field name="name"/>
-                                    <field name="approver_id"/>
-                                </list>
-                            </field>
-                        </page>
-                    </notebook>
-                </sheet>
-            </form>
-        </field>
-    </record>
-
-    <!-- Workflow Action -->
-    <record id="action_dms_approval_workflow" model="ir.actions.act_window">
-        <field name="name">Approval Workflows</field>
-        <field name="res_model">dms.approval.workflow</field>
-        <field name="view_mode">list,form</field>
-    </record>
-
-    <!-- Menu Item (Will add to dms configuration) -->
-    <menuitem id="menu_dms_approval_workflow" 
-              name="Approval Workflows" 
-              parent="dms.cat_menu_dms_config" 
-              action="action_dms_approval_workflow" 
-              groups="dms_enterprise_features.group_dms_document_controller"
-              sequence="50"/>
-
-    <!-- File Approval Views -->
+    <!-- Standalone File Approval List View -->
     <record id="view_dms_file_approval_tree" model="ir.ui.view">
         <field name="name">dms.file.approval.tree</field>
         <field name="model">dms.file.approval</field>
         <field name="arch" type="xml">
-            <list create="0">
-                <field name="revision_id"/>
+            <list create="0" decoration-success="status == 'approved'" decoration-danger="status == 'rejected'" decoration-warning="status == 'pending'">
+                <field name="file_id"/>
+                <field name="sequence" widget="handle"/>
                 <field name="approver_id"/>
-                <field name="status"/>
+                <field name="status" widget="badge" decoration-success="status == 'approved'" decoration-danger="status == 'rejected'" decoration-warning="status == 'pending'"/>
                 <field name="date"/>
-                <button name="action_approve" string="Approve" type="object" icon="fa-check" invisible="status != 'pending'"/>
-                <button name="action_reject" string="Reject" type="object" icon="fa-times" invisible="status != 'pending'"/>
+                <field name="comments"/>
             </list>
         </field>
     </record>
 
-    <!-- Need to show File Approvals in the File Form -->
+    <!-- User Preferences Extension for Default Document Approvers -->
+    <record id="view_users_form_inherit_dms_approval" model="ir.ui.view">
+        <field name="name">res.users.form.inherit.dms.approval</field>
+        <field name="model">res.users</field>
+        <field name="inherit_id" ref="base.view_users_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//notebook" position="inside">
+                <page string="Document Approvals" name="page_dms_default_approvals">
+                    <group>
+                        <field name="default_is_sequential_approval" widget="boolean_toggle"/>
+                    </group>
+                    <field name="default_approval_ids">
+                        <list editable="bottom">
+                            <field name="sequence" widget="handle"/>
+                            <field name="approver_id" required="1" options="{'no_create': True, 'no_open': True}"/>
+                        </list>
+                    </field>
+                </page>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- User Simple Preferences Form Extension -->
+    <record id="view_users_form_simple_modif_inherit_dms_approval" model="ir.ui.view">
+        <field name="name">res.users.preferences_form.inherit.dms.approval</field>
+        <field name="model">res.users</field>
+        <field name="inherit_id" ref="base.view_users_form_simple_modif"/>
+        <field name="arch" type="xml">
+            <xpath expr="//form" position="inside">
+                <group string="Default Document Approvers">
+                    <field name="default_is_sequential_approval" widget="boolean_toggle"/>
+                    <field name="default_approval_ids" nolabel="1">
+                        <list editable="bottom">
+                            <field name="sequence" widget="handle"/>
+                            <field name="approver_id" required="1" options="{'no_create': True, 'no_open': True}"/>
+                        </list>
+                    </field>
+                </group>
+            </xpath>
+        </field>
+    </record>
 </odoo>

@@ -370,9 +370,10 @@ class DMSFile(models.Model):
                 SELECT t.name AS name, t.id AS id, c.name AS group_name,
                     c.id AS group_id, COUNT(r.fid) AS count
                 FROM dms_tag t
-                JOIN dms_category c ON t.category_id = c.id
+                LEFT JOIN dms_category c ON t.category_id = c.id
                 LEFT JOIN dms_file_tag_rel r ON t.id = r.tid
-                WHERE %(filter_by_file_ids)s IS FALSE OR r.fid = ANY(%(file_ids)s)
+                WHERE (%(filter_by_file_ids)s IS FALSE OR r.fid = ANY(%(file_ids)s))
+                  AND t.active = TRUE
                 GROUP BY c.name, c.id, t.name, t.id
                 ORDER BY c.name, c.id, t.name, t.id;
             """
@@ -383,20 +384,37 @@ class DMSFile(models.Model):
                 sql_query,
                 {"file_ids": file_ids, "filter_by_file_ids": bool(directory_id)},
             )
-            return self.env.cr.dictfetchall()
+            raw_values = self.env.cr.dictfetchall()
+            lang = self.env.lang or "en_US"
+            for row in raw_values:
+                name_val = row.get("name")
+                if isinstance(name_val, dict):
+                    row["name"] = name_val.get(lang) or name_val.get("en_US") or (next(iter(name_val.values())) if name_val else "")
+                group_val = row.get("group_name")
+                if isinstance(group_val, dict):
+                    row["group_name"] = group_val.get(lang) or group_val.get("en_US") or (next(iter(group_val.values())) if group_val else "")
+                row["display_name"] = row.get("name", "")
+                row["__count"] = row.get("count", 0)
+            return {"values": raw_values}
         if directory_id and field_name in ["directory_id", "category_id"]:
             comodel_domain = kwargs.pop("comodel_domain", [])
             directory_comodel_domain = self._search_panel_domain(
                 "file_ids", operator, directory_id, comodel_domain
             )
-            return super(
+            res = super(
                 DMSFile, self.with_context(directory_short_name=True)
             ).search_panel_select_multi_range(
                 field_name, comodel_domain=directory_comodel_domain, **kwargs
             )
-        return super(
+            if isinstance(res, list):
+                res = {"values": res}
+            return res
+        res = super(
             DMSFile, self.with_context(directory_short_name=True)
         ).search_panel_select_multi_range(field_name, **kwargs)
+        if isinstance(res, list):
+            res = {"values": res}
+        return res
 
     # Read
     @api.depends("name", "directory_id", "directory_id.parent_path")

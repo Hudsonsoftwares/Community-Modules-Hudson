@@ -9,6 +9,9 @@
             <li t-if="signature_req" class="breadcrumb-item active">
                 <t t-esc="signature_req.revision_id.file_id.name"/>
             </li>
+            <li t-if="page_name == 'dms_documents'" class="breadcrumb-item active">
+                Documents
+            </li>
         </xpath>
     </template>
 
@@ -19,8 +22,65 @@
                 <t t-set="url" t-value="'/my/dms/signatures'"/>
                 <t t-set="placeholder_count" t-value="'dms_signature_count'"/>
             </t>
+            <t t-call="portal.portal_docs_entry">
+                <t t-set="title">Documents</t>
+                <t t-set="url" t-value="'/my/dms/documents'"/>
+                <t t-set="placeholder_count" t-value="'dms_document_count'"/>
+            </t>
         </xpath>
     </template>
+
+    <template id="portal_my_dms_documents" name="My Documents">
+        <t t-call="portal.portal_layout">
+            <t t-set="breadcrumbs_searchbar" t-value="True"/>
+            <t t-call="portal.portal_searchbar"/>
+            
+            <t t-if="not files">
+                <div class="alert alert-info my-3" role="alert">
+                    There are currently no documents shared with your account.
+                </div>
+            </t>
+            <t t-if="files" t-call="portal.portal_table">
+                <thead>
+                    <tr class="active">
+                        <th>Document</th>
+                        <th>Directory</th>
+                        <th>Role</th>
+                        <th>Last Updated</th>
+                        <th class="text-end">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <t t-foreach="files" t-as="file">
+                        <tr>
+                            <td>
+                                <a t-attf-href="/dms/share/file/#{file.access_token}" class="fw-bold text-decoration-none">
+                                    <i class="fa fa-file-text-o me-2 text-primary"></i>
+                                    <t t-esc="file.name"/>
+                                </a>
+                            </td>
+                            <td><t t-esc="file.directory_id.name or 'Root'"/></td>
+                            <td>
+                                <span t-if="file.is_locked" class="badge bg-warning text-dark me-1" t-attf-title="Locked by #{file.locked_by.name}"><i class="fa fa-lock me-1"/>Locked</span>
+                                <span t-if="file.share_link_access == 'editor' or any((a.user_id == request.env.user or a.partner_id == request.env.user.partner_id) and a.perm_edit for a in file.access_ids)" class="badge bg-primary">Editor</span>
+                                <span t-else="" class="badge bg-secondary">Viewer</span>
+                            </td>
+                            <td><span t-field="file.write_date" t-options="{'widget': 'date'}"/></td>
+                            <td class="text-end">
+                                <a t-attf-href="/dms/share/file/#{file.access_token}" class="btn btn-sm btn-outline-primary me-1">
+                                    <i class="fa fa-eye"></i> View
+                                </a>
+                                <a t-attf-href="/dms/share/file/#{file.access_token}/download" class="btn btn-sm btn-outline-secondary">
+                                    <i class="fa fa-download"></i>
+                                </a>
+                            </td>
+                        </tr>
+                    </t>
+                </tbody>
+            </t>
+        </t>
+    </template>
+
 
     <template id="portal_my_dms_signatures" name="My Signatures">
         <t t-call="portal.portal_layout">
@@ -150,7 +210,14 @@
         <body>
             <!-- Top bar -->
             <div id="sign-topbar">
-                <div class="doc-title"><t t-esc="signature_req.revision_id.file_id.name"/></div>
+                <div class="d-flex align-items-center gap-3">
+                    <t t-if="signature_req.revision_id and signature_req.revision_id.file_id">
+                        <a t-att-href="'/web#id=%s&amp;model=dms.file&amp;view_type=form' % signature_req.revision_id.file_id.id" class="btn btn-sm btn-outline-secondary" style="text-decoration: none; font-weight: 500;">
+                            ← Back to Document
+                        </a>
+                    </t>
+                    <div class="doc-title"><t t-esc="signature_req.revision_id.file_id.name"/></div>
+                </div>
                 <div class="actions">
                     <t t-set="is_expired" t-value="signature_req.valid_until and signature_req.valid_until &lt; datetime.date.today()"/>
                     <t t-if="is_expired">
@@ -201,7 +268,8 @@
                     </div>
                     
                     <div class="sig-pad-wrap" id="wrap-auto" style="height: 250px; background: #fff; padding: 15px; border: 1px solid #ddd; border-radius: 4px; display: flex; flex-direction: column;">
-                        <input type="text" id="auto-name-input" class="form-control mb-3" placeholder="Your Name" t-att-value="signature_req.recipient_id.name" oninput="updateAutoSignature()" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;"/>
+                        <t t-set="default_signer_name" t-value="signature_req.recipient_id.name if signature_req.recipient_id and signature_req.recipient_id.name and not signature_req.recipient_id.name.isdigit() else ''"/>
+                        <input type="text" id="auto-name-input" class="form-control mb-3" placeholder="Your Name" t-att-value="default_signer_name" oninput="updateAutoSignature()" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;"/>
                         <canvas id="auto-canvas" style="flex-grow: 1; width: 100%;"></canvas>
                     </div>
                     
@@ -454,9 +522,12 @@
                     
                     if (t === 'auto') {
                         updateAutoSignature();
-                    } else if (t === 'draw' &amp;&amp; signaturePad) {
-                        // resize canvas might be needed when switching
+                    } else if (t === 'draw') {
                         const canvas = document.getElementById('sig-canvas');
+                        if (!signaturePad) {
+                            signaturePad = new SignaturePad(canvas, { backgroundColor: 'rgba(255, 255, 255, 0)' });
+                        }
+                        // resize canvas might be needed when switching
                         const dpr = window.devicePixelRatio || 1;
                         canvas.width = canvas.parentElement.offsetWidth * dpr;
                         canvas.height = canvas.parentElement.offsetHeight * dpr;
@@ -596,9 +667,22 @@
                             this.disabled = false;
                             this.textContent = 'Complete &amp; Sign';
                         } else {
-                            document.querySelector('.actions').innerHTML = '&lt;span class="signed-badge"&gt;✓ Signed Successfully&lt;/span&gt;';
-                            document.getElementById('progress-bar').style.width = '100%';
-                            setTimeout(() => window.location.reload(), 1500);
+                            if (data.result &amp;&amp; data.result.next_signer_url) {
+                                document.getElementById('nextSignerName').textContent = data.result.next_signer_name;
+                                document.getElementById('nextSignerBtnName').textContent = data.result.next_signer_name;
+                                document.getElementById('btnNextSigner').onclick = function() {
+                                    window.location.href = data.result.next_signer_url;
+                                };
+                                const modal = new bootstrap.Modal(document.getElementById('nextSignerModal'));
+                                modal.show();
+                            } else {
+                                document.querySelector('.actions').innerHTML = '<span class="signed-badge">✓ Signed Successfully</span>';
+                                document.getElementById('progress-bar').style.width = '100%';
+                                const targetUrl = (data.result &amp;&amp; data.result.redirect_url) || '/my/dms/signatures';
+                                setTimeout(() => {
+                                    window.location.replace(targetUrl);
+                                }, 1200);
+                            }
                         }
                     }).catch(() => {
                         this.disabled = false;
@@ -620,6 +704,30 @@
             </t>
         </body>
         </html>
+    </template>
+    
+    <!-- Modals to append -->
+    <template id="dms_portal_signature_modals" inherit_id="dms_enterprise_features.portal_signature_page">
+        <xpath expr="//body" position="inside">
+            <div class="modal fade" id="nextSignerModal" tabindex="-1" role="dialog" data-bs-backdrop="static">
+                <div class="modal-dialog modal-dialog-centered" role="document">
+                    <div class="modal-content">
+                        <div class="modal-header border-bottom-0">
+                            <h5 class="modal-title fw-bold">Thank You!</h5>
+                        </div>
+                        <div class="modal-body py-4">
+                            <p>Your signature has been saved. Next signatory is <strong id="nextSignerName"></strong></p>
+                            <p>We will send you this document by email once everyone has signed.</p>
+                        </div>
+                        <div class="modal-footer border-top-0 d-flex justify-content-start">
+                            <button type="button" class="btn text-white px-4" style="background:#714B67;" id="btnNextSigner">
+                                Next signatory (<span id="nextSignerBtnName"></span>)
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </xpath>
     </template>
 </odoo>
 

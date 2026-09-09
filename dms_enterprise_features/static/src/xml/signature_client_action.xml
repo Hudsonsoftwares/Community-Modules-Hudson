@@ -5,6 +5,9 @@
             <!-- Custom Control Panel Header -->
             <div class="o_control_panel d-flex justify-content-between align-items-center p-3 border-bottom bg-white" style="min-height: 60px;">
                 <div class="d-flex align-items-center">
+                    <button type="button" class="btn btn-outline-secondary me-3 shadow-sm" t-on-click="onBack">
+                        <i class="fa fa-arrow-left me-1"></i>Back
+                    </button>
                     <h4 class="mb-0 text-dark fw-bold me-4" t-if="state.currentDocument" style="font-size: 18px;">
                         <t t-esc="state.currentDocument.name"/>
                     </h4>
@@ -283,46 +286,26 @@
                 <div class="mb-4">
                     <div class="row w-100 mb-2">
                         <div class="col-6">
-                            <t t-if="!props.isSignNow">
-                                <t t-foreach="props.rolesWithFields" t-as="roleId" t-key="roleId">
-                                    <t t-set="role" t-value="props.roles.find(r => r.id === roleId)"/>
-                                    <div class="d-flex align-items-center mb-3">
-                                        <div class="fw-bold me-3" style="width: 100px; display: flex; align-items: center;">
-                                            <span t-if="state.signingOrder" class="me-2 text-muted" style="border-bottom: 1px solid #ccc; width: 16px; text-align: center;"><t t-esc="roleId_index + 1"/></span>
-                                            <span t-if="!state.signingOrder" class="me-2" style="width: 16px;"></span>
-                                            <t t-esc="role.name"/>
-                                        </div>
-                                        <div class="flex-grow-1">
-                                            <input type="text" class="form-control border-0 border-bottom rounded-0 px-0" placeholder="Type a name or email..." t-on-change="(e) => this.onUserChange(roleId, e.target.value)" />
-                                        </div>
+                            <t t-foreach="props.rolesWithFields" t-as="roleId" t-key="roleId">
+                                <t t-set="role" t-value="props.roles.find(r => r.id === roleId)"/>
+                                <div class="d-flex align-items-center mb-3">
+                                    <div class="fw-bold me-3" style="width: 100px; display: flex; align-items: center;">
+                                        <span t-if="state.signingOrder" class="me-2 text-muted" style="border-bottom: 1px solid #ccc; width: 16px; text-align: center;"><t t-esc="roleId_index + 1"/></span>
+                                        <span t-if="!state.signingOrder" class="me-2" style="width: 16px;"></span>
+                                        <t t-esc="role.name"/>
                                     </div>
-                                </t>
+                                    <div class="flex-grow-1">
+                                        <input type="text" class="form-control border-0 border-bottom rounded-0 px-0" placeholder="Type a name or email..." t-on-change="(e) => this.onUserChange(roleId, e.target.value)" />
+                                    </div>
+                                </div>
+                            </t>
+                            <t t-if="!props.isSignNow and props.rolesWithFields.length > 1">
                                 <div class="d-flex align-items-center mt-3">
                                     <div class="form-check form-switch">
                                         <input class="form-check-input" type="checkbox" role="switch" t-model="state.signingOrder" id="signingOrderSwitch"/>
                                         <label class="form-check-label fw-bold" for="signingOrderSwitch">Signing Order <i class="fa fa-question-circle text-info"></i></label>
                                     </div>
                                 </div>
-                            </t>
-                            <t t-else="">
-                                <t t-foreach="props.rolesWithFields" t-as="roleId" t-key="roleId">
-                                    <t t-set="role" t-value="props.roles.find(r => r.id === roleId)"/>
-                                    <div class="d-flex align-items-center mb-3">
-                                        <div class="fw-bold me-3" style="width: 100px; display: flex; align-items: center;">
-                                            <span t-if="state.signingOrder" class="me-2 text-muted" style="border-bottom: 1px solid #ccc; width: 16px; text-align: center;"><t t-esc="roleId_index + 1"/></span>
-                                            <span t-if="!state.signingOrder" class="me-2" style="width: 16px;"></span>
-                                            <t t-esc="role.name"/>
-                                        </div>
-                                        <div class="flex-grow-1">
-                                            <t t-if="roleId_index === 0">
-                                                <div class="text-muted"><t t-esc="env.session ? env.session.name : 'Current User'"/></div>
-                                            </t>
-                                            <t t-else="">
-                                                <input type="text" class="form-control border-0 border-bottom rounded-0 px-0" placeholder="Type a name or email..." t-on-change="(e) => this.onUserChange(roleId, e.target.value)" />
-                                            </t>
-                                        </div>
-                                    </div>
-                                </t>
                             </t>
                         </div>
                         

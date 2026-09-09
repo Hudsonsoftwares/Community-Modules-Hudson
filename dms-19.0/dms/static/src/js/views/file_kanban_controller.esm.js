@@ -19,11 +19,41 @@ export class FileKanbanController extends KanbanController {
         const selected = this.model.root.selection;
         if (!selected || !selected.length) return false;
         return selected.every((r) => {
+            const isLocked = r.data.is_locked && !r.data.is_lock_editor;
+            const hasWrite = r.data.permission_write;
+            if (isLocked || !hasWrite) return false;
+
             const mimetype = r.data.mimetype || "";
             const name = (r.data.name || "").toLowerCase();
             const isImage = mimetype.startsWith("image/") || /\.(png|jpe?g|gif|webp|svg|bmp|ico|tiff?)$/i.test(name);
             const isPdf = mimetype === "application/pdf" || name.endsWith(".pdf");
             return isPdf && !isImage;
+        });
+    }
+
+    get isShareVisible() {
+        const selected = this.model.root.selection;
+        if (!selected || !selected.length) return false;
+        return selected.every((r) => {
+            const isLocked = r.data.is_locked && !r.data.is_lock_editor;
+            const canShare = r.data.permission_share !== false;
+            return !isLocked && canShare;
+        });
+    }
+
+    get isDownloadVisible() {
+        const selected = this.model.root.selection;
+        if (!selected || !selected.length) return false;
+        return selected.every((r) => r.data.permission_download !== false);
+    }
+
+    get isMoreVisible() {
+        const selected = this.model.root.selection;
+        if (!selected || !selected.length) return false;
+        return selected.every((r) => {
+            const isLocked = r.data.is_locked && !r.data.is_lock_editor;
+            const hasWrite = r.data.permission_write;
+            return !isLocked && hasWrite;
         });
     }
 
@@ -48,12 +78,11 @@ export class FileKanbanController extends KanbanController {
     async onShare() {
         const selectedIds = this.model.root.selection.map((r) => r.resId);
         if (!selectedIds.length) return;
-        return this.actionService.doAction("dms.wizard_dms_file_share_action", {
+        return this.actionService.doAction("dms_enterprise_features.action_dms_file_share_wizard", {
             additionalContext: {
                 active_ids: selectedIds,
                 active_id: selectedIds[0],
-                default_res_model: "dms.file",
-                default_res_id: selectedIds[0],
+                default_file_id: selectedIds[0],
             },
         });
     }
@@ -71,10 +100,13 @@ export class FileKanbanController extends KanbanController {
                 return this.actionService.doAction(action);
             }
         } catch (e) {
-            this.notification.add(
-                "Sign action triggered. Note: Document must have a revision.",
-                { type: "info" }
-            );
+            let errorMsg = "Sign action triggered. Note: Document must have a revision.";
+            if (e && e.data && e.data.message) {
+                errorMsg = e.data.message;
+            } else if (e && e.message) {
+                errorMsg = e.message;
+            }
+            this.notification.add(errorMsg, { type: "danger" });
         }
     }
 

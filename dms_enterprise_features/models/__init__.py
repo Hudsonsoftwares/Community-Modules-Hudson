@@ -14,3 +14,4 @@ from . import dms_directory
 from . import dms_directory_permission
 from . import dms_security_mixin
 from . import dms_access_group
+from . import hr_employee

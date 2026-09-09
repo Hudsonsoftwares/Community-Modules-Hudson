@@ -8,3 +8,4 @@ from . import comment
 from . import share
 from . import attachment
 from . import history
+from . import res_config_settings

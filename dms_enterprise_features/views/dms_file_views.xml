@@ -12,59 +12,139 @@
             
             <!-- Add buttons and upload to existing header -->
             <xpath expr="//header" position="inside">
-                <button name="action_request_approval" string="Request Approval" type="object" class="oe_highlight" invisible="status != 'draft' or not workflow_id" groups="dms_enterprise_features.group_dms_document_controller"/>
-                <button name="action_setup_signatures" string="Setup Signatures" type="object" class="oe_highlight" invisible="status != 'draft' or mimetype != 'application/pdf'" groups="dms_enterprise_features.group_dms_document_controller"/>
-                <field name="content" widget="binary" filename="name" nolabel="1" class="btn btn-secondary" groups="dms_enterprise_features.group_dms_document_controller"/>
-                <field name="status" widget="statusbar" statusbar_visible="draft,in_approval,approved,obsolete" groups="dms_enterprise_features.group_dms_document_controller"/>
+                <button name="action_request_approval" string="Request Approval" type="object" class="btn btn-primary" invisible="approval_state not in ('draft', 'rejected') or (is_locked and not is_lock_editor)" groups="dms_enterprise_features.group_dms_document_controller,dms.group_dms_user"/>
+                <button name="action_approve_step" string="Approve" type="object" class="btn btn-success" invisible="not is_current_approver or approval_state != 'in_approval'"/>
+                <button name="action_open_reject_wizard" string="Reject" type="object" class="btn btn-danger" invisible="not is_current_approver or approval_state != 'in_approval'"/>
+                <button name="action_reset_approval" string="Reset Approval" type="object" class="btn btn-secondary" invisible="approval_state not in ('in_approval', 'rejected') or (is_locked and not is_lock_editor)" groups="dms_enterprise_features.group_dms_document_controller,dms.group_dms_user"/>
+                <button name="action_setup_signatures" string="Setup Signatures" type="object" class="btn btn-secondary" invisible="mimetype != 'application/pdf' or (is_locked and not is_lock_editor)" groups="dms.group_dms_manager"/>
+                <field name="content" widget="binary" filename="name" nolabel="1" class="btn btn-secondary" invisible="is_locked and not is_lock_editor" groups="dms_enterprise_features.group_dms_document_controller"/>
+                <field name="approval_state" widget="statusbar" statusbar_visible="draft,in_approval,approved"/>
             </xpath>
-            <!-- Add locked by alert -->
+            <!-- Add alerts before sheet -->
             <xpath expr="//sheet" position="before">
-                <div class="alert alert-warning" role="alert" invisible="not is_locked" style="margin-bottom:0px;">
-                    <i class="fa fa-lock me-2"/> Locked by <field name="locked_by" readonly="1" class="fw-bold"/>
+                <div class="alert alert-warning d-flex align-items-center p-3 mb-0" role="alert" invisible="not is_locked">
+                    <i class="fa fa-lock fa-2x me-3 text-warning"/>
+                    <div class="flex-grow-1">
+                        <h6 class="alert-heading mb-1 fw-bold">Document Locked</h6>
+                        <div class="small">This document is currently locked by <field name="locked_by" readonly="1" class="fw-bold text-dark"/>. Only the lock owner or administrator can modify or replace it.</div>
+                    </div>
                 </div>
+                <div class="alert alert-danger d-flex align-items-center p-3 mb-0" role="alert" invisible="approval_state != 'rejected'">
+                    <i class="fa fa-times-circle fa-2x me-3 text-danger"/>
+                    <div class="flex-grow-1">
+                        <h6 class="alert-heading mb-1 fw-bold">Document Approval Rejected</h6>
+                        <div class="small">
+                            Rejected by <field name="rejected_by" readonly="1" class="fw-bold text-dark"/>
+                            <span invisible="not rejection_reason"> — Reason: <em><field name="rejection_reason" readonly="1" class="fw-bold text-danger"/></em></span>
+                        </div>
+                    </div>
+                </div>
+                <div class="alert alert-info d-flex align-items-center p-3 mb-0" role="alert" invisible="approval_state != 'in_approval'">
+                    <i class="fa fa-hourglass-half fa-2x me-3 text-info"/>
+                    <div class="flex-grow-1">
+                        <h6 class="alert-heading mb-1 fw-bold">Awaiting Approval</h6>
+                        <div class="small">This document is currently waiting for approval from: <field name="current_approver_ids" widget="many2many_tags" readonly="1"/></div>
+                    </div>
+                </div>
+            </xpath>
+            <xpath expr="//sheet" position="inside">
+                <widget name="web_ribbon" title="Locked" bg_color="text-bg-warning" invisible="not is_locked"/>
+                <widget name="web_ribbon" title="Approved" bg_color="text-bg-success" invisible="approval_state != 'approved'"/>
+                <widget name="web_ribbon" title="Rejected" bg_color="text-bg-danger" invisible="approval_state != 'rejected'"/>
             </xpath>
             <!-- Insert document controller fields in form -->
             <xpath expr="//sheet/group[1]" position="after">
                 <group string="Document Controller" groups="dms_enterprise_features.group_dms_document_controller">
                     <group>
                         <field name="document_number" invisible="not id"/>
-                        <field name="department_id"/>
-                        <field name="document_owner_id"/>
-                        <field name="directory_id" options="{'no_quick_create': True}"/>
+                        <field name="department_id" readonly="is_locked and not is_lock_editor"/>
+                        <field name="document_owner_id" readonly="is_locked and not is_lock_editor"/>
+                        <field name="directory_id" options="{'no_quick_create': True}" readonly="is_locked and not is_lock_editor"/>
                     </group>
                     <group>
-                        <field name="confidentiality"/>
-                        <field name="expiry_date"/>
-                        <field name="notify_user_id" invisible="not expiry_date" widget="many2one_avatar_user"/>
-                        <field name="notify_before_days" invisible="not expiry_date"/>
-                        <field name="workflow_id"/>
-                        <field name="category_id" placeholder="Internal / Human Resource" options="{'no_open': True, 'no_create': True}"/>
-                        <field name="tag_ids" widget="many2many_tags" placeholder="Tags..." options="{'color_field': 'color', 'no_create_edit': True}"/>
-                        <field name="signature_needed" invisible="1"/>
+                        <field name="confidentiality" readonly="is_locked and not is_lock_editor"/>
+                        <field name="expiry_date" readonly="is_locked and not is_lock_editor"/>
+                        <field name="notify_user_id" invisible="not expiry_date" widget="many2one_avatar_user" readonly="is_locked and not is_lock_editor"/>
+                        <field name="notify_before_days" invisible="not expiry_date" readonly="is_locked and not is_lock_editor"/>
+                        <field name="category_id" placeholder="Internal / Human Resource" options="{'no_open': True, 'no_create': True}" readonly="is_locked and not is_lock_editor"/>
+                        <field name="tag_ids" widget="many2many_tags" placeholder="Tags..." options="{'color_field': 'color', 'no_create_edit': True}" readonly="is_locked and not is_lock_editor"/>
+                        <field name="is_current_approver" invisible="1"/>
                     </group>
                 </group>
             </xpath>
             
             <!-- Inject into existing notebook -->
             <xpath expr="//notebook" position="inside">
-                <page string="Revisions" name="revisions" groups="dms_enterprise_features.group_dms_document_controller">
-                    <field name="revision_ids" context="{'default_file_id': id, 'active_test': False}">
-                        <list delete="0">
+                <page string="Approvals" name="approvals" groups="dms_enterprise_features.group_dms_document_controller,dms.group_dms_user">
+                    <group>
+                        <group>
+                            <field name="is_sequential_approval" widget="boolean_toggle" readonly="approval_state in ('in_approval', 'approved')"/>
+                            <button name="action_load_default_approvers" string="Load Default Approvers" type="object" icon="fa-refresh" class="btn btn-outline-secondary btn-sm" invisible="approval_state not in ('draft', 'rejected')"/>
+                        </group>
+                        <group>
+                            <field name="approval_state" readonly="1"/>
+                        </group>
+                    </group>
+                    <field name="approval_ids" context="{'default_file_id': id}" readonly="approval_state in ('in_approval', 'approved')">
+                        <list editable="bottom" decoration-success="status == 'approved'" decoration-danger="status == 'rejected'" decoration-warning="status == 'pending'" decoration-muted="status in ('draft', 'waiting')">
+                            <field name="sequence" widget="handle"/>
+                            <field name="approver_id" required="1" options="{'no_create': True, 'no_open': True}"/>
+                            <field name="status" widget="badge" decoration-success="status == 'approved'" decoration-danger="status == 'rejected'" decoration-warning="status == 'pending'" decoration-muted="status in ('draft', 'waiting')"/>
+                            <field name="date" readonly="1" optional="show"/>
+                            <field name="comments" optional="show"/>
+                            <field name="is_current_approver" column_invisible="True"/>
+                            <button name="action_approve_step" string="Approve" type="object" icon="fa-check text-success" invisible="not is_current_approver" title="Approve this step"/>
+                            <button name="action_open_reject_wizard" string="Reject" type="object" icon="fa-times text-danger" invisible="not is_current_approver" title="Reject this step"/>
+                        </list>
+                    </field>
+                </page>
+                <page string="Revisions" name="revisions" groups="dms_enterprise_features.group_dms_document_controller,dms.group_dms_user">
+                    <field name="revision_ids" context="{'default_file_id': id}" readonly="is_locked and not is_lock_editor">
+                        <list delete="0" decoration-bf="is_current" decoration-success="is_current">
                             <field name="version"/>
                             <field name="upload_date"/>
                             <field name="uploader_id"/>
                             <field name="comments"/>
-                            <field name="active" column_invisible="True"/>
-                            <field name="file_name" column_invisible="True"/>
+                            <field name="is_current" widget="dms_revision_status" string="Status"/>
+                            <field name="file_name" optional="show"/>
                             <button name="action_view_online" type="object" icon="fa-eye" title="View Online" class="btn-secondary"/>
                             <button name="action_download_online" type="object" icon="fa-download" title="Download" class="btn-secondary"/>
-                            <button name="action_make_current" type="object" string="Set as Active" invisible="active" class="btn-primary"/>
-                            <button name="action_delete_revision" type="object" icon="fa-trash" title="Delete Revision" invisible="active" class="btn-danger"/>
+                            <button name="action_make_current" type="object" string="Set as Active" invisible="is_current or (parent.is_locked and not parent.is_lock_editor)" class="btn-primary"/>
+                            <button name="action_delete_revision" type="object" icon="fa-trash" title="Delete Revision" invisible="is_current or parent.is_locked" class="btn-danger"/>
                         </list>
                     </field>
                 </page>
                 <page string="Access Control" name="access_control" groups="dms_enterprise_features.group_dms_document_controller">
-                    <field name="access_ids"/>
+                    <notebook>
+                        <page name="tab_user_groups" string="User Groups">
+                            <field name="group_access_ids" context="{'default_file_id': id}">
+                                <list editable="bottom">
+                                    <field name="group_id" string="User Group" required="1"/>
+                                    <field name="perm_view"/>
+                                    <field name="perm_download"/>
+                                    <field name="perm_edit"/>
+                                    <field name="perm_rename"/>
+                                    <field name="perm_move"/>
+                                    <field name="perm_delete"/>
+                                    <field name="perm_share"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page name="tab_contacts" string="Contacts">
+                            <field name="partner_access_ids" context="{'default_file_id': id}">
+                                <list editable="bottom">
+                                    <field name="partner_id" string="Contact" required="1" options="{'no_create_edit': True}"/>
+                                    <field name="perm_view"/>
+                                    <field name="perm_download"/>
+                                    <field name="perm_edit"/>
+                                    <field name="perm_rename"/>
+                                    <field name="perm_move"/>
+                                    <field name="perm_delete"/>
+                                    <field name="perm_share"/>
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
                 </page>
             </xpath>
             
@@ -98,15 +178,16 @@
         <field name="name">dms.file.revision.tree</field>
         <field name="model">dms.file.revision</field>
         <field name="arch" type="xml">
-            <list>
+            <list decoration-bf="is_current" decoration-success="is_current">
                 <field name="version"/>
                 <field name="upload_date"/>
                 <field name="uploader_id"/>
                 <field name="comments"/>
-                <field name="active" column_invisible="True"/>
-                <field name="file_name" column_invisible="True"/>
+                <field name="is_current" widget="dms_revision_status" string="Status"/>
+                <field name="file_name" optional="show"/>
                 <field name="content" widget="binary" filename="file_name" string="View / Download"/>
-                <button name="action_make_current" type="object" string="Set as Active" invisible="active" class="btn-primary"/>
+                <button name="action_make_current" type="object" string="Set as Active" invisible="is_current" class="btn-primary"/>
+                <button name="action_delete_revision" type="object" icon="fa-trash" title="Delete Revision" invisible="is_current" class="btn-danger"/>
             </list>
         </field>
     </record>
@@ -117,7 +198,7 @@
         <field name="model">dms.file.access</field>
         <field name="arch" type="xml">
             <list editable="bottom">
-                <field name="user_id"/>
+                <field name="partner_id" string="Contact"/>
                 <field name="group_id"/>
                 <field name="department_id"/>
                 <field name="perm_view"/>
@@ -183,9 +264,12 @@
         <field name="model">dms.file</field>
         <field name="inherit_id" ref="dms.view_dms_file_tree"/>
         <field name="arch" type="xml">
+            <xpath expr="//field[@name='name']" position="attributes">
+                <attribute name="widget">dms_file_name_preview</attribute>
+            </xpath>
             <xpath expr="//field[@name='name']" position="after">
                 <field name="document_number" optional="show" groups="dms_enterprise_features.group_dms_document_controller"/>
-                <field name="status" optional="show" widget="badge" decoration-info="status == 'draft'" decoration-warning="status == 'in_approval'" decoration-success="status == 'approved'" decoration-muted="status == 'obsolete'" decoration-danger="status == 'rejected'" groups="dms_enterprise_features.group_dms_document_controller"/>
+                <field name="approval_state" optional="show" widget="badge" decoration-info="approval_state == 'draft'" decoration-warning="approval_state == 'in_approval'" decoration-success="approval_state == 'approved'" decoration-danger="approval_state == 'rejected'" string="Approval"/>
             </xpath>
         </field>
     </record>
@@ -196,7 +280,52 @@
         <field name="inherit_id" ref="dms.view_dms_file_kanban"/>
         <field name="arch" type="xml">
             <xpath expr="//field[@name='tag_ids']" position="after">
-                <field name="status" widget="badge" decoration-info="status == 'draft'" decoration-warning="status == 'in_approval'" decoration-success="status == 'approved'" decoration-muted="status == 'obsolete'" decoration-danger="status == 'rejected'" groups="dms_enterprise_features.group_dms_document_controller"/>
+                <field name="approval_state" widget="badge" decoration-info="approval_state == 'draft'" decoration-warning="approval_state == 'in_approval'" decoration-success="approval_state == 'approved'" decoration-danger="approval_state == 'rejected'"/>
+            </xpath>
+            <xpath expr="//field[@name='id']" position="after">
+                <field name="activity_ids"/>
+                <field name="activity_state"/>
+                <field name="starred"/>
+                <field name="document_owner_id"/>
+                <field name="current_revision_id"/>
+                <field name="is_current_approver"/>
+            </xpath>
+            <xpath expr="//div[hasclass('o_kanban_dms_file_preview')]" position="inside">
+                <div class="o_dms_file_star position-absolute" style="top: 8px; left: 8px; z-index: 10;">
+                    <field name="starred" widget="boolean_favorite" nolabel="1"/>
+                </div>
+                <div t-if="record.approval_state.raw_value === 'in_approval'" 
+                     class="position-absolute start-0 end-0 px-2 py-1 text-white small d-flex align-items-center justify-content-between shadow-sm" 
+                     t-att-style="record.is_locked.raw_value ? 'bottom: 24px; background: rgba(13, 110, 253, 0.92); font-size: 11px; z-index: 10;' : 'bottom: 0; background: rgba(13, 110, 253, 0.92); font-size: 11px; z-index: 10;'">
+                    <div class="d-flex align-items-center text-truncate me-1">
+                        <i class="fa fa-clock-o me-1"/>
+                        <span class="text-truncate fw-semibold" t-if="record.is_current_approver.raw_value">Approval Required</span>
+                        <span class="text-truncate fw-semibold" t-else="">In Approval</span>
+                    </div>
+                    <!-- Quick 1-Click Approve / Reject directly on tile -->
+                    <div t-if="record.is_current_approver.raw_value" class="d-flex align-items-center gap-1">
+                        <a type="object" name="action_approve_step" class="btn btn-sm btn-success px-2 py-0 d-flex align-items-center shadow-sm" style="font-size: 10px; height: 20px; line-height: 1; border-radius: 4px;" title="Approve">
+                            <i class="fa fa-check me-1"/>Approve
+                        </a>
+                        <a type="object" name="action_open_reject_wizard" class="btn btn-sm btn-danger px-1 py-0 d-flex align-items-center shadow-sm" style="font-size: 10px; height: 20px; line-height: 1; border-radius: 4px;" title="Reject">
+                            <i class="fa fa-times"/>
+                        </a>
+                    </div>
+                </div>
+                <div t-if="record.is_locked.raw_value" class="position-absolute bottom-0 start-0 end-0 px-2 py-1 text-white small d-flex align-items-center" style="background: rgba(33, 37, 41, 0.85); font-size: 11px; z-index: 10;">
+                    <i class="fa fa-lock text-warning me-1"/>
+                    <span class="text-truncate">Locked by <t t-esc="record.locked_by.value"/></span>
+                </div>
+            </xpath>
+            <xpath expr="//div[hasclass('oe_kanban_bottom_right')]" position="before">
+                <div class="oe_kanban_bottom_left d-flex align-items-center me-auto">
+                    <field name="activity_ids" widget="kanban_activity"/>
+                </div>
+            </xpath>
+            <xpath expr="//img[hasclass('oe_kanban_avatar')]" position="attributes">
+                <attribute name="t-attf-src">/web/image/res.users/#{record.document_owner_id.raw_value}/avatar_128</attribute>
+                <attribute name="t-att-alt">record.document_owner_id.value</attribute>
+                <attribute name="t-att-title">record.document_owner_id.value</attribute>
             </xpath>
         </field>
     </record>
@@ -211,9 +340,47 @@
         <field name="active" eval="False"/>
     </record>
 
-    <!-- Hide tags without a category to remove the 'None' stage -->
+    <!-- Simplify Tags: Default view as List and allow standalone tags -->
     <record id="dms.action_dms_tag" model="ir.actions.act_window">
-        <field name="domain">[('category_id', '!=', False)]</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[]</field>
+        <field name="context">{}</field>
+    </record>
+
+    <!-- Simplify Tag Form View to only Name and Category -->
+    <record id="view_dms_tag_form_inherit_simple" model="ir.ui.view">
+        <field name="name">dms.tag.form.inherit.simple</field>
+        <field name="model">dms.tag</field>
+        <field name="inherit_id" ref="dms.view_dms_tag_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//div[@name='button_box']" position="attributes">
+                <attribute name="invisible">1</attribute>
+            </xpath>
+            <xpath expr="//field[@name='color']" position="attributes">
+                <attribute name="invisible">1</attribute>
+            </xpath>
+            <xpath expr="//field[@name='count_files']/.." position="attributes">
+                <attribute name="invisible">1</attribute>
+            </xpath>
+            <xpath expr="//notebook" position="attributes">
+                <attribute name="invisible">1</attribute>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- Simplify Tag List View: Editable on bottom with only Name and Category -->
+    <record id="view_dms_tag_tree_inherit_simple" model="ir.ui.view">
+        <field name="name">dms.tag.tree.inherit.simple</field>
+        <field name="model">dms.tag</field>
+        <field name="inherit_id" ref="dms.view_dms_tag_tree"/>
+        <field name="arch" type="xml">
+            <xpath expr="//list" position="attributes">
+                <attribute name="editable">bottom</attribute>
+            </xpath>
+            <xpath expr="//field[@name='color']" position="attributes">
+                <attribute name="column_invisible">1</attribute>
+            </xpath>
+        </field>
     </record>
 
     <!-- Disable default delete on list and kanban -->
@@ -237,35 +404,104 @@
                 <attribute name="delete">0</attribute>
             </xpath>
             <xpath expr="//field[@name='permission_unlink']" position="after">
+                <field name="is_trashed" />
                 <field name="permission_download" />
                 <field name="permission_view" />
                 <field name="permission_edit" />
                 <field name="permission_upload" />
                 <field name="permission_delete" />
+                <field name="permission_move" />
+                <field name="permission_share" />
+                <field name="directory_is_trashed" />
             </xpath>
-            <xpath expr="//a[i[hasclass('fa-external-link')]]/.." position="replace">
-                <!-- Removed redundant Open option -->
+            <xpath expr="//a[i[hasclass('fa-external-link')]]/.." position="replace"/>
+            <xpath expr="//div[@name='card_menu_Operations']" position="attributes">
+                <attribute name="t-if">!record.is_trashed.raw_value</attribute>
             </xpath>
             <xpath expr="//a[i[hasclass('fa-pencil')]]/.." position="replace">
-                <div role="menuitem" t-if="record.permission_write and record.permission_write.raw_value">
+                <div role="menuitem" t-if="record.is_current_approver and record.is_current_approver.raw_value and record.approval_state.raw_value === 'in_approval'">
+                    <a type="object" name="action_approve_step" class="dropdown-item text-success fw-bold">
+                        <i class="fa fa-check-circle text-success" />
+                        Approve
+                    </a>
+                </div>
+                <div role="menuitem" t-if="record.is_current_approver and record.is_current_approver.raw_value and record.approval_state.raw_value === 'in_approval'">
+                    <a type="object" name="action_open_reject_wizard" class="dropdown-item text-danger">
+                        <i class="fa fa-times-circle text-danger" />
+                        Reject
+                    </a>
+                </div>
+                <div role="menuitem" t-if="!record.is_trashed.raw_value">
                     <a type="object" name="action_open_form_view" class="dropdown-item">
                         <i class="fa fa-pencil" />
                         Edit
                     </a>
                 </div>
+                <div role="menuitem" t-if="!record.is_trashed.raw_value and !record.is_locked.raw_value and record.permission_move and record.permission_move.raw_value">
+                    <a type="object" name="action_open_move_wizard" class="dropdown-item">
+                        <i class="fa fa-arrows" />
+                        Move
+                    </a>
+                </div>
+                <div role="menuitem" t-if="!record.is_trashed.raw_value and (!record.is_locked.raw_value or (record.is_locked.raw_value and record.is_lock_editor.raw_value)) and record.permission_share and record.permission_share.raw_value">
+                    <a type="object" name="action_open_share_wizard" class="dropdown-item">
+                        <i class="fa fa-share-alt" />
+                        Share
+                    </a>
+                </div>
             </xpath>
             <xpath expr="//a[@type='delete']" position="replace">
-                <div role="menuitem" t-if="record.permission_unlink and record.permission_unlink.raw_value">
+                <div role="menuitem" t-if="!record.is_trashed.raw_value and !record.is_locked.raw_value and record.permission_unlink and record.permission_unlink.raw_value">
                     <a type="object" name="action_send_to_trash" class="dropdown-item">
                         <i class="fa fa-trash-o" />
                         Send to Trash
+                    </a>
+                </div>
+                <div role="menuitem" t-if="record.is_trashed.raw_value and record.permission_unlink and record.permission_unlink.raw_value and !record.directory_is_trashed.raw_value">
+                    <a type="object" name="action_restore" class="dropdown-item">
+                        <i class="fa fa-undo" />
+                        Restore
+                    </a>
+                </div>
+                <div role="menuitem" t-if="record.is_trashed.raw_value and !record.is_locked.raw_value and record.permission_unlink and record.permission_unlink.raw_value">
+                    <a type="delete" class="dropdown-item">
+                        <i class="fa fa-trash-o" />
+                        Delete permanently
                     </a>
                 </div>
             </xpath>
         </field>
     </record>
 
+    <!-- Server Action for Share in Action Menu -->
+    <record id="action_server_dms_file_share" model="ir.actions.server">
+        <field name="name">Share</field>
+        <field name="model_id" ref="dms.model_dms_file"/>
+        <field name="binding_model_id" ref="dms.model_dms_file"/>
+        <field name="binding_view_types">form,list</field>
+        <field name="state">code</field>
+        <field name="code">
+            if records:
+                action = records[0].action_open_share_wizard()
+        </field>
+    </record>
+
+    <!-- Server Action for Move in Action Menu -->
+
+    <record id="action_server_dms_file_move" model="ir.actions.server">
+        <field name="name">Move</field>
+        <field name="model_id" ref="dms.model_dms_file"/>
+        <field name="binding_model_id" ref="dms.model_dms_file"/>
+        <field name="binding_view_types">form,list</field>
+        <field name="state">code</field>
+        <field name="code">
+            if records:
+                action = records.action_open_move_wizard()
+        </field>
+    </record>
+
     <!-- Server Actions for Trash Options in the Action Menu (Gear Icon) -->
+
     <record id="action_server_dms_file_send_to_trash" model="ir.actions.server">
         <field name="name">Send to Trash</field>
         <field name="model_id" ref="dms.model_dms_file"/>
@@ -295,9 +531,74 @@
         <field name="model">dms.file</field>
         <field name="inherit_id" ref="dms.search_dms_file"/>
         <field name="arch" type="xml">
+            <!-- Override My Files filter to include creator, owner, assigned approver, and explicitly granted users -->
+            <xpath expr="//filter[@name='filter_user']" position="attributes">
+                <attribute name="domain">[('is_my_file', '=', True)]</attribute>
+            </xpath>
+            <!-- Add search fields for Category and Tags -->
+            <xpath expr="//field[@name='name']" position="after">
+                <field name="category_id" string="Category" filter_domain="[('category_id', 'ilike', self)]"/>
+                <field name="tag_ids" string="Tags" filter_domain="[('tag_ids.name', 'ilike', self)]"/>
+            </xpath>
             <!-- Add a filter to the top search bar instead -->
             <xpath expr="//filter[@name='filter_active']" position="after">
+                <filter string="Starred" name="filter_starred" domain="[('starred', '=', True)]" />
+                <separator/>
+                <filter string="Awaiting My Approval" name="filter_awaiting_my_approval" domain="[('approval_state', '=', 'in_approval'), ('current_approver_ids', 'in', [uid])]"/>
+                <filter string="In Approval" name="filter_in_approval" domain="[('approval_state', '=', 'in_approval')]"/>
+                <filter string="Approved" name="filter_approved" domain="[('approval_state', '=', 'approved')]"/>
+                <filter string="Rejected" name="filter_rejected" domain="[('approval_state', '=', 'rejected')]"/>
+                <separator/>
                 <filter string="Trashed" name="filter_trashed" domain="[('active', '=', False), ('is_trashed', '=', True)]" />
+            </xpath>
+            <xpath expr="//group" position="inside">
+                <filter string="Category" name="groupby_category" domain="[]" context="{'group_by': 'category_id'}"/>
+                <filter string="Tags" name="groupby_tags" domain="[]" context="{'group_by': 'tag_ids'}"/>
+                <filter string="Approval Status" name="groupby_approval_state" domain="[]" context="{'group_by': 'approval_state'}"/>
+            </xpath>
+            <xpath expr="//searchpanel" position="inside">
+                <field name="tag_ids" icon="fa-tags" select="multi" enable_counters="1"/>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- Specific Kanban view for Trash without Create -->
+    <record id="view_dms_file_kanban_trash_specific" model="ir.ui.view">
+        <field name="name">dms.file.kanban.trash.specific</field>
+        <field name="model">dms.file</field>
+        <field name="inherit_id" ref="dms_enterprise_features.view_dms_file_kanban_inherit_trash"/>
+        <field name="mode">primary</field>
+        <field name="priority">999</field>
+        <field name="arch" type="xml">
+            <xpath expr="//kanban" position="attributes">
+                <attribute name="create">0</attribute>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- Specific Tree view for Trash without Create -->
+    <record id="view_dms_file_tree_trash_specific" model="ir.ui.view">
+        <field name="name">dms.file.tree.trash.specific</field>
+        <field name="model">dms.file</field>
+        <field name="inherit_id" ref="dms_enterprise_features.view_dms_file_tree_inherit_trash"/>
+        <field name="mode">primary</field>
+        <field name="priority">999</field>
+        <field name="arch" type="xml">
+            <xpath expr="//list" position="attributes">
+                <attribute name="create">0</attribute>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- Specific Search view for Trash without Searchpanel -->
+    <record id="search_dms_file_trash_specific" model="ir.ui.view">
+        <field name="name">dms.file.search.trash.specific</field>
+        <field name="model">dms.file</field>
+        <field name="inherit_id" ref="dms.search_dms_file"/>
+        <field name="mode">primary</field>
+        <field name="priority">999</field>
+        <field name="arch" type="xml">
+            <xpath expr="//searchpanel" position="replace">
             </xpath>
         </field>
     </record>

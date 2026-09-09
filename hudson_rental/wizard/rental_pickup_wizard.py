@@ -46,7 +46,12 @@ class RentalPickupWizard(models.TransientModel):
         for picking in self.order_id.picking_ids.filtered(lambda p: p.state not in ['done', 'cancel']):
             picking.action_assign()
             for move in picking.move_ids:
-                move.quantity_done = move.product_uom_qty
+                if hasattr(move, 'quantity_done'):
+                    move.quantity_done = move.product_uom_qty
+                if hasattr(move, 'quantity'):
+                    move.quantity = move.product_uom_qty
+                if hasattr(move, 'picked'):
+                    move.picked = True
             picking.button_validate()
         
         return {'type': 'ir.actions.act_window_close'}

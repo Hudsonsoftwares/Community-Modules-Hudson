@@ -4,7 +4,7 @@
     <record id="action_dms_my_documents" model="ir.actions.act_window">
         <field name="name">My Documents</field>
         <field name="res_model">dms.file</field>
-        <field name="view_mode">kanban,list,form</field>
+        <field name="view_mode">kanban,list,activity,form</field>
         <field name="context">{'search_default_filter_user': 1}</field>
         <field name="help" type="html">
             <p class="o_view_nocontent_smiling_face">
@@ -29,6 +29,23 @@
         ]"/>
     </record>
 
+    <!-- My Approvals Action -->
+    <record id="action_dms_my_approvals" model="ir.actions.act_window">
+        <field name="name">Approval Requests</field>
+        <field name="res_model">dms.file</field>
+        <field name="view_mode">kanban,list,form</field>
+        <field name="domain">[('approval_state', 'in', ('in_approval', 'approved', 'rejected'))]</field>
+        <field name="context">{'search_default_filter_awaiting_my_approval': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                No approval requests found.
+            </p>
+            <p>
+                Documents waiting for your review and approval will appear here.
+            </p>
+        </field>
+    </record>
+
     <!-- Menus -->
     <menuitem id="menu_dms_my_documents_root" 
               name="Documents" 
@@ -40,6 +57,12 @@
               action="action_dms_my_documents" 
               parent="menu_dms_my_documents_root" 
               sequence="10"/>
+
+    <menuitem id="menu_dms_my_approvals" 
+              name="Approvals" 
+              action="action_dms_my_approvals" 
+              parent="menu_dms_my_documents_root" 
+              sequence="15"/>
 
     <menuitem id="menu_dms_my_signature_requests" 
               name="Signature Requests" 

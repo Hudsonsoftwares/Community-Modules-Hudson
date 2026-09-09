@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_hudson_report_export_knowledge_wizard_form" model="ir.ui.view">
+        <field name="name">hudson.report.export.knowledge.wizard.form</field>
+        <field name="model">hudson.report.export.knowledge.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Select an article">
+                <sheet>
+                    <group>
+                        <field name="article_id" options="{'no_create': True}" placeholder="Select an Article..."/>
+                        <field name="name" invisible="1"/>
+                        <field name="report_data" invisible="1"/>
+                    </group>
+                </sheet>
+                <footer>
+                    <button name="action_insert" string="Insert" type="object" class="btn-primary"/>
+                    <button string="Discard" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>

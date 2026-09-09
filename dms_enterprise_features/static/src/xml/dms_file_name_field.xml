@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-name="dms_enterprise_features.DmsFileNameField" owl="1">
+        <div class="d-flex align-items-center w-100">
+            <i t-if="fileIcon" t-attf-class="fa #{fileIcon} fa-lg me-2 cursor-pointer" t-on-click.stop.prevent="onIconClick" title="Preview File" />
+            <div class="flex-grow-1 text-truncate">
+                <CharField t-props="props" />
+            </div>
+        </div>
+    </t>
+</templates>

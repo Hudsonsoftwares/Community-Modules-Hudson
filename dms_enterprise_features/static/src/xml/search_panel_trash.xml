@@ -1,6 +1,27 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <templates xml:space="preserve">
     <t t-inherit="web.SearchPanel.Regular" t-inherit-mode="extension">
+        <xpath expr="//section[@t-foreach='sections']" position="before">
+            <style>
+                .o_search_panel_category_value .o_dms_sidebar_dots {
+                    display: none;
+                }
+                .o_search_panel_category_value:hover > header .o_dms_sidebar_dots,
+                .o_search_panel_category_value header:focus-within .o_dms_sidebar_dots,
+                .o_dms_sidebar_dots.show {
+                    display: inline-block !important;
+                }
+                /* Kanban Star Hover Rules */
+                .o_kanban_record .o_dms_file_star {
+                    opacity: 0;
+                    transition: opacity 0.2s ease-in-out;
+                }
+                .o_kanban_record:hover .o_dms_file_star,
+                .o_kanban_record .o_dms_file_star:has(.fa-star) {
+                    opacity: 1 !important;
+                }
+            </style>
+        </xpath>
         <xpath expr="//section[@t-foreach='sections']" position="after">
             <t t-if="isDmsView()">
                 <div class="o_search_panel_section mt-3">

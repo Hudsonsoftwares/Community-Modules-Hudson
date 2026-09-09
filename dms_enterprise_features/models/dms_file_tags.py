@@ -43,4 +43,22 @@ class DMSFile(models.Model):
 class DMSTag(models.Model):
     _inherit = "dms.tag"
 
-    category_id = fields.Many2one(required=True, ondelete="cascade")
+    category_id = fields.Many2one(
+        comodel_name="dms.category",
+        context={"dms_category_show_path": True},
+        string="Category",
+        required=False,
+        ondelete="set null",
+    )
+
+    def init(self):
+        super().init()
+        # Drop NOT NULL constraint on category_id in dms_tag if present
+        self.env.cr.execute("""
+            DO $$
+            BEGIN
+                ALTER TABLE dms_tag ALTER COLUMN category_id DROP NOT NULL;
+            EXCEPTION
+                WHEN undefined_column THEN NULL;
+            END $$;
+        """)

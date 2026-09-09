@@ -12,7 +12,7 @@ class ProductTemplate(models.Model):
         ('day', 'Days'),
         ('week', 'Weeks'),
         ('month', 'Months'),
-    ], string='Periodicity')
+    ], string='Periodicity', default='day')
     
     rental_pickup_time = fields.Float(
         string='Pickup', 
@@ -26,9 +26,13 @@ class ProductTemplate(models.Model):
 
     is_rental = fields.Boolean(
         string='Can be Rented',
-        compute='_compute_is_rental',
-        store=True,
-        help='Computed automatically based on periodicity'
+        default=False,
+        help='Check this box to enable rental for this product'
+    )
+    rent_ok = fields.Boolean(
+        string='Can be Rented',
+        related='is_rental',
+        readonly=False,
     )
     rental_pricing_ids = fields.One2many(
         'rental.pricing',
@@ -67,15 +71,15 @@ class ProductTemplate(models.Model):
         help='Refundable security deposit amount'
     )
 
+    @api.onchange('is_rental')
+    def _onchange_is_rental(self):
+        if self.is_rental and not self.rental_periodicity:
+            self.rental_periodicity = 'day'
+
     @api.depends('is_rental', 'rental_pricing_ids')
     def _compute_rental_ok(self):
         for product in self:
-            product.rental_ok = product.is_rental and len(product.rental_pricing_ids) > 0
-
-    @api.depends('rental_periodicity')
-    def _compute_is_rental(self):
-        for product in self:
-            product.is_rental = bool(product.rental_periodicity)
+            product.rental_ok = bool(product.is_rental)
 
     def _compute_rental_stock_available(self):
         for product in self:
@@ -87,7 +91,7 @@ class ProductTemplate(models.Model):
             total_rented = sum(rented_qty.mapped('quantity'))
             
             available_qty = sum(product.product_variant_ids.mapped('qty_available'))
-            product.rental_stock_available = max(0, available_qty - total_rented)
+            product.rental_stock_available = max(0.0, available_qty - total_rented)
 
     def _compute_rental_order_count(self):
         for product in self:
@@ -97,13 +101,14 @@ class ProductTemplate(models.Model):
 
     def action_view_rental_orders(self):
         self.ensure_one()
+        variant_id = self.product_variant_id.id if self.product_variant_id else (self.product_variant_ids[:1].id if self.product_variant_ids else False)
         return {
             'name': 'Rental Orders',
             'type': 'ir.actions.act_window',
             'res_model': 'rental.order',
-            'view_mode': 'tree,form',
+            'view_mode': 'list,form',
             'domain': [('order_line_ids.product_id', 'in', self.product_variant_ids.ids)],
-            'context': {'default_product_id': self.product_variant_id.id}
+            'context': {'default_product_id': variant_id}
         }
 
     def get_rental_price(self, duration, duration_unit='day'):

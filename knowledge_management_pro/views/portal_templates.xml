@@ -93,6 +93,19 @@
                                         <!-- Article Content -->
                                         <div class="article-content" style="font-size: 1.1rem; line-height: 1.8; color: #444;" t-field="article.content">
                                         </div>
+                                        
+                                        <t t-if="has_write_access">
+                                            <div class="mt-4 border-top pt-4">
+                                                <h4>Edit Article</h4>
+                                                <form t-attf-action="/my/knowledge/#{article.id}/edit" method="post">
+                                                    <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                                    <div class="form-group">
+                                                        <textarea name="content" class="form-control" rows="10" placeholder="Edit content here..."><t t-esc="article.content"/></textarea>
+                                                    </div>
+                                                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                                                </form>
+                                            </div>
+                                        </t>
                                     </div>
                                 </div>
                                 <!-- Back Button -->

@@ -173,25 +173,61 @@ export class DmsSignaturePdfViewer extends Component {
         });
     }
 
+    async onBack() {
+        let fileId = this.props.action.context?.default_file_id;
+        if (!fileId && this.state.documents.length > 0) {
+            const revId = this.state.documents[0].id;
+            try {
+                const records = await this.orm.read("dms.file.revision", [revId], ["file_id"]);
+                if (records && records.length && records[0].file_id) {
+                    fileId = records[0].file_id[0];
+                }
+            } catch (e) {
+                console.warn("Could not fetch file_id", e);
+            }
+        }
+        if (fileId) {
+            return this.env.services.action.doAction({
+                type: "ir.actions.act_window",
+                res_model: "dms.file",
+                res_id: fileId,
+                views: [[false, "form"]],
+                target: "current"
+            });
+        }
+        return this.env.services.action.doAction({
+            type: "ir.actions.act_window",
+            res_model: "dms.file",
+            views: [[false, "kanban"], [false, "list"]],
+            target: "current"
+        });
+    }
+
     async loadInitialData() {
         // Load default documents from context
-        const context = this.props.action.context;
+        const context = this.props.action.context || {};
         const defaultRevIds = context.default_revision_ids || context.default_revision_id;
 
-        if (defaultRevIds) {
-            const revIds = typeof defaultRevIds === "string" ? defaultRevIds.split(',').map(Number) : [defaultRevIds];
-            const records = await this.orm.read("dms.file.revision", revIds, ["id", "file_name", "content"], { context: { bin_size: false } });
+        if (!defaultRevIds) {
+            return this.onBack();
+        }
 
-            this.state.documents = records.map(r => ({
-                id: r.id,
-                name: r.file_name,
-                content: r.content,
-                items: [] // array of boxes
-            }));
+        const revIds = typeof defaultRevIds === "string" ? defaultRevIds.split(',').map(Number) : [defaultRevIds];
+        const records = await this.orm.read("dms.file.revision", revIds, ["id", "file_name", "content"], { context: { bin_size: false } });
 
-            if (this.state.documents.length > 0) {
-                this.selectDocument(0);
-            }
+        if (!records || records.length === 0) {
+            return this.onBack();
+        }
+
+        this.state.documents = records.map(r => ({
+            id: r.id,
+            name: r.file_name,
+            content: r.content,
+            items: [] // array of boxes
+        }));
+
+        if (this.state.documents.length > 0) {
+            this.selectDocument(0);
         }
 
         // Fetch all users for assignment
@@ -306,6 +342,8 @@ export class DmsSignaturePdfViewer extends Component {
                 name: file.name,
                 content: base64Data
             }]);
+
+
 
             const fileRec = await this.orm.read("dms.file", fileId, ["current_revision_id"]);
             const revId = fileRec[0].current_revision_id[0];
@@ -656,7 +694,6 @@ export class DmsSignaturePdfViewer extends Component {
         return role ? role.color : "#e6f2eb";
     }
 
-    // --- Submission ---
     openSendModal(isSignNow) {
         // Collect roles that actually have fields
         const rolesWithFields = new Set();
@@ -671,21 +708,7 @@ export class DmsSignaturePdfViewer extends Component {
             return;
         }
 
-        this.dialog.add(SignatureSendDialog, {
-            title: isSignNow ? "New Signature Request" : "New Signature Request",
-            isSignNow: isSignNow,
-            roles: this.state.roles,
-            rolesWithFields: Array.from(rolesWithFields),
-            users: this.state.allUsers,
-            defaultSubject: this.state.currentDocument ? "Signature Request - " + this.state.currentDocument.name : "Signature Request",
-            onConfirm: async (data) => {
-                await this.submitSignatureRequest(data, isSignNow);
-            }
-        });
-    }
-
-    async submitSignatureRequest(data, isSignNow) {
-        // Format payload
+        // Format payload to pass to the wizard
         const docs = this.state.documents.map(d => ({
             revision_id: d.id,
             items: d.items.map(i => ({
@@ -696,7 +719,7 @@ export class DmsSignaturePdfViewer extends Component {
                 width: i.width / (this.state.pages.find(p => p.num === i.page)?.width || 800),
                 height: i.height / (this.state.pages.find(p => p.num === i.page)?.height || 1100),
                 role_id: i.roleId,
-                assigned_user_id: data.roleUserMap[i.roleId],
+                // assigned_user_id will be mapped by the wizard
 
                 // Extra Properties
                 placeholder: i.placeholder,
@@ -710,33 +733,31 @@ export class DmsSignaturePdfViewer extends Component {
 
         const payload = {
             documents: docs,
-            subject: data.subject,
-            message: data.message,
-            cc: data.cc,
-            is_sign_now: isSignNow,
-            signingOrder: data.signingOrder,
-            reminders: data.reminders,
-            reminderDays: data.reminderDays,
-            validUntil: data.validUntil,
-            hideCertificateKey: data.hideCertificateKey
         };
 
-        try {
-            await this.orm.call("dms.file.signature.request", "create_from_ui", [payload]);
-            this.notification.add("Signature request created successfully!", { type: "success" });
+        const defaultRoles = Array.from(rolesWithFields).map((roleId, index) => {
+            const role = this.state.roles.find(r => r.id === roleId);
+            return [0, 0, {
+                role_id: roleId,
+                role_name: role ? role.name : roleId,
+                sequence: index + 1
+            }];
+        });
 
-            // Close the action and return to Kanban
-            this.env.services.action.doAction({
-                type: 'ir.actions.act_window',
-                name: 'Documents',
-                res_model: 'dms.file',
-                views: [[false, 'kanban'], [false, 'list']],
-                target: 'main',
-            });
-        } catch (e) {
-            console.error(e);
-            this.notification.add(e.message || "Error creating request", { type: "danger" });
-        }
+        this.env.services.action.doAction({
+            type: "ir.actions.act_window",
+            name: isSignNow ? "Sign Now" : "Send Signature Request",
+            res_model: "dms.signature.send.wizard",
+            views: [[false, "form"]],
+            target: "new",
+            context: {
+                default_subject: this.state.currentDocument ? "Signature Request - " + this.state.currentDocument.name : "Signature Request",
+                default_payload: JSON.stringify(payload),
+                default_role_ids: defaultRoles,
+                default_single_role_id: rolesWithFields.size === 1 ? Array.from(rolesWithFields)[0] : false,
+                default_is_sign_now: isSignNow
+            }
+        });
     }
 }
 

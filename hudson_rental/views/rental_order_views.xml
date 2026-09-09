@@ -200,11 +200,9 @@
         <!-- Rental Order Action -->
         <record id="action_rental_order" model="ir.actions.act_window">
             <field name="name">Rental Orders</field>
-            <field name="res_model">sale.order</field>
+            <field name="res_model">rental.order</field>
             <field name="view_mode">list,kanban,form</field>
-            <field name="search_view_id" ref="sale.view_sales_order_filter"/>
-            <field name="context">{'default_is_rental_order': 1}</field>
-            <field name="domain">[('is_rental_order', '=', True)]</field>
+            <field name="search_view_id" ref="rental_order_view_search"/>
             <field name="help" type="html">
                 <p class="o_view_nocontent_smiling_face">
                     Create a new rental order
