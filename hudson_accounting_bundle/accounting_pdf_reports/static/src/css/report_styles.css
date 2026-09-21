@@ -1,0 +1,22 @@
+/* Fix Chrome PDF viewer drawing unwanted table borders */
+.table-reports,
+.table-reports thead,
+.table-reports tbody,
+.table-reports tfoot,
+.table-reports tr,
+.table-reports th,
+.table-reports td {
+    border-style: hidden !important;
+}
+
+/* Fix Chrome PDF Viewer links misalignment and interactivity issues */
+.table-reports a {
+    display: inline-block;
+    position: relative;
+    z-index: 999;
+}
+
+/* Avoid page breaks inside rows which can corrupt Chrome's PDF rendering */
+.table-reports tr {
+    page-break-inside: avoid;
+}

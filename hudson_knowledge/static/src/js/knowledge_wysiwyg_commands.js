@@ -1,0 +1,239 @@
+/** @odoo-module **/
+
+import { Plugin } from "@html_editor/plugin";
+import { _t } from "@web/core/l10n/translation";
+import { withSequence } from "@html_editor/utils/resource";
+
+/**
+ * KnowledgeEditorPlugin
+ *
+ * Extends Odoo 19 html_editor with custom Knowledge commands:
+ *  - Load a Template
+ *  - Build an Item Kanban
+ *  - Build an Item List
+ *  - Build an Item Calendar
+ *  - Generate an Article with AI
+ *
+ * These commands appear in the Powerbox when typing "/" anywhere in the article,
+ * and the AI command also appears in the empty-line power buttons row.
+ */
+export class KnowledgeEditorPlugin extends Plugin {
+    static id = "knowledgeEditor";
+    static dependencies = ["selection", "history", "userCommand", "powerbox"];
+
+    resources = {
+        powerbox_categories: [
+            withSequence(45, { id: "knowledge", name: _t("Knowledge") }),
+        ],
+        user_commands: [
+            {
+                id: "knowledgeLoadTemplate",
+                title: _t("Load a Template"),
+                description: _t("Insert content from a saved template"),
+                icon: "fa-paint-brush",
+                run: () => {
+                    if (this.config.knowledgeAction) {
+                        this.config.knowledgeAction.onBrowseTemplates();
+                    }
+                },
+            },
+            {
+                id: "knowledgeBuildItemKanban",
+                title: _t("Build an Item Kanban"),
+                description: _t("Create an interactive Kanban board inside this article"),
+                icon: "fa-th-large",
+                run: () => {
+                    if (this.config.knowledgeAction) {
+                        this.config.knowledgeAction.openInsertViewModal("kanban", this._getTargetBlock());
+                    }
+                },
+            },
+            {
+                id: "knowledgeBuildItemList",
+                title: _t("Build an Item List"),
+                description: _t("Create an interactive list inside this article"),
+                icon: "fa-list",
+                run: () => {
+                    if (this.config.knowledgeAction) {
+                        this.config.knowledgeAction.openInsertViewModal("list", this._getTargetBlock());
+                    }
+                },
+            },
+            {
+                id: "knowledgeBuildItemCalendar",
+                title: _t("Build an Item Calendar"),
+                description: _t("Create an interactive calendar inside this article"),
+                icon: "fa-calendar",
+                run: () => {
+                    if (this.config.knowledgeAction) {
+                        this.config.knowledgeAction.openInsertViewModal("calendar", this._getTargetBlock());
+                    }
+                },
+            },
+            {
+                id: "knowledgeGenerateArticleAI",
+                title: _t("Generate an Article with AI"),
+                description: _t("Generate structured article content using AI"),
+                icon: "fa-magic",
+                run: () => {
+                    if (this.config.knowledgeAction) {
+                        this.config.knowledgeAction.onOpenAIGenerator();
+                    }
+                },
+            },
+        ],
+        powerbox_items: [
+            withSequence(10, {
+                categoryId: "knowledge",
+                commandId: "knowledgeLoadTemplate",
+                keywords: [_t("template"), _t("load"), _t("preset")],
+            }),
+            withSequence(20, {
+                categoryId: "knowledge",
+                commandId: "knowledgeBuildItemKanban",
+                keywords: [_t("kanban"), _t("board"), _t("item"), _t("columns")],
+            }),
+            withSequence(30, {
+                categoryId: "knowledge",
+                commandId: "knowledgeBuildItemList",
+                keywords: [_t("list"), _t("item"), _t("table"), _t("grid")],
+            }),
+            withSequence(40, {
+                categoryId: "knowledge",
+                commandId: "knowledgeBuildItemCalendar",
+                keywords: [_t("calendar"), _t("date"), _t("schedule"), _t("item")],
+            }),
+            withSequence(50, {
+                categoryId: "knowledge",
+                commandId: "knowledgeGenerateArticleAI",
+                keywords: [_t("ai"), _t("generate"), _t("chatgpt"), _t("magic"), _t("write")],
+            }),
+        ],
+        power_buttons: [
+            withSequence(85, {
+                commandId: "knowledgeGenerateArticleAI",
+                description: _t("Generate an Article with AI"),
+                icon: "fa-magic",
+            }),
+        ],
+    };
+
+    _getTargetBlock() {
+        try {
+            const selData = this.dependencies.selection?.getSelectionData?.();
+            const anchorNode = selData?.editableSelection?.anchorNode || selData?.deepEditableSelection?.anchorNode;
+            if (anchorNode && this.editable) {
+                let curr = anchorNode.nodeType === Node.ELEMENT_NODE ? anchorNode : anchorNode.parentElement;
+                while (curr && curr.parentElement && curr.parentElement !== this.editable) {
+                    curr = curr.parentElement;
+                }
+                if (curr && curr.parentElement === this.editable) {
+                    return curr;
+                }
+            }
+        } catch (e) {
+            console.warn("Could not get target block from selection:", e);
+        }
+        return null;
+    }
+}
+
+// ── Patch TextDirectionPlugin for empty line support (Item 1) ─────
+import { patch } from "@web/core/utils/patch";
+import { TextDirectionPlugin } from "@html_editor/main/text_direction_plugin";
+import { closestBlock } from "@html_editor/utils/blocks";
+import { closestElement } from "@html_editor/utils/dom_traversal";
+import { isContentEditable, isTextNode } from "@html_editor/utils/dom_info";
+
+try {
+    patch(TextDirectionPlugin.prototype, {
+        switchDirection() {
+            const selection = this.dependencies.split.splitSelection();
+            const targetedTextNodes = [
+                selection?.anchorNode,
+                ...this.dependencies.selection.getTargetedNodes(),
+            ].filter((n) => n && isTextNode(n) && isContentEditable(n) && n.nodeValue.trim().length);
+
+            const blocks = new Set(
+                targetedTextNodes.map(
+                    (textNode) =>
+                        closestElement(textNode, "ul,ol") ||
+                        closestElement(textNode, "[data-embedded='toggleBlock']") ||
+                        closestBlock(textNode)
+                )
+            );
+
+            // Empty line / empty block fallback:
+            let isEmptyLineFallback = false;
+            if (blocks.size === 0) {
+                let anchor = selection?.anchorNode;
+                if (!anchor || !this.editable.contains(anchor)) {
+                    const domSel = window.getSelection();
+                    if (domSel && domSel.anchorNode && this.editable.contains(domSel.anchorNode)) {
+                        anchor = domSel.anchorNode;
+                    }
+                }
+                if (anchor) {
+                    if (anchor === this.editable) {
+                        const offset = selection?.anchorOffset ?? window.getSelection()?.anchorOffset ?? 0;
+                        anchor = this.editable.childNodes[offset] || this.editable.firstElementChild;
+                    }
+                    if (anchor) {
+                        const targetBlock =
+                            closestElement(anchor, "ul,ol") ||
+                            closestElement(anchor, "[data-embedded='toggleBlock']") ||
+                            closestBlock(anchor);
+                        if (targetBlock && targetBlock !== this.editable && this.editable.contains(targetBlock)) {
+                            blocks.add(targetBlock);
+                            isEmptyLineFallback = true;
+                        }
+                    }
+                }
+            }
+
+            if (blocks.size === 0) {
+                return;
+            }
+
+            for (const block of blocks) {
+                for (const node of block.querySelectorAll("ul,ol")) {
+                    blocks.add(node);
+                }
+            }
+
+            // Determine whether to switch to RTL or LTR
+            let shouldApplyStyle;
+            if (isEmptyLineFallback) {
+                const isAnyRtl = Array.from(blocks).some(
+                    (b) => b.getAttribute("dir") === "rtl" || getComputedStyle(b).direction === "rtl"
+                );
+                shouldApplyStyle = !isAnyRtl;
+            } else {
+                shouldApplyStyle = !this.dependencies.format.isSelectionFormat("switchDirection");
+            }
+
+            for (const block of blocks) {
+                if (!shouldApplyStyle) {
+                    block.removeAttribute("dir");
+                    block.style.setProperty("text-align", "left");
+                } else {
+                    block.setAttribute("dir", this.direction === "ltr" ? "rtl" : "ltr");
+                    block.style.setProperty("text-align", this.direction === "ltr" ? "right" : "left");
+                }
+            }
+
+            for (const element of blocks) {
+                const style = getComputedStyle(element);
+                if (style.direction === "ltr" && style.textAlign === "right") {
+                    element.style.setProperty("text-align", "left");
+                } else if (style.direction === "rtl" && style.textAlign === "left") {
+                    element.style.setProperty("text-align", "right");
+                }
+            }
+            this.dependencies.history.addStep();
+        },
+    });
+} catch (e) {
+    console.warn("Could not patch TextDirectionPlugin", e);
+}
+

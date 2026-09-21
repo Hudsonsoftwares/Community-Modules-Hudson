@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Branding Remover – POS Customer Display OWL template patch
+  ===========================================================
+  Removes the "Powered by Odoo" badge shown on the customer-facing display
+  screen in Point of Sale.
+
+  The badge is a <div> with the inline style that anchors it to the
+  bottom-left of the sidebar:
+      class="position-absolute bottom-0 mb-4 d-none d-lg-flex ..."
+
+  We target it via its unique content ("Powered by" text combined with the
+  OdooLogo component child element).
+
+  NOTE: Only the visible branding UI element is removed.
+       No copyright or licence text in source files is altered.
+-->
+<templates id="template" xml:space="preserve">
+    <t t-inherit="point_of_sale.CustomerDisplay" t-inherit-mode="extension">
+        <!--
+            Remove the "Powered by <OdooLogo>" badge from the sidebar of the
+            customer display. The div is uniquely identified by its position
+            (absolute, bottom-0) and the OdooLogo child component.
+        -->
+        <xpath expr="//div[hasclass('position-absolute') and hasclass('bottom-0') and hasclass('mb-4')]"
+               position="remove"/>
+    </t>
+</templates>

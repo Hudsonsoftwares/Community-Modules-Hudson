@@ -10,7 +10,7 @@
     """,
     'author': 'Antigravity',
     'website': 'https://www.example.com',
-    'depends': ['base', 'mail', 'portal', 'website', 'resource', 'im_livechat', 'website_forum', 'knowledge_management_pro', 'sale_management', 'account', 'stock', 'loyalty', 'repair', 'project', 'hudson_field_service'],
+    'depends': ['base', 'mail', 'portal', 'website', 'resource', 'im_livechat', 'website_forum', 'hudson_knowledge', 'sale_management', 'account', 'stock', 'loyalty', 'repair', 'project', 'hudson_field_service'],
     'data': [
         'security/helpdesk_security.xml',
         'security/ir.model.access.csv',

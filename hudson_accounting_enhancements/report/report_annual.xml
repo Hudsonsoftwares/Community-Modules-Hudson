@@ -21,7 +21,15 @@
                         <div style="width: 60px; height: 6px; background: #714b67; margin-bottom: 24px;"/>
 
                         <h1 style="font-size: 28pt; font-weight: 700; color: #1a1a1a; margin: 0 0 8px 0; line-height: 1.2;">
-                            <t t-esc="o.name or 'Annual Report'"/>&#160;<t t-esc="dt.year"/>
+                            <t t-if="o.name and str(dt.year) in o.name">
+                                <t t-esc="o.name"/>
+                            </t>
+                            <t t-elif="o.name">
+                                <t t-esc="o.name"/>&#160;<t t-esc="dt.year"/>
+                            </t>
+                            <t t-else="">
+                                Annual Report&#160;<t t-esc="dt.year"/>
+                            </t>
                         </h1>
                         <p style="font-size: 13pt; color: #555; margin: 0 0 32px 0;">
                             Fiscal period from
@@ -789,7 +797,7 @@
                 <!-- PDF Footer with real page numbers on every page -->
                 <div class="footer" style="border-top: 1px solid #e0e0e0; font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 8.5pt; color: #777; padding-top: 4px; width: 100%;">
                     <div style="float: left;">
-                        <t t-esc="company.name"/> — <t t-esc="o.name or 'Annual Report'"/>&#160;<t t-esc="dt.year"/>
+                        <t t-esc="company.name"/> — <t t-if="o.name and str(dt.year) in o.name"><t t-esc="o.name"/></t><t t-elif="o.name"><t t-esc="o.name"/>&#160;<t t-esc="dt.year"/></t><t t-else="">Annual Report&#160;<t t-esc="dt.year"/></t>
                     </div>
                     <div style="float: right;">
                         Page <span class="page"/> of <span class="topage"/>

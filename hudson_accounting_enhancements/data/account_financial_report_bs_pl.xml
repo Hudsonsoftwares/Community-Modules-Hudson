@@ -2,147 +2,126 @@
 <odoo>
     <!--
     ============================================================
-    PROFIT AND LOSS RESTRUCTURE
+    PROFIT AND LOSS RESTRUCTURE (Standard Odoo Online Format)
     ============================================================
-    New hierarchy:
-      Profit and Loss (root, sign=-1, type=sum)
-      ├── Operating Profit (sign=-1, type=sum)
-      │   ├── Gross Profit (sign=-1, type=sum)
-      │   │   ├── Revenue (sign=-1, type=account_type, income)
-      │   │   └── Cost of Revenue (sign=-1, type=account_type, direct_costs)
-      │   └── Operating Expenses (sign=-1, type=account_type, expense+depreciation)
-      └── Other Income (sign=-1, type=account_type, income_other)
-
-    Sign logic:
-      - Income accounts: raw balance = (debit-credit) < 0 (credit-heavy)
-        → sign=-1 flips to positive → displayed as positive revenue
-      - Expense accounts: raw balance = (debit-credit) > 0 (debit-heavy)
-        → sign=-1 flips to negative → displayed as negative (cost reduces profit)
-      - Gross Profit parent: sum of Revenue.raw + CoR.raw, then * -1
-        = -(-revenue + cogs) = revenue - cogs ✓
-      - Net Profit parent (P&L root): sum of all raw balances * -1 ✓
+    Report: Profit and Loss (root, type=sum, sign=-1)
+      ├── 1. Revenue (sequence 10, type=account_type: income, sign=-1)
+      ├── 2. Costs of Revenue (sequence 20, type=account_type: direct_costs, sign=1)
+      │      >> Gross Profit Summary Bar (computed: Revenue - Costs of Revenue)
+      ├── 3. Operating Expenses (sequence 30, type=account_type: expenses+depreciation, sign=1)
+      │      >> Operating Income (or Loss) Summary Bar (computed: Gross Profit - Operating Expenses)
+      ├── 4. Other Income (sequence 40, type=account_type: income_other, sign=-1)
+      ├── 5. Other Expenses (sequence 50, type=account_type, sign=1)
+      │      >> Net Profit Summary Bar (computed: Operating Income + Other Income - Other Expenses)
+      └── 6. Allocations and Withdrawals (sequence 60, type=account_type, sign=1)
+             >> Net Profit Left After Allocations and Withdrawals Summary Bar
     ============================================================
     -->
 
-    <!--
-    STEP 1: Create the full P&L section hierarchy.
-    IMPORTANT: Records must be created in dependency order.
-    Operating Profit is the parent of Gross Profit + Operating Expenses,
-    so Operating Profit MUST be created first.
-
-    Display order (depth-first, parent shown before children):
-      1. Net Profit         (P&L root, type=sum, sign=-1)
-      2.   Operating Profit (type=sum, sign=-1)
-      3.     Gross Profit   (type=sum, sign=-1)
-      4.       Revenue      (type=account_type, income)
-      5.       Cost of Rev  (type=account_type, direct_cost)
-      6.     Operating Exp  (type=account_type, expense+depreciation)
-      7.   Other Income     (type=account_type, income_other)
-
-    Sign verification:
-      Revenue.raw = negative (credit-heavy income accounts)
-      CoR.raw = positive (debit-heavy cost accounts)
-      GrossProfit.raw = Revenue.raw + CoR.raw = -revenue + cogs
-      GrossProfit.displayed = GrossProfit.raw * -1 = revenue - cogs ✓
-
-      OpEx.raw = positive (debit-heavy expense accounts)
-      OperatingProfit.raw = GrossProfit.raw + OpEx.raw
-      OperatingProfit.displayed = -1 * raw = revenue - cogs - opex ✓
-
-      OtherIncome.raw = negative (credit-heavy income accounts)
-      NetProfit.raw = OperatingProfit.raw + OtherIncome.raw
-      NetProfit.displayed = -1 * raw = revenue + other_income - cogs - opex ✓
-    -->
-
-    <!-- 1a. Operating Profit — MUST be created first (parent of GP and OpEx) -->
-    <record id="account_financial_report_operating_profit" model="account.financial.report">
-        <field name="name">Operating Profit</field>
-        <field name="parent_id" ref="accounting_pdf_reports.account_financial_report_profitandloss0"/>
+    <!-- STEP 1: Update P&L root name and type -->
+    <record id="accounting_pdf_reports.account_financial_report_profitandloss0" model="account.financial.report">
+        <field name="name">Profit and Loss</field>
+        <field name="sign">-1</field>
         <field name="type">sum</field>
+        <field name="style_overwrite">1</field>
+    </record>
+
+    <!-- STEP 2: Section 1 - Revenue -->
+    <record id="accounting_pdf_reports.account_financial_report_income0" model="account.financial.report">
+        <field name="name">Revenue</field>
+        <field name="parent_id" ref="accounting_pdf_reports.account_financial_report_profitandloss0"/>
+        <field name="type">account_type</field>
         <field name="sign">-1</field>
         <field name="sequence">10</field>
         <field name="style_overwrite">1</field>
         <field name="display_detail">detail_with_hierarchy</field>
-    </record>
-
-    <!-- 1b. Gross Profit — child of Operating Profit (parent now exists) -->
-    <record id="account_financial_report_gross_profit" model="account.financial.report">
-        <field name="name">Gross Profit</field>
-        <field name="parent_id" ref="account_financial_report_operating_profit"/>
-        <field name="type">sum</field>
-        <field name="sign">-1</field>
-        <field name="sequence">10</field>
-        <field name="style_overwrite">2</field>
-        <field name="display_detail">detail_with_hierarchy</field>
-    </record>
-
-    <!-- 1c. Operating Expenses — child of Operating Profit -->
-    <record id="account_financial_report_operating_expenses" model="account.financial.report">
-        <field name="name">Operating Expenses</field>
-        <field name="parent_id" ref="account_financial_report_operating_profit"/>
-        <field name="type">account_type</field>
-        <field name="sign">-1</field>
-        <field name="sequence">20</field>
-        <field name="style_overwrite">2</field>
-        <field name="display_detail">detail_with_hierarchy</field>
-        <field name="account_type_ids" eval="[
-            (4, ref('accounting_pdf_reports.data_account_type_expenses')),
-            (4, ref('accounting_pdf_reports.data_account_type_depreciation'))
-        ]"/>
-    </record>
-
-    <!-- 1d. Other Income — direct child of P&L root -->
-    <record id="account_financial_report_other_income" model="account.financial.report">
-        <field name="name">Other Income</field>
-        <field name="parent_id" ref="accounting_pdf_reports.account_financial_report_profitandloss0"/>
-        <field name="type">account_type</field>
-        <field name="sign">-1</field>
-        <field name="sequence">20</field>
-        <field name="style_overwrite">2</field>
-        <field name="display_detail">detail_with_hierarchy</field>
-        <field name="account_type_ids" eval="[
-            (4, ref('accounting_pdf_reports.data_account_type_other_income'))
-        ]"/>
-    </record>
-
-    <!-- STEP 2: Update the existing "Income" section → becomes "Revenue" under Gross Profit -->
-    <record id="accounting_pdf_reports.account_financial_report_income0" model="account.financial.report">
-        <field name="name">Revenue</field>
-        <field name="parent_id" ref="account_financial_report_gross_profit"/>
-        <field name="type">account_type</field>
-        <field name="sign">-1</field>
-        <field name="sequence">10</field>
-        <field name="style_overwrite">2</field>
-        <field name="display_detail">detail_with_hierarchy</field>
-        <!-- Only income (not income_other which goes to Other Income) -->
         <field name="account_type_ids" eval="[
             (5, 0, 0),
             (4, ref('accounting_pdf_reports.data_account_type_revenue'))
         ]"/>
     </record>
 
-    <!-- STEP 3: Update the existing "Expense" section → becomes "Cost of Revenue" under Gross Profit -->
+    <!-- STEP 3: Section 2 - Costs of Revenue -->
     <record id="accounting_pdf_reports.account_financial_report_expense0" model="account.financial.report">
-        <field name="name">Cost of Revenue</field>
-        <field name="parent_id" ref="account_financial_report_gross_profit"/>
+        <field name="name">Costs of Revenue</field>
+        <field name="parent_id" ref="accounting_pdf_reports.account_financial_report_profitandloss0"/>
         <field name="type">account_type</field>
-        <field name="sign">-1</field>
+        <field name="sign">1</field>
         <field name="sequence">20</field>
-        <field name="style_overwrite">2</field>
+        <field name="style_overwrite">1</field>
         <field name="display_detail">detail_with_hierarchy</field>
-        <!-- Only direct costs (COGS); operating expenses and depreciation moved to Operating Expenses -->
         <field name="account_type_ids" eval="[
             (5, 0, 0),
             (4, ref('accounting_pdf_reports.data_account_type_direct_costs'))
         ]"/>
     </record>
 
-    <!-- STEP 4: Update P&L root sign and style -->
-    <record id="accounting_pdf_reports.account_financial_report_profitandloss0" model="account.financial.report">
-        <field name="name">Net Profit</field>
-        <field name="sign">-1</field>
-        <field name="type">sum</field>
+    <!-- STEP 4: Section 3 - Operating Expenses -->
+    <record id="account_financial_report_operating_expenses" model="account.financial.report">
+        <field name="name">Operating Expenses</field>
+        <field name="parent_id" ref="accounting_pdf_reports.account_financial_report_profitandloss0"/>
+        <field name="type">account_type</field>
+        <field name="sign">1</field>
+        <field name="sequence">30</field>
         <field name="style_overwrite">1</field>
+        <field name="display_detail">detail_with_hierarchy</field>
+        <field name="account_type_ids" eval="[
+            (5, 0, 0),
+            (4, ref('accounting_pdf_reports.data_account_type_expenses')),
+            (4, ref('accounting_pdf_reports.data_account_type_depreciation'))
+        ]"/>
+    </record>
+
+    <!-- STEP 5: Section 4 - Other Income -->
+    <record id="account_financial_report_other_income" model="account.financial.report">
+        <field name="name">Other Income</field>
+        <field name="parent_id" ref="accounting_pdf_reports.account_financial_report_profitandloss0"/>
+        <field name="type">account_type</field>
+        <field name="sign">-1</field>
+        <field name="sequence">40</field>
+        <field name="style_overwrite">1</field>
+        <field name="display_detail">detail_with_hierarchy</field>
+        <field name="account_type_ids" eval="[
+            (5, 0, 0),
+            (4, ref('accounting_pdf_reports.data_account_type_other_income'))
+        ]"/>
+    </record>
+
+    <!-- STEP 6: Section 5 - Other Expenses -->
+    <record id="account_financial_report_other_expenses" model="account.financial.report">
+        <field name="name">Other Expenses</field>
+        <field name="parent_id" ref="accounting_pdf_reports.account_financial_report_profitandloss0"/>
+        <field name="type">account_type</field>
+        <field name="sign">1</field>
+        <field name="sequence">50</field>
+        <field name="style_overwrite">1</field>
+        <field name="display_detail">detail_with_hierarchy</field>
+        <field name="account_type_ids" eval="[(5, 0, 0)]"/>
+    </record>
+
+    <!-- STEP 7: Section 6 - Allocations and Withdrawals -->
+    <record id="account_financial_report_allocations_withdrawals" model="account.financial.report">
+        <field name="name">Allocations and Withdrawals</field>
+        <field name="parent_id" ref="accounting_pdf_reports.account_financial_report_profitandloss0"/>
+        <field name="type">account_type</field>
+        <field name="sign">1</field>
+        <field name="sequence">60</field>
+        <field name="style_overwrite">1</field>
+        <field name="display_detail">detail_with_hierarchy</field>
+        <field name="account_type_ids" eval="[(5, 0, 0)]"/>
+    </record>
+
+    <!-- Orphan legacy nested records so they are excluded from the P&L tree -->
+    <record id="account_financial_report_operating_profit" model="account.financial.report">
+        <field name="name">_legacy_operating_profit_unused</field>
+        <field name="parent_id" eval="False"/>
+        <field name="account_type_ids" eval="[(5, 0, 0)]"/>
+    </record>
+
+    <record id="account_financial_report_gross_profit" model="account.financial.report">
+        <field name="name">_legacy_gross_profit_unused</field>
+        <field name="parent_id" eval="False"/>
+        <field name="account_type_ids" eval="[(5, 0, 0)]"/>
     </record>
 
     <!--

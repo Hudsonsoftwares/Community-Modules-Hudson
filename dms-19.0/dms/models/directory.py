@@ -475,11 +475,14 @@ class DmsDirectory(models.Model):
     )
     def _compute_groups(self):
         """Get all DMS security groups affecting this directory."""
+        existing_records = self.exists()
         for one in self:
+            if one.id and one not in existing_records:
+                continue
             groups = one.group_ids
             if one.inherit_group_ids:
                 groups |= one.parent_id.complete_group_ids
-            self.complete_group_ids = groups
+            one.complete_group_ids = groups
 
     # View
     @api.depends("is_root_directory")
@@ -504,7 +507,10 @@ class DmsDirectory(models.Model):
 
     @api.depends("category_id")
     def _compute_tags(self):
+        existing_records = self.exists()
         for record in self:
+            if record.id and record not in existing_records:
+                continue
             tags = record.tag_ids.filtered(
                 lambda rec, record=record: not rec.category_id
                 or rec.category_id == record.category_id

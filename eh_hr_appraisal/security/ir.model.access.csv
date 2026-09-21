@@ -1,0 +1,14 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_hr_appraisal_user,hr.appraisal.user,model_hr_appraisal,group_hr_appraisal_user,1,1,0,0
+access_hr_appraisal_goal_user,hr.appraisal.goal.user,model_hr_appraisal_goal,group_hr_appraisal_user,1,1,1,1
+access_hr_appraisal_manager,hr.appraisal.manager,model_hr_appraisal,group_hr_appraisal_manager,1,1,1,0
+access_hr_appraisal_goal_manager,hr.appraisal.goal.manager,model_hr_appraisal_goal,group_hr_appraisal_manager,1,1,1,1
+access_hr_appraisal_admin,hr.appraisal.admin,model_hr_appraisal,group_hr_appraisal_admin,1,1,1,1
+access_hr_appraisal_goal_admin,hr.appraisal.goal.admin,model_hr_appraisal_goal,group_hr_appraisal_admin,1,1,1,1
+access_hr_appraisal_wizard_user,hr.appraisal.launch.wizard.user,model_hr_appraisal_launch_wizard,group_hr_appraisal_user,1,1,1,1
+access_hr_appraisal_template_admin,hr.appraisal.template.admin,model_hr_appraisal_template,group_hr_appraisal_admin,1,1,1,1
+access_hr_appraisal_template_user,hr.appraisal.template.user,model_hr_appraisal_template,group_hr_appraisal_user,1,0,0,0
+access_hr_appraisal_scale,hr.appraisal.scale,model_hr_appraisal_scale,hr.group_hr_manager,1,1,1,1
+access_hr_appraisal_scale_emp,hr.appraisal.scale_emp,model_hr_appraisal_scale,base.group_user,1,0,0,0
+access_hr_appraisal_goal_tag,hr.appraisal.goal.tag,model_hr_appraisal_goal_tag,base.group_user,1,1,1,1
+access_hr_appraisal_goal_template,hr.appraisal.goal.template,model_hr_appraisal_goal_template,base.group_user,1,1,1,1

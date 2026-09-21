@@ -24,7 +24,7 @@ class DMSPortal(CustomerPortal):
                 ('access_ids.partner_id', '=', user.partner_id.id),
                 ('access_ids.user_id', '=', user.id),
                 ('document_owner_id', '=', user.id),
-                ('access_ids.group_id', 'in', user.groups_id.ids)
+                ('access_ids.group_id', 'in', user.group_ids.ids)
             ])
         return values
 
@@ -39,7 +39,7 @@ class DMSPortal(CustomerPortal):
             ('access_ids.partner_id', '=', user.partner_id.id),
             ('access_ids.user_id', '=', user.id),
             ('document_owner_id', '=', user.id),
-            ('access_ids.group_id', 'in', user.groups_id.ids)
+            ('access_ids.group_id', 'in', user.group_ids.ids)
         ]
         files = request.env['dms.file'].sudo().search(domain, order='write_date desc')
         values.update({

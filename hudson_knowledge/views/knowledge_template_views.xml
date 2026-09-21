@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Template List View -->
+    <record id="view_knowledge_template_list" model="ir.ui.view">
+        <field name="name">knowledge.management.article.template.list</field>
+        <field name="model">knowledge.management.article.template</field>
+        <field name="arch" type="xml">
+            <list string="Templates">
+                <field name="sequence" widget="handle"/>
+                <field name="icon" string=""/>
+                <field name="name"/>
+                <field name="description"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- Template Kanban View -->
+    <record id="view_knowledge_template_kanban" model="ir.ui.view">
+        <field name="name">knowledge.management.article.template.kanban</field>
+        <field name="model">knowledge.management.article.template</field>
+        <field name="arch" type="xml">
+            <kanban class="o_knowledge_template_kanban">
+                <field name="id"/>
+                <field name="name"/>
+                <field name="icon"/>
+                <field name="description"/>
+                <templates>
+                    <t t-name="card" class="o_knowledge_template_card p-3">
+                        <div class="o_kanban_record_title d-flex align-items-center gap-2">
+                            <span class="fs-3"><field name="icon"/></span>
+                            <strong><field name="name"/></strong>
+                        </div>
+                        <div class="o_kanban_record_body text-muted small mt-1">
+                            <field name="description"/>
+                        </div>
+                        <div class="o_kanban_record_bottom mt-2">
+                            <button name="action_use_template" type="object"
+                                    class="btn btn-sm btn-primary">Use Template</button>
+                        </div>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+
+    <!-- Template Window Action -->
+    <record id="action_knowledge_template" model="ir.actions.act_window">
+        <field name="name">Templates</field>
+        <field name="res_model">knowledge.management.article.template</field>
+        <field name="view_mode">kanban,list,form</field>
+    </record>
+</odoo>

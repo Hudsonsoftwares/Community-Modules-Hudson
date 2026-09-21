@@ -20,17 +20,36 @@ export class BankRecActionDropdown extends Component {
             ['journal_id.type', 'not in', ['bank', 'cash']]
         ];
         
-        const amount = this.props.record.data.amount;
+        let amount = this.props.record.data.amount;
+        if (typeof amount === 'object' && amount !== null) {
+            amount = amount.value !== undefined ? amount.value : (amount.amount !== undefined ? amount.amount : 0);
+        }
+        amount = typeof amount === 'number' ? amount : (parseFloat(amount) || 0.0);
+
         if (amount < 0) {
             domain.push(['amount_residual', '<', 0]);
         } else if (amount > 0) {
             domain.push(['amount_residual', '>', 0]);
         }
         
+        let partnerId = false;
+        const partner = this.props.record.data.partner_id;
+        if (Array.isArray(partner) && partner.length > 0) {
+            partnerId = partner[0];
+        } else if (typeof partner === 'object' && partner !== null) {
+            partnerId = partner.id || false;
+        } else if (typeof partner === 'number') {
+            partnerId = partner;
+        }
+        
         this.env.services.dialog.add(SelectCreateDialog, {
             resModel: "account.move.line",
             title: "Search: Journal Items to Match",
             domain: domain,
+            context: {
+                hudson_match_amount: amount,
+                hudson_match_partner_id: partnerId || false,
+            },
             multiSelect: true,
             noCreate: true,
             onSelected: async (resIds) => {

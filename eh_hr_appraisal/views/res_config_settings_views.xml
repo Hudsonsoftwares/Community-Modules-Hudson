@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="res_config_settings_view_form" model="ir.ui.view">
+        <field name="name">res.config.settings.view.form.inherit.hr.appraisal</field>
+        <field name="model">res.config.settings</field>
+        <field name="priority" eval="90"/>
+        <field name="inherit_id" ref="base.res_config_settings_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//form" position="inside">
+                <app data-string="Appraisals" string="Appraisals" name="hr_appraisal" groups="hr.group_hr_manager">
+                    
+                    <block title="Appraisals Plans" name="appraisals_plans_setting_container">
+                        <setting id="appraisal_plan_setting" company_dependent="1" help="Define the next appraisal date automatically based on Appraisal's History">
+                            <field name="appraisal_plan"/>
+                            <div class="content-group" invisible="not appraisal_plan">
+                                <div class="mt16">
+                                    <field name="appraisal_plan_first_month" class="text-center oe_inline" style="width: 2rem; margin-right: 4px;"/>
+                                    <span class="o_form_label">months after recruitment, then after</span>
+                                </div>
+                                <div class="mt8">
+                                    <field name="appraisal_plan_next_month" class="text-center oe_inline" style="width: 2rem; margin-right: 4px;"/>
+                                    <span class="o_form_label">months, then every <field name="appraisal_plan_recurring_month" class="text-center oe_inline" style="width: 2rem; margin: 0 4px;"/> months.</span>
+                                </div>
+                            </div>
+                        </setting>
+
+                        <setting id="appraisal_360_feedback_setting" company_dependent="1" help="Ask to fill a survey to other employees">
+                            <field name="appraisal_360_feedback"/>
+                        </setting>
+
+                        <setting id="appraisal_automation_setting" company_dependent="1" help="Automatically creates the confirmed appraisals when Next Appraisal Date is reached">
+                            <field name="appraisal_automation"/>
+                        </setting>
+                    </block>
+                    
+                </app>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="action_hr_appraisal_configuration" model="ir.actions.act_window">
+        <field name="name">Settings</field>
+        <field name="res_model">res.config.settings</field>
+        <field name="view_mode">form</field>
+        <field name="target">current</field>
+        <field name="context">{'module' : 'hr_appraisal', 'bin_size': False}</field>
+    </record>
+</odoo>

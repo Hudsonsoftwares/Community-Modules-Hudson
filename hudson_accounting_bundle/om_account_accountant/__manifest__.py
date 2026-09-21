@@ -40,5 +40,10 @@
     ],
     'application': True,
     'images': ['static/description/banner.gif'],
+    'assets': {
+        'web.assets_backend': [
+            'om_account_accountant/static/src/scss/account_dashboard.scss',
+        ],
+    },
 }
 

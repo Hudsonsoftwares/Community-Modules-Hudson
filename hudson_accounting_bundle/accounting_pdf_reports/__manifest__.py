@@ -42,4 +42,9 @@
     ],
     'pre_init_hook': '_pre_init_clean_m2m_models',
     'images': ['static/description/banner.gif'],
+    'assets': {
+        'web.report_assets_common': [
+            'accounting_pdf_reports/static/src/css/report_styles.css',
+        ],
+    },
 }

@@ -9,7 +9,7 @@
     'license': 'LGPL-3',
     'depends': [
         'hudson_accounting_enhancements',
-        'knowledge_management_pro',
+        'hudson_knowledge',
     ],
     'data': [
         'security/ir.model.access.csv',

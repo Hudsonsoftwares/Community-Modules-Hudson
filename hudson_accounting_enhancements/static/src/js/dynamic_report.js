@@ -32,10 +32,10 @@ export class DynamicReport extends Component {
                 tags: [],
                 gaap: 'Local Gaap',
                 gaap_options: {
-                    local_gaap: true,
-                    ifrs: false
+                    local_gaap: true
                 }
             },
+            available_ledgers: [],
             customDateFrom: '',
             customDateTo: '',
             partnerSearch: '',
@@ -51,6 +51,8 @@ export class DynamicReport extends Component {
             openDropdownLineId: null,
             dropdownIsDropup: false,
             searchQuery: '',
+            selectedSplitLineId: null,
+            splitSearchQuery: '',
             currency_symbol: '₹',
             integrations: { dms: false, knowledge: false },
         });
@@ -108,6 +110,14 @@ export class DynamicReport extends Component {
         return dateStr;
     }
 
+    isNegativeValue(val) {
+        if (val === null || val === undefined || val === '') return false;
+        if (typeof val === 'number') return val < -0.00001;
+        const clean = String(val).replace(/[^0-9.-]/g, '');
+        const num = parseFloat(clean);
+        return !isNaN(num) && num < -0.00001;
+    }
+
     isZeroValue(val) {
         if (val === null || val === undefined || val === '') return true;
         if (typeof val === 'number') return Math.abs(val) < 0.00001;
@@ -119,19 +129,30 @@ export class DynamicReport extends Component {
     async fetchData() {
         // Use _currentParams if set (in-place navigation), otherwise fall back to props
         let params = this._currentParams || this.props.action.params || {};
-        const model_name = params.model_name || this.state.model_name || null;
-        
-        // Use unique key per report model to survive browser navigation and refreshes without cross-overwriting
-        const storageKey = 'hudson_report_params_' + (model_name ? model_name : (this.props.action.id || 'default'));
-        
+        let model_name = params.model_name || this.state.model_name || null;
+
+        // Primary storage key is based on model_name; secondary/fallback key is the action ID.
+        // We always write to BOTH keys so that back-navigation (where model_name may be missing
+        // from the restored props) can still find the full params via the action ID.
+        const actionId = this.props.action.id || this.props.action.tag || 'default';
+        const actionStorageKey = 'hudson_report_params_action_' + actionId;
+
         if (params.model_name) {
-            // Params are fully specified — persist them and remember as active
-            sessionStorage.setItem(storageKey, JSON.stringify(params));
+            // Params are fully specified — persist them under both keys
+            const modelStorageKey = 'hudson_report_params_' + params.model_name;
+            sessionStorage.setItem(modelStorageKey, JSON.stringify(params));
+            sessionStorage.setItem(actionStorageKey, JSON.stringify(params));
             this._currentParams = params;
         } else {
-            const saved = sessionStorage.getItem(storageKey);
+            // Try to recover params: first from action-ID key (works after back-navigation),
+            // then from model-name key if model_name is already known in state.
+            let saved = sessionStorage.getItem(actionStorageKey);
+            if (!saved && model_name) {
+                saved = sessionStorage.getItem('hudson_report_params_' + model_name);
+            }
             if (saved) {
                 params = JSON.parse(saved);
+                model_name = params.model_name || model_name;
                 this._currentParams = params;
             }
         }
@@ -229,13 +250,21 @@ export class DynamicReport extends Component {
         this.state.currency_symbol = result.currency_symbol || '₹';
         this.state.alert_message = result.alert_message || null;
         this.state.companies_description = result.companies_description || '';
+        this.state.available_ledgers = result.available_ledgers || [];
         
         // Setup smart line expansion matching standard ERP reporting
         this.state.expandedLines = {};
-        if (model_name === 'account.aged.report') {
-            // In Aged reports, partner groups are collapsed by default unless Unfold All is active
+        if (model_name === 'account.aged.report' || model_name === 'account.print.journal' || model_name === 'account.report.partner.ledger') {
+            // In Aged reports, Journal Audit and Partner Ledger, groups/partners are collapsed by default unless Unfold All is active
             if (this.state.unfoldAll) {
                 for (const line of result.lines) {
+                    this.state.expandedLines[line.id] = true;
+                }
+            }
+        } else if (model_name === 'account.cash.flow.wizard') {
+            // In Cash Flow Statement, expand Level 1 & 2 by default so sections & sub-lines are visible, while accounts & transactions (Level 3+) stay collapsed
+            for (const line of result.lines) {
+                if (this.state.unfoldAll || line.level <= 2) {
                     this.state.expandedLines[line.id] = true;
                 }
             }
@@ -506,9 +535,16 @@ export class DynamicReport extends Component {
     onUnfoldAllToggle() {
         this.state.unfoldAll = !this.state.unfoldAll;
         const newExpanded = {};
+        const model_name = this.state.model_name;
         if (this.state.unfoldAll) {
             this.state.lines.forEach(l => {
                 newExpanded[l.id] = true;
+            });
+        } else if (model_name === 'account.cash.flow.wizard') {
+            this.state.lines.forEach(l => {
+                if (l.level <= 2) {
+                    newExpanded[l.id] = true;
+                }
             });
         }
         this.state.expandedLines = newExpanded;
@@ -694,27 +730,62 @@ export class DynamicReport extends Component {
     }
 
     getGaapButtonLabel() {
-        const gaap = this.state.filterSummary.gaap_options || { local_gaap: true, ifrs: false };
-        if (gaap.local_gaap && gaap.ifrs) {
-            return 'All Ledgers';
-        } else if (gaap.local_gaap) {
-            return 'Local Gaap';
-        } else if (gaap.ifrs) {
-            return 'IFRS';
-        } else {
-            return 'All Ledgers';
+        const gaap = this.state.filterSummary.gaap_options || { local_gaap: true };
+        let selectedCount = 0;
+        let lastName = '';
+        
+        if (gaap.local_gaap) {
+            selectedCount++;
+            lastName = 'Local Gaap';
         }
+        
+        if (this.state.available_ledgers) {
+            for (const ledger of this.state.available_ledgers) {
+                if (gaap[ledger.id]) {
+                    selectedCount++;
+                    lastName = ledger.name;
+                }
+            }
+        }
+        
+        if (selectedCount === 0) return 'All Ledgers';
+        if (selectedCount === 1) return lastName;
+        return 'Multiple Ledgers';
     }
 
     async toggleGaap(option) {
         if (!this.state.filterSummary.gaap_options) {
-            this.state.filterSummary.gaap_options = { local_gaap: true, ifrs: false };
+            this.state.filterSummary.gaap_options = { local_gaap: true };
         }
-        this.state.filterSummary.gaap_options[option] = !this.state.filterSummary.gaap_options[option];
-        if (!this.state.filterSummary.gaap_options.local_gaap && !this.state.filterSummary.gaap_options.ifrs) {
-            this.state.filterSummary.gaap_options[option] = true;
+        if (option === 'local_gaap') {
+            this.state.filterSummary.gaap_options = { local_gaap: true };
+            if (this.state.available_ledgers) {
+                for (const ledger of this.state.available_ledgers) {
+                    this.state.filterSummary.gaap_options[ledger.id] = false;
+                }
+            }
+        } else {
+            this.state.filterSummary.gaap_options[option] = !this.state.filterSummary.gaap_options[option];
+            if (this.state.filterSummary.gaap_options[option]) {
+                this.state.filterSummary.gaap_options.local_gaap = false;
+            }
+            let anySelected = false;
+            if (this.state.available_ledgers) {
+                for (const ledger of this.state.available_ledgers) {
+                    if (this.state.filterSummary.gaap_options[ledger.id]) anySelected = true;
+                }
+            }
+            if (!anySelected) {
+                this.state.filterSummary.gaap_options.local_gaap = true;
+            }
         }
+        
         this.state.filterSummary.gaap = this.getGaapButtonLabel();
+        
+        const data = this.props.action.params.data || {};
+        const form_data = data.form || data;
+        form_data.gaap_options = this.state.filterSummary.gaap_options;
+        
         await this.fetchData();
     }
 
@@ -792,25 +863,73 @@ export class DynamicReport extends Component {
     getLeftSplitLines() {
         if (!this.state.lines || !this.state.lines.length) return [];
         const lines = this.state.lines;
-        let left = [];
-        let inLeft = false;
-        for (let i = 0; i < lines.length; i++) {
-            const l = lines[i];
-            const nameUpper = (l.name || '').toUpperCase().trim();
-            if (l.level === 1 || l.is_summary_total) {
-                if (nameUpper.includes('ASSET')) {
-                    inLeft = true;
-                    left.push(l);
-                } else if (nameUpper.includes('LIABILIT') || nameUpper.includes('EQUITY') || nameUpper.includes('PASSIV') || nameUpper.includes('CAPITAL')) {
-                    inLeft = false;
+
+        // 1. Balance sheet: Assets on Left
+        const titleUpper = (this.state.title || '').toUpperCase();
+        if (titleUpper.includes('BALANCE SHEET') || lines.some(l => (l.name || '').toUpperCase().includes('ASSET') && l.level === 1)) {
+            let left = [];
+            let inLeft = false;
+            for (let i = 0; i < lines.length; i++) {
+                const l = lines[i];
+                const nameUpper = (l.name || '').toUpperCase().trim();
+                if (l.level === 1 || l.is_summary_total) {
+                    if (nameUpper.includes('ASSET') && !nameUpper.includes('LIABILIT') && !nameUpper.includes('EQUITY')) {
+                        inLeft = true;
+                        left.push(l);
+                    } else if (nameUpper.includes('LIABILIT') || nameUpper.includes('EQUITY') || nameUpper.includes('PASSIV') || nameUpper.includes('CAPITAL')) {
+                        inLeft = false;
+                    } else if (inLeft) {
+                        left.push(l);
+                    }
                 } else if (inLeft) {
                     left.push(l);
                 }
-            } else if (inLeft) {
-                left.push(l);
+            }
+            if (left.length > 0) return left;
+        }
+
+        // 2. All other reports (General Ledger, Trial Balance, Partner Ledger, Profit & Loss, Cash Flow, Tax, Aged, etc.):
+        // Group into complete hierarchical blocks starting at the minimum level (e.g. Level 1 parent groups/accounts)
+        const nonSummary = lines.filter(l => !l.is_summary_total);
+        const minLevel = nonSummary.length ? Math.min(...nonSummary.map(l => l.level || 1)) : 1;
+
+        const blocks = [];
+        let currentBlock = [];
+        for (let i = 0; i < lines.length; i++) {
+            const l = lines[i];
+            if (l.level === minLevel && currentBlock.length > 0) {
+                blocks.push(currentBlock);
+                currentBlock = [];
+            }
+            currentBlock.push(l);
+        }
+        if (currentBlock.length > 0) blocks.push(currentBlock);
+
+        if (blocks.length > 1) {
+            const mid = Math.ceil(blocks.length / 2);
+            return blocks.slice(0, mid).flat();
+        }
+
+        // If only 1 root block exists, split at the direct children (minLevel + 1)
+        if (blocks.length === 1 && lines.length > 1) {
+            const root = lines[0];
+            const subBlocks = [];
+            let subCurrent = [];
+            for (let i = 1; i < lines.length; i++) {
+                const l = lines[i];
+                if (l.level === minLevel + 1 && subCurrent.length > 0) {
+                    subBlocks.push(subCurrent);
+                    subCurrent = [];
+                }
+                subCurrent.push(l);
+            }
+            if (subCurrent.length > 0) subBlocks.push(subCurrent);
+            if (subBlocks.length > 1) {
+                const midSub = Math.ceil(subBlocks.length / 2);
+                return [root, ...subBlocks.slice(0, midSub).flat()];
             }
         }
-        if (left.length > 0) return left;
+
         const mid = Math.ceil(lines.length / 2);
         return lines.slice(0, mid);
     }
@@ -818,25 +937,70 @@ export class DynamicReport extends Component {
     getRightSplitLines() {
         if (!this.state.lines || !this.state.lines.length) return [];
         const lines = this.state.lines;
-        let right = [];
-        let inRight = false;
-        for (let i = 0; i < lines.length; i++) {
-            const l = lines[i];
-            const nameUpper = (l.name || '').toUpperCase().trim();
-            if (l.level === 1 || l.is_summary_total) {
-                if (nameUpper.includes('LIABILIT') || nameUpper.includes('EQUITY') || nameUpper.includes('PASSIV') || nameUpper.includes('CAPITAL')) {
-                    inRight = true;
-                    right.push(l);
-                } else if (nameUpper.includes('ASSET')) {
-                    inRight = false;
+
+        // 1. Balance sheet: Liabilities & Equity on Right
+        const titleUpper = (this.state.title || '').toUpperCase();
+        if (titleUpper.includes('BALANCE SHEET') || lines.some(l => (l.name || '').toUpperCase().includes('LIABILIT') || (l.name || '').toUpperCase().includes('EQUITY'))) {
+            let right = [];
+            let inRight = false;
+            for (let i = 0; i < lines.length; i++) {
+                const l = lines[i];
+                const nameUpper = (l.name || '').toUpperCase().trim();
+                if (l.level === 1 || l.is_summary_total) {
+                    if (nameUpper.includes('LIABILIT') || nameUpper.includes('EQUITY') || nameUpper.includes('PASSIV') || nameUpper.includes('CAPITAL')) {
+                        inRight = true;
+                        right.push(l);
+                    } else if (nameUpper.includes('ASSET') && !nameUpper.includes('LIABILIT') && !nameUpper.includes('EQUITY')) {
+                        inRight = false;
+                    } else if (inRight) {
+                        right.push(l);
+                    }
                 } else if (inRight) {
                     right.push(l);
                 }
-            } else if (inRight) {
-                right.push(l);
+            }
+            if (right.length > 0) return right;
+        }
+
+        // 2. All other reports:
+        const nonSummary = lines.filter(l => !l.is_summary_total);
+        const minLevel = nonSummary.length ? Math.min(...nonSummary.map(l => l.level || 1)) : 1;
+
+        const blocks = [];
+        let currentBlock = [];
+        for (let i = 0; i < lines.length; i++) {
+            const l = lines[i];
+            if (l.level === minLevel && currentBlock.length > 0) {
+                blocks.push(currentBlock);
+                currentBlock = [];
+            }
+            currentBlock.push(l);
+        }
+        if (currentBlock.length > 0) blocks.push(currentBlock);
+
+        if (blocks.length > 1) {
+            const mid = Math.ceil(blocks.length / 2);
+            return blocks.slice(mid).flat();
+        }
+
+        if (blocks.length === 1 && lines.length > 1) {
+            const subBlocks = [];
+            let subCurrent = [];
+            for (let i = 1; i < lines.length; i++) {
+                const l = lines[i];
+                if (l.level === minLevel + 1 && subCurrent.length > 0) {
+                    subBlocks.push(subCurrent);
+                    subCurrent = [];
+                }
+                subCurrent.push(l);
+            }
+            if (subCurrent.length > 0) subBlocks.push(subCurrent);
+            if (subBlocks.length > 1) {
+                const midSub = Math.ceil(subBlocks.length / 2);
+                return subBlocks.slice(midSub).flat();
             }
         }
-        if (right.length > 0) return right;
+
         const mid = Math.ceil(lines.length / 2);
         return lines.slice(mid);
     }
@@ -919,6 +1083,11 @@ export class DynamicReport extends Component {
         return dateStr;
     }
 
+    isNegativeValue(val) {
+        if (val === undefined || val === null || val === '') return false;
+        return (Number(val) || 0) < -0.005;
+    }
+
     isZeroValue(val) {
         if (val === undefined || val === null || val === '') return true;
         return Math.abs(Number(val) || 0) < 0.005;
@@ -984,6 +1153,12 @@ export class DynamicReport extends Component {
         const model_name = params.model_name;
         const data = params.data || {};
         const form_data = data.form || data;
+        
+        // Toggle expand for group lines when row is clicked
+        if (line.type === 'group' && this.hasChildren(line)) {
+            this.toggleExpand(line.id);
+            return;
+        }
         
         // 1. Click on a transaction / move line (in Cash Flow, General Ledger, Partner Ledger, Trial Balance)
         if (line.move_id || line.type === 'move_line' || line.move_line_id) {

@@ -44,7 +44,7 @@
         <!-- Planning Slot multi-company -->
         <record model="ir.rule" id="fs_planning_slot_comp_rule">
             <field name="name">Field Service Planning Slot: multi-company</field>
-            <field name="model_id" ref="model_fs_planning_slot"/>
+            <field name="model_id" ref="hudson_planning.model_fs_planning_slot"/>
             <field name="domain_force">[('company_id', 'in', company_ids + [False])]</field>
         </record>
 

@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_hr_appraisal_goal_form" model="ir.ui.view">
+        <field name="name">hr.appraisal.goal.form</field>
+        <field name="model">hr.appraisal.goal</field>
+        <field name="arch" type="xml">
+            <form string="Appraisal Goal">
+                <header>
+                    <button name="action_mark_as_done" string="Mark as Done" type="object" invisible="state == 'done'" class="oe_highlight"/>
+                    <button name="action_save_as_template" string="Save as Template" type="object"/>
+                    <field name="state" invisible="1"/>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <h1><field name="name" placeholder="e.g. Improve your English level"/></h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="employee_id"/>
+                            <field name="progress" widget="selection_badge" options="{'horizontal': true}"/>
+                        </group>
+                        <group>
+                            <field name="manager_id"/>
+                            <field name="deadline"/>
+                            <field name="tag_ids" widget="many2many_tags" options="{'color_field': 'color'}"/>
+                        </group>
+                    </group>
+                    <div class="mt-4">
+                        <strong>Description</strong>
+                        <field name="description" widget="html" nolabel="1"/>
+                    </div>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_hr_appraisal_goal_tree" model="ir.ui.view">
+        <field name="name">hr.appraisal.goal.tree</field>
+        <field name="model">hr.appraisal.goal</field>
+        <field name="arch" type="xml">
+            <list string="Appraisal Goals">
+                <header>
+                    <button name="%(action_hr_appraisal_goal_template)d" string="Open Library" type="action"/>
+                </header>
+                <field name="name"/>
+                <field name="progress"/>
+                <field name="employee_id"/>
+                <field name="deadline"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_hr_appraisal_goal_search" model="ir.ui.view">
+        <field name="name">hr.appraisal.goal.search</field>
+        <field name="model">hr.appraisal.goal</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="employee_id"/>
+                <filter string="Employee" name="group_by_employee" context="{'group_by': 'employee_id'}"/>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_hr_appraisal_goal" model="ir.actions.act_window">
+        <field name="name">Goals</field>
+        <field name="res_model">hr.appraisal.goal</field>
+        <field name="view_mode">list,form</field>
+        <field name="context">{'search_default_group_by_employee': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Create a new appraisal goal!
+            </p>
+        </field>
+    </record>
+</odoo>

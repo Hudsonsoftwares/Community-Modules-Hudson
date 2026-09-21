@@ -15,4 +15,15 @@
         </field>
     </record>
 
+    <record id="account_journal_dashboard_kanban_view_inherit" model="ir.ui.view">
+        <field name="name">account.journal.dashboard.kanban.inherit</field>
+        <field name="model">account.journal</field>
+        <field name="inherit_id" ref="account.account_journal_dashboard_kanban_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//kanban" position="attributes">
+                <attribute name="class" add="hudson_accounting_dashboard" separator=" "/>
+            </xpath>
+        </field>
+    </record>
+
 </odoo>

@@ -1,0 +1,32 @@
+.hudson-leaflet-map {
+    height: 380px;
+    width: 100%;
+    z-index: 1;
+}
+
+.hudson-search-dropdown {
+    top: 100%;
+    left: 0;
+    z-index: 1050;
+    max-height: 250px;
+    overflow-y: auto;
+    margin-top: 4px;
+}
+
+.hudson-search-dropdown .list-group-item:hover {
+    background-color: #f8f9fa;
+    color: #0d6efd;
+}
+
+/* Custom Marker Styling */
+.hudson-map-marker-pin {
+    width: 32px;
+    height: 42px;
+    position: relative;
+    cursor: grab;
+    filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.4));
+}
+
+.hudson-map-marker-pin:active {
+    cursor: grabbing;
+}

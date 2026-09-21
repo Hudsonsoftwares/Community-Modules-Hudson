@@ -174,6 +174,53 @@ class HudsonDynamicReport(models.AbstractModel):
         # Put it back in data just in case
         data['form'] = form_data
 
+        # --- MULTI LEDGER / JOURNAL GROUP LOGIC ---
+        available_ledgers = []
+        ledger_journals_map = {}
+
+        # 1. Standard Odoo Journal Groups (used as Multi Ledgers in Odoo)
+        if 'account.journal.group' in self.env:
+            for group in self.env['account.journal.group'].sudo().search([]):
+                g_id = group.id
+                g_name = group.name
+                if isinstance(g_name, dict):
+                    g_name = g_name.get(self.env.lang or 'en_US') or list(g_name.values())[0] if g_name else 'Unnamed'
+                available_ledgers.append({'id': g_id, 'name': g_name})
+                
+                comp_id = group.company_id.id or self.env.company.id
+                company_journals = self.env['account.journal'].sudo().search([('company_id', '=', comp_id)])
+                included = company_journals - group.excluded_journal_ids
+                ledger_journals_map[g_id] = included.ids
+                ledger_journals_map[str(g_id)] = included.ids
+
+        # 2. Custom account.multi.ledger
+        if 'account.multi.ledger' in self.env:
+            for ledger in self.env['account.multi.ledger'].sudo().search([]):
+                l_id = ledger.id
+                if l_id in ledger_journals_map:
+                    custom_key = f"multi_{l_id}"
+                    available_ledgers.append({'id': custom_key, 'name': ledger.name})
+                    ledger_journals_map[custom_key] = ledger.journal_ids.ids
+                else:
+                    available_ledgers.append({'id': l_id, 'name': ledger.name})
+                    ledger_journals_map[l_id] = ledger.journal_ids.ids
+                    ledger_journals_map[str(l_id)] = ledger.journal_ids.ids
+
+        gaap_options = form_data.get('gaap_options', {})
+        selected_ledger_keys = [k for k, v in gaap_options.items() if v and k != 'local_gaap']
+        if selected_ledger_keys and not gaap_options.get('local_gaap'):
+            filtered_journal_ids = set()
+            for key in selected_ledger_keys:
+                if key in ledger_journals_map:
+                    filtered_journal_ids.update(ledger_journals_map[key])
+                elif str(key).isdigit() and int(key) in ledger_journals_map:
+                    filtered_journal_ids.update(ledger_journals_map[int(key)])
+            
+            if filtered_journal_ids:
+                form_data['used_context']['journal_ids'] = list(filtered_journal_ids)
+                form_data['journal_ids'] = list(filtered_journal_ids)
+        # ------------------------------------------
+
         result = {
             'title': 'Report',
             'columns': [],
@@ -181,6 +228,7 @@ class HudsonDynamicReport(models.AbstractModel):
             'currency_id': self.env.company.currency_id.id,
             'currency_symbol': self.env.company.currency_id.symbol or self.env.company.currency_id.name or 'AED',
             'company_id': self.env.company.id,
+            'available_ledgers': available_ledgers,
         }
 
         if model_name == 'accounting.report':
@@ -196,6 +244,9 @@ class HudsonDynamicReport(models.AbstractModel):
                 result['title'] = report_name[1]
             else:
                 result['title'] = _("Financial Report")
+
+            if result['title'] == 'Net Profit' or ('profit' in result['title'].lower() and 'loss' not in result['title'].lower()):
+                result['title'] = _("Profit and Loss")
                 
             debit_credit = form_data.get('debit_credit')
             
@@ -595,6 +646,10 @@ class HudsonDynamicReport(models.AbstractModel):
             if date_to:
                 domain_period.append(('date', '<=', date_to))
                 
+            if form_data.get('journal_ids'):
+                domain_initial.append(('journal_id', 'in', form_data['journal_ids']))
+                domain_period.append(('journal_id', 'in', form_data['journal_ids']))
+                
             # Compute Initial Balance
             initial_balances = {}
             if date_from:
@@ -955,113 +1010,49 @@ class HudsonDynamicReport(models.AbstractModel):
             formatted_lines = []
             
             def add_section(id_str, name, data_dict):
-                if round(data_dict.get('total', 0.0), 2) != 0 or data_dict.get('account_lines'):
+                formatted_lines.append({
+                    'id': id_str,
+                    'name': name,
+                    'balance': data_dict.get('total', 0.0),
+                    'level': 3,
+                    'type': 'group',
+                })
+                for acc in data_dict.get('account_lines', []):
+                    acc_id_str = f"{id_str}_{acc['id']}"
                     formatted_lines.append({
-                        'id': id_str,
-                        'name': name,
-                        'balance': data_dict.get('total', 0.0),
-                        'level': 3,
-                        'type': 'group',
+                        'id': acc_id_str,
+                        'name': acc['name'],
+                        'balance': acc['balance'],
+                        'level': 4,
+                        'type': 'account',
+                        'account_id': acc['id'],
+                        'action_buttons': [{'label': _('Journal Items'), 'action': 'open_journal_items'}]
                     })
-                    for acc in data_dict.get('account_lines', []):
-                        acc_id_str = f"{id_str}_{acc['id']}"
+                    for tx in acc.get('transactions', []):
                         formatted_lines.append({
-                            'id': acc_id_str,
-                            'name': acc['name'],
-                            'balance': acc['balance'],
-                            'level': 4,
-                            'type': 'account',
-                            'account_id': acc['id'],
-                            'action_buttons': [{'label': _('Journal Items'), 'action': 'open_journal_items'}]
+                            'id': f"tx_{id_str}_{tx['id']}",
+                            'name': tx['name'],
+                            'date': tx['date'],
+                            'partner': tx['partner_name'],
+                            'balance': tx['balance'],
+                            'level': 5,
+                            'type': 'move_line',
+                            'move_id': tx['move_id'],
+                            'move_line_id': tx['id'],
+                            'move_type': tx['move_type'],
                         })
-                        for tx in acc.get('transactions', []):
-                            formatted_lines.append({
-                                'id': f"tx_{id_str}_{tx['id']}",
-                                'name': tx['name'],
-                                'date': tx['date'],
-                                'partner': tx['partner_name'],
-                                'balance': tx['balance'],
-                                'level': 5,
-                                'type': 'move_line',
-                                'move_id': tx['move_id'],
-                                'move_line_id': tx['id'],
-                                'move_type': tx['move_type'],
-                            })
             
-            # Opening Balance
+            # 1. Opening Balance
             formatted_lines.append({
                 'id': 'opening',
                 'name': _('Cash and cash equivalents, beginning of period'),
                 'balance': cf_data['opening_cash'],
                 'level': 1,
                 'type': 'total',
+                'is_summary_total': True,
             })
             
-            # Operating
-            formatted_lines.append({
-                'id': 'operating',
-                'name': _('Cash flows from operating activities'),
-                'balance': cf_data['operating_total'],
-                'level': 2,
-                'type': 'group',
-            })
-            # Operating Inflows
-            formatted_lines.append({
-                'id': 'op_inflows',
-                'name': _('Cash Inflows'),
-                'balance': cf_data['op_cash_in']['total'] + cf_data['op_adv_in']['total'],
-                'level': 3,
-                'type': 'group',
-            })
-            add_section('op_cash_in', _('Cash received from operating activities'), cf_data['op_cash_in'])
-            add_section('op_adv_in', _('Advance Payments received from customers'), cf_data['op_adv_in'])
-            
-            # Operating Outflows
-            formatted_lines.append({
-                'id': 'op_outflows',
-                'name': _('Cash Outflows'),
-                'balance': cf_data['op_cash_out']['total'] + cf_data['op_adv_out']['total'],
-                'level': 3,
-                'type': 'group',
-            })
-            add_section('op_cash_out', _('Cash paid for operating activities'), cf_data['op_cash_out'])
-            add_section('op_adv_out', _('Advance payments made to suppliers'), cf_data['op_adv_out'])
-            
-            # Investing
-            formatted_lines.append({
-                'id': 'investing',
-                'name': _('Cash flows from investing & extraordinary activities'),
-                'balance': cf_data['investing_total'],
-                'level': 2,
-                'type': 'group',
-            })
-            add_section('inv_in', _('Cash Inflows: Proceeds from Assets'), cf_data['inv_in'])
-            add_section('inv_out', _('Cash Outflows: Purchase of Assets'), cf_data['inv_out'])
-            
-            # Financing
-            formatted_lines.append({
-                'id': 'financing',
-                'name': _('Cash flows from financing activities'),
-                'balance': cf_data['financing_total'],
-                'level': 2,
-                'type': 'group',
-            })
-            add_section('fin_in', _('Cash Inflows: Capital & Borrowings'), cf_data['fin_in'])
-            add_section('fin_out', _('Cash Outflows: Loan Repayments & Dividends'), cf_data['fin_out'])
-            
-            # Unclassified
-            if round(cf_data['unclassified_total'], 2) != 0:
-                formatted_lines.append({
-                    'id': 'unclassified',
-                    'name': _('Cash flows from unclassified activities'),
-                    'balance': cf_data['unclassified_total'],
-                    'level': 2,
-                    'type': 'group',
-                })
-                add_section('unclass_in', _('Cash Inflows: Unclassified'), cf_data['unclass_in'])
-                add_section('unclass_out', _('Cash Outflows: Unclassified'), cf_data['unclass_out'])
-            
-            # Net Increase
+            # 2. Net Increase Header
             formatted_lines.append({
                 'id': 'net_increase',
                 'name': _('Net increase in cash and cash equivalents'),
@@ -1071,10 +1062,56 @@ class HudsonDynamicReport(models.AbstractModel):
                 'is_summary_total': True,
             })
             
-            # Closing Balance
+            # 2a. Operating Activities
+            formatted_lines.append({
+                'id': 'operating',
+                'name': _('Cash flows from operating activities'),
+                'balance': cf_data['operating_total'],
+                'level': 2,
+                'type': 'group',
+            })
+            add_section('op_adv_in', _('Advance Payments received from customers'), cf_data['op_adv_in'])
+            add_section('op_cash_in', _('Cash received from operating activities'), cf_data['op_cash_in'])
+            add_section('op_adv_out', _('Advance payments made to suppliers'), cf_data['op_adv_out'])
+            add_section('op_cash_out', _('Cash paid for operating activities'), cf_data['op_cash_out'])
+            
+            # 2b. Investing Activities
+            formatted_lines.append({
+                'id': 'investing',
+                'name': _('Cash flows from investing & extraordinary activities'),
+                'balance': cf_data['investing_total'],
+                'level': 2,
+                'type': 'group',
+            })
+            add_section('inv_in', _('Cash in'), cf_data['inv_in'])
+            add_section('inv_out', _('Cash out'), cf_data['inv_out'])
+            
+            # 2c. Financing Activities
+            formatted_lines.append({
+                'id': 'financing',
+                'name': _('Cash flows from financing activities'),
+                'balance': cf_data['financing_total'],
+                'level': 2,
+                'type': 'group',
+            })
+            add_section('fin_in', _('Cash in'), cf_data['fin_in'])
+            add_section('fin_out', _('Cash out'), cf_data['fin_out'])
+            
+            # 2d. Unclassified Activities
+            formatted_lines.append({
+                'id': 'unclassified',
+                'name': _('Cash flows from unclassified activities'),
+                'balance': cf_data['unclassified_total'],
+                'level': 2,
+                'type': 'group',
+            })
+            add_section('unclass_in', _('Cash in'), cf_data['unclass_in'])
+            add_section('unclass_out', _('Cash out'), cf_data['unclass_out'])
+            
+            # 3. Closing Balance
             formatted_lines.append({
                 'id': 'closing',
-                'name': _('Cash and cash equivalents, end of period'),
+                'name': _('Cash and cash equivalents, closing balance'),
                 'balance': cf_data['closing_cash'],
                 'level': 1,
                 'type': 'total',
@@ -1499,6 +1536,11 @@ class HudsonDynamicReport(models.AbstractModel):
             t_query += " GROUP BY l.journal_id, t.id, t.name ORDER BY t.name"
             cr.execute(t_query, tuple(t_params))
             taxes_data = cr.dictfetchall()
+            
+            tax_ids = [t['tax_id'] for t in taxes_data]
+            taxes = self.env['account.tax'].browse(tax_ids)
+            tax_map = {t.id: t.name for t in taxes}
+            
             journal_ids_fetched = [j['journal_id'] for j in journals_data]
             journals = self.env['account.journal'].browse(journal_ids_fetched)
             journal_map = {j.id: {'name': j.name, 'code': j.code} for j in journals}
@@ -1545,7 +1587,7 @@ class HudsonDynamicReport(models.AbstractModel):
                         'account_id': a['account_id'],
                         'journal_id': j['journal_id'],
                     })
-                    
+                
                 # Taxes inside this Journal
                 j_taxes = [t for t in taxes_data if t['journal_id'] == j['journal_id']]
                 if j_taxes:
@@ -1576,16 +1618,25 @@ class HudsonDynamicReport(models.AbstractModel):
                     })
                     
                     for t in j_taxes:
+                        tax_name = tax_map.get(t['tax_id'])
+                        if not tax_name:
+                            t_val = t.get('tax_name')
+                            if isinstance(t_val, dict):
+                                tax_name = t_val.get(self.env.lang) or next(iter(t_val.values()), '')
+                            else:
+                                tax_name = str(t_val or '')
+
                         formatted_lines.append({
                             'id': f"tax_{j['journal_id']}_{t['tax_id']}",
-                            'name': t['tax_name'],
+                            'name': tax_name,
                             'docs_count': '',
                             'draft_count': '',
                             'debit': t['base_amount'] or 0.0,
                             'credit': abs(t['tax_amount']) or 0.0,
                             'balance': '',
                             'level': 3,
-                            'type': 'tax'
+                            'type': 'tax',
+                            'tax_id': t['tax_id'],
                         })
             
             result['lines'] = formatted_lines

@@ -1,6 +1,6 @@
 {
     'name': 'Hudson Accounting Enhancements',
-    'version': '19.0.1.0.0',
+    'version': '19.0.1.0.1',
     'category': 'Accounting',
     'summary': (
         'Dynamic Interactive Financial Reports (OWL), Cash Flow Statement, Annual Report, '
@@ -83,6 +83,7 @@
         'wizard/hudson_loan_compute_wizard_views.xml',
         'views/hudson_loan_views.xml',
         'wizard/hudson_inventory_valuation_wizard_views.xml',
+        'views/account_multi_ledger_views.xml',
         'views/menu.xml',
     ],
     'assets': {
@@ -92,9 +93,13 @@
             'hudson_accounting_enhancements/static/src/xml/dynamic_report.xml',
             'hudson_accounting_enhancements/static/src/scss/reconcile_view.scss',
             'hudson_accounting_enhancements/static/src/js/negative_red.js',
+            'hudson_accounting_enhancements/static/src/js/account_dashboard_layout.js',
             'hudson_accounting_enhancements/static/src/js/bank_rec_dropdown_widget.js',
             'hudson_accounting_enhancements/static/src/xml/bank_rec_dropdown_widget.xml',
             'hudson_accounting_enhancements/static/src/scss/bank_matching.scss',
+        ],
+        'web.report_assets_common': [
+            'hudson_accounting_enhancements/static/src/css/report_fixes.css',
         ],
     },
     'application': False,

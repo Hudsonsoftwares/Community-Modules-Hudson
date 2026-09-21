@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Appraisal Analysis -->
+    <record id="view_hr_appraisal_graph" model="ir.ui.view">
+        <field name="name">hr.appraisal.graph</field>
+        <field name="model">hr.appraisal</field>
+        <field name="arch" type="xml">
+            <graph string="Appraisal Analysis" sample="1" type="bar" stacked="True">
+                <field name="department_id" type="row"/>
+                <field name="rating_id" type="col"/>
+            </graph>
+        </field>
+    </record>
+
+    <record id="view_hr_appraisal_pivot" model="ir.ui.view">
+        <field name="name">hr.appraisal.pivot</field>
+        <field name="model">hr.appraisal</field>
+        <field name="arch" type="xml">
+            <pivot string="Appraisal Analysis" sample="1">
+                <field name="department_id" type="row"/>
+                <field name="rating_id" type="col"/>
+            </pivot>
+        </field>
+    </record>
+
+    <record id="action_hr_appraisal_analysis_report" model="ir.actions.act_window">
+        <field name="name">Appraisal Analysis</field>
+        <field name="res_model">hr.appraisal</field>
+        <field name="view_mode">graph,pivot,list,form</field>
+        <field name="context">{}</field>
+    </record>
+
+    <!-- Skills Evolution -->
+    <record id="view_hr_employee_skill_history_report_list" model="ir.ui.view">
+        <field name="name">hr.employee.skill.history.report.list</field>
+        <field name="model">hr.employee.skill.history.report</field>
+        <field name="arch" type="xml">
+            <list string="Skills Evolution" create="false" edit="false" delete="false">
+                <field name="date"/>
+                <field name="employee_id"/>
+                <field name="skill_type_id"/>
+                <field name="skill_id"/>
+                <field name="level_progress" string="Average Progress (%)" widget="percentage" sum="Average Progress (%)"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="action_hr_appraisal_skills_evolution" model="ir.actions.act_window">
+        <field name="name">Skills Evolution</field>
+        <field name="res_model">hr.employee.skill.history.report</field>
+        <field name="view_mode">list,pivot,graph</field>
+        <field name="context">{'group_by': ['date:month', 'skill_type_id', 'skill_id']}</field>
+    </record>
+</odoo>

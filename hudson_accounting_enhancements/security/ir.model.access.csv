@@ -25,4 +25,4 @@ access_hudson_inventory_valuation_wizard,hudson.inventory.valuation.wizard,model
 access_account_unrealized_currency_adjustment_wizard,access.account.unrealized.currency.adjustment.wizard,model_account_unrealized_currency_adjustment_wizard,account.group_account_user,1,1,1,1
 access_account_unrealized_currency_adjustment_line,access.account.unrealized.currency.adjustment.line,model_account_unrealized_currency_adjustment_line,account.group_account_user,1,1,1,1
 access_hudson_dynamic_report,hudson.dynamic.report,model_hudson_dynamic_report,base.group_user,1,1,1,1
-
+access_account_multi_ledger,account.multi.ledger,model_account_multi_ledger,account.group_account_user,1,1,1,1

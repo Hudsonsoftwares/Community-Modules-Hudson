@@ -1,5 +1,6 @@
 from odoo import models, fields, api
 from odoo.exceptions import ValidationError
+from odoo.tools import SQL
 
 class AccountMoveLine(models.Model):
     _inherit = 'account.move.line'
@@ -17,3 +18,67 @@ class AccountMoveLine(models.Model):
     def action_hudson_manual_reconcile(self):
         """Action for the manual Reconcile button on the custom Reconcile view."""
         return self.reconcile()
+
+    @api.model
+    def _search(self, domain, offset=0, limit=None, order=None, **kwargs):
+        query = super()._search(domain, offset=offset, limit=limit, order=order, **kwargs)
+        
+        match_amount = self.env.context.get('hudson_match_amount')
+        match_partner_id = self.env.context.get('hudson_match_partner_id')
+        
+        # Safely extract float from match_amount
+        if isinstance(match_amount, dict):
+            match_amount = match_amount.get('value') or match_amount.get('amount') or match_amount.get('id')
+        elif isinstance(match_amount, (list, tuple)) and match_amount:
+            match_amount = match_amount[0]
+        try:
+            match_amount = float(match_amount) if match_amount is not None and match_amount is not False else None
+        except (ValueError, TypeError):
+            match_amount = None
+
+        # Safely extract int from match_partner_id
+        if isinstance(match_partner_id, dict):
+            match_partner_id = match_partner_id.get('id')
+        elif isinstance(match_partner_id, (list, tuple)) and match_partner_id:
+            match_partner_id = match_partner_id[0]
+        try:
+            match_partner_id = int(match_partner_id) if match_partner_id else None
+        except (ValueError, TypeError):
+            match_partner_id = None
+        
+        if match_amount is not None or match_partner_id:
+            alias = self._table
+            order_terms = []
+            conditions = []
+            
+            if match_amount is not None and match_partner_id:
+                conditions.append(
+                    SQL("(%s.amount_residual = %s AND %s.partner_id = %s) THEN 1",
+                        SQL.identifier(alias), match_amount, SQL.identifier(alias), match_partner_id)
+                )
+            if match_amount is not None:
+                conditions.append(
+                    SQL("%s.amount_residual = %s THEN 2",
+                        SQL.identifier(alias), match_amount)
+                )
+                conditions.append(
+                    SQL("ABS(%s.amount_residual) = ABS(%s) THEN 3",
+                        SQL.identifier(alias), match_amount)
+                )
+            if match_partner_id:
+                conditions.append(
+                    SQL("%s.partner_id = %s THEN 4",
+                        SQL.identifier(alias), match_partner_id)
+                )
+                
+            if conditions:
+                sql_when = SQL(" WHEN ").join(conditions)
+                case_order = SQL("CASE WHEN %s ELSE 5 END", sql_when)
+                order_terms.append(case_order)
+                
+            if query.order:
+                order_terms.append(query.order)
+                
+            query.order = SQL(", ").join(order_terms)
+            
+        return query

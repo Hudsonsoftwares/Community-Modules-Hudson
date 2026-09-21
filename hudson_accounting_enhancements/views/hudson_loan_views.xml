@@ -11,7 +11,11 @@
                 <field name="date"/>
                 <field name="amount_borrowed"/>
                 <field name="outstanding_balance"/>
-                <field name="state" widget="badge" decoration-info="state == 'draft'" decoration-success="state == 'running'"/>
+                <field name="state" widget="badge" 
+                       decoration-info="state == 'draft'" 
+                       decoration-success="state == 'running'"
+                       decoration-primary="state == 'closed'"
+                       decoration-muted="state == 'cancelled'"/>
             </list>
         </field>
     </record>
@@ -25,6 +29,9 @@
                 <header>
                     <button name="action_confirm" string="Confirm" type="object" class="oe_highlight" invisible="state != 'draft'"/>
                     <button name="action_compute" string="Compute" type="object" invisible="state != 'draft'"/>
+                    <button name="action_close" string="Close Loan" type="object" class="oe_highlight" invisible="state != 'running'"/>
+                    <button name="action_reset_to_draft" string="Reset to Draft" type="object" invisible="state != 'cancelled'"/>
+                    <button name="action_cancel" string="Cancel" type="object" invisible="state not in ('draft', 'running')"/>
                     <field name="state" widget="statusbar" statusbar_visible="draft,running,closed"/>
                 </header>
                 <sheet>
@@ -69,12 +76,15 @@
                         </page>
                         <page string="Loan Settings" name="settings">
                             <group>
-                                <field name="receive_disbursement" readonly="state != 'draft'"/>
-                                <field name="disbursement_account_id" invisible="not receive_disbursement" required="receive_disbursement" readonly="state != 'draft'"/>
-                                <field name="long_term_account_id" readonly="state != 'draft'"/>
-                                <field name="short_term_account_id" readonly="state != 'draft'"/>
-                                <field name="expense_account_id" readonly="state != 'draft'"/>
-                                <field name="journal_id" readonly="state != 'draft'"/>
+                                <group>
+                                    <field name="long_term_account_id" readonly="state != 'draft'"/>
+                                    <field name="short_term_account_id" readonly="state != 'draft'"/>
+                                    <field name="expense_account_id" readonly="state != 'draft'"/>
+                                    <field name="journal_id" readonly="state != 'draft'"/>
+                                </group>
+                                <group>
+                                    <field name="skip_until_date" placeholder="1st amortization schedule" readonly="state != 'draft'"/>
+                                </group>
                             </group>
                         </page>
                     </notebook>

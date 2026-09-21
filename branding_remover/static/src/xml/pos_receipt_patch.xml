@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Branding Remover – POS Receipt OWL template patch
+  ==================================================
+  Removes the "Powered by Odoo" footer from the Point of Sale order receipt
+  printed on the customer's paper/screen receipt.
+
+  The footer div has the class "footer-powered-by" and is the last element
+  inside the pos-receipt container in point_of_sale.OrderReceipt.
+
+  NOTE: Only the visible branding UI element is removed.
+       No copyright or licence text in source files is altered.
+-->
+<templates id="template" xml:space="preserve">
+    <t t-inherit="point_of_sale.OrderReceipt" t-inherit-mode="extension">
+        <!-- Remove the "Powered by Odoo" footer from POS receipts -->
+        <xpath expr="//div[hasclass('footer-powered-by')]" position="remove"/>
+    </t>
+</templates>

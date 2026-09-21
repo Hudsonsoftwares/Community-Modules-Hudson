@@ -1,9 +1,12 @@
-from odoo import models, fields, api
+from odoo import models, fields, api, _
+from odoo.exceptions import UserError
 from datetime import date
 from dateutil.relativedelta import relativedelta
 import math
 
 def get_dcf(d1, d2, method):
+    if d2 <= d1:
+        return 0.0
     if method == 'a360':
         return (d2 - d1).days / 360.0
     elif method == 'a365f':
@@ -18,18 +21,18 @@ def get_dcf(d1, d2, method):
         elif method == '30u': # 30U/360
             if d1_day == 31: d1_day = 30
             if d2_day == 31 and d1_day == 30: d2_day = 30
-        elif method == '30e' or method == '30e_isda': # 30E/360
+        elif method in ['30e', '30e_isda']: # 30E/360
             if d1_day == 31: d1_day = 30
             if d2_day == 31: d2_day = 30
             
         days = (y2 - y1) * 360 + (m2 - m1) * 30 + (d2_day - d1_day)
-        return days / 360.0
+        return max(0.0, days / 360.0)
     elif method in ['aa_isda', 'aa_afb']:
         # Actual/Actual Simplified
         y1, y2 = d1.year, d2.year
         if y1 == y2:
             days_in_year = 366 if (y1 % 4 == 0 and (y1 % 100 != 0 or y1 % 400 == 0)) else 365
-            return (d2 - d1).days / float(days_in_year)
+            return max(0.0, (d2 - d1).days / float(days_in_year))
         else:
             days_in_y1 = 366 if (y1 % 4 == 0 and (y1 % 100 != 0 or y1 % 400 == 0)) else 365
             days_in_y2 = 366 if (y2 % 4 == 0 and (y2 % 100 != 0 or y2 % 400 == 0)) else 365
@@ -37,9 +40,9 @@ def get_dcf(d1, d2, method):
             days_1 = (d1_end_of_year - d1).days + 1
             d2_start_of_year = date(y2, 1, 1)
             days_2 = (d2 - d2_start_of_year).days
-            return (days_1 / float(days_in_y1)) + max(0, y2 - y1 - 1) + (days_2 / float(days_in_y2))
+            return max(0.0, (days_1 / float(days_in_y1)) + max(0, y2 - y1 - 1) + (days_2 / float(days_in_y2)))
             
-    return (d2 - d1).days / 360.0
+    return max(0.0, (d2 - d1).days / 360.0)
 
 class HudsonLoanComputeWizard(models.TransientModel):
     _name = 'hudson.loan.compute.wizard'
@@ -73,33 +76,75 @@ class HudsonLoanComputeWizard(models.TransientModel):
 
     line_ids = fields.One2many('hudson.loan.compute.wizard.line', 'wizard_id', string='Preview')
 
+    @api.onchange('payment_type', 'start_date')
+    def _onchange_payment_type_and_start_date(self):
+        if self.start_date:
+            if self.payment_type == 'anniversary':
+                if not self.first_payment_date or self.first_payment_date < self.start_date:
+                    self.first_payment_date = self.start_date + relativedelta(months=1)
+            elif self.payment_type == 'end':
+                end_of_current = self.start_date + relativedelta(day=31)
+                if end_of_current > self.start_date:
+                    self.first_payment_date = end_of_current
+                else:
+                    self.first_payment_date = self.start_date + relativedelta(months=1, day=31)
+
+    @api.onchange('first_payment_date')
+    def _onchange_first_payment_date(self):
+        if self.payment_type == 'anniversary' and self.first_payment_date and self.start_date:
+            if self.first_payment_date < self.start_date:
+                self.first_payment_date = self.start_date
+
+    def _get_payment_dates(self):
+        self.ensure_one()
+        periods = self.term_years * 12
+        if periods <= 0 or not self.start_date:
+            return []
+
+        start_date = self.start_date
+        dates = []
+
+        if self.payment_type == 'end':
+            end_of_current_month = start_date + relativedelta(day=31)
+            if end_of_current_month > start_date:
+                base_date = end_of_current_month
+            else:
+                base_date = start_date + relativedelta(months=1, day=31)
+            
+            for i in range(periods):
+                d = base_date + relativedelta(months=i, day=31)
+                dates.append(d)
+        else:
+            first_date = self.first_payment_date or (start_date + relativedelta(months=1))
+            if first_date < start_date:
+                first_date = start_date
+                
+            for i in range(periods):
+                d = first_date + relativedelta(months=i)
+                dates.append(d)
+                
+        return dates
+
     def _get_amortization_lines(self):
         self.ensure_one()
-        if self.amount <= 0 or self.term_years <= 0 or self.interest_rate <= 0:
+        if self.amount <= 0 or self.term_years <= 0 or self.interest_rate <= 0 or not self.start_date:
             return []
-            
-        if self.payment_type == 'anniversary' and not self.first_payment_date:
+
+        dates = self._get_payment_dates()
+        if not dates:
             return []
 
         principal = self.amount
         annual_rate = self.interest_rate / 100.0
-        periods = self.term_years * 12
+        periods = len(dates)
         
         # Helper to get the end balance for a given PMT guess
         def get_end_balance(pmt_guess):
             balance = principal
             d1 = self.start_date
-            for i in range(periods):
-                if i == 0:
-                    if self.payment_type == 'anniversary':
-                        d2 = self.first_payment_date
-                    else:
-                        d2 = d1 + relativedelta(months=1)
-                else:
-                    d2 = d1 + relativedelta(months=1)
-                    
+            for d2 in dates:
                 dcf = get_dcf(d1, d2, self.compounding_method)
-                interest = balance * annual_rate * dcf
+                interest = max(0.0, balance * annual_rate * dcf)
                 balance += interest - pmt_guess
                 d1 = d2
             return balance
@@ -113,9 +158,7 @@ class HudsonLoanComputeWizard(models.TransientModel):
         for _ in range(50):
             f0 = get_end_balance(pmt0)
             f1 = get_end_balance(pmt1)
-            if abs(f1) < 0.001:
-                break
-            if f1 - f0 == 0:
+            if abs(f1) < 0.001 or abs(f1 - f0) < 1e-9:
                 break
             pmt_next = pmt1 - f1 * (pmt1 - pmt0) / (f1 - f0)
             pmt0 = pmt1
@@ -127,31 +170,23 @@ class HudsonLoanComputeWizard(models.TransientModel):
         balance = principal
         d1 = self.start_date
         
-        for i in range(periods):
-            if i == 0:
-                if self.payment_type == 'anniversary':
-                    d2 = self.first_payment_date
-                else:
-                    d2 = d1 + relativedelta(months=1)
-            else:
-                d2 = d1 + relativedelta(months=1)
-                
+        for i, d2 in enumerate(dates):
             dcf = get_dcf(d1, d2, self.compounding_method)
-            interest = balance * annual_rate * dcf
-            principal_payment = final_pmt - interest
+            interest = max(0.0, balance * annual_rate * dcf)
+            principal_payment = max(0.0, final_pmt - interest)
             
             if i == periods - 1:
                 principal_payment = balance
                 final_pmt = principal_payment + interest
             
-            balance -= principal_payment
+            balance = max(0.0, balance - principal_payment)
             
             lines.append((0, 0, {
                 'date': d2,
                 'principal': principal_payment,
                 'interest': interest,
                 'payment': final_pmt,
-                'balance': max(0.0, balance)
+                'balance': balance
             }))
             d1 = d2
             
@@ -164,21 +199,15 @@ class HudsonLoanComputeWizard(models.TransientModel):
 
     def action_apply(self):
         self.ensure_one()
-        import logging
-        _logger = logging.getLogger(__name__)
-        _logger.warning("action_apply CALLED on loan_id %s", self.loan_id.id)
-        _logger.warning("wizard fields: amount=%s, interest_rate=%s, term_years=%s", self.amount, self.interest_rate, self.term_years)
-        
+        if self.payment_type == 'anniversary' and self.first_payment_date and self.first_payment_date < self.start_date:
+            raise UserError(_("First payment date cannot be earlier than the loan start date."))
         lines_to_create = self._get_amortization_lines()
-        _logger.warning("lines_to_create: %s", len(lines_to_create))
-            
         self.loan_id.write({
             'amount_borrowed': self.amount,
             'duration': self.term_years * 12,
             'date': self.start_date,
             'line_ids': [(5, 0, 0)] + lines_to_create
         })
-        _logger.warning("loan %s updated, line_ids count: %s", self.loan_id.id, len(self.loan_id.line_ids))
         return {'type': 'ir.actions.act_window_close'}
 
 
