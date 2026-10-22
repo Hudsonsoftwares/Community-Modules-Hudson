@@ -1,6 +1,6 @@
 {
     'name': 'Appraisals',
-    'version': '19.0.1.0.0',
+    'version': '20.0.1.0.0',
     'category': 'Human Resources',
     'summary': 'Employee Appraisals and Goals Management',
     'description': """
@@ -11,7 +11,7 @@
     'depends': ['hr', 'mail', 'survey', 'hr_skills'],
     'data': [
         'security/hr_appraisal_security.xml',
-        'security/ir.model.access.csv',
+        'security/ir.access.csv',
         'data/hr_appraisal_cron.xml',
         'wizard/appraisal_launch_wizard_views.xml',
         'views/hr_appraisal_goal_template_views.xml',

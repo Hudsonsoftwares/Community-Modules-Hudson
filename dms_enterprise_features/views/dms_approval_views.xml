@@ -16,6 +16,51 @@
         </field>
     </record>
 
+    <!-- Dedicated Approval Requests List View on dms.file -->
+    <record id="view_dms_file_approval_list" model="ir.ui.view">
+        <field name="name">dms.file.list.approvals</field>
+        <field name="model">dms.file</field>
+        <field name="arch" type="xml">
+            <list string="Approval Requests" create="0">
+                <field name="name" string="Document"/>
+                <field name="directory_id" string="Folder"/>
+                <field name="create_uid" string="Requested By" widget="many2one_avatar_user"/>
+                <field name="document_owner_id" string="Owner" widget="many2one_avatar_user" optional="hide"/>
+                <field name="create_date" string="Request Date" optional="show"/>
+                <field name="current_approver_ids" string="Pending Approver(s)" widget="many2many_tags"/>
+                <field name="approval_state" string="Approval Status" widget="badge"
+                       decoration-warning="approval_state == 'in_approval'"
+                       decoration-success="approval_state == 'approved'"
+                       decoration-danger="approval_state == 'rejected'"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- Specific Search View for Approval Requests without Searchpanel -->
+    <record id="view_dms_file_approval_search" model="ir.ui.view">
+        <field name="name">dms.file.search.approvals</field>
+        <field name="model">dms.file</field>
+        <field name="priority">999</field>
+        <field name="arch" type="xml">
+            <search string="Search Approval Requests">
+                <field name="name" string="Document"/>
+                <field name="directory_id" string="Folder"/>
+                <field name="create_uid" string="Requested By"/>
+                <field name="document_owner_id" string="Owner"/>
+                <filter string="Sent by Me" name="sent_by_me" domain="[('create_uid', '=', uid)]"/>
+                <filter string="Awaiting My Approval" name="awaiting_my_approval" domain="[('current_approver_ids', 'in', [uid])]"/>
+                <separator/>
+                <filter string="In Approval" name="in_approval" domain="[('approval_state', '=', 'in_approval')]"/>
+                <filter string="Approved" name="approved" domain="[('approval_state', '=', 'approved')]"/>
+                <filter string="Rejected" name="rejected" domain="[('approval_state', '=', 'rejected')]"/>
+                <separator/>
+                <filter string="Approval Status" name="group_by_approval_state" context="{'group_by': 'approval_state'}"/>
+                <filter string="Folder" name="group_by_directory" context="{'group_by': 'directory_id'}"/>
+                <filter string="Requested By" name="group_by_create_uid" context="{'group_by': 'create_uid'}"/>
+            </search>
+        </field>
+    </record>
+
     <!-- User Preferences Extension for Default Document Approvers -->
     <record id="view_users_form_inherit_dms_approval" model="ir.ui.view">
         <field name="name">res.users.form.inherit.dms.approval</field>
@@ -38,23 +83,4 @@
         </field>
     </record>
 
-    <!-- User Simple Preferences Form Extension -->
-    <record id="view_users_form_simple_modif_inherit_dms_approval" model="ir.ui.view">
-        <field name="name">res.users.preferences_form.inherit.dms.approval</field>
-        <field name="model">res.users</field>
-        <field name="inherit_id" ref="base.view_users_form_simple_modif"/>
-        <field name="arch" type="xml">
-            <xpath expr="//form" position="inside">
-                <group string="Default Document Approvers">
-                    <field name="default_is_sequential_approval" widget="boolean_toggle"/>
-                    <field name="default_approval_ids" nolabel="1">
-                        <list editable="bottom">
-                            <field name="sequence" widget="handle"/>
-                            <field name="approver_id" required="1" options="{'no_create': True, 'no_open': True}"/>
-                        </list>
-                    </field>
-                </group>
-            </xpath>
-        </field>
-    </record>
 </odoo>

@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="hr_applicant_view_form_inherit_ai" model="ir.ui.view">
+        <field name="name">hr.applicant.view.form.inherit.ai</field>
+        <field name="model">hr.applicant</field>
+        <field name="inherit_id" ref="hr_recruitment.hr_applicant_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//header" position="inside">
+                <button name="action_analyze_resume_ai" string="AI Analyze Resume" type="object" class="btn-primary" invisible="ai_analysis_status == 'done'" />
+            </xpath>
+            
+            <xpath expr="//sheet" position="inside">
+                <group string="Agentic AI Analysis" name="ai_analysis">
+                    <group>
+                        <field name="ai_match_score" widget="badge" decoration-success="ai_match_score &gt;= 75" decoration-warning="ai_match_score &gt;= 40 and ai_match_score &lt; 75" decoration-danger="ai_match_score &lt; 40"/>
+                        <field name="ai_analysis_status"/>
+                    </group>
+                    <group>
+                        <field name="ai_summary" nolabel="1" placeholder="AI summary will appear here..." colspan="2"/>
+                    </group>
+                </group>
+            </xpath>
+        </field>
+    </record>
+</odoo>

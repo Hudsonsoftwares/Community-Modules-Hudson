@@ -1,0 +1,14 @@
+id,name,model_id,group_id/id,operation
+access_hr_appraisal_user,hr.appraisal.user,hr.appraisal,group_hr_appraisal_user,ru
+access_hr_appraisal_goal_user,hr.appraisal.goal.user,hr.appraisal.goal,group_hr_appraisal_user,crud
+access_hr_appraisal_manager,hr.appraisal.manager,hr.appraisal,group_hr_appraisal_manager,cru
+access_hr_appraisal_goal_manager,hr.appraisal.goal.manager,hr.appraisal.goal,group_hr_appraisal_manager,crud
+access_hr_appraisal_admin,hr.appraisal.admin,hr.appraisal,group_hr_appraisal_admin,crud
+access_hr_appraisal_goal_admin,hr.appraisal.goal.admin,hr.appraisal.goal,group_hr_appraisal_admin,crud
+access_hr_appraisal_wizard_user,hr.appraisal.launch.wizard.user,hr.appraisal.launch.wizard,group_hr_appraisal_user,crud
+access_hr_appraisal_template_admin,hr.appraisal.template.admin,hr.appraisal.template,group_hr_appraisal_admin,crud
+access_hr_appraisal_template_user,hr.appraisal.template.user,hr.appraisal.template,group_hr_appraisal_user,r
+access_hr_appraisal_scale,hr.appraisal.scale,hr.appraisal.scale,hr.group_hr_manager,crud
+access_hr_appraisal_scale_emp,hr.appraisal.scale_emp,hr.appraisal.scale,base.group_user,r
+access_hr_appraisal_goal_tag,hr.appraisal.goal.tag,hr.appraisal.goal.tag,base.group_user,crud
+access_hr_appraisal_goal_template,hr.appraisal.goal.template,hr.appraisal.goal.template,base.group_user,crud

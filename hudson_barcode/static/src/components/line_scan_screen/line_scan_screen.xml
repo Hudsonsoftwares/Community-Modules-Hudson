@@ -1,0 +1,705 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-name="custom_barcode_scanner.LineScanScreen" owl="1">
+        <div class="h-100 d-flex flex-column bg-white">
+            
+            <!-- MAIN SCREEN -->
+            <t t-if="!state.showSettings and !state.showAddProduct and !state.showInfo and !state.showAllocation">
+                <!-- Top Bar -->
+                <div class="d-flex justify-content-between align-items-center px-3 py-2 border-bottom" style="background-color: white; min-height: 56px;">
+                    <div class="d-flex align-items-center">
+                        <button class="btn btn-light border-0 px-2 py-1 me-3 text-dark bg-white shadow-sm" t-on-click="saveAndGoBack" style="border: 1px solid #dee2e6 !important;">
+                            <i class="fa fa-chevron-left"/>
+                        </button>
+                        <div class="d-flex flex-column cursor-pointer" t-on-click="toggleInfo" style="cursor: pointer;">
+                            <div class="fw-bold text-dark text-decoration-underline" style="font-size: 0.95rem;">
+                                <t t-if="state.picking" t-out="state.picking.name"/>
+                                <t t-elif="props.pickingId === 'inventory'">Physical Inventory</t>
+                                <t t-else="">Loading...</t>
+                            </div>
+                            <div class="text-muted small d-flex align-items-center" style="font-size: 0.75rem;">
+                                <t t-if="props.pickingId !== 'inventory'">
+                                    <i class="fa fa-user-circle-o me-1"/> 
+                                    <t t-if="state.picking and state.picking.partner_id" t-out="state.picking.partner_id[1]"/>
+                                    <t t-else="">Contact</t>
+                                </t>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="d-flex align-items-center">
+                        <button t-attf-class="btn border-0 px-2 me-1 shadow-sm {{ state.showCamera ? 'btn-success text-white' : 'btn-light text-muted bg-white' }}" t-on-click="toggleCamera">
+                            <i class="fa fa-barcode fs-5"/>
+                        </button>
+                        <button class="btn btn-light border-0 px-2 text-muted bg-white" t-on-click="toggleSettings">
+                            <i class="fa fa-cog fs-5"/>
+                        </button>
+                    </div>
+                </div>
+
+            <!-- Camera View -->
+            <t t-if="state.showCamera">
+                <div class="w-100 position-relative d-flex flex-column align-items-center justify-content-center overflow-hidden" style="height: 350px; background-color: #000;">
+                    
+                    <!-- Video Element (Full Width) -->
+                    <video t-ref="videoElement" class="w-100 h-100 position-absolute" style="object-fit: cover; z-index: 0;" autoplay="1" playsinline="1" muted="1"/>
+                    
+                    <!-- Reticle Box with Dark Box Shadow Overlay -->
+                    <div class="position-relative d-flex justify-content-center align-items-center o_barcode_scanner_reticle" style="width: 280px; height: 180px;">
+                        
+                        <!-- Laser Animation -->
+                        <div class="o_barcode_laser"></div>
+                        
+                        <!-- 4 Corner Accents -->
+                        <div class="o_barcode_reticle_corner border-top border-start" style="top: 0; left: 0; border-width: 3px !important;"></div>
+                        <div class="o_barcode_reticle_corner border-top border-end" style="top: 0; right: 0; border-width: 3px !important;"></div>
+                        <div class="o_barcode_reticle_corner border-bottom border-start" style="bottom: 0; left: 0; border-width: 3px !important;"></div>
+                        <div class="o_barcode_reticle_corner border-bottom border-end" style="bottom: 0; right: 0; border-width: 3px !important;"></div>
+                        
+                        <div class="position-absolute text-white" style="bottom: 15px; font-size: 0.85rem; opacity: 0.8; font-weight: 500;">
+                            Point camera at barcode...
+                        </div>
+                    </div>
+
+                    <!-- Label -->
+                    <div class="position-absolute top-0 w-100 text-white text-center py-3" style="background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent); font-size: 1.1rem; font-weight: bold; z-index: 2; letter-spacing: 0.5px;">
+                        <i class="fa fa-camera me-2"/> Scan a product
+                    </div>
+                </div>
+            </t>
+
+            <!-- Dark Banner (Fallback when Camera is Off) -->
+            <t t-if="!state.showCamera and (!state.picking or (state.picking.state !== 'done' and state.picking.state !== 'cancel'))">
+                <div class="text-white text-center py-2" style="background-color: #2C3E50; font-size: 0.85rem;">
+                    <t t-if="props.pickingId === 'inventory'">
+                        <i class="fa fa-sign-in me-2"/> Scan a location
+                    </t>
+                    <t t-else="">
+                        <i class="fa fa-tags me-2"/> Scan a product
+                    </t>
+                </div>
+            </t>
+
+            <!-- Done / Cancelled State Banner -->
+            <t t-if="state.picking and (state.picking.state === 'done' || state.picking.state === 'cancel')">
+                <div class="d-flex flex-column align-items-center justify-content-center text-white w-100" style="background-color: #2C3E50; padding: 3rem 1rem;">
+                    <i class="fa fa-exclamation-triangle fa-3x mb-3"/>
+                    <h5 class="mb-0">
+                        <t t-if="state.picking.state === 'done'">This picking is already done</t>
+                        <t t-else="">This picking is cancelled</t>
+                    </h5>
+                </div>
+                <!-- Empty white space below -->
+                <div class="flex-grow-1 bg-white"></div>
+                
+                <!-- Return Button at the bottom -->
+                <t t-if="state.picking.state === 'done'">
+                    <div class="bg-white border-top p-2 d-flex">
+                        <button class="btn btn-light border flex-grow-1 fw-bold text-dark p-3" style="font-size: 0.85rem; background-color: #f8f9fa;" t-on-click="createReturn">
+                            Return Products
+                        </button>
+                    </div>
+                </t>
+            </t>
+
+            <!-- Main Content Area -->
+            <t t-if="!state.picking or (state.picking.state !== 'done' and state.picking.state !== 'cancel')">
+            <div class="flex-grow-1 overflow-auto" style="background-color: #e9ecef;">
+                <t t-if="state.lines.length === 0">
+                    <div class="p-4 text-center text-muted">No lines found. Scan a product to add one.</div>
+                </t>
+                <t t-foreach="state.lines" t-as="line" t-key="line.id">
+                    <div class="border d-flex flex-column p-2 mb-2" style="background-color: #f1f8f8 !important; border-color: #017e84 !important; border-width: 2px !important;">
+                        <!-- Top Row -->
+                        <div class="d-flex justify-content-between align-items-start">
+                            <!-- Info -->
+                            <div class="d-flex flex-column">
+                                <div class="fw-bold text-dark" style="font-size: 1.1rem;"><t t-out="getProductCode(line.product_id.display_name) || line.product_id.display_name"/></div>
+                                <div class="text-dark mb-1" style="font-size: 0.9rem;" t-if="getProductCode(line.product_id.display_name)"><t t-out="getProductName(line.product_id.display_name)"/></div>
+                                <div class="text-muted small" style="font-style: italic;">
+                                    <i class="fa fa-sign-in me-1"/> <t t-out="line.location_dest_id ? line.location_dest_id.display_name : 'WH/Input'"/>
+                                </div>
+                                <div class="text-info small fw-bold mt-1" t-if="line.lot_id">
+                                    <i class="fa fa-barcode me-1"/> 
+                                    <t t-if="Array.isArray(line.lot_id)"><t t-out="line.lot_id[1]"/></t>
+                                    <t t-else=""><t t-out="line.lot_id"/></t>
+                                </div>
+                            </div>
+                            <!-- Icons -->
+                            <div class="d-flex gap-2">
+                                <div class="border bg-white p-1 d-flex align-items-center justify-content-center shadow-sm" style="width: 36px; height: 36px; border-radius: 4px;">
+                                    <img t-attf-src="/web/image/product.product/{{line.product_id.id}}/image_128" style="max-width: 100%; max-height: 100%;" alt="Product"/>
+                                </div>
+                                <button class="btn btn-light border bg-white p-1 d-flex align-items-center justify-content-center shadow-sm" style="width: 36px; height: 36px; border-radius: 4px;" t-on-click="() => this.editLine(line.id)">
+                                    <i class="fa fa-pencil text-dark"/>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Bottom Row -->
+                        <div class="d-flex justify-content-between align-items-end mt-3">
+                            <!-- Quantity -->
+                            <div class="d-flex align-items-baseline">
+                                <span class="fw-bold text-dark" style="font-size: 1.6rem;"><t t-out="line.quantity"/></span>
+                                <span class="ms-1 text-dark small" style="font-size: 0.8rem;"><t t-out="line.product_uom_id ? line.product_uom_id.display_name : 'Units'"/></span>
+                            </div>
+                            <!-- Actions -->
+                            <div class="d-flex gap-1">
+                                <button class="btn btn-danger p-1 d-flex align-items-center justify-content-center shadow-none me-2" style="width: 32px; height: 32px; border-radius: 4px; background-color: #d9534f; border-color: #d43f3a;" t-on-click="() => this.removeLine(line.id)">
+                                    <i class="fa fa-trash-o"/>
+                                </button>
+                                <button class="btn btn-light border bg-white p-1 d-flex align-items-center justify-content-center shadow-none fw-bold text-dark" style="width: 32px; height: 32px; border-radius: 4px; font-size: 0.9rem;" t-on-click="() => this.addQuantity(line, -1)">
+                                    -1
+                                </button>
+                                <button class="btn btn-light border bg-white p-1 d-flex align-items-center justify-content-center shadow-none fw-bold text-dark" style="width: 32px; height: 32px; border-radius: 4px; font-size: 0.9rem;" t-on-click="() => this.addQuantity(line, 1)">
+                                    +1
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </t>
+            </div>
+
+            <!-- Bottom Bar -->
+            <div class="bg-white border-top p-2 d-flex gap-2">
+                <t t-if="props.pickingId === 'inventory'">
+                    <button class="btn btn-light border flex-grow-1 fw-bold text-dark p-3" style="font-size: 0.85rem; background-color: #f8f9fa;" t-on-click="toggleAddProduct">
+                        Add Product
+                    </button>
+                    <button class="btn btn-light border flex-grow-1 fw-bold text-dark p-3" style="font-size: 0.85rem; background-color: #f8f9fa;" t-on-click="validate">
+                        Confirm (<t t-out="state.lines.length"/>)
+                    </button>
+                </t>
+                <t t-else="">
+                    <button class="btn btn-light border flex-grow-1 fw-bold text-dark p-3" style="font-size: 0.85rem; background-color: #f8f9fa;" t-on-click="toggleAddProduct">
+                        Add Product
+                    </button>
+                    <button t-if="!state.picking or !state.picking.quality_check_todo" class="btn btn-light border flex-grow-1 fw-bold text-dark p-3" style="font-size: 0.85rem; background-color: #f8f9fa;" t-on-click="validate">
+                        Validate
+                    </button>
+                    <button t-if="state.picking and state.picking.quality_check_todo" class="btn btn-success flex-grow-1 fw-bold text-white p-3" style="font-size: 0.85rem;" t-on-click="validate">
+                        QUALITY CHECKS
+                    </button>
+                </t>
+            </div>
+            
+            <!-- Lot Dialog -->
+            <t t-if="state.showLotDialog">
+                <LotDialog product="state.pendingLotProduct" onApply.bind="onApplyLot" onCancel.bind="onCancelLot" />
+            </t>
+
+            <!-- Confirm Inventory Modal -->
+            <t t-if="state.showConfirmInventoryModal">
+                <div class="position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center" style="background-color: rgba(0,0,0,0.5); z-index: 1050;">
+                    <div class="bg-white rounded shadow-lg" style="width: 90%; max-width: 500px; color: #333;">
+                        <!-- Header -->
+                        <div class="d-flex justify-content-between align-items-center p-3 border-bottom">
+                            <h5 class="mb-0 fw-bold">Confirm Inventory Adjustment</h5>
+                            <button class="btn border-0 text-dark shadow-none" t-on-click="closeConfirmModal">
+                                <i class="fa fa-times"/>
+                            </button>
+                        </div>
+                        <!-- Body -->
+                        <div class="p-4">
+                            <div class="mb-3">
+                                <label class="small mb-1 fw-bold text-muted">Inventory Reason</label>
+                                <input type="text" class="form-control shadow-none bg-transparent text-dark border-0 border-bottom border-secondary rounded-0 px-0" 
+                                    t-att-value="state.inventoryReason" t-on-input="(e) => state.inventoryReason = e.target.value" />
+                            </div>
+                        </div>
+                        <!-- Footer -->
+                        <div class="p-3 d-flex gap-2">
+                            <button class="btn text-white fw-bold shadow-none" style="background-color: #017e84;" t-on-click="() => this.applyInventory(true)">Apply Now</button>
+                            <button class="btn text-white fw-bold shadow-none" style="background-color: #017e84;" t-on-click="() => this.applyInventory(false)">Wait a Review</button>
+                            <button class="btn btn-secondary fw-bold shadow-none" t-on-click="closeConfirmModal">Discard</button>
+                        </div>
+                    </div>
+                </div>
+            </t>
+            
+            </t>
+            </t> <!-- END MAIN SCREEN -->
+
+            <!-- INFO SCREEN (Custom Enterprise-Style UI) -->
+            <t t-if="state.showInfo">
+                <!-- Header -->
+                <div class="d-flex justify-content-between align-items-center px-3 py-2 border-bottom shadow-sm" style="background-color: white; min-height: 56px; z-index: 10; flex-shrink: 0;">
+                    <div class="d-flex align-items-center">
+                        <button class="btn btn-light border-0 px-2 py-1 me-3 text-dark bg-white" t-on-click="toggleInfo" style="border: 1px solid #dee2e6 !important;">
+                            <i class="fa fa-chevron-left"/>
+                        </button>
+                        <div class="d-flex flex-column">
+                            <div class="fw-bold text-dark" style="font-size: 0.95rem;">
+                                <t t-if="state.picking" t-out="state.picking.name"/>
+                                <t t-elif="props.pickingId === 'inventory'">Physical Inventory</t>
+                            </div>
+                            <div class="text-muted small d-flex align-items-center" style="font-size: 0.75rem;">
+                                <i class="fa fa-user-circle-o me-1"/> 
+                                <t t-if="state.picking and state.picking.partner_id" t-out="state.picking.partner_id.display_name"/>
+                                <t t-else="">Contact</t>
+                            </div>
+                        </div>
+                    </div>
+                    <button class="btn border-0 text-dark bg-white fs-5" t-on-click="toggleInfo">
+                        <i class="fa fa-times"/>
+                    </button>
+                </div>
+
+                <!-- Form Content (Includes Details and Real Chatter) -->
+                <div class="flex-grow-1 overflow-auto bg-white d-flex flex-column" style="font-size: 0.85rem;">
+                    <!-- Details Form (Custom) -->
+                    <div class="p-4 flex-shrink-0">
+                        <!-- Action Buttons -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <button class="btn text-white fw-bold d-flex align-items-center shadow-sm" style="background-color: #714B67; font-size: 0.85rem;" t-on-click="openAllocation">
+                                    <i class="fa fa-align-justify me-2"/> Allocation
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="row mb-3 align-items-center">
+                            <div class="col-3 text-muted">Contact <i class="fa fa-question-circle text-info ms-1"/></div>
+                            <div class="col-9 text-dark"><t t-if="state.picking and state.picking.partner_id" t-out="state.picking.partner_id.display_name"/></div>
+                        </div>
+                        <div class="row mb-3 align-items-center">
+                            <div class="col-3 text-muted">Scheduled Date <i class="fa fa-question-circle text-info ms-1"/></div>
+                            <div class="col-9 text-dark">
+                                <t t-if="state.picking and state.picking.scheduled_date" t-out="formatDate(state.picking.scheduled_date)"/>
+                            </div>
+                        </div>
+                        <div class="row mb-3 align-items-center">
+                            <div class="col-3 text-muted">Source Document <i class="fa fa-question-circle text-info ms-1"/></div>
+                            <div class="col-9 text-dark">
+                                <t t-if="state.picking and state.picking.origin" t-out="state.picking.origin"/>
+                            </div>
+                        </div>
+                        <div class="row mb-3 align-items-center">
+                            <div class="col-3 text-muted">Status <i class="fa fa-question-circle text-info ms-1"/></div>
+                            <div class="col-9 text-dark">
+                                <t t-if="state.picking" t-out="formatStatus(state.picking.state)"/>
+                            </div>
+                        </div>
+                        <div class="row mb-3 align-items-center">
+                            <div class="col-3 text-muted">Priority <i class="fa fa-question-circle text-info ms-1"/></div>
+                            <div class="col-9 text-dark">
+                                <t t-if="state.picking and state.picking.priority" t-out="formatPriority(state.picking.priority)"/>
+                            </div>
+                        </div>
+                        <div class="row mb-4 align-items-center border-bottom pb-2">
+                            <div class="col-3 text-muted">Source Location <i class="fa fa-question-circle text-info ms-1"/></div>
+                            <div class="col-9 d-flex justify-content-between text-dark">
+                                <span><t t-if="state.picking and state.picking.location_id" t-out="state.picking.location_id.display_name"/></span>
+                                <i class="fa fa-arrow-right text-muted"/>
+                            </div>
+                        </div>
+                        <div class="row mb-4 align-items-center">
+                            <div class="col-3 text-muted">Company <i class="fa fa-question-circle text-info ms-1"/></div>
+                            <div class="col-9" style="color: #017e84;">
+                                <t t-if="state.picking and state.picking.company_id" t-out="state.picking.company_id.name"/>
+                            </div>
+                        </div>
+                        
+                        <!-- Stock Moves -->
+                        <div class="row mb-2">
+                            <div class="col-3 text-muted">Stock Moves <i class="fa fa-question-circle text-info ms-1"/></div>
+                            <div class="col-9">
+                                <!-- Moves List -->
+                                <t t-if="state.lines and state.lines.length > 0">
+                                    <div class="border rounded p-0" style="background-color: #fbfbfb;">
+                                        <t t-foreach="state.lines" t-as="line" t-key="line.id">
+                                            <div class="d-flex justify-content-between p-2 border-bottom border-light">
+                                                <div class="d-flex flex-column">
+                                                    <span class="fw-bold text-dark"><t t-out="line.product_id.display_name"/></span>
+                                                    <span class="text-muted small" t-if="line.lot_id or line.package_id">
+                                                        <t t-if="line.lot_id" t-out="line.lot_id[1]"/>
+                                                        <t t-if="line.lot_id and line.package_id"> | </t>
+                                                        <t t-if="line.package_id" t-out="line.package_id[1]"/>
+                                                    </span>
+                                                </div>
+                                                <div class="d-flex flex-column text-end">
+                                                    <span class="fw-bold"><t t-out="line.product_uom_qty ? line.product_uom_qty.toFixed(2) : line.quantity.toFixed(2)"/></span>
+                                                    <span class="text-dark small mt-auto">Available</span>
+                                                </div>
+                                            </div>
+                                        </t>
+                                    </div>
+                                </t>
+                                <t t-else="">
+                                    <div class="text-muted fst-italic p-2 border rounded">No moves found.</div>
+                                </t>
+                            </div>
+                        </div>
+                    </div>
+                
+                    <!-- Real Odoo Chatter (Using View component but hiding form fields via CSS) -->
+                    <style>
+                        .chatter-only-view .o_form_sheet_bg { display: none !important; }
+                        .chatter-only-view .o_form_statusbar { display: none !important; }
+                        .chatter-only-view .o_form_view_container { padding: 0 !important; }
+                    </style>
+                    <div class="chatter-only-view flex-grow-1">
+                        <t t-if="state.picking">
+                            <View type="'form'" resModel="'stock.picking'" resId="state.picking.id" display="{ controlPanel: false }" />
+                        </t>
+                    </div>
+                </div>
+
+                <!-- Footer Buttons -->
+                <div class="d-flex justify-content-between p-2 border-top bg-white gap-2 shadow-lg" style="z-index: 10; flex-shrink: 0;">
+                    <button class="btn btn-light flex-grow-1 fw-bold text-dark py-3 shadow-none" style="background-color: #e9ecef; border: 1px solid #dee2e6;" t-on-click="toggleInfo">
+                        Discard
+                    </button>
+                    <button class="btn flex-grow-1 fw-bold text-white py-3 shadow-none" style="background-color: #714B67;" t-on-click="toggleInfo">
+                        Confirm
+                    </button>
+                </div>
+            </t> <!-- END INFO SCREEN -->
+
+            <!-- SETTINGS SCREEN -->
+            <t t-if="state.showSettings">
+                <!-- Top Bar (Settings) -->
+                <div class="d-flex justify-content-between align-items-center px-3 py-2 border-bottom" style="background-color: white; min-height: 56px;">
+                    <div class="d-flex align-items-center">
+                        <button class="btn btn-light border-0 px-2 py-1 me-3 text-dark bg-white shadow-sm" t-on-click="toggleSettings" style="border: 1px solid #dee2e6 !important;">
+                            <i class="fa fa-chevron-left"/>
+                        </button>
+                        <div class="d-flex flex-column">
+                            <div class="fw-bold text-dark" style="font-size: 0.95rem;">
+                                <t t-if="state.picking" t-out="state.picking.name"/>
+                                <t t-elif="props.pickingId === 'inventory'">Physical Inventory</t>
+                                <t t-else="">Loading...</t>
+                            </div>
+                            <div class="text-muted small d-flex align-items-center" style="font-size: 0.75rem;">
+                                <t t-if="props.pickingId !== 'inventory'">
+                                    <i class="fa fa-user-circle-o me-1"/> 
+                                    <t t-if="state.picking and state.picking.partner_id" t-out="state.picking.partner_id[1]"/>
+                                    <t t-else="">Contact</t>
+                                </t>
+                            </div>
+                        </div>
+                    </div>
+                    <button class="btn btn-light border-0 px-2 text-dark bg-white" t-on-click="toggleSettings">
+                        <i class="fa fa-times fs-5"/>
+                    </button>
+                </div>
+
+                <!-- Settings Content Area -->
+                <div class="flex-grow-1 overflow-auto bg-white p-2">
+                    <t t-if="props.pickingId === 'inventory'">
+                        <!-- Manual Barcode Input -->
+                        <div class="d-flex mb-3 mt-1">
+                            <input type="text" class="form-control rounded-0 rounded-start border-end-0 shadow-none" style="border-color: #017e84;" placeholder="Enter a barcode..." t-att-value="state.manualBarcode" t-on-input="(e) => state.manualBarcode = e.target.value" t-on-keydown="applyManualBarcodeEvent"/>
+                            <button class="btn border rounded-0 rounded-end px-4 text-dark shadow-none" style="background-color: #ffffff; border-color: #017e84 !important;" t-on-click="applyManualBarcode">Apply</button>
+                        </div>
+                        
+                        <!-- Count Entire Locations Checkbox -->
+                        <div class="mb-4">
+                            <button class="btn text-dark w-100 border py-2 d-flex align-items-center justify-content-center shadow-none" style="background-color: #e9ecef; font-size: 0.9rem;">
+                                <input type="checkbox" class="form-check-input mt-0 me-2 shadow-none"/> Count Entire Locations
+                            </button>
+                        </div>
+
+                        <!-- Print Section -->
+                        <div class="position-relative text-center my-3">
+                            <hr class="text-muted m-0" style="opacity: 0.2;"/>
+                            <span class="bg-white px-2 text-muted small position-absolute top-50 start-50 translate-middle">
+                                <i class="fa fa-print me-1"/> Print
+                            </span>
+                        </div>
+                        
+                        <div class="d-flex flex-column gap-2 mb-4">
+                            <button class="btn text-dark border py-2 shadow-none" style="background-color: #e9ecef; font-size: 0.9rem;">Print Inventory</button>
+                        </div>
+                    </t>
+                    <t t-else="">
+                        <!-- Manual Barcode Input -->
+                        <div class="d-flex mb-3 mt-1">
+                            <input type="text" class="form-control rounded-0 rounded-start border-end-0" placeholder="Enter a barcode..." t-att-value="state.manualBarcode" t-on-input="(e) => state.manualBarcode = e.target.value" t-on-keydown="applyManualBarcodeEvent"/>
+                            <button class="btn btn-light border rounded-0 rounded-end px-4 text-dark" style="background-color: #f8f9fa;" t-on-click="applyManualBarcode">Apply</button>
+                        </div>
+
+                        <!-- Print Section -->
+                        <div class="position-relative text-center my-3">
+                            <hr class="text-muted m-0" style="opacity: 0.2;"/>
+                            <span class="bg-white px-2 text-muted small position-absolute top-50 start-50 translate-middle">
+                                <i class="fa fa-print me-1"/> Print
+                            </span>
+                        </div>
+                        
+                        <div class="d-flex flex-column gap-2 mb-4">
+                            <button class="btn text-dark fw-bold border py-2" style="background-color: #e9ecef;">Print Picking Operations</button>
+                            <button class="btn text-dark fw-bold border py-2" style="background-color: #e9ecef;">Print Delivery Slip</button>
+                            <button class="btn text-dark fw-bold border py-2" style="background-color: #e9ecef;">Print Barcodes</button>
+                        </div>
+
+                        <!-- Operations Section -->
+                        <div class="position-relative text-center my-3 mt-4">
+                            <hr class="text-muted m-0" style="opacity: 0.2;"/>
+                            <span class="bg-white px-2 text-muted small position-absolute top-50 start-50 translate-middle">
+                                Operations
+                            </span>
+                        </div>
+                        
+                        <div class="d-flex flex-column gap-2">
+                            <button class="btn text-white fw-bold py-2" style="background-color: #d9534f; border-color: #d43f3a;">Quality Check</button>
+                            <button class="btn text-white fw-bold py-2" style="background-color: #d9534f; border-color: #d43f3a;">Scrap</button>
+                            <button class="btn text-white fw-bold py-2" style="background-color: #d9534f; border-color: #d43f3a;">
+                                <i class="fa fa-lock me-1"/> Cancel Transfer
+                            </button>
+                        </div>
+                    </t>
+                </div>
+            </t> <!-- END SETTINGS SCREEN -->
+
+            <!-- ADD PRODUCT SCREEN -->
+            <t t-if="state.showAddProduct">
+                <!-- Top Bar (Add Product) -->
+                <div class="d-flex justify-content-between align-items-center px-3 py-2 border-bottom" style="background-color: white; min-height: 56px;">
+                    <div class="d-flex align-items-center">
+                        <button class="btn btn-light border-0 px-2 py-1 me-3 text-dark bg-white shadow-sm" t-on-click="toggleAddProduct" style="border: 1px solid #dee2e6 !important;">
+                            <i class="fa fa-chevron-left"/>
+                        </button>
+                        <div class="d-flex flex-column">
+                            <div class="fw-bold text-dark" style="font-size: 0.95rem;">
+                                <t t-if="state.picking" t-out="state.picking.name"/>
+                                <t t-elif="props.pickingId === 'inventory'">Physical Inventory</t>
+                                <t t-else="">Loading...</t>
+                            </div>
+                            <div class="text-muted small d-flex align-items-center" style="font-size: 0.75rem;">
+                                <t t-if="props.pickingId !== 'inventory'">
+                                    <i class="fa fa-user-circle-o me-1"/> 
+                                    <t t-if="state.picking and state.picking.partner_id" t-out="state.picking.partner_id[1]"/>
+                                    <t t-else="">Contact</t>
+                                </t>
+                            </div>
+                        </div>
+                    </div>
+                    <button class="btn btn-light border-0 px-2 text-dark bg-white" t-on-click="toggleAddProduct">
+                        <i class="fa fa-times fs-5"/>
+                    </button>
+                </div>
+
+                <!-- Add Product Content Area -->
+                <div class="flex-grow-1 overflow-auto bg-white p-3">
+                    
+                    <!-- Selected Product Header -->
+                    <div t-if="state.addProductSelected" class="d-flex align-items-center mb-4 p-2 bg-white border rounded shadow-sm">
+                        <img t-attf-src="/web/image/product.product/{{state.addProductSelected.id}}/image_256" class="rounded me-3 border" style="width: 110px; height: 110px; object-fit: contain;" alt="Product Image"/>
+                        <div>
+                            <span class="fw-bold"><t t-out="state.addProductSelected.default_code || state.addProductSelected.barcode || state.addProductSelected.display_name"/></span>
+                        </div>
+                    </div>
+
+                    <!-- Product Input -->
+                    <div class="mb-3 position-relative d-flex align-items-center" t-on-mouseleave="closeDropdowns">
+                        <div class="flex-grow-1 position-relative">
+                            <input type="text" 
+                                t-attf-class="form-control shadow-none {{ state.addProductSelected ? 'bg-primary text-white border-0' : (state.addProductSearchResults.length > 0 ? 'border border-bottom-0' : 'border') }}" 
+                                placeholder="Product" 
+                                t-att-value="state.addProductSearchStr" 
+                                t-on-input="onProductSearchInput"
+                                t-on-focus="onProductFocus"
+                                style="border-color: #ced4da; font-size: 0.95rem; border-bottom-left-radius: 0; border-bottom-right-radius: 0;"/>
+                                
+                            <!-- Dropdown Results -->
+                            <div t-if="state.addProductSearchResults.length > 0" class="position-absolute w-100 bg-white border border-top-0" style="max-height: 250px; overflow-y: auto; z-index: 1000; top: 100%; border-color: #ced4da; border-bottom-left-radius: 0.375rem; border-bottom-right-radius: 0.375rem;">
+                                <t t-foreach="state.addProductSearchResults" t-as="product" t-key="product.id">
+                                    <div class="px-2 py-1 cursor-pointer text-dark" style="font-size: 0.9rem;" t-on-click="() => this.selectProduct(product)" onmouseover="this.classList.add('bg-light')" onmouseout="this.classList.remove('bg-light')">
+                                        <span class="text-dark"><t t-out="product.display_name"/></span>
+                                    </div>
+                                </t>
+                                <div class="px-2 py-1 cursor-pointer" style="font-size: 0.9rem; color: #017e84;" t-on-click="() => this.openSearchMore('product')">Search more...</div>
+                            </div>
+                        </div>
+                        <i t-if="state.addProductSelected" class="fa fa-arrow-right ms-3 text-muted"/>
+                    </div>
+                    
+                    <!-- No Barcode Subtitle -->
+                    <div t-if="state.addProductSelected" class="text-muted small mb-3">
+                        <t t-if="state.addProductSelected.barcode" t-out="state.addProductSelected.barcode"/>
+                        <t t-else="">No Barcode</t>
+                    </div>
+
+                    <!-- Quantity Inputs -->
+                    <div class="d-flex align-items-center mb-3 gap-2">
+                        <input type="number" class="form-control text-center fs-5 shadow-none" t-att-value="state.addProductQty" t-on-input="onAddProductQtyInput" style="flex: 1;"/>
+                        
+                        <div class="position-relative" style="flex: 1;" t-on-mouseleave="closeDropdowns">
+                            <input type="text" 
+                                t-attf-class="form-control text-start shadow-none text-dark px-2 {{ state.addProductUomSearchResults.length > 0 ? 'border border-bottom-0' : 'border' }}" 
+                                style="background-color: #ffffff; border-color: #ced4da; width: 100%; min-width: 80px; border-bottom-left-radius: 0; border-bottom-right-radius: 0;"
+                                t-att-value="state.addProductUomSearchStr" 
+                                t-on-input="onUomSearchInput"
+                                t-on-focus="onUomFocus"/>
+                                
+                            <!-- Dropdown Results -->
+                            <div t-if="state.addProductUomSearchResults.length > 0" class="position-absolute bg-white border border-top-0 text-start" style="width: 200px; max-height: 200px; overflow-y: auto; z-index: 1000; top: 100%; border-color: #ced4da; border-bottom-left-radius: 0.375rem; border-bottom-right-radius: 0.375rem;">
+                                <t t-foreach="state.addProductUomSearchResults" t-as="uom" t-key="uom.id">
+                                    <div class="px-2 py-1 cursor-pointer text-dark" style="font-size: 0.9rem;" t-on-click="() => this.selectUom(uom)" onmouseover="this.classList.add('bg-light')" onmouseout="this.classList.remove('bg-light')">
+                                        <span class="text-dark"><t t-out="uom.name"/></span>
+                                    </div>
+                                </t>
+                                <div class="px-2 py-1 cursor-pointer" style="font-size: 0.9rem; color: #017e84;" t-on-click="() => this.openSearchMore('uom')">Search more...</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Quantity Buttons -->
+                    <div class="row g-2 mb-4">
+                        <div class="col-4">
+                            <button class="btn btn-light w-100 fw-bold border shadow-none" style="background-color: #e9ecef;" t-on-click="() => this.setAddProductQty(0)">0</button>
+                        </div>
+                        <div class="col-4">
+                            <button class="btn btn-light w-100 fw-bold border shadow-none" style="background-color: #e9ecef;" t-on-click="() => this.setAddProductQty(-1)">-1</button>
+                        </div>
+                        <div class="col-4">
+                            <button class="btn btn-light w-100 fw-bold border shadow-none" style="background-color: #e9ecef;" t-on-click="() => this.setAddProductQty(1)">+1</button>
+                        </div>
+                    </div>
+
+                    <!-- Lot / Serial Number Input -->
+                    <div class="mb-3 position-relative" t-if="state.addProductSelected and (state.addProductSelected.tracking === 'serial' || state.addProductSelected.tracking === 'lot')">
+                        <label class="text-muted small mb-1 fw-bold">
+                            <i class="fa fa-barcode me-1"/> 
+                            <t t-if="state.addProductSelected.tracking === 'serial'">Serial Number</t>
+                            <t t-else="">Lot Number</t>
+                        </label>
+                        <input type="text" class="form-control shadow-none border" style="border-color: #ced4da; font-size: 0.95rem;" 
+                            placeholder="Serial/Lot Number" 
+                            t-att-value="state.addProductLotName" 
+                            t-on-input="(e) => state.addProductLotName = e.target.value"/>
+                    </div>
+
+                    <!-- Destination Location -->
+                    <div class="mb-3 position-relative" t-on-mouseleave="closeDropdowns">
+                        <label class="text-muted small mb-1 fw-bold"><i class="fa fa-map-marker me-1"/> Destination Location <span class="text-info ms-1">?</span></label>
+                        <input type="text" 
+                            t-attf-class="form-control shadow-none {{ state.addProductDestLocSearchResults.length > 0 ? 'border border-bottom-0' : 'border' }}" 
+                            style="border-color: #ced4da; font-size: 0.95rem; border-bottom-left-radius: 0; border-bottom-right-radius: 0;"
+                            t-att-value="state.addProductDestLocSearchStr" 
+                            t-on-input="onDestLocSearchInput"
+                            t-on-focus="onDestLocFocus"/>
+                            
+                        <!-- Dropdown Results -->
+                        <div t-if="state.addProductDestLocSearchResults.length > 0" class="position-absolute w-100 bg-white border border-top-0" style="max-height: 200px; overflow-y: auto; z-index: 1000; top: 100%; border-color: #ced4da; border-bottom-left-radius: 0.375rem; border-bottom-right-radius: 0.375rem;">
+                            <t t-foreach="state.addProductDestLocSearchResults" t-as="loc" t-key="loc.id">
+                                <div class="px-2 py-1 cursor-pointer text-dark" style="font-size: 0.9rem;" t-on-click="() => this.selectDestLoc(loc)" onmouseover="this.classList.add('bg-light')" onmouseout="this.classList.remove('bg-light')">
+                                    <span class="text-dark"><t t-out="loc.display_name"/></span>
+                                </div>
+                            </t>
+                            <div class="px-2 py-1 cursor-pointer" style="font-size: 0.9rem; color: #017e84;" t-on-click="() => this.openSearchMore('dest_loc')">Search more...</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Bottom Bar (Add Product) -->
+                <div class="bg-white border-top p-2 d-flex gap-2">
+                    <button class="btn btn-light border flex-grow-1 fw-bold text-dark py-3 shadow-none" style="font-size: 0.85rem; background-color: #e9ecef;" t-on-click="toggleAddProduct">
+                        Discard
+                    </button>
+                    <button class="btn text-white flex-grow-1 fw-bold py-3 shadow-none" style="font-size: 0.85rem; background-color: #714B67;" t-on-click="confirmAddProduct">
+                        Confirm
+                    </button>
+                </div>
+            </t> <!-- END ADD PRODUCT SCREEN -->
+
+            <!-- ALLOCATION SCREEN (Custom Enterprise Style) -->
+            <t t-if="state.showAllocation">
+                <!-- Header / Top Bar -->
+                <div class="d-flex justify-content-between align-items-center px-3 py-2 border-bottom shadow-sm" style="background-color: white; min-height: 56px; z-index: 10; flex-shrink: 0;">
+                    <div class="d-flex align-items-center">
+                        <button class="btn btn-light border-0 px-2 py-1 me-3 text-dark bg-white" t-on-click="closeAllocation" style="border: 1px solid #dee2e6 !important;">
+                            <i class="fa fa-chevron-left"/>
+                        </button>
+                        <div class="d-flex flex-column">
+                            <div class="fw-bold" style="color: #017e84; font-size: 1.25rem;">
+                                <t t-if="state.picking" t-out="state.picking.name"/>
+                            </div>
+                        </div>
+                    </div>
+                    <button class="btn border-0 text-dark bg-white fs-5" t-on-click="closeAllocation">
+                        <i class="fa fa-times"/>
+                    </button>
+                </div>
+                
+                <div class="bg-white px-3 py-2 border-bottom d-flex gap-2 align-items-center" style="z-index: 10; flex-shrink: 0;">
+                    <button class="btn text-white fw-bold shadow-sm px-3 py-1" style="background-color: #714B67; font-size: 0.85rem;" t-on-click="printReport">Print</button>
+                    <button class="btn btn-light border fw-bold text-dark px-3 py-1 shadow-sm" style="font-size: 0.85rem; background-color: #f8f9fa;" t-on-click="assignAll">Assign All</button>
+                    <button class="btn btn-light border fw-bold text-dark px-3 py-1 shadow-sm" style="font-size: 0.85rem; background-color: #f8f9fa;" t-on-click="printLabels">Print Labels</button>
+                </div>
+
+                <!-- Main Allocation Content -->
+                <div class="flex-grow-1 overflow-auto bg-light p-3" style="font-size: 0.85rem;">
+                    <!-- Table Header -->
+                    <div class="row fw-bold text-muted mb-2 px-2" style="font-size: 0.8rem;">
+                        <div class="col-4">Available</div>
+                        <div class="col-2 text-center">Quantity</div>
+                        <div class="col-3 text-center">Reserved</div>
+                        <div class="col-3">For</div>
+                    </div>
+
+                    <t t-if="state.processedAllocations and state.processedAllocations.length > 0">
+                        <t t-foreach="state.processedAllocations" t-as="prod" t-key="prod.product.id">
+                            <!-- Card for each product line -->
+                            <div class="bg-white border rounded shadow-sm mb-3">
+                                <div class="row m-0 p-0 align-items-stretch">
+                                    <!-- Left Side: Product Info -->
+                                    <div class="col-4 p-3 border-end d-flex flex-column justify-content-center align-items-center bg-white rounded-start">
+                                        <div class="fw-bold text-dark mb-2 text-center" style="font-size: 0.95rem;">
+                                            <t t-out="prod.product.display_name"/>
+                                            <i class="fa fa-line-chart text-info ms-1"/>
+                                        </div>
+                                        <div class="fw-bold text-dark fs-6">
+                                            <t t-out="prod.totalAvailable"/> Units
+                                        </div>
+                                    </div>
+
+                                    <!-- Right Side: Allocations -->
+                                    <div class="col-8 p-0 bg-white rounded-end">
+                                        <t t-if="prod.allocations and prod.allocations.length > 0">
+                                            <t t-foreach="prod.allocations" t-as="alloc" t-key="alloc.index">
+                                                <div class="row m-0 p-3 align-items-center border-bottom">
+                                                    <!-- Quantity -->
+                                                    <div class="col-3 text-center text-success fw-bold">
+                                                        <t t-out="alloc.quantity"/> Units
+                                                    </div>
+                                                    <!-- Reserved Toggle Switch -->
+                                                    <div class="col-3 text-center">
+                                                        <div class="form-check form-switch d-inline-block">
+                                                            <input class="form-check-input" type="checkbox" t-att-checked="alloc.is_assigned ? 'checked' : undefined" style="cursor: pointer;" t-on-change="() => this.toggleAllocation(alloc)"/>
+                                                        </div>
+                                                        <!-- Show Print Label when assigned -->
+                                                        <div t-if="alloc.is_assigned" class="mt-1">
+                                                            <button class="btn btn-sm btn-outline-secondary py-0" style="font-size: 0.75rem;" t-on-click="() => this.printAllocationLabel(alloc)">
+                                                                <i class="fa fa-print"/> Print
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                    <!-- For (Destination) -->
+                                                    <div class="col-5 text-info" style="color: #017e84 !important;">
+                                                        <t t-out="alloc.dest_name"/>
+                                                    </div>
+                                                </div>
+                                            </t>
+                                        </t>
+                                        <t t-else="">
+                                            <div class="p-4 text-dark text-start" style="font-size: 0.85rem;">
+                                                No allocation need found.
+                                            </div>
+                                        </t>
+                                    </div>
+                                </div>
+                            </div>
+                        </t>
+                    </t>
+                    <t t-else="">
+                        <div class="bg-white border rounded shadow-sm p-4 text-dark text-center fw-bold fs-5">
+                            No allocation need found.
+                        </div>
+                    </t>
+                </div>
+            </t> <!-- END ALLOCATION SCREEN -->
+
+        </div>
+    </t>
+</templates>

@@ -1,0 +1,716 @@
+# Translation of Odoo Server.
+# This file contains the translation of the following modules:
+# 	* eh_hr_face_kiosk
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Odoo Server 19.0+e\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-07-01 04:33+0000\n"
+"PO-Revision-Date: 2026-07-01 04:33+0000\n"
+"Last-Translator: ERP Heritage <info@erpheritage.com.au>\n"
+"Language-Team: Hindi\n"
+"Language: hi\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=n > 1;\n"
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.kiosk_shell
+msgid ""
+". Ask an administrator to create one in People Operations &gt; Kiosks &gt; "
+"Sites."
+msgstr ""
+". किसी व्यवस्थापक से People Operations &gt; Kiosks &gt; Sites में एक बनाने "
+"के लिए कहें।"
+
+#. module: eh_hr_face_kiosk
+#. odoo-python
+#: code:addons/eh_hr_face_kiosk/models/eh_hr_face_template.py:0
+msgid "A face template's consent record must be of type 'face'."
+msgstr "एक फेस टेम्पलेट का सहमति रिकॉर्ड 'face' प्रकार का होना चाहिए।"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__message_needaction
+msgid "Action Needed"
+msgstr "कार्रवाई की ज़रूरत है"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__active
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.view_eh_hr_face_template_search
+msgid "Active"
+msgstr "ऐक्टिव"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_hr_employee__eh_face_template_count
+msgid "Active templates"
+msgstr "सक्रिय टेम्पलेट"
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.kiosk_shell
+msgid ""
+"Administrator: run <code>eh_hr_face_kiosk/tools/fetch_face_api.sh</code> on "
+"the Odoo server (details in <code>static/lib/face-api/README.md</code> "
+"inside the module), then reload this page."
+msgstr ""
+"व्यवस्थापक: Odoo सर्वर पर "
+"<code>eh_hr_face_kiosk/tools/fetch_face_api.sh</code> चलाएं (विवरण मॉड्यूल "
+"के अंदर <code>static/lib/face-api/README.md</code> में), फिर इस पृष्ठ को "
+"पुनः लोड करें।"
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.kiosk_shell
+msgid "Ask an administrator for a pairing PIN, then enter it below."
+msgstr "किसी व्यवस्थापक से पेयरिंग PIN मांगें, फिर उसे नीचे दर्ज करें।"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__message_attachment_count
+msgid "Attachment Count"
+msgstr "अटैचमेंट की संख्या"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model,name:eh_hr_face_kiosk.model_eh_hr_consent
+msgid "Biometric and Location Consent Record"
+msgstr "बायोमेट्रिक और स्थान सहमति रिकॉर्ड"
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.view_eh_hr_face_enrolment_form
+msgid "Cancel"
+msgstr "रद्द"
+
+#. module: eh_hr_face_kiosk
+#. odoo-python
+#: code:addons/eh_hr_face_kiosk/models/eh_hr_face_template.py:0
+msgid "Cannot reactivate a template whose consent is not in granted state."
+msgstr ""
+"ऐसे टेम्पलेट को फिर से सक्रिय नहीं किया जा सकता जिसकी सहमति प्रदत्त स्थिति "
+"में नहीं है।"
+
+#. module: eh_hr_face_kiosk
+#. odoo-python
+#: code:addons/eh_hr_face_kiosk/wizards/face_enrolment_wizard.py:0
+msgid ""
+"Capture at least one sample before enrolling. Three to five recommended."
+msgstr ""
+"एनरोल करने से पहले कम से कम एक सैंपल कैप्चर करें। तीन से पांच अनुशंसित।"
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.view_eh_hr_face_enrolment_form
+msgid "Capture samples"
+msgstr "सैंपल कैप्चर करें"
+
+#. module: eh_hr_face_kiosk
+#. odoo-javascript
+#: code:addons/eh_hr_face_kiosk/static/src/js/enrolment_widget.js:0
+msgid "Captured %s samples. Save the wizard to enrol."
+msgstr "%s सैंपल कैप्चर किए गए। एनरोल करने के लिए विज़ार्ड सहेजें।"
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.view_eh_hr_face_template_search
+msgid "Captured at kiosk"
+msgstr "कियोस्क पर कैप्चर किया गया"
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.view_eh_hr_face_template_search
+msgid "Captured by HR"
+msgstr "HR द्वारा कैप्चर किया गया"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__captured_on
+msgid "Captured on"
+msgstr "कैप्चर किया गया"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_enrolment__samples_json
+msgid "Captured samples (JSON)"
+msgstr "कैप्चर किए गए सैंपल (JSON)"
+
+#. module: eh_hr_face_kiosk
+#. odoo-python
+#: code:addons/eh_hr_face_kiosk/wizards/face_enrolment_wizard.py:0
+msgid "Captured samples are not valid JSON: %s"
+msgstr "कैप्चर किए गए सैंपल मान्य JSON नहीं हैं: %s"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_enrolment__captured_via
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__captured_via
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.view_eh_hr_face_template_search
+msgid "Captured via"
+msgstr "इसके माध्यम से कैप्चर किया गया"
+
+#. module: eh_hr_face_kiosk
+#. odoo-javascript
+#: code:addons/eh_hr_face_kiosk/static/src/js/enrolment_widget.js:0
+msgid "Capturing sample %s of %s..."
+msgstr "%s में से %s सैंपल कैप्चर हो रहा है..."
+
+#. module: eh_hr_face_kiosk
+#. odoo-javascript
+#: code:addons/eh_hr_face_kiosk/static/src/xml/enrolment_widget.xml:0
+msgid "Capturing..."
+msgstr "कैप्चर हो रहा है..."
+
+#. module: eh_hr_face_kiosk
+#. odoo-javascript
+#: code:addons/eh_hr_face_kiosk/static/src/js/enrolment_widget.js:0
+msgid "Click Start to begin"
+msgstr "आरंभ करने के लिए प्रारंभ पर क्लिक करें"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__company_id
+msgid "Company"
+msgstr "कंपनी"
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.view_eh_hr_face_enrolment_form
+msgid "Consent"
+msgstr "सहमति"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__consent_id
+msgid "Consent record"
+msgstr "सहमति रिकॉर्ड"
+
+#. module: eh_hr_face_kiosk
+#. odoo-python
+#: code:addons/eh_hr_face_kiosk/models/eh_hr_face_template.py:0
+msgid "Consent record's employee must match the template's employee."
+msgstr "सहमति रिकॉर्ड का कर्मचारी टेम्पलेट के कर्मचारी से मेल खाना चाहिए।"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_enrolment__consent_text
+msgid "Consent text"
+msgstr "सहमति पाठ"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_enrolment__create_uid
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__create_uid
+msgid "Created by"
+msgstr "इन्होंने बनाया"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_enrolment__create_date
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__create_date
+msgid "Created on"
+msgstr "इस तारीख को बनाया गया"
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.view_eh_hr_face_template_form
+msgid "Deactivate"
+msgstr "निष्क्रिय करें"
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.kiosk_shell
+msgid "Device name"
+msgstr "डिवाइस नाम"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_consent__display_name
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_enrolment__display_name
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__display_name
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_hr_employee__display_name
+msgid "Display Name"
+msgstr "डिस्प्ले का नाम"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__embedding
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.view_eh_hr_face_template_form
+msgid "Embedding"
+msgstr ""
+
+#. module: eh_hr_face_kiosk
+#. odoo-python
+#: code:addons/eh_hr_face_kiosk/models/eh_hr_face_template.py:0
+msgid "Embedding is required."
+msgstr "एम्बेडिंग आवश्यक है।"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__embedding_dim
+msgid "Embedding length"
+msgstr "एम्बेडिंग लंबाई"
+
+#. module: eh_hr_face_kiosk
+#. odoo-python
+#: code:addons/eh_hr_face_kiosk/models/eh_hr_face_template.py:0
+msgid ""
+"Embedding length %(actual)s does not match declared dimension %(expected)s."
+msgstr "एम्बेडिंग लंबाई %(actual)s घोषित आयाम %(expected)s से मेल नहीं खाती।"
+
+#. module: eh_hr_face_kiosk
+#. odoo-python
+#: code:addons/eh_hr_face_kiosk/models/eh_hr_face_template.py:0
+msgid "Embedding must be a JSON list."
+msgstr "एम्बेडिंग एक JSON सूची होनी चाहिए।"
+
+#. module: eh_hr_face_kiosk
+#. odoo-python
+#: code:addons/eh_hr_face_kiosk/models/eh_hr_face_template.py:0
+msgid "Embedding must be a valid JSON array of floats: %s"
+msgstr "एम्बेडिंग फ्लोट्स की एक मान्य JSON सरणी होनी चाहिए: %s"
+
+#. module: eh_hr_face_kiosk
+#. odoo-python
+#: code:addons/eh_hr_face_kiosk/models/eh_hr_face_template.py:0
+msgid "Embedding values must be numeric."
+msgstr "एम्बेडिंग मान संख्यात्मक होने चाहिए।"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model,name:eh_hr_face_kiosk.model_hr_employee
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_enrolment__employee_id
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__employee_id
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.view_eh_hr_face_template_search
+msgid "Employee"
+msgstr "कर्मचारी"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_enrolment__consent_acknowledged
+msgid "Employee acknowledged consent"
+msgstr "कर्मचारी द्वारा स्वीकृत सहमति"
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.view_eh_hr_face_enrolment_form
+msgid "Employee has read the above and acknowledges consent"
+msgstr "कर्मचारी ने उपरोक्त पढ़ लिया है और सहमति स्वीकार करता है"
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.view_employee_form_eh_face_kiosk
+msgid "Enrol face"
+msgstr "चेहरा नामांकित करें"
+
+#. module: eh_hr_face_kiosk
+#. odoo-python
+#: code:addons/eh_hr_face_kiosk/models/hr_employee.py:0
+msgid "Enrol face for %s"
+msgstr "%s के लिए चेहरा नामांकित करें"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model,name:eh_hr_face_kiosk.model_eh_hr_face_enrolment
+msgid "Face Enrolment Wizard"
+msgstr "चेहरा नामांकन विज़ार्ड"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model,name:eh_hr_face_kiosk.model_eh_hr_face_template
+msgid "Face Recognition Template"
+msgstr "चेहरा पहचान टेम्पलेट"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_enrolment__consent_state
+msgid "Face consent"
+msgstr "चेहरा सहमति"
+
+#. module: eh_hr_face_kiosk
+#. odoo-python
+#: code:addons/eh_hr_face_kiosk/wizards/face_enrolment_wizard.py:0
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_hr_employee__eh_face_enrolled
+msgid "Face enrolled"
+msgstr "चेहरा नामांकित"
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.view_eh_hr_face_enrolment_form
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.view_employee_form_eh_face_kiosk
+msgid "Face enrolment"
+msgstr "चेहरा नामांकन"
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.view_eh_hr_face_template_form
+msgid "Face template"
+msgstr "चेहरा टेम्पलेट"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.actions.act_window,name:eh_hr_face_kiosk.action_eh_hr_face_template
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_hr_employee__eh_face_template_ids
+#: model:ir.ui.menu,name:eh_hr_face_kiosk.menu_eh_hr_face_templates
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.view_eh_hr_face_template_list
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.view_eh_hr_face_template_search
+msgid "Face templates"
+msgstr "चेहरा टेम्पलेट"
+
+#. module: eh_hr_face_kiosk
+#. odoo-python
+#: code:addons/eh_hr_face_kiosk/models/hr_employee.py:0
+msgid "Face templates for %s"
+msgstr "%s के लिए चेहरा टेम्पलेट"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,help:eh_hr_face_kiosk.field_eh_hr_face_enrolment__samples_json
+msgid ""
+"Filled in by the OWL widget after the operator captures three to five "
+"samples."
+msgstr ""
+"ऑपरेटर द्वारा तीन से पाँच नमूने कैप्चर करने के बाद OWL विजेट द्वारा भरा जाता"
+" है।"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__message_follower_ids
+msgid "Followers"
+msgstr "फ़ॉलोवर"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__message_partner_ids
+msgid "Followers (Partners)"
+msgstr "फ़ॉलोवर (पार्टनर)"
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.kiosk_shell
+msgid "Front desk iPad"
+msgstr "फ्रंट डेस्क iPad"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields.selection,name:eh_hr_face_kiosk.selection__eh_hr_face_enrolment__captured_via__hr_admin
+#: model:ir.model.fields.selection,name:eh_hr_face_kiosk.selection__eh_hr_face_template__captured_via__hr_admin
+msgid "HR administrator"
+msgstr "HR व्यवस्थापक"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__has_message
+msgid "Has Message"
+msgstr "मैसेज है"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_consent__id
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_enrolment__id
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__id
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_hr_employee__id
+msgid "ID"
+msgstr "आईडी"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,help:eh_hr_face_kiosk.field_eh_hr_face_template__model_name
+msgid ""
+"Identity of the model that produced the embedding. Stored so future model "
+"upgrades can be reconciled (re-enrolment may be required if the dimension or"
+" training set changes)."
+msgstr ""
+"एम्बेडिंग उत्पन्न करने वाले मॉडल की पहचान। इसे संग्रहीत किया जाता है ताकि "
+"भविष्य के मॉडल अपग्रेड का मिलान किया जा सके (यदि आयाम या प्रशिक्षण सेट बदलता"
+" है तो पुनः नामांकन आवश्यक हो सकता है)।"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,help:eh_hr_face_kiosk.field_eh_hr_face_template__message_needaction
+msgid "If checked, new messages require your attention."
+msgstr "अगर यह बॉक्स चेक है, तो नए मैसेज देखने ज़रूरी हैं।"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,help:eh_hr_face_kiosk.field_eh_hr_face_template__message_has_error
+#: model:ir.model.fields,help:eh_hr_face_kiosk.field_eh_hr_face_template__message_has_sms_error
+msgid "If checked, some messages have a delivery error."
+msgstr "अगर बॉक्स पर टिक है, तो कुछ मैसेज भेजने में गलती हुई है।"
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.view_eh_hr_face_template_form
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.view_eh_hr_face_template_search
+msgid "Inactive"
+msgstr "निष्क्रि"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__message_is_follower
+msgid "Is Follower"
+msgstr "फ़ॉलोवर है"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,help:eh_hr_face_kiosk.field_eh_hr_face_template__embedding
+msgid ""
+"JSON-serialised 128-dim float array produced by face-api.js. Storing as Text"
+" rather than Binary keeps the database introspectable for diagnostics."
+msgstr ""
+"face-api.js द्वारा उत्पन्न JSON में सीरियलाइज़ किया गया 128-आयामी फ्लोट "
+"सरणी। बाइनरी के बजाय टेक्स्ट के रूप में संग्रहीत करने से डेटाबेस निदान के "
+"लिए इंट्रोस्पेक्टेबल रहता है।"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields.selection,name:eh_hr_face_kiosk.selection__eh_hr_face_enrolment__captured_via__kiosk_screen
+#: model:ir.model.fields.selection,name:eh_hr_face_kiosk.selection__eh_hr_face_template__captured_via__kiosk_screen
+msgid "Kiosk screen"
+msgstr "कियोस्क स्क्रीन"
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.kiosk_shell
+msgid "Kiosk setup required"
+msgstr "कियोस्क सेटअप आवश्यक है"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_enrolment__write_uid
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__write_uid
+msgid "Last Updated by"
+msgstr "इन्होंने आखिरी बार अपडेट किया"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_enrolment__write_date
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__write_date
+msgid "Last Updated on"
+msgstr "आखिरी बार अपडेट हुआ"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__message_has_error
+msgid "Message Delivery error"
+msgstr "मैसेज डिलीवरी में गड़बड़ी"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__message_ids
+msgid "Messages"
+msgstr "संदेश"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__model_version
+msgid "Model version"
+msgstr "मॉडल संस्करण"
+
+#. module: eh_hr_face_kiosk
+#. odoo-python
+#: code:addons/eh_hr_face_kiosk/models/eh_hr_face_template.py:0
+msgid "New template"
+msgstr "नया टेम्पलेट"
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.kiosk_shell
+msgid "No active kiosk site exists for"
+msgstr "इसके लिए कोई सक्रिय कियोस्क साइट मौजूद नहीं है"
+
+#. module: eh_hr_face_kiosk
+#. odoo-python
+#: code:addons/eh_hr_face_kiosk/models/eh_hr_face_template.py:0
+msgid "No employee"
+msgstr "कोई कर्मचारी नहीं"
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.actions.act_window,help:eh_hr_face_kiosk.action_eh_hr_face_template
+msgid "No face templates yet."
+msgstr "अभी तक कोई फेस टेम्पलेट नहीं।"
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.kiosk_shell
+msgid "No match"
+msgstr "कोई मिलान नहीं"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__message_needaction_counter
+msgid "Number of Actions"
+msgstr "ऐक्शन की संख्या"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__message_has_error_counter
+msgid "Number of errors"
+msgstr "गड़बड़ी की संख्या"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,help:eh_hr_face_kiosk.field_eh_hr_face_template__message_needaction_counter
+msgid "Number of messages requiring action"
+msgstr "ऐसे मैसेज की संख्या जिनपर कार्रवाई की ज़रूरत है"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,help:eh_hr_face_kiosk.field_eh_hr_face_template__message_has_error_counter
+msgid "Number of messages with delivery error"
+msgstr "डिलीवरी में गड़बड़ी वाले मैसेज की संख्या"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,help:eh_hr_face_kiosk.field_eh_hr_face_template__quality_score
+msgid ""
+"Optional. Higher is better. The kiosk only stores templates above the "
+"company's quality floor."
+msgstr ""
+"वैकल्पिक। अधिक बेहतर है। कियोस्क केवल कंपनी की गुणवत्ता सीमा से ऊपर के "
+"टेम्पलेट संग्रहीत करता है।"
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.kiosk_shell
+msgid "Pair"
+msgstr "जोड़ें"
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.kiosk_shell
+msgid "Pair this device"
+msgstr "इस डिवाइस को जोड़ें"
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.kiosk_shell
+msgid "Pairing PIN"
+msgstr "पेयरिंग PIN"
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.kiosk_shell
+msgid "Please try again, or contact your manager."
+msgstr "कृपया पुनः प्रयास करें, या अपने प्रबंधक से संपर्क करें।"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__quality_score
+msgid "Quality score"
+msgstr "गुणवत्ता स्कोर"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__rating_ids
+msgid "Ratings"
+msgstr "रेटिंग"
+
+#. module: eh_hr_face_kiosk
+#. odoo-javascript
+#: code:addons/eh_hr_face_kiosk/static/src/xml/enrolment_widget.xml:0
+msgid "Re-capture"
+msgstr "पुनः कैप्चर करें"
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.view_eh_hr_face_template_form
+msgid "Reactivate"
+msgstr "पुनः सक्रिय करें"
+
+#. module: eh_hr_face_kiosk
+#. odoo-javascript
+#: code:addons/eh_hr_face_kiosk/static/src/js/enrolment_widget.js:0
+msgid "Ready. Click Start."
+msgstr "तैयार। प्रारंभ पर क्लिक करें।"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__model_name
+msgid "Recognition model"
+msgstr "मान्यता मॉडल"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__name
+msgid "Reference"
+msgstr "रेफ़रंस"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__message_has_sms_error
+msgid "SMS Delivery error"
+msgstr "एसएमएस डिलीवरी में गड़बड़ी"
+
+#. module: eh_hr_face_kiosk
+#. odoo-javascript
+#: code:addons/eh_hr_face_kiosk/static/src/js/enrolment_widget.js:0
+msgid "Sample %s timed out, retrying"
+msgstr "सैंपल %s का समय समाप्त, पुनः प्रयास कर रहे हैं"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_enrolment__sample_count
+msgid "Sample count"
+msgstr "सैंपल संख्या"
+
+#. module: eh_hr_face_kiosk
+#. odoo-javascript
+#: code:addons/eh_hr_face_kiosk/static/src/xml/enrolment_widget.xml:0
+msgid "Samples:"
+msgstr "नमूने:"
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.view_eh_hr_face_enrolment_form
+msgid "Save consent and enrol"
+msgstr "सहमति सहेजें और नामांकित करें"
+
+#. module: eh_hr_face_kiosk
+#. odoo-python
+#: code:addons/eh_hr_face_kiosk/wizards/face_enrolment_wizard.py:0
+msgid "Select an employee."
+msgstr "एक कर्मचारी चुनें।"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields.selection,name:eh_hr_face_kiosk.selection__eh_hr_face_enrolment__captured_via__portal
+#: model:ir.model.fields.selection,name:eh_hr_face_kiosk.selection__eh_hr_face_template__captured_via__portal
+msgid "Self-service portal"
+msgstr "स्वयं-सेवा पोर्टल"
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.kiosk_shell
+msgid "Site not configured"
+msgstr "साइट कॉन्फ़िगर नहीं की गई"
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.kiosk_shell
+msgid "Site:"
+msgstr "साइट:"
+
+#. module: eh_hr_face_kiosk
+#. odoo-javascript
+#: code:addons/eh_hr_face_kiosk/static/src/xml/enrolment_widget.xml:0
+msgid "Start capture"
+msgstr "कैप्चर आरंभ करें"
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.kiosk_shell
+msgid "Step into view to clock in or clock out."
+msgstr "क्लॉक इन या क्लॉक आउट करने के लिए दृश्य में आएँ।"
+
+#. module: eh_hr_face_kiosk
+#. odoo-python
+#: code:addons/eh_hr_face_kiosk/wizards/face_enrolment_wizard.py:0
+msgid ""
+"Stored %(count)s sample(s) for %(name)s. Match confidence improves with "
+"three to five samples in varied lighting."
+msgstr ""
+"%(name)s के लिए %(count)s नमूना(ने) संग्रहीत किए गए। अलग-अलग रोशनी में तीन "
+"से पाँच नमूनों से मिलान का भरोसा बेहतर होता है।"
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.actions.act_window,help:eh_hr_face_kiosk.action_eh_hr_face_template
+msgid ""
+"Templates are stored when an employee enrols at a kiosk or via the Face "
+"enrolment wizard on their employee record. Each row holds one numeric "
+"embedding; it does not hold a photograph."
+msgstr ""
+"टेम्पलेट तब संग्रहीत होते हैं जब कोई कर्मचारी किओस्क पर या अपने कर्मचारी "
+"रिकॉर्ड पर Face enrolment विज़ार्ड के माध्यम से नामांकन करता है। प्रत्येक "
+"पंक्ति में एक संख्यात्मक एम्बेडिंग होती है; इसमें कोई तस्वीर नहीं होती।"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,help:eh_hr_face_kiosk.field_eh_hr_face_template__consent_id
+msgid ""
+"The consent record under which this template was captured. Required by "
+"privacy design: no template exists without a granted consent."
+msgstr ""
+"वह सहमति रिकॉर्ड जिसके अंतर्गत यह टेम्पलेट कैप्चर किया गया था। गोपनीयता "
+"डिज़ाइन द्वारा आवश्यक: दी गई सहमति के बिना कोई टेम्पलेट मौजूद नहीं रहता।"
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.kiosk_shell
+msgid ""
+"The face recognition model files are not installed on this server, and the "
+"CDN fallback is disabled by your administrator's policy."
+msgstr ""
+"इस सर्वर पर चेहरा पहचान मॉडल फ़ाइलें स्थापित नहीं हैं, और आपके प्रशासक की "
+"नीति द्वारा CDN फ़ॉलबैक अक्षम है।"
+
+#. module: eh_hr_face_kiosk
+#. odoo-python
+#: code:addons/eh_hr_face_kiosk/wizards/face_enrolment_wizard.py:0
+msgid "Tick the consent acknowledgement box before enrolling."
+msgstr "नामांकन से पहले सहमति स्वीकृति बॉक्स को चिह्नित करें।"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,help:eh_hr_face_kiosk.field_hr_employee__eh_face_enrolled
+msgid ""
+"True when at least one active face template exists for this employee. "
+"Computed from eh_face_template_ids."
+msgstr ""
+"True जब इस कर्मचारी के लिए कम से कम एक सक्रिय फेस टेम्पलेट मौजूद हो। "
+"eh_face_template_ids से गणना की जाती है।"
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.view_eh_hr_face_enrolment_form
+msgid ""
+"Use the camera widget below to capture three to five face samples in varied "
+"head angles and lighting. The widget computes a 128-dim embedding for each "
+"sample locally; no images are sent to the server."
+msgstr ""
+"अलग-अलग सिर के कोणों और प्रकाश में तीन से पाँच चेहरे के नमूने कैप्चर करने के"
+" लिए नीचे दिए गए कैमरा विजेट का उपयोग करें। विजेट प्रत्येक नमूने के लिए "
+"स्थानीय रूप से 128-आयामी एम्बेडिंग की गणना करता है; सर्वर पर कोई छवि नहीं "
+"भेजी जाती।"
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.view_employee_form_eh_face_kiosk
+msgid "View templates"
+msgstr "टेम्पलेट देखें"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__website_message_ids
+msgid "Website Messages"
+msgstr "वेबसाइट मैसेज"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,help:eh_hr_face_kiosk.field_eh_hr_face_template__website_message_ids
+msgid "Website communication history"
+msgstr "वेबसाइट कम्यूनिकेशन हिस्ट्री"
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.kiosk_shell
+msgid "Welcome"
+msgstr "स्वागत है"

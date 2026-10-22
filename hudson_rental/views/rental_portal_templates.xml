@@ -38,7 +38,7 @@
                     <tbody>
                         <t t-foreach="rentals" t-as="rental">
                             <tr>
-                                <td><a t-attf-href="/my/rentals/#{rental.id}"><t t-esc="rental.name"/></a></td>
+                                <td><a t-attf-href="/my/rentals/#{rental.id}"><t t-out="rental.name"/></a></td>
                                 <td class="text-end"><span t-field="rental.pickup_date" t-options="{'widget': 'datetime'}"/></td>
                                 <td class="text-end"><span t-field="rental.return_date" t-options="{'widget': 'datetime'}"/></td>
                                 <td class="text-end"><span t-field="rental.amount_total"/></td>
@@ -48,7 +48,7 @@
                                           'bg-primary' if rental.state == 'confirmed' else 
                                           'bg-warning' if rental.state in ['reserved', 'picked_up'] else 
                                           'bg-success' if rental.state == 'done' else 'bg-secondary'}">
-                                        <t t-esc="dict(rental._fields['state'].selection).get(rental.state)"/>
+                                        <t t-out="dict(rental._fields['state'].selection).get(rental.state)"/>
                                     </span>
                                 </td>
                             </tr>
@@ -107,7 +107,7 @@
                                         <tr>
                                             <td><span t-field="line.product_id"/></td>
                                             <td class="text-end"><span t-field="line.quantity"/></td>
-                                            <td class="text-end"><t t-esc="round(line.duration_days, 1)"/> days</td>
+                                            <td class="text-end"><t t-out="round(line.duration_days, 1)"/> days</td>
                                             <td class="text-end"><span t-field="line.price_unit"/></td>
                                             <td class="text-end"><span t-field="line.price_total"/></td>
                                         </tr>

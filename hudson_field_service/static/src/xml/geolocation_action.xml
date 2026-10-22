@@ -5,11 +5,11 @@
     <t t-name="hudson_field_service.FieldServiceTimerWidget">
         <div class="d-inline-flex gap-1">
             <!-- Start Button -->
-            <button t-if="showStart"
+            <button t-if="this.showStart"
                     class="btn btn-primary"
-                    t-on-click="onClickStart"
-                    t-att-disabled="state.loading">
-                <t t-if="state.loadingAction === 'start'">
+                    t-on-click="this.onClickStart"
+                    t-att-disabled="this.state.loading">
+                <t t-if="this.state.loadingAction === 'start'">
                     <i class="fa fa-spinner fa-spin"/> Starting...
                 </t>
                 <t t-else="">
@@ -18,11 +18,11 @@
             </button>
 
             <!-- Resume Button -->
-            <button t-if="showResume"
+            <button t-if="this.showResume"
                     class="btn btn-primary"
-                    t-on-click="onClickResume"
-                    t-att-disabled="state.loading">
-                <t t-if="state.loadingAction === 'resume'">
+                    t-on-click="this.onClickResume"
+                    t-att-disabled="this.state.loading">
+                <t t-if="this.state.loadingAction === 'resume'">
                     <i class="fa fa-spinner fa-spin"/> Resuming...
                 </t>
                 <t t-else="">
@@ -30,29 +30,16 @@
                 </t>
             </button>
 
-            <!-- Pause Button -->
-            <button t-if="showPause"
-                    class="btn btn-warning"
-                    t-on-click="onClickPause"
-                    t-att-disabled="state.loading">
-                <t t-if="state.loadingAction === 'pause'">
-                    <i class="fa fa-spinner fa-spin"/> Pausing...
-                </t>
-                <t t-else="">
-                    <i class="fa fa-pause"/> Pause
-                </t>
-            </button>
-
             <!-- Stop Button -->
-            <button t-if="showStop"
+            <button t-if="this.showStop"
                     class="btn btn-success"
-                    t-on-click="onClickStop"
-                    t-att-disabled="state.loading">
-                <t t-if="state.loadingAction === 'stop'">
+                    t-on-click="this.onClickStop"
+                    t-att-disabled="this.state.loading">
+                <t t-if="this.state.loadingAction === 'stop'">
                     <i class="fa fa-spinner fa-spin"/> Stopping...
                 </t>
                 <t t-else="">
-                    <i class="fa fa-stop"/> Stop and Complete
+                    <i class="fa fa-stop"/> Stop
                 </t>
             </button>
         </div>

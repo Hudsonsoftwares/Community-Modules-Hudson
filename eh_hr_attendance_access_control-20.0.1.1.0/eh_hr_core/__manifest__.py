@@ -1,0 +1,41 @@
+# -*- coding: utf-8 -*-
+{
+    'name': 'EH HR Platform Core',
+    'summary': 'A dependency-light platform layer for Odoo 20 Community HR that gives every feature module a hash-chained append-only audit log, strict multi-company isolation, typed per-company settings, runtime feature flags, a worker-shared rate limiter, and an OWL component kit, with HR audit trail, multi-company HR, feature flags, settings registry, rate limiting, correlation IDs, DST-safe timezone helpers, service registry, and a four-tier HR access ladder.',
+    'description': 'Foundational platform module for the EH HR suite on Odoo 20 Community. Ships a hash-chained append-only audit log, a strict company-aware mixin that refuses cross-company writes without an audited override, typed per-company settings with versioning, runtime feature flags, an atomic fixed-window rate limiter for public endpoints, a plain-Python service registry, DST-safe timezone helpers, and an OWL card and stat component kit. LGPL-3 source on disk.',
+    'version': '20.0.1.0.0',
+    'author': 'ERP Heritage',
+    'website': 'https://erpheritage.com.au',
+    'license': 'LGPL-3',
+    'category': 'Human Resources/Platform',
+    'depends': [
+        'base',
+        'mail',
+        'hr',
+        'eh_hr_compat',
+    ],
+    'data': [
+        'security/eh_hr_core_groups.xml',
+        'data/eh_hr_core_sequences.xml',
+        'data/eh_hr_core_crons.xml',
+        'views/eh_hr_audit_log_views.xml',
+        'views/eh_hr_settings_views.xml',
+        'views/menus.xml',
+        'security/ir.access.csv',
+    ],
+    'assets': {
+        'web.assets_backend': [
+            'eh_hr_core/static/src/scss/tokens.scss',
+            'eh_hr_core/static/src/components/**/*.js',
+            'eh_hr_core/static/src/components/**/*.xml',
+            'eh_hr_core/static/src/components/**/*.scss',
+            'eh_hr_core/static/src/services/**/*.js',
+        ],
+    },
+    'images': ['static/description/banner.gif'],
+    'post_init_hook': 'post_init_hook',
+    'support': 'info@erpheritage.com.au',
+    'installable': True,
+    'application': False,
+    'auto_install': False,
+}

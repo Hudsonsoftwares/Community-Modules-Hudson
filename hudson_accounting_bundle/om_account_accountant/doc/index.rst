@@ -1,9 +1,9 @@
 ==================
-Odoo 19 Accounting
+Odoo 20 Accounting
 ==================
 
-This Module will adds following accounting features to Odoo 19 community edition:
-Financial Reports, Asset Management, Budget Management, Bank Statement Import,
+This Module will adds following accounting features to Odoo 20 community edition:
+Financial Reports, Asset Management, Budget Management, Bank Reconciliation,
 Daily Reports, Customer Follow Ups and Recurring Payments
 
 Common FAQ
@@ -45,7 +45,6 @@ Contributors
 ------------
 
 * Odoo Mates <odoomates@gmail.com>
-* Walnut Software Solutions <info@walnutit.com>
 
 
 Author & Maintainer

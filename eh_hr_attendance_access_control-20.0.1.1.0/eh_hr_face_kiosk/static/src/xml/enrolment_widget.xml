@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+
+    <t t-name="eh_hr_face_kiosk.FaceEnrolWidget" owl="1">
+        <div class="eh-face-enrol-widget">
+            <div t-if="this.state.error" class="alert alert-danger" role="alert">
+                <t t-out="this.state.error"/>
+            </div>
+            <div class="eh-face-enrol-status mb-2">
+                <strong t-out="this.state.status"/>
+                <span class="text-muted ms-2">
+                    Samples: <t t-out="this.state.samples.length"/>
+                </span>
+            </div>
+            <video t-ref="this.videoRef" autoplay="true" muted="muted" playsinline="true"
+                   class="eh-face-enrol-video"
+                   style="width: 320px; height: 240px; background: #111; border-radius: 8px;"/>
+            <div class="mt-2">
+                <button type="button" class="btn btn-primary"
+                        t-on-click="this.onStart"
+                        t-att-disabled="this.isStartDisabled">
+                    <t t-if="this.state.running">Capturing...</t>
+                    <t t-elif="this.state.samples.length">Re-capture</t>
+                    <t t-else="">Start capture</t>
+                </button>
+            </div>
+        </div>
+    </t>
+
+</templates>

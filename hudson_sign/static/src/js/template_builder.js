@@ -2,12 +2,14 @@
 
 import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
-import { Component, useState, useRef, onMounted, onWillUnmount, onPatched } from "@odoo/owl";
-import { loadJS } from "@web/core/assets";
-import { SignatureSendDialog } from "@dms_enterprise_features/js/signature_client_action";
+import { Component, proxy, onMounted, onWillUnmount, onPatched, useProps } from "@odoo/owl";
+import { standardActionServiceProps } from "@web/webclient/actions/action_plugin";
 
 export class HudsonSignTemplateBuilder extends Component {
     static template = "hudson_sign.TemplateBuilder";
+    props = useProps({
+        ...standardActionServiceProps,
+    });
 
     setup() {
         this.orm = useService("orm");
@@ -15,10 +17,31 @@ export class HudsonSignTemplateBuilder extends Component {
         this.notification = useService("notification");
         this.dialog = useService("dialog");
 
-        this.pdfContainer = useRef("pdfContainer");
+        this.pdfContainer = {
+            _el: null,
+            get el() {
+                return this._el || document.querySelector(".o_hudson_sign_template_builder .bg-view");
+            },
+            set(element) {
+                this._el = element;
+            }
+        };
 
-        this.state = useState({
-            templateId: this.props.action.context.active_id,
+        const action = this.props?.action || (this.__owl__ && this.__owl__.props && this.__owl__.props.action) || {};
+        const context = action.context || (this.props && this.props.context) || {};
+        let templateId = context.active_id || action.res_id || action.params?.active_id || this.props?.resId || this.props?.active_id;
+        if (Array.isArray(templateId)) {
+            templateId = templateId[0];
+        }
+        if (typeof templateId === "string" && !isNaN(parseInt(templateId, 10))) {
+            templateId = parseInt(templateId, 10);
+        }
+
+        this.needsRender = false;
+        this._renderTasks = {};
+
+        this.state = proxy({
+            templateId: templateId,
             template: null,
             pdfContent: null,
 
@@ -54,8 +77,11 @@ export class HudsonSignTemplateBuilder extends Component {
 
         onMounted(async () => {
             try {
-                await loadJS("/web/static/lib/pdfjs/build/pdf.js");
-                window.pdfjsLib.GlobalWorkerOptions.workerSrc = "/web/static/lib/pdfjs/build/pdf.worker.js";
+                const pdfjsLib = await import("/web/static/lib/pdfjs/build/pdf.js");
+                window.pdfjsLib = pdfjsLib;
+                if (pdfjsLib.GlobalWorkerOptions) {
+                    pdfjsLib.GlobalWorkerOptions.workerSrc = "/web/static/lib/pdfjs/build/pdf.worker.js";
+                }
             } catch (e) {
                 console.error("Failed to load PDF.js", e);
             }
@@ -72,8 +98,8 @@ export class HudsonSignTemplateBuilder extends Component {
         });
 
         onPatched(() => {
-            if (this.state.needsRender) {
-                this.state.needsRender = false;
+            if (this.needsRender) {
+                this.needsRender = false;
                 this._renderAllPages();
             }
         });
@@ -82,6 +108,14 @@ export class HudsonSignTemplateBuilder extends Component {
     // ---- Data Loading ----
 
     async loadData() {
+        if (!this.state.templateId) {
+            const latest = await this.orm.searchRead("hudson.sign.template", [], ["id"], { limit: 1, order: "id desc" });
+            if (latest.length) {
+                this.state.templateId = latest[0].id;
+            } else {
+                return;
+            }
+        }
         const templates = await this.orm.read("hudson.sign.template", [this.state.templateId], ["name", "attachment_id", "tag_ids"]);
         if (!templates.length) return;
         this.state.template = templates[0];
@@ -133,54 +167,107 @@ export class HudsonSignTemplateBuilder extends Component {
             if (tool) item.type = tool.type;
         }
 
-        const attachments = await this.orm.read("ir.attachment", [this.state.template.attachment_id[0]], ["datas"]);
-        if (attachments.length) {
-            this.state.pdfContent = attachments[0].datas;
-            await this._renderPDFFromBase64(this.state.pdfContent);
+        const attachmentId = this.state.template.attachment_id[0];
+        let pdfBytes = null;
+
+        // 1. Try reading attachment raw via ORM (in Odoo 20, raw returns { filename, content, size })
+        try {
+            const attachments = await this.orm.read("ir.attachment", [attachmentId], ["raw"]);
+            if (attachments.length && attachments[0].raw) {
+                const rawVal = attachments[0].raw;
+                let b64 = null;
+                if (typeof rawVal === "object" && rawVal !== null && rawVal.content) {
+                    b64 = rawVal.content;
+                } else if (typeof rawVal === "string") {
+                    b64 = rawVal;
+                }
+                if (b64) {
+                    const binaryString = window.atob(b64);
+                    pdfBytes = new Uint8Array(binaryString.length);
+                    for (let i = 0; i < binaryString.length; i++) {
+                        pdfBytes[i] = binaryString.charCodeAt(i);
+                    }
+                }
+            }
+        } catch (e) {
+            console.warn("Could not read raw from ir.attachment via ORM:", e);
+        }
+
+        // 2. Fallback: fetch binary directly from /web/content/<id>
+        if (!pdfBytes || pdfBytes.length === 0) {
+            try {
+                const response = await fetch(`/web/content/${attachmentId}`);
+                if (response.ok) {
+                    const arrayBuffer = await response.arrayBuffer();
+                    if (arrayBuffer.byteLength > 0) {
+                        pdfBytes = new Uint8Array(arrayBuffer);
+                    }
+                }
+            } catch (e) {
+                console.error("Failed to fetch PDF from /web/content:", e);
+            }
+        }
+
+        if (pdfBytes && pdfBytes.length > 0) {
+            this.state.pdfContent = true;
+            await this._renderPDF(pdfBytes);
+        } else {
+            this.notification.add("Could not load PDF content for this template.", { type: "danger" });
         }
 
         const users = await this.orm.searchRead("res.users", [], ["id", "name"]);
         this.state.allUsers = users;
     }
 
-    async _renderPDFFromBase64(base64) {
-        if (!window.pdfjsLib) return;
+    async _renderPDF(bytes) {
+        if (!window.pdfjsLib) {
+            console.error("PDF.js library is not available");
+            return;
+        }
         try {
-            const binaryString = window.atob(base64);
-            const bytes = new Uint8Array(binaryString.length);
-            for (let i = 0; i < binaryString.length; i++) {
-                bytes[i] = binaryString.charCodeAt(i);
-            }
-
-            // Store on instance (not reactive state) to avoid OWL Proxy issues with PDF.js internals
+            // Store on instance to avoid OWL Proxy issues with PDF.js internals
             this.pdfDoc = await window.pdfjsLib.getDocument({ data: bytes }).promise;
 
-            this.state.pages = [];
+            const newPages = [];
             for (let i = 1; i <= this.pdfDoc.numPages; i++) {
                 const page = await this.pdfDoc.getPage(i);
                 const scale = this.state.zoomLevel / 100;
                 const viewport = page.getViewport({ scale });
-                this.state.pages.push({
+                newPages.push({
                     num: i,
-                    width: viewport.width,
-                    height: viewport.height
+                    width: Math.floor(viewport.width),
+                    height: Math.floor(viewport.height)
                 });
             }
 
-            this.state.needsRender = true;
+            this.state.pages = newPages;
+            this.needsRender = true;
+
+            // Wait for DOM to update with new canvas elements
+            await new Promise(resolve => requestAnimationFrame(resolve));
+            await new Promise(resolve => setTimeout(resolve, 60));
+            await this._renderAllPages();
         } catch (err) {
             console.error("PDF.js render error:", err);
         }
     }
 
     async _renderAllPages() {
-        if (!this.pdfDoc) return;
+        if (!this.pdfDoc || !this.state.pages.length) return;
 
+        this._renderTasks = this._renderTasks || {};
         const outputScale = window.devicePixelRatio || 1;
 
         for (const pageInfo of this.state.pages) {
             const canvas = document.getElementById('pdf-canvas-' + pageInfo.num);
             if (!canvas) continue;
+
+            // Cancel any ongoing render task on this page
+            if (this._renderTasks[pageInfo.num]) {
+                try {
+                    await this._renderTasks[pageInfo.num].cancel();
+                } catch {}
+            }
 
             const page = await this.pdfDoc.getPage(pageInfo.num);
             const scale = this.state.zoomLevel / 100;
@@ -190,7 +277,7 @@ export class HudsonSignTemplateBuilder extends Component {
             canvas.width = Math.floor(viewport.width * outputScale);
             canvas.height = Math.floor(viewport.height * outputScale);
             canvas.style.width = Math.floor(viewport.width) + "px";
-            canvas.style.height =  Math.floor(viewport.height) + "px";
+            canvas.style.height = Math.floor(viewport.height) + "px";
             pageInfo.width = Math.floor(viewport.width);
             pageInfo.height = Math.floor(viewport.height);
 
@@ -201,22 +288,28 @@ export class HudsonSignTemplateBuilder extends Component {
                 transform: transform,
                 viewport: viewport
             };
-            await page.render(renderContext).promise;
+
+            const renderTask = page.render(renderContext);
+            this._renderTasks[pageInfo.num] = renderTask;
+            try {
+                await renderTask.promise;
+            } catch (err) {
+                if (err?.name !== "RenderingCancelledException") {
+                    console.error("Page render error:", err);
+                }
+            } finally {
+                delete this._renderTasks[pageInfo.num];
+            }
         }
 
-        // Now that we have the exact page dimensions for this zoom level, 
-        // convert all the ratio-based item coordinates into pixels for rendering.
-        // If they are already > 1, they are legacy absolute values.
+        // Convert ratio-based item coordinates into pixels
         for (const item of this.state.items) {
             const page = this.state.pages.find(p => p.num === item.page);
-            if (page) {
-                // Backward compatibility: If x > 1 or width > 1, it's likely a legacy pixel value
-                if (item.width <= 1.0) {
-                    item.x = item.x * page.width;
-                    item.y = item.y * page.height;
-                    item.width = item.width * page.width;
-                    item.height = item.height * page.height;
-                }
+            if (page && item.width <= 1.0) {
+                item.x = item.x * page.width;
+                item.y = item.y * page.height;
+                item.width = item.width * page.width;
+                item.height = item.height * page.height;
             }
         }
     }
@@ -323,7 +416,7 @@ export class HudsonSignTemplateBuilder extends Component {
 
     // ---- Zoom ----
 
-    onZoomChange(e) {
+    async onZoomChange(e) {
         let val = parseInt(e.target.value);
         if (isNaN(val) || val < 20) val = 20;
         if (val > 500) val = 500;
@@ -340,18 +433,22 @@ export class HudsonSignTemplateBuilder extends Component {
         }
 
         if (this.pdfDoc) {
-            this.state.pages = [];
+            const newPages = [];
             for (let i = 1; i <= this.pdfDoc.numPages; i++) {
-                this.pdfDoc.getPage(i).then(page => {
-                    const scale = this.state.zoomLevel / 100;
-                    const viewport = page.getViewport({ scale });
-                    this.state.pages.push({ num: i, width: viewport.width, height: viewport.height });
-                    if (this.state.pages.length === this.pdfDoc.numPages) {
-                        this.state.pages.sort((a, b) => a.num - b.num);
-                        this.state.needsRender = true;
-                    }
+                const page = await this.pdfDoc.getPage(i);
+                const scale = this.state.zoomLevel / 100;
+                const viewport = page.getViewport({ scale });
+                newPages.push({
+                    num: i,
+                    width: Math.floor(viewport.width),
+                    height: Math.floor(viewport.height)
                 });
             }
+            this.state.pages = newPages;
+            this.needsRender = true;
+            await new Promise(resolve => requestAnimationFrame(resolve));
+            await new Promise(resolve => setTimeout(resolve, 60));
+            await this._renderAllPages();
         }
     }
 

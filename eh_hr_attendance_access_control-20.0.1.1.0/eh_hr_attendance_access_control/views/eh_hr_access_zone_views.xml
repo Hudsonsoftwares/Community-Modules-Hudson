@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<odoo>
+    <data>
+
+        <record id="view_eh_hr_access_zone_list" model="ir.ui.view">
+            <field name="name">eh.hr.access.zone.list</field>
+            <field name="model">eh.hr.access.zone</field>
+            <field name="arch" type="xml">
+                <list string="Access zones" sample="1">
+                    <field name="name"/>
+                    <field name="code"/>
+                    <field name="active"/>
+                    <field name="company_id" optional="hide" groups="base.group_multi_company"/>
+                </list>
+            </field>
+        </record>
+
+        <record id="view_eh_hr_access_zone_form" model="ir.ui.view">
+            <field name="name">eh.hr.access.zone.form</field>
+            <field name="model">eh.hr.access.zone</field>
+            <field name="arch" type="xml">
+                <form string="Access zone">
+                    <sheet>
+                        <widget name="web_ribbon" title="Archived" bg_color="bg-danger" invisible="active"/>
+                        <div class="oe_title">
+                            <label for="name"/>
+                            <h1>
+                                <field name="name" placeholder="Front door, Server room..."/>
+                            </h1>
+                        </div>
+                        <group>
+                            <group>
+                                <field name="code"/>
+                                <field name="company_id" groups="base.group_multi_company"/>
+                                <field name="active" invisible="1"/>
+                            </group>
+                        </group>
+                        <separator string="Sites that grant access here"/>
+                        <field name="site_ids" widget="many2many_tags"/>
+                        <separator string="Readers"/>
+                        <field name="reader_ids">
+                            <list>
+                                <field name="name"/>
+                                <field name="webhook_url"/>
+                                <field name="last_unlock_at"/>
+                                <field name="last_status"/>
+                                <field name="active"/>
+                            </list>
+                        </field>
+                        <group string="Notes">
+                            <field name="notes" nolabel="1"/>
+                        </group>
+                    </sheet>
+                    <chatter/>
+                </form>
+            </field>
+        </record>
+
+        <record id="action_eh_hr_access_zone" model="ir.actions.act_window">
+            <field name="name">Access zones</field>
+            <field name="res_model">eh.hr.access.zone</field>
+            <field name="view_mode">list,form</field>
+        </record>
+
+    </data>
+</odoo>

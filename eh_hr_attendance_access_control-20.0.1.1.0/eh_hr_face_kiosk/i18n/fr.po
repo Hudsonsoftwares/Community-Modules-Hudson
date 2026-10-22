@@ -1,0 +1,729 @@
+# Translation of Odoo Server.
+# This file contains the translation of the following modules:
+# 	* eh_hr_face_kiosk
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Odoo Server 19.0+e\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-07-01 04:33+0000\n"
+"PO-Revision-Date: 2026-07-01 04:33+0000\n"
+"Last-Translator: ERP Heritage <info@erpheritage.com.au>\n"
+"Language-Team: French\n"
+"Language: fr\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=3; plural=(n == 0 || n == 1) ? 0 : ((n != 0 && n % 1000000 == 0) ? 1 : 2);\n"
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.kiosk_shell
+msgid ""
+". Ask an administrator to create one in People Operations &gt; Kiosks &gt; "
+"Sites."
+msgstr ""
+". Demandez a un administrateur d'en creer un dans People Operations &gt; "
+"Kiosks &gt; Sites."
+
+#. module: eh_hr_face_kiosk
+#. odoo-python
+#: code:addons/eh_hr_face_kiosk/models/eh_hr_face_template.py:0
+msgid "A face template's consent record must be of type 'face'."
+msgstr ""
+"L'enregistrement de consentement d'un modèle de visage doit être de type "
+"'face'."
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__message_needaction
+msgid "Action Needed"
+msgstr "Nécessite une action"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__active
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.view_eh_hr_face_template_search
+msgid "Active"
+msgstr "Actif"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_hr_employee__eh_face_template_count
+msgid "Active templates"
+msgstr "Modèles actifs"
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.kiosk_shell
+msgid ""
+"Administrator: run <code>eh_hr_face_kiosk/tools/fetch_face_api.sh</code> on "
+"the Odoo server (details in <code>static/lib/face-api/README.md</code> "
+"inside the module), then reload this page."
+msgstr ""
+"Administrateur : exécutez "
+"<code>eh_hr_face_kiosk/tools/fetch_face_api.sh</code> sur le serveur Odoo "
+"(détails dans <code>static/lib/face-api/README.md</code> au sein du module),"
+" puis rechargez cette page."
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.kiosk_shell
+msgid "Ask an administrator for a pairing PIN, then enter it below."
+msgstr ""
+"Demandez à un administrateur un code PIN d'appairage, puis saisissez-le ci-"
+"dessous."
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__message_attachment_count
+msgid "Attachment Count"
+msgstr "Nombre de pièces jointes"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model,name:eh_hr_face_kiosk.model_eh_hr_consent
+msgid "Biometric and Location Consent Record"
+msgstr "Enregistrement du consentement biométrique et de localisation"
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.view_eh_hr_face_enrolment_form
+msgid "Cancel"
+msgstr "Annuler"
+
+#. module: eh_hr_face_kiosk
+#. odoo-python
+#: code:addons/eh_hr_face_kiosk/models/eh_hr_face_template.py:0
+msgid "Cannot reactivate a template whose consent is not in granted state."
+msgstr ""
+"Impossible de réactiver un modèle dont le consentement n'est pas à l'état "
+"accordé."
+
+#. module: eh_hr_face_kiosk
+#. odoo-python
+#: code:addons/eh_hr_face_kiosk/wizards/face_enrolment_wizard.py:0
+msgid ""
+"Capture at least one sample before enrolling. Three to five recommended."
+msgstr ""
+"Capturez au moins un échantillon avant l'enrôlement. Trois à cinq "
+"recommandés."
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.view_eh_hr_face_enrolment_form
+msgid "Capture samples"
+msgstr "Capturer des échantillons"
+
+#. module: eh_hr_face_kiosk
+#. odoo-javascript
+#: code:addons/eh_hr_face_kiosk/static/src/js/enrolment_widget.js:0
+msgid "Captured %s samples. Save the wizard to enrol."
+msgstr "%s échantillons capturés. Enregistrez l'assistant pour vous enrôler."
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.view_eh_hr_face_template_search
+msgid "Captured at kiosk"
+msgstr "Capturé à la borne"
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.view_eh_hr_face_template_search
+msgid "Captured by HR"
+msgstr "Capturé par les RH"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__captured_on
+msgid "Captured on"
+msgstr "Capturé le"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_enrolment__samples_json
+msgid "Captured samples (JSON)"
+msgstr "Échantillons capturés (JSON)"
+
+#. module: eh_hr_face_kiosk
+#. odoo-python
+#: code:addons/eh_hr_face_kiosk/wizards/face_enrolment_wizard.py:0
+msgid "Captured samples are not valid JSON: %s"
+msgstr "Les échantillons capturés ne sont pas au format JSON valide : %s"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_enrolment__captured_via
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__captured_via
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.view_eh_hr_face_template_search
+msgid "Captured via"
+msgstr "Capturé via"
+
+#. module: eh_hr_face_kiosk
+#. odoo-javascript
+#: code:addons/eh_hr_face_kiosk/static/src/js/enrolment_widget.js:0
+msgid "Capturing sample %s of %s..."
+msgstr "Capture de l'échantillon %s sur %s..."
+
+#. module: eh_hr_face_kiosk
+#. odoo-javascript
+#: code:addons/eh_hr_face_kiosk/static/src/xml/enrolment_widget.xml:0
+msgid "Capturing..."
+msgstr "Capture en cours..."
+
+#. module: eh_hr_face_kiosk
+#. odoo-javascript
+#: code:addons/eh_hr_face_kiosk/static/src/js/enrolment_widget.js:0
+msgid "Click Start to begin"
+msgstr "Cliquez sur Démarrer pour commencer"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__company_id
+msgid "Company"
+msgstr "Société"
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.view_eh_hr_face_enrolment_form
+msgid "Consent"
+msgstr "Consentement"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__consent_id
+msgid "Consent record"
+msgstr "Enregistrement de consentement"
+
+#. module: eh_hr_face_kiosk
+#. odoo-python
+#: code:addons/eh_hr_face_kiosk/models/eh_hr_face_template.py:0
+msgid "Consent record's employee must match the template's employee."
+msgstr ""
+"L'employé de l'enregistrement de consentement doit correspondre à l'employé "
+"du modèle."
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_enrolment__consent_text
+msgid "Consent text"
+msgstr "Texte du consentement"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_enrolment__create_uid
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__create_uid
+msgid "Created by"
+msgstr "Créé par"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_enrolment__create_date
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__create_date
+msgid "Created on"
+msgstr "Créé le"
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.view_eh_hr_face_template_form
+msgid "Deactivate"
+msgstr "Désactiver"
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.kiosk_shell
+msgid "Device name"
+msgstr "Nom de l'appareil"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_consent__display_name
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_enrolment__display_name
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__display_name
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_hr_employee__display_name
+msgid "Display Name"
+msgstr "Nom d'affichage"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__embedding
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.view_eh_hr_face_template_form
+msgid "Embedding"
+msgstr ""
+
+#. module: eh_hr_face_kiosk
+#. odoo-python
+#: code:addons/eh_hr_face_kiosk/models/eh_hr_face_template.py:0
+msgid "Embedding is required."
+msgstr "L'embedding est requis."
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__embedding_dim
+msgid "Embedding length"
+msgstr "Longueur de l'embedding"
+
+#. module: eh_hr_face_kiosk
+#. odoo-python
+#: code:addons/eh_hr_face_kiosk/models/eh_hr_face_template.py:0
+msgid ""
+"Embedding length %(actual)s does not match declared dimension %(expected)s."
+msgstr ""
+"La longueur de l'embedding %(actual)s ne correspond pas à la dimension "
+"déclarée %(expected)s."
+
+#. module: eh_hr_face_kiosk
+#. odoo-python
+#: code:addons/eh_hr_face_kiosk/models/eh_hr_face_template.py:0
+msgid "Embedding must be a JSON list."
+msgstr "L'embedding doit être une liste JSON."
+
+#. module: eh_hr_face_kiosk
+#. odoo-python
+#: code:addons/eh_hr_face_kiosk/models/eh_hr_face_template.py:0
+msgid "Embedding must be a valid JSON array of floats: %s"
+msgstr "L'embedding doit être un tableau JSON valide de flottants : %s"
+
+#. module: eh_hr_face_kiosk
+#. odoo-python
+#: code:addons/eh_hr_face_kiosk/models/eh_hr_face_template.py:0
+msgid "Embedding values must be numeric."
+msgstr "Les valeurs de l'embedding doivent être numériques."
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model,name:eh_hr_face_kiosk.model_hr_employee
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_enrolment__employee_id
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__employee_id
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.view_eh_hr_face_template_search
+msgid "Employee"
+msgstr "Employé"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_enrolment__consent_acknowledged
+msgid "Employee acknowledged consent"
+msgstr "Consentement reconnu par le salarié"
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.view_eh_hr_face_enrolment_form
+msgid "Employee has read the above and acknowledges consent"
+msgstr "L'employé a lu ce qui précède et confirme son consentement"
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.view_employee_form_eh_face_kiosk
+msgid "Enrol face"
+msgstr "Enregistrer le visage"
+
+#. module: eh_hr_face_kiosk
+#. odoo-python
+#: code:addons/eh_hr_face_kiosk/models/hr_employee.py:0
+msgid "Enrol face for %s"
+msgstr "Enregistrer le visage pour %s"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model,name:eh_hr_face_kiosk.model_eh_hr_face_enrolment
+msgid "Face Enrolment Wizard"
+msgstr "Assistant d'enregistrement du visage"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model,name:eh_hr_face_kiosk.model_eh_hr_face_template
+msgid "Face Recognition Template"
+msgstr "Modèle de reconnaissance faciale"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_enrolment__consent_state
+msgid "Face consent"
+msgstr "Consentement pour le visage"
+
+#. module: eh_hr_face_kiosk
+#. odoo-python
+#: code:addons/eh_hr_face_kiosk/wizards/face_enrolment_wizard.py:0
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_hr_employee__eh_face_enrolled
+msgid "Face enrolled"
+msgstr "Visage enregistré"
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.view_eh_hr_face_enrolment_form
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.view_employee_form_eh_face_kiosk
+msgid "Face enrolment"
+msgstr "Enregistrement du visage"
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.view_eh_hr_face_template_form
+msgid "Face template"
+msgstr "Modèle de visage"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.actions.act_window,name:eh_hr_face_kiosk.action_eh_hr_face_template
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_hr_employee__eh_face_template_ids
+#: model:ir.ui.menu,name:eh_hr_face_kiosk.menu_eh_hr_face_templates
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.view_eh_hr_face_template_list
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.view_eh_hr_face_template_search
+msgid "Face templates"
+msgstr "Modèles de visage"
+
+#. module: eh_hr_face_kiosk
+#. odoo-python
+#: code:addons/eh_hr_face_kiosk/models/hr_employee.py:0
+msgid "Face templates for %s"
+msgstr "Modèles de visage pour %s"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,help:eh_hr_face_kiosk.field_eh_hr_face_enrolment__samples_json
+msgid ""
+"Filled in by the OWL widget after the operator captures three to five "
+"samples."
+msgstr ""
+"Rempli par le widget OWL après que l'opérateur a capturé trois à cinq "
+"échantillons."
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__message_follower_ids
+msgid "Followers"
+msgstr "Abonnés"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__message_partner_ids
+msgid "Followers (Partners)"
+msgstr "Abonnés (Partenaires)"
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.kiosk_shell
+msgid "Front desk iPad"
+msgstr "iPad de l'accueil"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields.selection,name:eh_hr_face_kiosk.selection__eh_hr_face_enrolment__captured_via__hr_admin
+#: model:ir.model.fields.selection,name:eh_hr_face_kiosk.selection__eh_hr_face_template__captured_via__hr_admin
+msgid "HR administrator"
+msgstr "Administrateur RH"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__has_message
+msgid "Has Message"
+msgstr "A un message"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_consent__id
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_enrolment__id
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__id
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_hr_employee__id
+msgid "ID"
+msgstr "Identifiant"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,help:eh_hr_face_kiosk.field_eh_hr_face_template__model_name
+msgid ""
+"Identity of the model that produced the embedding. Stored so future model "
+"upgrades can be reconciled (re-enrolment may be required if the dimension or"
+" training set changes)."
+msgstr ""
+"Identité du modèle ayant produit l'embedding. Stockée afin que les futures "
+"mises à niveau du modèle puissent être rapprochées (un réenrôlement peut "
+"être nécessaire si la dimension ou le jeu d'entraînement change)."
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,help:eh_hr_face_kiosk.field_eh_hr_face_template__message_needaction
+msgid "If checked, new messages require your attention."
+msgstr "Si coché, de nouveaux messages demandent votre attention."
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,help:eh_hr_face_kiosk.field_eh_hr_face_template__message_has_error
+#: model:ir.model.fields,help:eh_hr_face_kiosk.field_eh_hr_face_template__message_has_sms_error
+msgid "If checked, some messages have a delivery error."
+msgstr "Si coché, certains messages ont une erreur de livraison."
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.view_eh_hr_face_template_form
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.view_eh_hr_face_template_search
+msgid "Inactive"
+msgstr "Inactif"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__message_is_follower
+msgid "Is Follower"
+msgstr "Est un abonné"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,help:eh_hr_face_kiosk.field_eh_hr_face_template__embedding
+msgid ""
+"JSON-serialised 128-dim float array produced by face-api.js. Storing as Text"
+" rather than Binary keeps the database introspectable for diagnostics."
+msgstr ""
+"Tableau de flottants à 128 dimensions sérialisé en JSON produit par face-"
+"api.js. Le stockage en texte plutôt qu'en binaire garde la base de données "
+"inspectable à des fins de diagnostic."
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields.selection,name:eh_hr_face_kiosk.selection__eh_hr_face_enrolment__captured_via__kiosk_screen
+#: model:ir.model.fields.selection,name:eh_hr_face_kiosk.selection__eh_hr_face_template__captured_via__kiosk_screen
+msgid "Kiosk screen"
+msgstr "Écran de la borne"
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.kiosk_shell
+msgid "Kiosk setup required"
+msgstr "Configuration de la borne requise"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_enrolment__write_uid
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__write_uid
+msgid "Last Updated by"
+msgstr "Mis à jour par"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_enrolment__write_date
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__write_date
+msgid "Last Updated on"
+msgstr "Mis à jour le"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__message_has_error
+msgid "Message Delivery error"
+msgstr "Erreur d'envoi du message"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__message_ids
+msgid "Messages"
+msgstr ""
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__model_version
+msgid "Model version"
+msgstr "Version du modèle"
+
+#. module: eh_hr_face_kiosk
+#. odoo-python
+#: code:addons/eh_hr_face_kiosk/models/eh_hr_face_template.py:0
+msgid "New template"
+msgstr "Nouveau modèle"
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.kiosk_shell
+msgid "No active kiosk site exists for"
+msgstr "Aucun site kiosque actif n'existe pour"
+
+#. module: eh_hr_face_kiosk
+#. odoo-python
+#: code:addons/eh_hr_face_kiosk/models/eh_hr_face_template.py:0
+msgid "No employee"
+msgstr "Aucun employé"
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.actions.act_window,help:eh_hr_face_kiosk.action_eh_hr_face_template
+msgid "No face templates yet."
+msgstr "Aucun modèle de visage pour le moment."
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.kiosk_shell
+msgid "No match"
+msgstr "Aucune correspondance"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__message_needaction_counter
+msgid "Number of Actions"
+msgstr "Nombre d'actions"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__message_has_error_counter
+msgid "Number of errors"
+msgstr "Nombre d'erreurs"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,help:eh_hr_face_kiosk.field_eh_hr_face_template__message_needaction_counter
+msgid "Number of messages requiring action"
+msgstr "Nombre de messages nécessitant une action"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,help:eh_hr_face_kiosk.field_eh_hr_face_template__message_has_error_counter
+msgid "Number of messages with delivery error"
+msgstr "Nombre de messages avec des erreurs d'envoi"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,help:eh_hr_face_kiosk.field_eh_hr_face_template__quality_score
+msgid ""
+"Optional. Higher is better. The kiosk only stores templates above the "
+"company's quality floor."
+msgstr ""
+"Facultatif. Plus la valeur est élevée, mieux c'est. La borne ne stocke que "
+"les modèles au-dessus du seuil de qualité de l'entreprise."
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.kiosk_shell
+msgid "Pair"
+msgstr "Appairer"
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.kiosk_shell
+msgid "Pair this device"
+msgstr "Associer cet appareil"
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.kiosk_shell
+msgid "Pairing PIN"
+msgstr "PIN d'association"
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.kiosk_shell
+msgid "Please try again, or contact your manager."
+msgstr "Veuillez réessayer ou contacter votre responsable."
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__quality_score
+msgid "Quality score"
+msgstr "Score de qualité"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__rating_ids
+msgid "Ratings"
+msgstr "Évaluations"
+
+#. module: eh_hr_face_kiosk
+#. odoo-javascript
+#: code:addons/eh_hr_face_kiosk/static/src/xml/enrolment_widget.xml:0
+msgid "Re-capture"
+msgstr "Recapturer"
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.view_eh_hr_face_template_form
+msgid "Reactivate"
+msgstr "Réactiver"
+
+#. module: eh_hr_face_kiosk
+#. odoo-javascript
+#: code:addons/eh_hr_face_kiosk/static/src/js/enrolment_widget.js:0
+msgid "Ready. Click Start."
+msgstr "Prêt. Cliquez sur Démarrer."
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__model_name
+msgid "Recognition model"
+msgstr "Modèle de comptabilisation"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__name
+msgid "Reference"
+msgstr "Référence"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__message_has_sms_error
+msgid "SMS Delivery error"
+msgstr "Erreur d'envoi SMS"
+
+#. module: eh_hr_face_kiosk
+#. odoo-javascript
+#: code:addons/eh_hr_face_kiosk/static/src/js/enrolment_widget.js:0
+msgid "Sample %s timed out, retrying"
+msgstr "Le sample %s a expiré, nouvelle tentative"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_enrolment__sample_count
+msgid "Sample count"
+msgstr "Nombre d'échantillons"
+
+#. module: eh_hr_face_kiosk
+#. odoo-javascript
+#: code:addons/eh_hr_face_kiosk/static/src/xml/enrolment_widget.xml:0
+msgid "Samples:"
+msgstr "Échantillons :"
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.view_eh_hr_face_enrolment_form
+msgid "Save consent and enrol"
+msgstr "Enregistrer le consentement et inscrire"
+
+#. module: eh_hr_face_kiosk
+#. odoo-python
+#: code:addons/eh_hr_face_kiosk/wizards/face_enrolment_wizard.py:0
+msgid "Select an employee."
+msgstr "Sélectionnez un employé."
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields.selection,name:eh_hr_face_kiosk.selection__eh_hr_face_enrolment__captured_via__portal
+#: model:ir.model.fields.selection,name:eh_hr_face_kiosk.selection__eh_hr_face_template__captured_via__portal
+msgid "Self-service portal"
+msgstr "Portail en libre-service"
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.kiosk_shell
+msgid "Site not configured"
+msgstr "Site non configuré"
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.kiosk_shell
+msgid "Site:"
+msgstr "Site :"
+
+#. module: eh_hr_face_kiosk
+#. odoo-javascript
+#: code:addons/eh_hr_face_kiosk/static/src/xml/enrolment_widget.xml:0
+msgid "Start capture"
+msgstr "Démarrer la capture"
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.kiosk_shell
+msgid "Step into view to clock in or clock out."
+msgstr "Placez-vous dans le champ pour pointer l'entrée ou la sortie."
+
+#. module: eh_hr_face_kiosk
+#. odoo-python
+#: code:addons/eh_hr_face_kiosk/wizards/face_enrolment_wizard.py:0
+msgid ""
+"Stored %(count)s sample(s) for %(name)s. Match confidence improves with "
+"three to five samples in varied lighting."
+msgstr ""
+"%(count)s échantillon(s) enregistré(s) pour %(name)s. La fiabilité de "
+"correspondance s'améliore avec trois à cinq échantillons sous des éclairages"
+" variés."
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.actions.act_window,help:eh_hr_face_kiosk.action_eh_hr_face_template
+msgid ""
+"Templates are stored when an employee enrols at a kiosk or via the Face "
+"enrolment wizard on their employee record. Each row holds one numeric "
+"embedding; it does not hold a photograph."
+msgstr ""
+"Les modèles sont enregistrés lorsqu'un employé s'inscrit à une borne ou via "
+"l'assistant d'enregistrement facial sur sa fiche employé. Chaque ligne "
+"contient un embedding numérique ; elle ne contient pas de photographie."
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,help:eh_hr_face_kiosk.field_eh_hr_face_template__consent_id
+msgid ""
+"The consent record under which this template was captured. Required by "
+"privacy design: no template exists without a granted consent."
+msgstr ""
+"L'enregistrement de consentement sous lequel ce modèle a été capturé. Requis"
+" par la conception de la confidentialité : aucun modèle n'existe sans un "
+"consentement accordé."
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.kiosk_shell
+msgid ""
+"The face recognition model files are not installed on this server, and the "
+"CDN fallback is disabled by your administrator's policy."
+msgstr ""
+"Les fichiers du modèle de reconnaissance faciale ne sont pas installés sur "
+"ce serveur, et le repli CDN est désactivé par la politique de votre "
+"administrateur."
+
+#. module: eh_hr_face_kiosk
+#. odoo-python
+#: code:addons/eh_hr_face_kiosk/wizards/face_enrolment_wizard.py:0
+msgid "Tick the consent acknowledgement box before enrolling."
+msgstr ""
+"Cochez la case d'accusé de réception du consentement avant l'inscription."
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,help:eh_hr_face_kiosk.field_hr_employee__eh_face_enrolled
+msgid ""
+"True when at least one active face template exists for this employee. "
+"Computed from eh_face_template_ids."
+msgstr ""
+"Vrai lorsqu'au moins un modèle de visage actif existe pour cet employé. "
+"Calculé à partir de eh_face_template_ids."
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.view_eh_hr_face_enrolment_form
+msgid ""
+"Use the camera widget below to capture three to five face samples in varied "
+"head angles and lighting. The widget computes a 128-dim embedding for each "
+"sample locally; no images are sent to the server."
+msgstr ""
+"Utilisez le widget de caméra ci-dessous pour capturer trois à cinq "
+"échantillons de visage sous différents angles de tête et éclairages. Le "
+"widget calcule localement un embedding de 128 dimensions pour chaque "
+"échantillon ; aucune image n'est envoyée au serveur."
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.view_employee_form_eh_face_kiosk
+msgid "View templates"
+msgstr "Voir les modèles"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__website_message_ids
+msgid "Website Messages"
+msgstr "Messages du site web"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,help:eh_hr_face_kiosk.field_eh_hr_face_template__website_message_ids
+msgid "Website communication history"
+msgstr "Historique de communication du site web"
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.kiosk_shell
+msgid "Welcome"
+msgstr "Bienvenue"

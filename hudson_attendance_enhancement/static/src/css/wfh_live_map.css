@@ -1,0 +1,84 @@
+.hudson-employee-marker {
+    position: relative;
+    width: 44px;
+    height: 44px;
+    cursor: pointer;
+}
+
+.hudson-marker-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 3px solid var(--badge-color, #198754);
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
+    background-color: #fff;
+    transition: transform 0.2s ease;
+}
+
+.hudson-marker-avatar:hover {
+    transform: scale(1.15);
+}
+
+.hudson-marker-badge {
+    position: absolute;
+    bottom: 2px;
+    right: 2px;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 2px solid #fff;
+}
+
+/* Pulsing effect around marker */
+.hudson-pulse-green::after,
+.hudson-pulse-red::after,
+.hudson-pulse-orange::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: 2px solid var(--badge-color, #198754);
+    animation: hudson-pulse 2s infinite ease-out;
+    pointer-events: none;
+}
+
+@keyframes hudson-pulse {
+    0% {
+        transform: scale(0.9);
+        opacity: 0.9;
+    }
+    100% {
+        transform: scale(1.7);
+        opacity: 0;
+    }
+}
+
+.hudson-employee-card {
+    transition: all 0.2s ease;
+}
+
+.hudson-employee-card:hover {
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+    transform: translateY(-1px);
+}
+
+.cursor-pointer {
+    cursor: pointer;
+}
+
+.hudson-detail-drawer {
+    animation: slideInRight 0.25s ease-out;
+}
+
+@keyframes slideInRight {
+    from {
+        transform: translateX(100%);
+    }
+    to {
+        transform: translateX(0);
+    }
+}

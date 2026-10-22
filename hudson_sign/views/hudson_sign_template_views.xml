@@ -146,7 +146,7 @@
             <field name="target">new</field>
         </record>
         
-        <!-- Create custom server action to replace standard menu item so it adds the button? No, we can just inject a header button in Odoo 19 via list view or just keep it simple -->
+        <!-- Upload button integrated via list/kanban view js_class -->
 
     </data>
 </odoo>

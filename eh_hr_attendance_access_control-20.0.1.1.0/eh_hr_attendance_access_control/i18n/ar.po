@@ -1,0 +1,630 @@
+# Translation of Odoo Server.
+# This file contains the translation of the following modules:
+# 	* eh_hr_attendance_access_control
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Odoo Server 19.0+e\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-07-01 04:33+0000\n"
+"PO-Revision-Date: 2026-07-01 04:33+0000\n"
+"Last-Translator: ERP Heritage <info@erpheritage.com.au>\n"
+"Language-Team: Arabic\n"
+"Language: ar\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=6; plural=n==0 ? 0 : n==1 ? 1 : n==2 ? 2 : n%100>=3 && n%100<=10 ? 3 : n%100>=11 ? 4 : 5;\n"
+
+#. module: eh_hr_attendance_access_control
+#: model_terms:ir.actions.act_window,help:eh_hr_attendance_access_control.action_eh_hr_access_reader
+msgid ""
+"A reader is the bridge service in front of the door hardware. Set its "
+"webhook URL and (optionally) a bearer token, link it to a zone, and the "
+"kiosk will call it when an authorised employee matches."
+msgstr ""
+"القارئ هو خدمة الجسر أمام عتاد الباب. اضبط عنوان webhook URL الخاص به "
+"و(اختيارياً) رمز bearer، واربطه بمنطقة، وسيقوم الكشك باستدعائه عند تطابق "
+"موظف مصرَّح له."
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model,name:eh_hr_attendance_access_control.model_eh_hr_access_permission
+msgid "Access Permission"
+msgstr "إذن الوصول"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model,name:eh_hr_attendance_access_control.model_eh_hr_access_reader
+msgid "Access Reader"
+msgstr "قارئ الوصول"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model,name:eh_hr_attendance_access_control.model_eh_hr_access_event
+msgid "Access Unlock Event"
+msgstr "حدث فتح الوصول"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model,name:eh_hr_attendance_access_control.model_eh_hr_access_zone
+msgid "Access Zone"
+msgstr "منطقة الوصول"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.ui.menu,name:eh_hr_attendance_access_control.menu_eh_hr_access_root
+msgid "Access control"
+msgstr "التحكم في الوصول"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_res_company__eh_hr_access_retention_days
+msgid "Access event retention (days)"
+msgstr "الاحتفاظ بأحداث الوصول (بالأيام)"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.actions.act_window,name:eh_hr_attendance_access_control.action_eh_hr_access_event
+#: model_terms:ir.ui.view,arch_db:eh_hr_attendance_access_control.view_eh_hr_access_event_list
+#: model_terms:ir.ui.view,arch_db:eh_hr_attendance_access_control.view_eh_hr_access_event_search
+msgid "Access events"
+msgstr "أحداث الوصول"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.actions.act_window,name:eh_hr_attendance_access_control.action_eh_hr_access_permission
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_hr_employee__eh_access_permission_ids
+#: model_terms:ir.ui.view,arch_db:eh_hr_attendance_access_control.view_eh_hr_access_permission_list
+msgid "Access permissions"
+msgstr "أذونات الوصول"
+
+#. module: eh_hr_attendance_access_control
+#: model_terms:ir.ui.view,arch_db:eh_hr_attendance_access_control.view_eh_hr_access_reader_form
+msgid "Access reader"
+msgstr "قارئ الوصول"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.actions.act_window,name:eh_hr_attendance_access_control.action_eh_hr_access_reader
+#: model_terms:ir.ui.view,arch_db:eh_hr_attendance_access_control.view_eh_hr_access_reader_list
+msgid "Access readers"
+msgstr "قارئات الوصول"
+
+#. module: eh_hr_attendance_access_control
+#: model_terms:ir.ui.view,arch_db:eh_hr_attendance_access_control.view_eh_hr_access_zone_form
+msgid "Access zone"
+msgstr "منطقة الوصول"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.actions.act_window,name:eh_hr_attendance_access_control.action_eh_hr_access_zone
+#: model_terms:ir.ui.view,arch_db:eh_hr_attendance_access_control.view_eh_hr_access_zone_list
+msgid "Access zones"
+msgstr "مناطق الوصول"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_reader__message_needaction
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_zone__message_needaction
+msgid "Action Needed"
+msgstr "إجراء مطلوب"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_permission__active
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_reader__active
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_zone__active
+msgid "Active"
+msgstr "نشط"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields.selection,name:eh_hr_attendance_access_control.selection__eh_hr_access_event__outcome__allowed
+#: model_terms:ir.ui.view,arch_db:eh_hr_attendance_access_control.view_eh_hr_access_event_search
+msgid "Allowed"
+msgstr "مسموح به"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.constraint,message:eh_hr_attendance_access_control.constraint_eh_hr_access_permission_unique_employee_zone
+msgid "An employee can have only one permission row per zone."
+msgstr "يمكن أن يكون للموظف صف صلاحية واحد فقط لكل منطقة."
+
+#. module: eh_hr_attendance_access_control
+#: model_terms:ir.ui.view,arch_db:eh_hr_attendance_access_control.view_eh_hr_access_reader_form
+#: model_terms:ir.ui.view,arch_db:eh_hr_attendance_access_control.view_eh_hr_access_zone_form
+msgid "Archived"
+msgstr "مؤرشف"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_reader__message_attachment_count
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_zone__message_attachment_count
+msgid "Attachment Count"
+msgstr "عدد المرفقات"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_reader__auto_relock_seconds
+msgid "Auto-relock (seconds)"
+msgstr "إعادة القفل التلقائي (بالثواني)"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_reader__bearer_token
+msgid "Bearer token"
+msgstr "رمز Bearer"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_zone__code
+msgid "Code"
+msgstr "رمز"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model,name:eh_hr_attendance_access_control.model_res_company
+msgid "Companies"
+msgstr "الشركات"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_event__company_id
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_permission__company_id
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_reader__company_id
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_zone__company_id
+msgid "Company"
+msgstr "الشركة"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_event__create_uid
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_permission__create_uid
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_reader__create_uid
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_zone__create_uid
+msgid "Created by"
+msgstr "أنشئ بواسطة"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_event__create_date
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_permission__create_date
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_reader__create_date
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_zone__create_date
+msgid "Created on"
+msgstr "أنشئ في"
+
+#. module: eh_hr_attendance_access_control
+#: model_terms:ir.ui.view,arch_db:eh_hr_attendance_access_control.view_eh_hr_access_event_search
+msgid "Day"
+msgstr "اليوم"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields.selection,name:eh_hr_attendance_access_control.selection__eh_hr_access_reader__last_status__denied
+msgid "Denied"
+msgstr "مرفوض"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields.selection,name:eh_hr_attendance_access_control.selection__eh_hr_access_event__outcome__denied
+#: model_terms:ir.ui.view,arch_db:eh_hr_attendance_access_control.view_eh_hr_access_event_search
+msgid "Denied (no permission)"
+msgstr "مرفوض (لا توجد صلاحية)"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields.selection,name:eh_hr_attendance_access_control.selection__eh_hr_access_event__outcome__reader_denied
+msgid "Denied (reader)"
+msgstr "مرفوض (قارئ)"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_event__device_id
+msgid "Device"
+msgstr "الجهاز"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_event__display_name
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_permission__display_name
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_reader__display_name
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_zone__display_name
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_hr_employee__display_name
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_res_company__display_name
+msgid "Display Name"
+msgstr "اسم العرض"
+
+#. module: eh_hr_attendance_access_control
+#: model_terms:ir.ui.view,arch_db:eh_hr_attendance_access_control.view_employee_form_eh_access
+msgid "Door access permissions"
+msgstr "أذونات الوصول إلى الأبواب"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.actions.server,name:eh_hr_attendance_access_control.cron_eh_hr_access_event_retention_sweep_ir_actions_server
+msgid "ERP Heritage: Access event retention sweep"
+msgstr "ERP Heritage: تنقية الاحتفاظ بأحداث الوصول"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_event__elapsed_ms
+msgid "Elapsed (ms)"
+msgstr "المدة المنقضية (ms)"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model,name:eh_hr_attendance_access_control.model_hr_employee
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_event__employee_id
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_permission__employee_id
+#: model_terms:ir.ui.view,arch_db:eh_hr_attendance_access_control.view_eh_hr_access_event_search
+msgid "Employee"
+msgstr "الموظف"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields.selection,name:eh_hr_attendance_access_control.selection__eh_hr_access_reader__last_status__error
+msgid "Error"
+msgstr "خطأ"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.ui.menu,name:eh_hr_attendance_access_control.menu_eh_hr_access_event
+msgid "Events"
+msgstr "الفعاليات"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_reader__message_follower_ids
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_zone__message_follower_ids
+msgid "Followers"
+msgstr "المتابعين"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_reader__message_partner_ids
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_zone__message_partner_ids
+msgid "Followers (Partners)"
+msgstr "المتابعين (الشركاء)"
+
+#. module: eh_hr_attendance_access_control
+#: model_terms:ir.ui.view,arch_db:eh_hr_attendance_access_control.view_eh_hr_access_reader_form
+msgid "Front door relay, Server room reader..."
+msgstr "مُرحّل الباب الأمامي، قارئ غرفة الخوادم..."
+
+#. module: eh_hr_attendance_access_control
+#: model_terms:ir.ui.view,arch_db:eh_hr_attendance_access_control.view_eh_hr_access_zone_form
+msgid "Front door, Server room..."
+msgstr "الباب الأمامي، غرفة الخوادم..."
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,help:eh_hr_attendance_access_control.field_eh_hr_access_reader__webhook_url
+msgid ""
+"HTTP endpoint that the bridge service exposes for unlock commands. We POST a"
+" JSON body to this URL."
+msgstr ""
+"نقطة نهاية HTTP التي تعرضها خدمة الجسر لأوامر إلغاء القفل. نرسل نص JSON عبر "
+"POST إلى هذا الـ URL."
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_reader__timeout_seconds
+msgid "HTTP timeout (seconds)"
+msgstr "مهلة HTTP (بالثواني)"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_reader__has_message
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_zone__has_message
+msgid "Has Message"
+msgstr "يحتوي على رسالة"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_event__id
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_permission__id
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_reader__id
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_zone__id
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_hr_employee__id
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_res_company__id
+msgid "ID"
+msgstr "المُعرف"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,help:eh_hr_attendance_access_control.field_eh_hr_access_reader__message_needaction
+#: model:ir.model.fields,help:eh_hr_attendance_access_control.field_eh_hr_access_zone__message_needaction
+msgid "If checked, new messages require your attention."
+msgstr "إذا كان محددًا، فهناك رسائل جديدة عليك رؤيتها."
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,help:eh_hr_attendance_access_control.field_eh_hr_access_reader__message_has_error
+#: model:ir.model.fields,help:eh_hr_attendance_access_control.field_eh_hr_access_reader__message_has_sms_error
+#: model:ir.model.fields,help:eh_hr_attendance_access_control.field_eh_hr_access_zone__message_has_error
+#: model:ir.model.fields,help:eh_hr_attendance_access_control.field_eh_hr_access_zone__message_has_sms_error
+msgid "If checked, some messages have a delivery error."
+msgstr "إذا كان محددًا، فقد حدث خطأ في تسليم بعض الرسائل."
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_reader__message_is_follower
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_zone__message_is_follower
+msgid "Is Follower"
+msgstr "متابع"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,help:eh_hr_attendance_access_control.field_eh_hr_access_zone__site_ids
+msgid ""
+"Kiosks at any of these sites can trigger an unlock for this zone, subject to"
+" per-employee permissions."
+msgstr ""
+"يمكن للأكشاك في أي من هذه المواقع تشغيل فتح لهذه المنطقة، وفقًا لأذونات كل "
+"موظف."
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_event__write_uid
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_permission__write_uid
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_reader__write_uid
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_zone__write_uid
+msgid "Last Updated by"
+msgstr "آخر تحديث بواسطة"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_event__write_date
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_permission__write_date
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_reader__write_date
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_zone__write_date
+msgid "Last Updated on"
+msgstr "آخر تحديث في"
+
+#. module: eh_hr_attendance_access_control
+#: model_terms:ir.ui.view,arch_db:eh_hr_attendance_access_control.view_eh_hr_access_reader_form
+msgid "Last call"
+msgstr "آخر مكالمة"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_reader__last_response
+msgid "Last response"
+msgstr "آخر استجابة"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_reader__last_status
+msgid "Last status"
+msgstr "آخر حالة"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_reader__last_unlock_at
+msgid "Last unlock"
+msgstr "آخر فتح للقفل"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_reader__message_has_error
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_zone__message_has_error
+msgid "Message Delivery error"
+msgstr "خطأ في تسليم الرسائل"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_reader__message_ids
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_zone__message_ids
+msgid "Messages"
+msgstr "الرسائل"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields.selection,name:eh_hr_attendance_access_control.selection__eh_hr_access_reader__last_status__never
+msgid "Never called"
+msgstr "لم يُستدع مطلقًا"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields.selection,name:eh_hr_attendance_access_control.selection__eh_hr_access_event__outcome__no_reader
+msgid "No reader for zone"
+msgstr "لا يوجد قارئ للمنطقة"
+
+#. module: eh_hr_attendance_access_control
+#: model_terms:ir.actions.act_window,help:eh_hr_attendance_access_control.action_eh_hr_access_reader
+msgid "No readers configured yet."
+msgstr "لم يتم تكوين أي قارئات بعد."
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields.selection,name:eh_hr_attendance_access_control.selection__eh_hr_access_event__outcome__no_zone
+msgid "No zone for site"
+msgstr "لا توجد منطقة للموقع"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_zone__notes
+#: model_terms:ir.ui.view,arch_db:eh_hr_attendance_access_control.view_eh_hr_access_zone_form
+msgid "Notes"
+msgstr "الملاحظات"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_reader__message_needaction_counter
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_zone__message_needaction_counter
+msgid "Number of Actions"
+msgstr "عدد الإجراءات"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_reader__message_has_error_counter
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_zone__message_has_error_counter
+msgid "Number of errors"
+msgstr "عدد الأخطاء"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,help:eh_hr_attendance_access_control.field_eh_hr_access_reader__message_needaction_counter
+#: model:ir.model.fields,help:eh_hr_attendance_access_control.field_eh_hr_access_zone__message_needaction_counter
+msgid "Number of messages requiring action"
+msgstr "عدد الرسائل التي تتطلب اتخاذ إجراء"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,help:eh_hr_attendance_access_control.field_eh_hr_access_reader__message_has_error_counter
+#: model:ir.model.fields,help:eh_hr_attendance_access_control.field_eh_hr_access_zone__message_has_error_counter
+msgid "Number of messages with delivery error"
+msgstr "عدد الرسائل الحادث بها خطأ في التسليم"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields.selection,name:eh_hr_attendance_access_control.selection__eh_hr_access_reader__last_status__ok
+msgid "OK"
+msgstr "موافق"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,help:eh_hr_attendance_access_control.field_eh_hr_access_reader__bearer_token
+msgid ""
+"Optional. When set, the module sends 'Authorization: Bearer ...' on every "
+"webhook call."
+msgstr ""
+"اختياري. عند تعيينه، يُرسِل الموديول 'Authorization: Bearer ...' مع كل "
+"استدعاء webhook."
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_event__outcome
+#: model_terms:ir.ui.view,arch_db:eh_hr_attendance_access_control.view_eh_hr_access_event_search
+msgid "Outcome"
+msgstr "النتيجة"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.ui.menu,name:eh_hr_attendance_access_control.menu_eh_hr_access_permission
+msgid "Permissions"
+msgstr "الأذونات"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_reader__rating_ids
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_zone__rating_ids
+msgid "Ratings"
+msgstr "التقييمات"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_event__reader_id
+msgid "Reader"
+msgstr "قارئ"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields.selection,name:eh_hr_attendance_access_control.selection__eh_hr_access_event__outcome__reader_error
+#: model_terms:ir.ui.view,arch_db:eh_hr_attendance_access_control.view_eh_hr_access_event_search
+msgid "Reader error"
+msgstr "خطأ في القارئ"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_reader__name
+msgid "Reader name"
+msgstr "اسم القارئ"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_event__reader_response
+msgid "Reader response"
+msgstr "استجابة القارئ"
+
+#. module: eh_hr_attendance_access_control
+#. odoo-python
+#: code:addons/eh_hr_attendance_access_control/models/eh_hr_access_reader.py:0
+msgid "Reader test"
+msgstr "اختبار القارئ"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_zone__reader_ids
+#: model:ir.ui.menu,name:eh_hr_attendance_access_control.menu_eh_hr_access_reader
+#: model_terms:ir.ui.view,arch_db:eh_hr_attendance_access_control.view_eh_hr_access_zone_form
+msgid "Readers"
+msgstr "القُرّاء"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_event__created_on
+msgid "Recorded on"
+msgstr "تم التسجيل بتاريخ"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_event__name
+msgid "Reference"
+msgstr "الرقم المرجعي"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_reader__message_has_sms_error
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_zone__message_has_sms_error
+msgid "SMS Delivery error"
+msgstr "خطأ في تسليم الرسائل النصية القصيرة"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,help:eh_hr_attendance_access_control.field_eh_hr_access_reader__auto_relock_seconds
+msgid ""
+"Sent to the bridge as 'auto_relock_seconds' so the door can re-lock without "
+"a second call."
+msgstr ""
+"يُرسَل إلى الجسر باسم 'auto_relock_seconds' حتى يتمكن الباب من إعادة القفل "
+"دون استدعاء ثانٍ."
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_event__site_id
+msgid "Site"
+msgstr "الموقع"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_zone__site_ids
+#: model_terms:ir.ui.view,arch_db:eh_hr_attendance_access_control.view_eh_hr_access_zone_form
+msgid "Sites that grant access here"
+msgstr "المواقع التي تمنح صلاحية الوصول هنا"
+
+#. module: eh_hr_attendance_access_control
+#. odoo-python
+#: code:addons/eh_hr_attendance_access_control/models/eh_hr_access_reader.py:0
+msgid "Status: %(s)s, %(ms)s ms. %(resp)s"
+msgstr "الحالة: %(s)s، %(ms)s مللي ثانية. %(resp)s"
+
+#. module: eh_hr_attendance_access_control
+#: model_terms:ir.ui.view,arch_db:eh_hr_attendance_access_control.view_eh_hr_access_reader_form
+msgid "Test unlock"
+msgstr "اختبار إلغاء القفل"
+
+#. module: eh_hr_attendance_access_control
+#: model_terms:ir.ui.view,arch_db:eh_hr_attendance_access_control.view_eh_hr_access_reader_form
+msgid ""
+"This will fire an unlock command at the configured webhook URL. Continue?"
+msgstr ""
+"سيؤدي هذا إلى إرسال أمر فتح إلى عنوان webhook URL المُهيَّأ. هل تريد "
+"المتابعة؟"
+
+#. module: eh_hr_attendance_access_control
+#: model_terms:ir.ui.view,arch_db:eh_hr_attendance_access_control.view_eh_hr_access_event_search
+msgid "Today"
+msgstr "اليوم"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,help:eh_hr_attendance_access_control.field_eh_hr_access_zone__code
+msgid "URL-safe identifier. Letters, digits, dashes and underscores only."
+msgstr "معرّف آمن لعناوين URL. أحرف وأرقام وشرطات وشرطات سفلية فقط."
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_permission__valid_from
+msgid "Valid from"
+msgstr "صالح من"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_permission__valid_to
+msgid "Valid to"
+msgstr "صالح حتى"
+
+#. module: eh_hr_attendance_access_control
+#. odoo-python
+#: code:addons/eh_hr_attendance_access_control/models/eh_hr_access_permission.py:0
+msgid "Valid to cannot be before valid from."
+msgstr "لا يمكن أن يكون تاريخ الانتهاء قبل تاريخ البدء."
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_reader__webhook_url
+msgid "Webhook URL"
+msgstr "رابط URL لـ Webhook"
+
+#. module: eh_hr_attendance_access_control
+#. odoo-python
+#: code:addons/eh_hr_attendance_access_control/models/eh_hr_access_reader.py:0
+msgid "Webhook URL is required."
+msgstr "عنوان URL للـ Webhook مطلوب."
+
+#. module: eh_hr_attendance_access_control
+#. odoo-python
+#: code:addons/eh_hr_attendance_access_control/models/eh_hr_access_reader.py:0
+msgid "Webhook URL must start with http:// or https://."
+msgstr "يجب أن يبدأ عنوان URL للـ Webhook بـ http:// أو https://."
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_reader__website_message_ids
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_zone__website_message_ids
+msgid "Website Messages"
+msgstr "رسائل الموقع الإلكتروني"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,help:eh_hr_attendance_access_control.field_eh_hr_access_reader__website_message_ids
+#: model:ir.model.fields,help:eh_hr_attendance_access_control.field_eh_hr_access_zone__website_message_ids
+msgid "Website communication history"
+msgstr "سجل تواصل الموقع الإلكتروني"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_event__zone_id
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_permission__zone_id
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_reader__zone_id
+#: model_terms:ir.ui.view,arch_db:eh_hr_attendance_access_control.view_eh_hr_access_event_search
+msgid "Zone"
+msgstr "المنطقة"
+
+#. module: eh_hr_attendance_access_control
+#. odoo-python
+#: code:addons/eh_hr_attendance_access_control/models/eh_hr_access_zone.py:0
+msgid ""
+"Zone code must be a non-empty string of letters, digits, dashes and "
+"underscores."
+msgstr ""
+"يجب أن يكون رمز المنطقة سلسلة غير فارغة من الأحرف والأرقام والشرطات والشرطات"
+" السفلية."
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.constraint,message:eh_hr_attendance_access_control.constraint_eh_hr_access_zone_unique_code_per_company
+msgid "Zone code must be unique per company."
+msgstr "يجب أن يكون رمز المنطقة فريدًا لكل شركة."
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_zone__name
+msgid "Zone name"
+msgstr "اسم المنطقة"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.ui.menu,name:eh_hr_attendance_access_control.menu_eh_hr_access_zone
+msgid "Zones"
+msgstr "المناطق"

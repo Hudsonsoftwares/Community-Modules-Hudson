@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="approval_product_line_view_list" model="ir.ui.view">
+        <field name="name">approval.product.line.list</field>
+        <field name="model">approval.product.line</field>
+        <field name="arch" type="xml">
+            <list string="Product Lines" editable="bottom">
+                <field name="product_id"/>
+                <field name="description"/>
+                <field name="quantity"/>
+                <field name="product_uom_id" groups="uom.group_uom"/>
+                <field name="price_unit"/>
+                <field name="amount" sum="Total"/>
+                <field name="currency_id" column_invisible="1"/>
+            </list>
+        </field>
+    </record>
+</odoo>

@@ -1,17 +1,18 @@
 {
     'name': 'Hudson Sign',
-    'version': '19.0.1.0.0',
+    'version': '20.0.1.0.0',
     'summary': 'Dedicated module for document signatures',
     'category': 'Document Management',
     'author': 'Hudson Softwares',
     'depends': [
-        'dms_enterprise_features', 
+        'dms',
+        'dms_enterprise_features',
         'mail', 
         'portal', 
         'web'
     ],
     'data': [
-        'security/ir.model.access.csv',
+        'security/ir.access.csv',
         'data/hudson_sign_item_type_data.xml',
         'views/hudson_sign_template_views.xml',
         'views/hudson_sign_template_tag_views.xml',

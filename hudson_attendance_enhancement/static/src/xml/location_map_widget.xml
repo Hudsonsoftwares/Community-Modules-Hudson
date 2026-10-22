@@ -32,7 +32,7 @@
                                                 class="list-group-item list-group-item-action py-2 text-start"
                                                 t-on-click="() => this.selectSearchResult(result)">
                                             <i class="fa fa-map-pin text-danger me-2"/>
-                                            <span class="fw-semibold text-truncate" t-esc="result.display_name"/>
+                                            <span class="fw-semibold text-truncate" t-out="result.display_name"/>
                                         </button>
                                     </t>
                                 </div>
@@ -63,13 +63,13 @@
                         <div>
                             <strong>Selected Coordinates: </strong>
                             <span class="badge bg-secondary-subtle text-secondary me-2">
-                                Lat: <t t-esc="currentLat.toFixed(6)"/>
+                                Lat: <t t-out="currentLat.toFixed(6)"/>
                             </span>
                             <span class="badge bg-secondary-subtle text-secondary me-2">
-                                Lon: <t t-esc="currentLon.toFixed(6)"/>
+                                Lon: <t t-out="currentLon.toFixed(6)"/>
                             </span>
                             <span class="badge bg-primary-subtle text-primary">
-                                Radius: <t t-esc="currentRadius"/> m
+                                Radius: <t t-out="currentRadius"/> m
                             </span>
                         </div>
                         <div class="fst-italic">

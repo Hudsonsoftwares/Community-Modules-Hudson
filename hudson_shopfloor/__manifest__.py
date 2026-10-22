@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     'name': 'Hudson Shop Floor',
-    'version': '1.0',
+    'version': '20.0.1.0.0',
     'category': 'Manufacturing/Manufacturing',
     'summary': 'Custom Shop Floor interface for Odoo Community',
     'description': """

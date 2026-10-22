@@ -1,13 +1,18 @@
 /** @odoo-module **/
 
-import { Component, onWillStart } from "@odoo/owl";
+import { Component, onWillStart, proxy, useProps } from "@odoo/owl";
 import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
+import { standardActionServiceProps } from "@web/webclient/actions/action_plugin";
 
 export class GreenSavings extends Component {
+    props = useProps({
+        ...standardActionServiceProps,
+    });
+
     setup() {
         this.orm = useService("orm");
-        this.state = {
+        this.state = proxy({
             paperSaved: 0,
             waterSaved: 0,
             woodSaved: 0,
@@ -15,7 +20,7 @@ export class GreenSavings extends Component {
             wastePrevented: 0,
             energySaved: 0,
             showModal: false
-        };
+        });
 
         onWillStart(async () => {
             // Count signed requests to simulate calculations

@@ -256,12 +256,6 @@ class DmsMoveWizard(models.TransientModel):
                 if file_rec.directory_id == dest_dir:
                     continue  # Already in this folder
                 file_rec.write({"directory_id": dest_dir.id})
-                self.env['dms.file.log'].sudo().create({
-                    'name': file_rec.name,
-                    'file_id': file_rec.id,
-                    'action': 'edit',
-                    'details': f"Moved to folder '{dest_dir.name}'"
-                })
 
             message = _("%s file(s) moved successfully to '%s'.") % (len(self.file_ids), dest_dir.name)
 

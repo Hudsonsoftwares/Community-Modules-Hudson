@@ -25,13 +25,15 @@ class DmsSignatureSendWizard(models.TransientModel):
     @api.model
     def default_get(self, fields_list):
         res = super().default_get(fields_list)
-        if res.get('is_sign_now'):
-            res['single_signer_id'] = self.env.user.partner_id.id
+        is_sign_now = res.get('is_sign_now') or self.env.context.get('default_is_sign_now') or self.env.context.get('is_sign_now')
+        if is_sign_now:
+            res['is_sign_now'] = True
+            current_partner_id = self.env.user.partner_id.id
+            res['single_signer_id'] = current_partner_id
             if res.get('role_ids'):
-                # Also set it on the role if it's there
                 for cmd in res['role_ids']:
-                    if cmd[0] == 0:
-                        cmd[2]['partner_id'] = self.env.user.partner_id.id
+                    if isinstance(cmd, (list, tuple)) and len(cmd) == 3 and cmd[0] == 0:
+                        cmd[2]['partner_id'] = current_partner_id
         return res
     
     @api.depends('role_ids')

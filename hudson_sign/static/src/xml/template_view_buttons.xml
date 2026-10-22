@@ -4,7 +4,7 @@
     <!-- Kanban Buttons -->
     <t t-name="hudson_sign.KanbanButtons" t-inherit="web.KanbanView.Buttons" t-inherit-mode="primary" owl="1">
         <xpath expr="." position="inside">
-            <button type="button" class="btn btn-primary o-kanban-button-new" t-on-click="uploadPdf">
+            <button type="button" class="btn btn-primary o-kanban-button-new" t-on-click="() => this.uploadPdf()">
                 Upload PDF
             </button>
         </xpath>
@@ -13,7 +13,7 @@
     <!-- List Buttons -->
     <t t-name="hudson_sign.ListButtons" t-inherit="web.ListView.Buttons" t-inherit-mode="primary" owl="1">
         <xpath expr="." position="inside">
-            <button type="button" class="btn btn-primary o_list_button_add" t-on-click="uploadPdf" data-hotkey="c">
+            <button type="button" class="btn btn-primary o_list_button_add" t-on-click="() => this.uploadPdf()" data-hotkey="c">
                 Upload PDF
             </button>
         </xpath>

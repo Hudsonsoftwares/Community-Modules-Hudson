@@ -101,6 +101,8 @@ class DMSFileAccess(models.Model):
             self.perm_move = False
             self.perm_delete = False
             self.perm_share = False
+        else:
+            self.perm_download = True
 
     @api.onchange('partner_id')
     def _onchange_partner_id(self):
@@ -126,6 +128,8 @@ class DMSFileAccess(models.Model):
         if any(vals.get(p) for p in sub_perms):
             vals['perm_view'] = True
         if vals.get('perm_edit'):
+            vals['perm_download'] = True
+        if vals.get('perm_view') and 'perm_download' not in vals:
             vals['perm_download'] = True
         if 'perm_view' in vals and not vals['perm_view']:
             for p in sub_perms:

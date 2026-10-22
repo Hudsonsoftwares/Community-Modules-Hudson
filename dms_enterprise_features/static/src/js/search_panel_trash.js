@@ -3,14 +3,35 @@
 
 import { SearchPanel } from "@web/search/search_panel/search_panel";
 import { patch } from "@web/core/utils/patch";
-import { useService } from "@web/core/utils/hooks";
-import { onMounted, useState } from "@odoo/owl";
+import { useService, useBus } from "@web/core/utils/hooks";
+import { onMounted, onWillStart, onWillUpdateProps, proxy } from "@odoo/owl";
 
 patch(SearchPanel.prototype, {
     setup() {
         super.setup(...arguments);
+        this.orm = useService("orm");
         this.action = useService("action");
-        this.dmsTrashState = useState({ isDmsView: false });
+        this.dmsTrashState = proxy({ 
+            isDmsView: false,
+            trashCount: 0,
+        });
+
+        const updateData = async () => {
+            if (this.isDmsView()) {
+                await this.fetchTrashCount();
+            }
+        };
+
+        onWillStart(updateData);
+        onWillUpdateProps(updateData);
+
+        if (this.env.searchModel) {
+            useBus(this.env.searchModel, "update", async () => {
+                if (this.isDmsView()) {
+                    await this.fetchTrashCount();
+                }
+            });
+        }
     },
 
     isDmsView() {
@@ -19,6 +40,23 @@ patch(SearchPanel.prototype, {
             return resModel === "dms.file" || resModel === "dms.directory";
         } catch {
             return false;
+        }
+    },
+
+    async fetchTrashCount() {
+        try {
+            const fileCount = await this.orm.searchCount(
+                "dms.file",
+                [["is_trashed", "=", true]],
+                { context: { active_test: false } }
+            );
+            const dirCount = await this.orm.searchCount(
+                "dms.directory",
+                [["is_trashed", "=", true], "|", ["parent_id", "=", false], ["parent_is_trashed", "=", false]]
+            );
+            this.dmsTrashState.trashCount = fileCount + dirCount;
+        } catch {
+            this.dmsTrashState.trashCount = 0;
         }
     },
 
@@ -40,7 +78,6 @@ patch(SearchPanel.prototype, {
                     clearBreadcrumbs: true,
                     additionalContext: {
                         searchpanel_default_directory_id: value.id,
-                        search_default_group_directory: 1
                     }
                 });
                 return;

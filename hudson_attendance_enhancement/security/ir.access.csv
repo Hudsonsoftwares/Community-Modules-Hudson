@@ -1,0 +1,6 @@
+id,name,model_id,group_id/id,operation
+access_hr_attendance_location_manager,hr.attendance.location.manager,hr.attendance.location,hr_attendance.group_hr_attendance_manager,crud
+access_hr_attendance_location_user,hr.attendance.location.user,hr.attendance.location,base.group_user,r
+access_hr_employee_location_log_manager,hr.employee.location.log.manager,hr.employee.location.log,hr_attendance.group_hr_attendance_manager,crud
+access_hr_employee_location_log_officer,hr.employee.location.log.officer,hr.employee.location.log,hr_attendance.group_hr_attendance_officer,cru
+access_hr_employee_location_log_user,hr.employee.location.log.user,hr.employee.location.log,base.group_user,cru

@@ -13,8 +13,8 @@
                     <input type="text"
                            class="o_retention_search_input"
                            placeholder="Search..."
-                           t-model="state.searchQuery"
-                           t-on-input="onSearchInput"/>
+                           t-model.proxy="this.state.searchQuery"
+                           t-on-input="this.onSearchInput"/>
                     <i class="fa fa-caret-down o_retention_search_caret"/>
                 </div>
             </div>
@@ -25,23 +25,23 @@
                 <div class="position-relative">
                     <button type="button"
                             class="btn-odoo-measure"
-                            t-on-click="toggleMeasureDropdown">
-                        <t t-esc="getMeasureLabel()"/>
+                            t-on-click="this.toggleMeasureDropdown">
+                        <t t-out="this.getMeasureLabel()"/>
                         <i class="fa fa-caret-down"/>
                     </button>
-                    <div t-if="state.showMeasureDropdown" class="o_retention_dropdown_menu">
+                    <div t-if="this.state.showMeasureDropdown" class="o_retention_dropdown_menu">
                         <button type="button"
-                                t-attf-class="o_retention_dropdown_item #{state.measure === 'count' ? 'active' : ''}"
+                                t-attf-class="o_retention_dropdown_item #{this.state.measure === 'count' ? 'active' : ''}"
                                 t-on-click="() => this.setMeasure('count')">
                             Count
                         </button>
                         <button type="button"
-                                t-attf-class="o_retention_dropdown_item #{state.measure === 'recurring_monthly' ? 'active' : ''}"
+                                t-attf-class="o_retention_dropdown_item #{this.state.measure === 'recurring_monthly' ? 'active' : ''}"
                                 t-on-click="() => this.setMeasure('recurring_monthly')">
                             Recurring Monthly (MRR)
                         </button>
                         <button type="button"
-                                t-attf-class="o_retention_dropdown_item #{state.measure === 'recurring_total' ? 'active' : ''}"
+                                t-attf-class="o_retention_dropdown_item #{this.state.measure === 'recurring_total' ? 'active' : ''}"
                                 t-on-click="() => this.setMeasure('recurring_total')">
                             Recurring Total
                         </button>
@@ -52,28 +52,28 @@
                 <div class="position-relative">
                     <button type="button"
                             class="btn-odoo-interval"
-                            t-on-click="toggleIntervalDropdown">
-                        <t t-esc="getIntervalLabel()"/>
+                            t-on-click="this.toggleIntervalDropdown">
+                        <t t-out="this.getIntervalLabel()"/>
                         <i class="fa fa-caret-down"/>
                     </button>
-                    <div t-if="state.showIntervalDropdown" class="o_retention_dropdown_menu">
+                    <div t-if="this.state.showIntervalDropdown" class="o_retention_dropdown_menu">
                         <button type="button"
-                                t-attf-class="o_retention_dropdown_item #{state.interval === 'day' ? 'active' : ''}"
+                                t-attf-class="o_retention_dropdown_item #{this.state.interval === 'day' ? 'active' : ''}"
                                 t-on-click="() => this.setInterval('day')">
                             Day
                         </button>
                         <button type="button"
-                                t-attf-class="o_retention_dropdown_item #{state.interval === 'week' ? 'active' : ''}"
+                                t-attf-class="o_retention_dropdown_item #{this.state.interval === 'week' ? 'active' : ''}"
                                 t-on-click="() => this.setInterval('week')">
                             Week
                         </button>
                         <button type="button"
-                                t-attf-class="o_retention_dropdown_item #{state.interval === 'month' ? 'active' : ''}"
+                                t-attf-class="o_retention_dropdown_item #{this.state.interval === 'month' ? 'active' : ''}"
                                 t-on-click="() => this.setInterval('month')">
                             Month
                         </button>
                         <button type="button"
-                                t-attf-class="o_retention_dropdown_item #{state.interval === 'year' ? 'active' : ''}"
+                                t-attf-class="o_retention_dropdown_item #{this.state.interval === 'year' ? 'active' : ''}"
                                 t-on-click="() => this.setInterval('year')">
                             Year
                         </button>
@@ -84,19 +84,19 @@
                 <button type="button"
                         class="btn-odoo-download"
                         title="Download XLSX"
-                        t-on-click="exportData">
+                        t-on-click="this.exportData">
                     <i class="fa fa-download"/>
                 </button>
             </div>
 
             <!-- Content Area -->
             <div class="o_retention_content">
-                <div t-if="state.loading" class="text-center py-5">
+                <div t-if="this.state.loading" class="text-center py-5">
                     <i class="fa fa-spinner fa-spin fa-2x text-muted"/>
                     <div class="mt-2 text-muted">Loading retention cohort data...</div>
                 </div>
 
-                <div t-elif="!state.cohorts.length" class="o_retention_empty_state">
+                <div t-elif="!this.state.cohorts.length" class="o_retention_empty_state">
                     <i class="fa fa-bar-chart fa-3x text-muted mb-3"/>
                     <p>No subscription data available for retention analysis.</p>
                 </div>
@@ -106,38 +106,38 @@
                         <tr>
                             <th rowspan="2" class="col_first_contract">First Contract Date</th>
                             <th rowspan="2" class="col_count">
-                                <t t-esc="state.measure === 'count' ? 'Count' : (state.measure === 'recurring_monthly' ? 'MRR' : 'Recurring')"/>
+                                <t t-out="this.state.measure === 'count' ? 'Count' : (this.state.measure === 'recurring_monthly' ? 'MRR' : 'Recurring')"/>
                             </th>
-                            <th t-att-colspan="state.periods.length" class="o_retention_col_header">
-                                End Date - By <t t-esc="getIntervalLabel()"/>
+                            <th t-att-colspan="this.state.periods.length" class="o_retention_col_header">
+                                End Date - By <t t-out="this.getIntervalLabel()"/>
                             </th>
                         </tr>
                         <tr>
-                            <t t-foreach="state.periods" t-as="period" t-key="period">
-                                <th class="text-center"><t t-esc="period"/></th>
+                            <t t-foreach="this.state.periods" t-as="period" t-key="period">
+                                <th class="text-center"><t t-out="period"/></th>
                             </t>
                         </tr>
                     </thead>
                     <tbody>
                         <!-- Cohort Rows -->
-                        <tr t-foreach="state.cohorts" t-as="cohort" t-key="cohort.label">
+                        <tr t-foreach="this.state.cohorts" t-as="cohort" t-key="cohort.label">
                             <td class="col_first_contract text-center">
-                                <t t-esc="cohort.label"/>
+                                <t t-out="cohort.label"/>
                             </td>
                             <td class="col_count text-center">
                                 <span class="o_retention_count_clickable"
                                       title="View initial quotations"
                                       t-on-click="() => this.onCellClick(cohort.order_ids)">
-                                    <t t-esc="cohort.count"/>
+                                    <t t-out="cohort.count"/>
                                 </span>
                             </td>
                             <t t-foreach="cohort.cells" t-as="cell" t-key="cell_index">
                                 <td class="text-center">
                                     <div t-if="cell" class="o_retention_cell_wrapper">
-                                        <span t-attf-class="o_retention_badge o_retention_clickable #{getTierClass(cell.percentage)}"
+                                        <span t-attf-class="o_retention_badge o_retention_clickable #{this.getTierClass(cell.percentage)}"
                                               t-attf-title="Retained: #{cell.retained_count} (#{cell.percentage}%) - Click to view quotations"
                                               t-on-click="() => this.onCellClick(cell.order_ids)">
-                                            <t t-esc="cell.percentage"/>%
+                                            <t t-out="cell.percentage"/>%
                                         </span>
                                     </div>
                                 </td>
@@ -145,18 +145,18 @@
                         </tr>
 
                         <!-- Average Row (Not clickable as requested) -->
-                        <tr t-if="state.average" class="o_retention_average_row">
+                        <tr t-if="this.state.average" class="o_retention_average_row">
                             <td class="col_first_contract text-center">
-                                <t t-esc="state.average.label"/>
+                                <t t-out="this.state.average.label"/>
                             </td>
                             <td class="col_count text-center">
-                                <t t-esc="state.average.count"/>
+                                <t t-out="this.state.average.count"/>
                             </td>
-                            <t t-foreach="state.average.cells" t-as="avgCell" t-key="avgCell_index">
+                            <t t-foreach="this.state.average.cells" t-as="avgCell" t-key="avgCell_index">
                                 <td class="text-center">
                                     <div t-if="avgCell" class="o_retention_cell_wrapper">
                                         <span class="o_retention_average_badge">
-                                            <t t-esc="avgCell.percentage"/>%
+                                            <t t-out="avgCell.percentage"/>%
                                         </span>
                                     </div>
                                 </td>
@@ -168,3 +168,4 @@
         </div>
     </t>
 </templates>
+

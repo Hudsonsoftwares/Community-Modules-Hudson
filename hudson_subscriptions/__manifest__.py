@@ -3,7 +3,7 @@
 
 {
     'name': 'Hudson Subscriptions',
-    'version': '19.0.1.0.0',
+    'version': '20.0.1.0.0',
     'category': 'Sales/Subscriptions',
     'sequence': 55,
     'summary': 'Manage recurring contracts, subscriptions, automated billing, renewals and MRR analytics',
@@ -37,7 +37,7 @@ Complete enterprise-grade subscription and recurring billing management:
     'data': [
         # Security
         'security/subscription_security.xml',
-        'security/ir.model.access.csv',
+        'security/ir.access.csv',
 
         # Data & Cron
         'data/subscription_sequence.xml',
@@ -67,6 +67,7 @@ Complete enterprise-grade subscription and recurring billing management:
     ],
     'assets': {
         'web.assets_backend': [
+            'hudson_subscriptions/static/src/js/owl_compat.js',
             'hudson_subscriptions/static/src/css/subscription_backend.css',
             'hudson_subscriptions/static/src/css/retention_analysis.css',
             'hudson_subscriptions/static/src/js/retention_analysis.js',

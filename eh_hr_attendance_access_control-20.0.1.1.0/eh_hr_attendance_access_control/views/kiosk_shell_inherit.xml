@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<odoo>
+    <data>
+
+        <template id="kiosk_shell_access" inherit_id="eh_hr_face_kiosk.kiosk_shell" name="EH Face Kiosk Shell + Access Control">
+            <xpath expr="//head" position="inside">
+                <script t-attf-src="/eh_hr_attendance_access_control/static/src/js/access_trigger.js?v=#{asset_v}" defer="defer"></script>
+            </xpath>
+        </template>
+
+    </data>
+</odoo>

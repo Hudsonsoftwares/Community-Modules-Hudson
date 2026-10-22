@@ -54,11 +54,11 @@
             </xpath>
             <!-- Insert document controller fields in form -->
             <xpath expr="//sheet/group[1]" position="after">
-                <group string="Document Controller" groups="dms_enterprise_features.group_dms_document_controller">
+                <group string="Document Information">
                     <group>
                         <field name="document_number" invisible="not id"/>
                         <field name="department_id" readonly="is_locked and not is_lock_editor"/>
-                        <field name="document_owner_id" readonly="is_locked and not is_lock_editor"/>
+                        <field name="document_owner_id" widget="many2one_avatar_user" readonly="is_locked and not is_lock_editor"/>
                         <field name="directory_id" options="{'no_quick_create': True}" readonly="is_locked and not is_lock_editor"/>
                     </group>
                     <group>
@@ -93,8 +93,8 @@
                             <field name="date" readonly="1" optional="show"/>
                             <field name="comments" optional="show"/>
                             <field name="is_current_approver" column_invisible="True"/>
-                            <button name="action_approve_step" string="Approve" type="object" icon="fa-check text-success" invisible="not is_current_approver" title="Approve this step"/>
-                            <button name="action_open_reject_wizard" string="Reject" type="object" icon="fa-times text-danger" invisible="not is_current_approver" title="Reject this step"/>
+                            <button name="action_approve_step" string="Approve" type="object" icon="check" class="btn-link text-success" invisible="not is_current_approver" title="Approve this step"/>
+                            <button name="action_open_reject_wizard" string="Reject" type="object" icon="close" class="btn-link text-danger" invisible="not is_current_approver" title="Reject this step"/>
                         </list>
                     </field>
                 </page>
@@ -107,10 +107,10 @@
                             <field name="comments"/>
                             <field name="is_current" widget="dms_revision_status" string="Status"/>
                             <field name="file_name" optional="show"/>
-                            <button name="action_view_online" type="object" icon="fa-eye" title="View Online" class="btn-secondary"/>
-                            <button name="action_download_online" type="object" icon="fa-download" title="Download" class="btn-secondary"/>
-                            <button name="action_make_current" type="object" string="Set as Active" invisible="is_current or (parent.is_locked and not parent.is_lock_editor)" class="btn-primary"/>
-                            <button name="action_delete_revision" type="object" icon="fa-trash" title="Delete Revision" invisible="is_current or parent.is_locked" class="btn-danger"/>
+                            <button name="action_view_online" type="object" icon="visibility" title="View Online" class="btn-link dms-rev-btn dms-rev-btn-icon dms-rev-btn-view"/>
+                            <button name="action_download_online" type="object" icon="download" title="Download" class="btn-link dms-rev-btn dms-rev-btn-icon dms-rev-btn-download"/>
+                            <button name="action_make_current" type="object" icon="check_circle" string="Set as Active" title="Set as Active" class="btn-link dms-rev-btn dms-rev-btn-active" invisible="is_current or (parent.is_locked and not parent.is_lock_editor)"/>
+                            <button name="action_delete_revision" type="object" icon="delete" title="Delete Revision" class="btn-link dms-rev-btn dms-rev-btn-icon dms-rev-btn-delete" invisible="is_current or parent.is_locked"/>
                         </list>
                     </field>
                 </page>
@@ -153,6 +153,26 @@
                 <attribute name="invisible">1</attribute>
             </xpath>
             
+            <!-- Modify Meta Information tab to be Properties tab -->
+            <xpath expr="//page[@name='page_meta']" position="attributes">
+                <attribute name="string">Properties</attribute>
+            </xpath>
+            <xpath expr="//page[@name='page_meta']/group[1]" position="before">
+                <group string="File Properties">
+                    <group>
+                        <field name="file_type_display" string="File Type" readonly="1"/>
+                        <field name="human_size" string="File Size" readonly="1"/>
+                    </group>
+                    <group>
+                        <field name="storage_id" readonly="1" options="{'no_open': True}"/>
+                        <field name="checksum" readonly="1"/>
+                    </group>
+                </group>
+            </xpath>
+            <xpath expr="//page[@name='page_meta']/group[last()]" position="attributes">
+                <attribute name="string">Meta Information</attribute>
+            </xpath>
+            
             <!-- Hide extension and mimetype -->
             <xpath expr="//field[@name='extension']" position="attributes">
                 <attribute name="invisible">1</attribute>
@@ -185,9 +205,10 @@
                 <field name="comments"/>
                 <field name="is_current" widget="dms_revision_status" string="Status"/>
                 <field name="file_name" optional="show"/>
-                <field name="content" widget="binary" filename="file_name" string="View / Download"/>
-                <button name="action_make_current" type="object" string="Set as Active" invisible="is_current" class="btn-primary"/>
-                <button name="action_delete_revision" type="object" icon="fa-trash" title="Delete Revision" invisible="is_current" class="btn-danger"/>
+                <button name="action_view_online" type="object" icon="visibility" title="View Online" class="btn-link dms-rev-btn dms-rev-btn-icon dms-rev-btn-view"/>
+                <button name="action_download_online" type="object" icon="download" title="Download" class="btn-link dms-rev-btn dms-rev-btn-icon dms-rev-btn-download"/>
+                <button name="action_make_current" type="object" icon="check_circle" string="Set as Active" title="Set as Active" class="btn-link dms-rev-btn dms-rev-btn-active" invisible="is_current"/>
+                <button name="action_delete_revision" type="object" icon="delete" title="Delete Revision" class="btn-link dms-rev-btn dms-rev-btn-icon dms-rev-btn-delete" invisible="is_current"/>
             </list>
         </field>
     </record>
@@ -271,6 +292,9 @@
                 <field name="document_number" optional="show" groups="dms_enterprise_features.group_dms_document_controller"/>
                 <field name="approval_state" optional="show" widget="badge" decoration-info="approval_state == 'draft'" decoration-warning="approval_state == 'in_approval'" decoration-success="approval_state == 'approved'" decoration-danger="approval_state == 'rejected'" string="Approval"/>
             </xpath>
+            <xpath expr="//list" position="inside">
+                <button name="action_open_properties" type="object" string="Properties" icon="fa-info-circle" title="View Properties" class="btn btn-link p-0 text-secondary"/>
+            </xpath>
         </field>
     </record>
     
@@ -295,8 +319,8 @@
                     <field name="starred" widget="boolean_favorite" nolabel="1"/>
                 </div>
                 <div t-if="record.approval_state.raw_value === 'in_approval'" 
-                     class="position-absolute start-0 end-0 px-2 py-1 text-white small d-flex align-items-center justify-content-between shadow-sm" 
-                     t-att-style="record.is_locked.raw_value ? 'bottom: 24px; background: rgba(13, 110, 253, 0.92); font-size: 11px; z-index: 10;' : 'bottom: 0; background: rgba(13, 110, 253, 0.92); font-size: 11px; z-index: 10;'">
+                     class="o_dms_approval_banner position-absolute start-0 end-0 px-2 py-1 text-white small d-flex align-items-center justify-content-between shadow-sm" 
+                     t-att-style="record.is_locked.raw_value ? 'bottom: 24px; z-index: 10;' : 'bottom: 0; z-index: 10;'">
                     <div class="d-flex align-items-center text-truncate me-1">
                         <i class="fa fa-clock-o me-1"/>
                         <span class="text-truncate fw-semibold" t-if="record.is_current_approver.raw_value">Approval Required</span>
@@ -304,28 +328,31 @@
                     </div>
                     <!-- Quick 1-Click Approve / Reject directly on tile -->
                     <div t-if="record.is_current_approver.raw_value" class="d-flex align-items-center gap-1">
-                        <a type="object" name="action_approve_step" class="btn btn-sm btn-success px-2 py-0 d-flex align-items-center shadow-sm" style="font-size: 10px; height: 20px; line-height: 1; border-radius: 4px;" title="Approve">
+                        <a type="object" name="action_approve_step" role="button" class="btn btn-sm btn-success px-2 py-0 d-flex align-items-center shadow-sm" style="font-size: 10px; height: 20px; line-height: 1; border-radius: 4px;" title="Approve">
                             <i class="fa fa-check me-1"/>Approve
                         </a>
-                        <a type="object" name="action_open_reject_wizard" class="btn btn-sm btn-danger px-1 py-0 d-flex align-items-center shadow-sm" style="font-size: 10px; height: 20px; line-height: 1; border-radius: 4px;" title="Reject">
+                        <a type="object" name="action_open_reject_wizard" role="button" class="btn btn-sm btn-danger px-1 py-0 d-flex align-items-center shadow-sm" style="font-size: 10px; height: 20px; line-height: 1; border-radius: 4px;" title="Reject">
                             <i class="fa fa-times"/>
                         </a>
                     </div>
                 </div>
-                <div t-if="record.is_locked.raw_value" class="position-absolute bottom-0 start-0 end-0 px-2 py-1 text-white small d-flex align-items-center" style="background: rgba(33, 37, 41, 0.85); font-size: 11px; z-index: 10;">
+                <div t-if="record.is_locked.raw_value" class="o_dms_lock_banner position-absolute bottom-0 start-0 end-0 px-2 py-1 text-white small d-flex align-items-center" style="z-index: 10;">
                     <i class="fa fa-lock text-warning me-1"/>
-                    <span class="text-truncate">Locked by <t t-esc="record.locked_by.value"/></span>
+                    <span class="text-truncate">Locked by <t t-out="record.locked_by.value"/></span>
                 </div>
             </xpath>
             <xpath expr="//div[hasclass('oe_kanban_bottom_right')]" position="before">
-                <div class="oe_kanban_bottom_left d-flex align-items-center me-auto">
+                <div class="oe_kanban_bottom_left d-flex align-items-center me-auto ms-2">
                     <field name="activity_ids" widget="kanban_activity"/>
                 </div>
             </xpath>
-            <xpath expr="//img[hasclass('oe_kanban_avatar')]" position="attributes">
-                <attribute name="t-attf-src">/web/image/res.users/#{record.document_owner_id.raw_value}/avatar_128</attribute>
-                <attribute name="t-att-alt">record.document_owner_id.value</attribute>
-                <attribute name="t-att-title">record.document_owner_id.value</attribute>
+            <xpath expr="//img[hasclass('oe_kanban_avatar')]" position="replace">
+                <a type="object" name="action_open_owner" role="button" t-att-title="'Owner: ' + (record.document_owner_id.value or record.create_uid.value)" class="d-inline-block cursor-pointer">
+                    <img t-attf-src="/web/image/res.users/#{record.document_owner_id.raw_value or record.create_uid.raw_value}/avatar_128" 
+                         t-att-alt="record.document_owner_id.value or record.create_uid.value" 
+                         class="oe_kanban_avatar rounded-circle border" 
+                         style="width:20px; height:20px; object-fit: cover; cursor: pointer;"/>
+                </a>
             </xpath>
         </field>
     </record>
@@ -418,6 +445,9 @@
             <xpath expr="//div[@name='card_menu_Operations']" position="attributes">
                 <attribute name="t-if">!record.is_trashed.raw_value</attribute>
             </xpath>
+            <xpath expr="//a[i[hasclass('fa-download')]]/.." position="attributes">
+                <attribute name="t-if">!record.is_trashed.raw_value and ((record.permission_download and record.permission_download.raw_value) or (record.permission_read and record.permission_read.raw_value))</attribute>
+            </xpath>
             <xpath expr="//a[i[hasclass('fa-pencil')]]/.." position="replace">
                 <div role="menuitem" t-if="record.is_current_approver and record.is_current_approver.raw_value and record.approval_state.raw_value === 'in_approval'">
                     <a type="object" name="action_approve_step" class="dropdown-item text-success fw-bold">
@@ -431,7 +461,7 @@
                         Reject
                     </a>
                 </div>
-                <div role="menuitem" t-if="!record.is_trashed.raw_value">
+                <div role="menuitem" t-if="!record.is_trashed.raw_value and record.permission_edit and record.permission_edit.raw_value and (!record.is_locked.raw_value or (record.is_locked.raw_value and record.is_lock_editor.raw_value))">
                     <a type="object" name="action_open_form_view" class="dropdown-item">
                         <i class="fa fa-pencil" />
                         Edit
@@ -447,6 +477,12 @@
                     <a type="object" name="action_open_share_wizard" class="dropdown-item">
                         <i class="fa fa-share-alt" />
                         Share
+                    </a>
+                </div>
+                <div role="menuitem" t-if="!record.is_trashed.raw_value">
+                    <a type="object" name="action_open_properties" class="dropdown-item">
+                        <i class="fa fa-info-circle" />
+                        Properties
                     </a>
                 </div>
             </xpath>
@@ -601,5 +637,97 @@
             <xpath expr="//searchpanel" position="replace">
             </xpath>
         </field>
+    </record>
+
+    <!-- Read-only File Properties Modal Form View -->
+    <record id="view_dms_file_properties_form" model="ir.ui.view">
+        <field name="name">dms.file.properties.form</field>
+        <field name="model">dms.file</field>
+        <field name="priority">999</field>
+        <field name="arch" type="xml">
+            <form string="File Properties" create="0" edit="0" delete="0">
+                <sheet>
+                    <div class="mb-3 p-3 bg-light rounded border">
+                        <div class="text-muted small text-uppercase fw-semibold mb-1" style="font-size: 11px; letter-spacing: 0.5px;">File Name</div>
+                        <h3 class="mb-2 text-truncate fw-bold text-dark" style="font-size: 1.25rem;">
+                            <field name="name" readonly="1"/>
+                        </h3>
+                        <div class="d-flex flex-wrap gap-2 align-items-center">
+                            <span class="badge bg-white text-dark border px-2 py-1 shadow-sm">
+                                <i class="fa fa-hdd-o text-muted me-1"/>
+                                <field name="human_size" readonly="1"/>
+                            </span>
+                            <span class="badge bg-primary text-white px-2 py-1 shadow-sm">
+                                <field name="file_type_display" readonly="1"/>
+                            </span>
+                            <field name="approval_state" widget="badge" 
+                                   decoration-info="approval_state == 'draft'" 
+                                   decoration-warning="approval_state == 'in_approval'" 
+                                   decoration-success="approval_state == 'approved'" 
+                                   decoration-danger="approval_state == 'rejected'" 
+                                   readonly="1"/>
+                        </div>
+                    </div>
+                    <notebook>
+                        <page name="general" string="General Info">
+                            <group>
+                                <group string="File Details">
+                                    <field name="directory_id" string="Location / Folder" readonly="1" options="{'no_open': True}"/>
+                                    <field name="file_type_display" string="File Type" readonly="1"/>
+                                    <field name="human_size" string="File Size" readonly="1"/>
+                                    <field name="extension" string="Extension" readonly="1"/>
+                                    <field name="tag_ids" widget="many2many_tags" options="{'color_field': 'color'}" readonly="1"/>
+                                </group>
+                                <group string="Ownership &amp; Tracking">
+                                    <field name="create_uid" string="Created By" widget="many2one_avatar_user" readonly="1"/>
+                                    <field name="create_date" string="Created On" readonly="1"/>
+                                    <field name="write_uid" string="Last Modified By" widget="many2one_avatar_user" readonly="1"/>
+                                    <field name="write_date" string="Last Modified On" readonly="1"/>
+                                    <field name="document_owner_id" string="Document Owner" widget="many2one_avatar_user" readonly="1"/>
+                                    <field name="department_id" string="Department" readonly="1" options="{'no_open': True}"/>
+                                </group>
+                            </group>
+                        </page>
+                        <page name="status_technical" string="Security &amp; Workflow">
+                            <group>
+                                <group string="Workflow &amp; Version">
+                                    <field name="approval_state" string="Approval Status" readonly="1"/>
+                                    <field name="document_number" string="Document Number" readonly="1"/>
+                                    <field name="current_revision_id" string="Active Revision" readonly="1" options="{'no_open': True}"/>
+                                </group>
+                                <group string="Security &amp; Storage">
+                                    <field name="is_locked" string="Is Locked" readonly="1"/>
+                                    <field name="locked_by" string="Locked By" widget="many2one_avatar_user" invisible="not is_locked" readonly="1"/>
+                                    <field name="storage_id" string="Storage Engine" readonly="1" options="{'no_open': True}"/>
+                                    <field name="checksum" string="SHA1 Checksum" readonly="1"/>
+                                </group>
+                            </group>
+                        </page>
+                    </notebook>
+                </sheet>
+                <footer>
+                    <button string="Close" class="btn btn-primary px-4" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <!-- Action for File Properties (also bound to model Action menu) -->
+    <record id="action_dms_file_properties" model="ir.actions.act_window">
+        <field name="name">Properties</field>
+        <field name="res_model">dms.file</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+        <field name="view_id" ref="view_dms_file_properties_form"/>
+        <field name="binding_model_id" eval="False"/>
+    </record>
+
+    <!-- Hide unused actions from action menu -->
+    <record id="dms.action_dms_attachment_migrate" model="ir.actions.server">
+        <field name="binding_model_id" eval="False"/>
+    </record>
+    
+    <record id="dms.wizard_dms_file_share_action" model="ir.actions.act_window">
+        <field name="binding_model_id" eval="False"/>
     </record>
 </odoo>

@@ -1,0 +1,721 @@
+# Translation of Odoo Server.
+# This file contains the translation of the following modules:
+# 	* eh_hr_face_kiosk
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Odoo Server 19.0+e\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-07-01 04:33+0000\n"
+"PO-Revision-Date: 2026-07-01 04:33+0000\n"
+"Last-Translator: ERP Heritage <info@erpheritage.com.au>\n"
+"Language-Team: Indonesian\n"
+"Language: id\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.kiosk_shell
+msgid ""
+". Ask an administrator to create one in People Operations &gt; Kiosks &gt; "
+"Sites."
+msgstr ""
+". Minta administrator untuk membuatnya di People Operations &gt; Kiosks &gt;"
+" Sites."
+
+#. module: eh_hr_face_kiosk
+#. odoo-python
+#: code:addons/eh_hr_face_kiosk/models/eh_hr_face_template.py:0
+msgid "A face template's consent record must be of type 'face'."
+msgstr "Catatan persetujuan template wajah harus bertipe 'face'."
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__message_needaction
+msgid "Action Needed"
+msgstr "Tindakan Diperlukan"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__active
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.view_eh_hr_face_template_search
+msgid "Active"
+msgstr "Aktif"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_hr_employee__eh_face_template_count
+msgid "Active templates"
+msgstr "Templat aktif"
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.kiosk_shell
+msgid ""
+"Administrator: run <code>eh_hr_face_kiosk/tools/fetch_face_api.sh</code> on "
+"the Odoo server (details in <code>static/lib/face-api/README.md</code> "
+"inside the module), then reload this page."
+msgstr ""
+"Administrator: jalankan "
+"<code>eh_hr_face_kiosk/tools/fetch_face_api.sh</code> di server Odoo (detail"
+" ada di <code>static/lib/face-api/README.md</code> dalam modul), lalu muat "
+"ulang halaman ini."
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.kiosk_shell
+msgid "Ask an administrator for a pairing PIN, then enter it below."
+msgstr ""
+"Minta PIN pemasangan kepada administrator, lalu masukkan di bawah ini."
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__message_attachment_count
+msgid "Attachment Count"
+msgstr "Hitungan Lampiran"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model,name:eh_hr_face_kiosk.model_eh_hr_consent
+msgid "Biometric and Location Consent Record"
+msgstr "Catatan Persetujuan Biometrik dan Lokasi"
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.view_eh_hr_face_enrolment_form
+msgid "Cancel"
+msgstr "Batal"
+
+#. module: eh_hr_face_kiosk
+#. odoo-python
+#: code:addons/eh_hr_face_kiosk/models/eh_hr_face_template.py:0
+msgid "Cannot reactivate a template whose consent is not in granted state."
+msgstr ""
+"Tidak dapat mengaktifkan kembali templat yang persetujuannya tidak dalam "
+"status diberikan."
+
+#. module: eh_hr_face_kiosk
+#. odoo-python
+#: code:addons/eh_hr_face_kiosk/wizards/face_enrolment_wizard.py:0
+msgid ""
+"Capture at least one sample before enrolling. Three to five recommended."
+msgstr ""
+"Tangkap setidaknya satu sampel sebelum mendaftar. Tiga hingga lima "
+"disarankan."
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.view_eh_hr_face_enrolment_form
+msgid "Capture samples"
+msgstr "Tangkap sampel"
+
+#. module: eh_hr_face_kiosk
+#. odoo-javascript
+#: code:addons/eh_hr_face_kiosk/static/src/js/enrolment_widget.js:0
+msgid "Captured %s samples. Save the wizard to enrol."
+msgstr "%s sampel ditangkap. Simpan wizard untuk mendaftar."
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.view_eh_hr_face_template_search
+msgid "Captured at kiosk"
+msgstr "Ditangkap di kios"
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.view_eh_hr_face_template_search
+msgid "Captured by HR"
+msgstr "Ditangkap oleh HR"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__captured_on
+msgid "Captured on"
+msgstr "Ditangkap pada"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_enrolment__samples_json
+msgid "Captured samples (JSON)"
+msgstr "Sampel yang ditangkap (JSON)"
+
+#. module: eh_hr_face_kiosk
+#. odoo-python
+#: code:addons/eh_hr_face_kiosk/wizards/face_enrolment_wizard.py:0
+msgid "Captured samples are not valid JSON: %s"
+msgstr "Sampel yang ditangkap bukan JSON yang valid: %s"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_enrolment__captured_via
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__captured_via
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.view_eh_hr_face_template_search
+msgid "Captured via"
+msgstr "Ditangkap melalui"
+
+#. module: eh_hr_face_kiosk
+#. odoo-javascript
+#: code:addons/eh_hr_face_kiosk/static/src/js/enrolment_widget.js:0
+msgid "Capturing sample %s of %s..."
+msgstr "Menangkap sampel %s dari %s..."
+
+#. module: eh_hr_face_kiosk
+#. odoo-javascript
+#: code:addons/eh_hr_face_kiosk/static/src/xml/enrolment_widget.xml:0
+msgid "Capturing..."
+msgstr "Menangkap..."
+
+#. module: eh_hr_face_kiosk
+#. odoo-javascript
+#: code:addons/eh_hr_face_kiosk/static/src/js/enrolment_widget.js:0
+msgid "Click Start to begin"
+msgstr "Klik Mulai untuk memulai"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__company_id
+msgid "Company"
+msgstr "Perusahaan"
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.view_eh_hr_face_enrolment_form
+msgid "Consent"
+msgstr "Persetujuan"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__consent_id
+msgid "Consent record"
+msgstr "Catatan persetujuan"
+
+#. module: eh_hr_face_kiosk
+#. odoo-python
+#: code:addons/eh_hr_face_kiosk/models/eh_hr_face_template.py:0
+msgid "Consent record's employee must match the template's employee."
+msgstr ""
+"Karyawan pada catatan persetujuan harus sesuai dengan karyawan pada templat."
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_enrolment__consent_text
+msgid "Consent text"
+msgstr "Teks persetujuan"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_enrolment__create_uid
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__create_uid
+msgid "Created by"
+msgstr "Dibuat oleh"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_enrolment__create_date
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__create_date
+msgid "Created on"
+msgstr "Dibuat pada"
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.view_eh_hr_face_template_form
+msgid "Deactivate"
+msgstr "Nonaktifkan"
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.kiosk_shell
+msgid "Device name"
+msgstr "Nama perangkat"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_consent__display_name
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_enrolment__display_name
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__display_name
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_hr_employee__display_name
+msgid "Display Name"
+msgstr "Nama Tampilan"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__embedding
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.view_eh_hr_face_template_form
+msgid "Embedding"
+msgstr ""
+
+#. module: eh_hr_face_kiosk
+#. odoo-python
+#: code:addons/eh_hr_face_kiosk/models/eh_hr_face_template.py:0
+msgid "Embedding is required."
+msgstr "Embedding wajib diisi."
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__embedding_dim
+msgid "Embedding length"
+msgstr "Panjang embedding"
+
+#. module: eh_hr_face_kiosk
+#. odoo-python
+#: code:addons/eh_hr_face_kiosk/models/eh_hr_face_template.py:0
+msgid ""
+"Embedding length %(actual)s does not match declared dimension %(expected)s."
+msgstr ""
+"Panjang embedding %(actual)s tidak sesuai dengan dimensi yang dideklarasikan"
+" %(expected)s."
+
+#. module: eh_hr_face_kiosk
+#. odoo-python
+#: code:addons/eh_hr_face_kiosk/models/eh_hr_face_template.py:0
+msgid "Embedding must be a JSON list."
+msgstr "Embedding harus berupa daftar JSON."
+
+#. module: eh_hr_face_kiosk
+#. odoo-python
+#: code:addons/eh_hr_face_kiosk/models/eh_hr_face_template.py:0
+msgid "Embedding must be a valid JSON array of floats: %s"
+msgstr "Embedding harus berupa array JSON float yang valid: %s"
+
+#. module: eh_hr_face_kiosk
+#. odoo-python
+#: code:addons/eh_hr_face_kiosk/models/eh_hr_face_template.py:0
+msgid "Embedding values must be numeric."
+msgstr "Nilai embedding harus berupa angka."
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model,name:eh_hr_face_kiosk.model_hr_employee
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_enrolment__employee_id
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__employee_id
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.view_eh_hr_face_template_search
+msgid "Employee"
+msgstr "Karyawan"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_enrolment__consent_acknowledged
+msgid "Employee acknowledged consent"
+msgstr "Persetujuan yang diakui karyawan"
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.view_eh_hr_face_enrolment_form
+msgid "Employee has read the above and acknowledges consent"
+msgstr "Karyawan telah membaca hal di atas dan menyatakan persetujuan"
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.view_employee_form_eh_face_kiosk
+msgid "Enrol face"
+msgstr "Daftarkan wajah"
+
+#. module: eh_hr_face_kiosk
+#. odoo-python
+#: code:addons/eh_hr_face_kiosk/models/hr_employee.py:0
+msgid "Enrol face for %s"
+msgstr "Daftarkan wajah untuk %s"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model,name:eh_hr_face_kiosk.model_eh_hr_face_enrolment
+msgid "Face Enrolment Wizard"
+msgstr "Wizard Pendaftaran Wajah"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model,name:eh_hr_face_kiosk.model_eh_hr_face_template
+msgid "Face Recognition Template"
+msgstr "Templat Pengenalan Wajah"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_enrolment__consent_state
+msgid "Face consent"
+msgstr "Persetujuan wajah"
+
+#. module: eh_hr_face_kiosk
+#. odoo-python
+#: code:addons/eh_hr_face_kiosk/wizards/face_enrolment_wizard.py:0
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_hr_employee__eh_face_enrolled
+msgid "Face enrolled"
+msgstr "Wajah terdaftar"
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.view_eh_hr_face_enrolment_form
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.view_employee_form_eh_face_kiosk
+msgid "Face enrolment"
+msgstr "Pendaftaran wajah"
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.view_eh_hr_face_template_form
+msgid "Face template"
+msgstr "Templat wajah"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.actions.act_window,name:eh_hr_face_kiosk.action_eh_hr_face_template
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_hr_employee__eh_face_template_ids
+#: model:ir.ui.menu,name:eh_hr_face_kiosk.menu_eh_hr_face_templates
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.view_eh_hr_face_template_list
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.view_eh_hr_face_template_search
+msgid "Face templates"
+msgstr "Templat wajah"
+
+#. module: eh_hr_face_kiosk
+#. odoo-python
+#: code:addons/eh_hr_face_kiosk/models/hr_employee.py:0
+msgid "Face templates for %s"
+msgstr "Templat wajah untuk %s"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,help:eh_hr_face_kiosk.field_eh_hr_face_enrolment__samples_json
+msgid ""
+"Filled in by the OWL widget after the operator captures three to five "
+"samples."
+msgstr ""
+"Diisi oleh widget OWL setelah operator menangkap tiga hingga lima sampel."
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__message_follower_ids
+msgid "Followers"
+msgstr "Follower"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__message_partner_ids
+msgid "Followers (Partners)"
+msgstr "Follower (Mitra)"
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.kiosk_shell
+msgid "Front desk iPad"
+msgstr "iPad meja depan"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields.selection,name:eh_hr_face_kiosk.selection__eh_hr_face_enrolment__captured_via__hr_admin
+#: model:ir.model.fields.selection,name:eh_hr_face_kiosk.selection__eh_hr_face_template__captured_via__hr_admin
+msgid "HR administrator"
+msgstr "Administrator HR"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__has_message
+msgid "Has Message"
+msgstr "Memiliki Pesan"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_consent__id
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_enrolment__id
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__id
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_hr_employee__id
+msgid "ID"
+msgstr ""
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,help:eh_hr_face_kiosk.field_eh_hr_face_template__model_name
+msgid ""
+"Identity of the model that produced the embedding. Stored so future model "
+"upgrades can be reconciled (re-enrolment may be required if the dimension or"
+" training set changes)."
+msgstr ""
+"Identitas model yang menghasilkan embedding. Disimpan agar peningkatan model"
+" di masa mendatang dapat direkonsiliasi (pendaftaran ulang mungkin "
+"diperlukan jika dimensi atau set pelatihan berubah)."
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,help:eh_hr_face_kiosk.field_eh_hr_face_template__message_needaction
+msgid "If checked, new messages require your attention."
+msgstr "Jika dicentang, pesan baru memerlukan penanganan dan perhatian Anda."
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,help:eh_hr_face_kiosk.field_eh_hr_face_template__message_has_error
+#: model:ir.model.fields,help:eh_hr_face_kiosk.field_eh_hr_face_template__message_has_sms_error
+msgid "If checked, some messages have a delivery error."
+msgstr "Jika dicentang, beberapa pesan mempunyai kesalahan dalam pengiriman."
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.view_eh_hr_face_template_form
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.view_eh_hr_face_template_search
+msgid "Inactive"
+msgstr "Tidak Aktif"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__message_is_follower
+msgid "Is Follower"
+msgstr "Adalah Follower"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,help:eh_hr_face_kiosk.field_eh_hr_face_template__embedding
+msgid ""
+"JSON-serialised 128-dim float array produced by face-api.js. Storing as Text"
+" rather than Binary keeps the database introspectable for diagnostics."
+msgstr ""
+"Larik float 128 dimensi terserialisasi JSON yang dihasilkan oleh face-"
+"api.js. Menyimpannya sebagai Teks alih-alih Biner menjaga basis data tetap "
+"dapat diintrospeksi untuk diagnostik."
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields.selection,name:eh_hr_face_kiosk.selection__eh_hr_face_enrolment__captured_via__kiosk_screen
+#: model:ir.model.fields.selection,name:eh_hr_face_kiosk.selection__eh_hr_face_template__captured_via__kiosk_screen
+msgid "Kiosk screen"
+msgstr "Layar kios"
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.kiosk_shell
+msgid "Kiosk setup required"
+msgstr "Penyiapan kios diperlukan"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_enrolment__write_uid
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__write_uid
+msgid "Last Updated by"
+msgstr "Terakhir Diperbarui oleh"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_enrolment__write_date
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__write_date
+msgid "Last Updated on"
+msgstr "Terakhir Diperbarui pada"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__message_has_error
+msgid "Message Delivery error"
+msgstr "Kesalahan Pengiriman Pesan"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__message_ids
+msgid "Messages"
+msgstr "Pesan"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__model_version
+msgid "Model version"
+msgstr "Versi model"
+
+#. module: eh_hr_face_kiosk
+#. odoo-python
+#: code:addons/eh_hr_face_kiosk/models/eh_hr_face_template.py:0
+msgid "New template"
+msgstr "Template Baru"
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.kiosk_shell
+msgid "No active kiosk site exists for"
+msgstr "Tidak ada situs kios aktif untuk"
+
+#. module: eh_hr_face_kiosk
+#. odoo-python
+#: code:addons/eh_hr_face_kiosk/models/eh_hr_face_template.py:0
+msgid "No employee"
+msgstr "Tidak ada karyawan"
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.actions.act_window,help:eh_hr_face_kiosk.action_eh_hr_face_template
+msgid "No face templates yet."
+msgstr "Belum ada templat wajah."
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.kiosk_shell
+msgid "No match"
+msgstr "Tidak ada kecocokan"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__message_needaction_counter
+msgid "Number of Actions"
+msgstr "Jumlah Action"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__message_has_error_counter
+msgid "Number of errors"
+msgstr "Jumlah kesalahan"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,help:eh_hr_face_kiosk.field_eh_hr_face_template__message_needaction_counter
+msgid "Number of messages requiring action"
+msgstr "Jumlah pesan yang membutuhkan tindakan"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,help:eh_hr_face_kiosk.field_eh_hr_face_template__message_has_error_counter
+msgid "Number of messages with delivery error"
+msgstr "Jumlah pesan dengan kesalahan pengiriman"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,help:eh_hr_face_kiosk.field_eh_hr_face_template__quality_score
+msgid ""
+"Optional. Higher is better. The kiosk only stores templates above the "
+"company's quality floor."
+msgstr ""
+"Opsional. Semakin tinggi semakin baik. Kios hanya menyimpan templat di atas "
+"ambang kualitas perusahaan."
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.kiosk_shell
+msgid "Pair"
+msgstr "Pasangkan"
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.kiosk_shell
+msgid "Pair this device"
+msgstr "Pasangkan perangkat ini"
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.kiosk_shell
+msgid "Pairing PIN"
+msgstr "PIN Pemasangan"
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.kiosk_shell
+msgid "Please try again, or contact your manager."
+msgstr "Silakan coba lagi, atau hubungi manajer Anda."
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__quality_score
+msgid "Quality score"
+msgstr "Skor kualitas"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__rating_ids
+msgid "Ratings"
+msgstr "Rating"
+
+#. module: eh_hr_face_kiosk
+#. odoo-javascript
+#: code:addons/eh_hr_face_kiosk/static/src/xml/enrolment_widget.xml:0
+msgid "Re-capture"
+msgstr "Tangkap ulang"
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.view_eh_hr_face_template_form
+msgid "Reactivate"
+msgstr "Aktifkan kembali"
+
+#. module: eh_hr_face_kiosk
+#. odoo-javascript
+#: code:addons/eh_hr_face_kiosk/static/src/js/enrolment_widget.js:0
+msgid "Ready. Click Start."
+msgstr "Siap. Klik Mulai."
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__model_name
+msgid "Recognition model"
+msgstr "Model pengakuan"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__name
+msgid "Reference"
+msgstr "Referensi"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__message_has_sms_error
+msgid "SMS Delivery error"
+msgstr "Kesalahan Pengiriman SMS`"
+
+#. module: eh_hr_face_kiosk
+#. odoo-javascript
+#: code:addons/eh_hr_face_kiosk/static/src/js/enrolment_widget.js:0
+msgid "Sample %s timed out, retrying"
+msgstr "Sampel %s kehabisan waktu, mencoba lagi"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_enrolment__sample_count
+msgid "Sample count"
+msgstr "Jumlah sampel"
+
+#. module: eh_hr_face_kiosk
+#. odoo-javascript
+#: code:addons/eh_hr_face_kiosk/static/src/xml/enrolment_widget.xml:0
+msgid "Samples:"
+msgstr "Sampel:"
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.view_eh_hr_face_enrolment_form
+msgid "Save consent and enrol"
+msgstr "Simpan persetujuan dan daftarkan"
+
+#. module: eh_hr_face_kiosk
+#. odoo-python
+#: code:addons/eh_hr_face_kiosk/wizards/face_enrolment_wizard.py:0
+msgid "Select an employee."
+msgstr "Pilih karyawan."
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields.selection,name:eh_hr_face_kiosk.selection__eh_hr_face_enrolment__captured_via__portal
+#: model:ir.model.fields.selection,name:eh_hr_face_kiosk.selection__eh_hr_face_template__captured_via__portal
+msgid "Self-service portal"
+msgstr "Portal swalayan"
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.kiosk_shell
+msgid "Site not configured"
+msgstr "Situs belum dikonfigurasi"
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.kiosk_shell
+msgid "Site:"
+msgstr "Situs:"
+
+#. module: eh_hr_face_kiosk
+#. odoo-javascript
+#: code:addons/eh_hr_face_kiosk/static/src/xml/enrolment_widget.xml:0
+msgid "Start capture"
+msgstr "Mulai penangkapan"
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.kiosk_shell
+msgid "Step into view to clock in or clock out."
+msgstr "Masuk ke dalam tampilan untuk absen masuk atau absen keluar."
+
+#. module: eh_hr_face_kiosk
+#. odoo-python
+#: code:addons/eh_hr_face_kiosk/wizards/face_enrolment_wizard.py:0
+msgid ""
+"Stored %(count)s sample(s) for %(name)s. Match confidence improves with "
+"three to five samples in varied lighting."
+msgstr ""
+"%(count)s sampel disimpan untuk %(name)s. Keandalan pencocokan meningkat "
+"dengan tiga hingga lima sampel dalam pencahayaan yang bervariasi."
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.actions.act_window,help:eh_hr_face_kiosk.action_eh_hr_face_template
+msgid ""
+"Templates are stored when an employee enrols at a kiosk or via the Face "
+"enrolment wizard on their employee record. Each row holds one numeric "
+"embedding; it does not hold a photograph."
+msgstr ""
+"Templat disimpan saat karyawan mendaftar di kios atau melalui wizard "
+"Pendaftaran Wajah pada catatan karyawannya. Setiap baris menyimpan satu "
+"embedding numerik; ini tidak menyimpan foto."
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,help:eh_hr_face_kiosk.field_eh_hr_face_template__consent_id
+msgid ""
+"The consent record under which this template was captured. Required by "
+"privacy design: no template exists without a granted consent."
+msgstr ""
+"Catatan persetujuan yang menjadi dasar penangkapan templat ini. Diwajibkan "
+"oleh desain privasi: tidak ada templat yang ada tanpa persetujuan yang "
+"diberikan."
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.kiosk_shell
+msgid ""
+"The face recognition model files are not installed on this server, and the "
+"CDN fallback is disabled by your administrator's policy."
+msgstr ""
+"File model pengenalan wajah tidak terpasang di server ini, dan fallback CDN "
+"dinonaktifkan oleh kebijakan administrator Anda."
+
+#. module: eh_hr_face_kiosk
+#. odoo-python
+#: code:addons/eh_hr_face_kiosk/wizards/face_enrolment_wizard.py:0
+msgid "Tick the consent acknowledgement box before enrolling."
+msgstr "Centang kotak pengakuan persetujuan sebelum mendaftar."
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,help:eh_hr_face_kiosk.field_hr_employee__eh_face_enrolled
+msgid ""
+"True when at least one active face template exists for this employee. "
+"Computed from eh_face_template_ids."
+msgstr ""
+"True ketika terdapat setidaknya satu templat wajah aktif untuk karyawan ini."
+" Dihitung dari eh_face_template_ids."
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.view_eh_hr_face_enrolment_form
+msgid ""
+"Use the camera widget below to capture three to five face samples in varied "
+"head angles and lighting. The widget computes a 128-dim embedding for each "
+"sample locally; no images are sent to the server."
+msgstr ""
+"Gunakan widget kamera di bawah untuk menangkap tiga hingga lima sampel wajah"
+" dalam berbagai sudut kepala dan pencahayaan. Widget menghitung embedding "
+"128 dimensi untuk setiap sampel secara lokal; tidak ada gambar yang dikirim "
+"ke server."
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.view_employee_form_eh_face_kiosk
+msgid "View templates"
+msgstr "Lihat templat"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,field_description:eh_hr_face_kiosk.field_eh_hr_face_template__website_message_ids
+msgid "Website Messages"
+msgstr "Pesan situs"
+
+#. module: eh_hr_face_kiosk
+#: model:ir.model.fields,help:eh_hr_face_kiosk.field_eh_hr_face_template__website_message_ids
+msgid "Website communication history"
+msgstr "Riwayat komunikasi situs"
+
+#. module: eh_hr_face_kiosk
+#: model_terms:ir.ui.view,arch_db:eh_hr_face_kiosk.kiosk_shell
+msgid "Welcome"
+msgstr "Selamat Datang"

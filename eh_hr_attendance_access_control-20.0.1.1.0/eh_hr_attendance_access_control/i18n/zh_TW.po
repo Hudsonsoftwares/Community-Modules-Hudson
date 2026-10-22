@@ -1,0 +1,617 @@
+# Translation of Odoo Server.
+# This file contains the translation of the following modules:
+# 	* eh_hr_attendance_access_control
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Odoo Server 19.0+e\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-07-01 04:33+0000\n"
+"PO-Revision-Date: 2026-07-01 04:33+0000\n"
+"Last-Translator: ERP Heritage <info@erpheritage.com.au>\n"
+"Language-Team: Chinese (Traditional)\n"
+"Language: zh_TW\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+
+#. module: eh_hr_attendance_access_control
+#: model_terms:ir.actions.act_window,help:eh_hr_attendance_access_control.action_eh_hr_access_reader
+msgid ""
+"A reader is the bridge service in front of the door hardware. Set its "
+"webhook URL and (optionally) a bearer token, link it to a zone, and the "
+"kiosk will call it when an authorised employee matches."
+msgstr ""
+"讀卡器是位於門禁硬體前端的橋接服務。設定其 webhook URL 和（可選的）bearer "
+"權杖，將其連結到一個區域，當經授權的員工比對成功時，自助終端將呼叫它。"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model,name:eh_hr_attendance_access_control.model_eh_hr_access_permission
+msgid "Access Permission"
+msgstr "存取權限"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model,name:eh_hr_attendance_access_control.model_eh_hr_access_reader
+msgid "Access Reader"
+msgstr "存取讀取器"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model,name:eh_hr_attendance_access_control.model_eh_hr_access_event
+msgid "Access Unlock Event"
+msgstr "門禁解鎖事件"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model,name:eh_hr_attendance_access_control.model_eh_hr_access_zone
+msgid "Access Zone"
+msgstr "門禁區域"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.ui.menu,name:eh_hr_attendance_access_control.menu_eh_hr_access_root
+msgid "Access control"
+msgstr "存取控制"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_res_company__eh_hr_access_retention_days
+msgid "Access event retention (days)"
+msgstr "門禁事件保留天數（天）"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.actions.act_window,name:eh_hr_attendance_access_control.action_eh_hr_access_event
+#: model_terms:ir.ui.view,arch_db:eh_hr_attendance_access_control.view_eh_hr_access_event_list
+#: model_terms:ir.ui.view,arch_db:eh_hr_attendance_access_control.view_eh_hr_access_event_search
+msgid "Access events"
+msgstr "門禁事件"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.actions.act_window,name:eh_hr_attendance_access_control.action_eh_hr_access_permission
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_hr_employee__eh_access_permission_ids
+#: model_terms:ir.ui.view,arch_db:eh_hr_attendance_access_control.view_eh_hr_access_permission_list
+msgid "Access permissions"
+msgstr "存取權限"
+
+#. module: eh_hr_attendance_access_control
+#: model_terms:ir.ui.view,arch_db:eh_hr_attendance_access_control.view_eh_hr_access_reader_form
+msgid "Access reader"
+msgstr "門禁讀卡機"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.actions.act_window,name:eh_hr_attendance_access_control.action_eh_hr_access_reader
+#: model_terms:ir.ui.view,arch_db:eh_hr_attendance_access_control.view_eh_hr_access_reader_list
+msgid "Access readers"
+msgstr "門禁讀卡機"
+
+#. module: eh_hr_attendance_access_control
+#: model_terms:ir.ui.view,arch_db:eh_hr_attendance_access_control.view_eh_hr_access_zone_form
+msgid "Access zone"
+msgstr "門禁區域"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.actions.act_window,name:eh_hr_attendance_access_control.action_eh_hr_access_zone
+#: model_terms:ir.ui.view,arch_db:eh_hr_attendance_access_control.view_eh_hr_access_zone_list
+msgid "Access zones"
+msgstr "門禁區域"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_reader__message_needaction
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_zone__message_needaction
+msgid "Action Needed"
+msgstr "需要採取行動"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_permission__active
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_reader__active
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_zone__active
+msgid "Active"
+msgstr "啟用"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields.selection,name:eh_hr_attendance_access_control.selection__eh_hr_access_event__outcome__allowed
+#: model_terms:ir.ui.view,arch_db:eh_hr_attendance_access_control.view_eh_hr_access_event_search
+msgid "Allowed"
+msgstr "允許"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.constraint,message:eh_hr_attendance_access_control.constraint_eh_hr_access_permission_unique_employee_zone
+msgid "An employee can have only one permission row per zone."
+msgstr "每位員工在每個區域中只能有一列權限。"
+
+#. module: eh_hr_attendance_access_control
+#: model_terms:ir.ui.view,arch_db:eh_hr_attendance_access_control.view_eh_hr_access_reader_form
+#: model_terms:ir.ui.view,arch_db:eh_hr_attendance_access_control.view_eh_hr_access_zone_form
+msgid "Archived"
+msgstr "已封存"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_reader__message_attachment_count
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_zone__message_attachment_count
+msgid "Attachment Count"
+msgstr "附件數目"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_reader__auto_relock_seconds
+msgid "Auto-relock (seconds)"
+msgstr "自動重新鎖定（秒）"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_reader__bearer_token
+msgid "Bearer token"
+msgstr "Bearer 權杖"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_zone__code
+msgid "Code"
+msgstr "程式碼"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model,name:eh_hr_attendance_access_control.model_res_company
+msgid "Companies"
+msgstr "公司"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_event__company_id
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_permission__company_id
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_reader__company_id
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_zone__company_id
+msgid "Company"
+msgstr "公司"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_event__create_uid
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_permission__create_uid
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_reader__create_uid
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_zone__create_uid
+msgid "Created by"
+msgstr "建立人員"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_event__create_date
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_permission__create_date
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_reader__create_date
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_zone__create_date
+msgid "Created on"
+msgstr "建立於"
+
+#. module: eh_hr_attendance_access_control
+#: model_terms:ir.ui.view,arch_db:eh_hr_attendance_access_control.view_eh_hr_access_event_search
+msgid "Day"
+msgstr "日"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields.selection,name:eh_hr_attendance_access_control.selection__eh_hr_access_reader__last_status__denied
+msgid "Denied"
+msgstr "已拒絕"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields.selection,name:eh_hr_attendance_access_control.selection__eh_hr_access_event__outcome__denied
+#: model_terms:ir.ui.view,arch_db:eh_hr_attendance_access_control.view_eh_hr_access_event_search
+msgid "Denied (no permission)"
+msgstr "已拒絕（無權限）"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields.selection,name:eh_hr_attendance_access_control.selection__eh_hr_access_event__outcome__reader_denied
+msgid "Denied (reader)"
+msgstr "已拒絕（唯讀）"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_event__device_id
+msgid "Device"
+msgstr "設備"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_event__display_name
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_permission__display_name
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_reader__display_name
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_zone__display_name
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_hr_employee__display_name
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_res_company__display_name
+msgid "Display Name"
+msgstr "顯示名稱"
+
+#. module: eh_hr_attendance_access_control
+#: model_terms:ir.ui.view,arch_db:eh_hr_attendance_access_control.view_employee_form_eh_access
+msgid "Door access permissions"
+msgstr "門禁權限"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.actions.server,name:eh_hr_attendance_access_control.cron_eh_hr_access_event_retention_sweep_ir_actions_server
+msgid "ERP Heritage: Access event retention sweep"
+msgstr "ERP Heritage：存取事件保留清理"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_event__elapsed_ms
+msgid "Elapsed (ms)"
+msgstr "耗時 (ms)"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model,name:eh_hr_attendance_access_control.model_hr_employee
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_event__employee_id
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_permission__employee_id
+#: model_terms:ir.ui.view,arch_db:eh_hr_attendance_access_control.view_eh_hr_access_event_search
+msgid "Employee"
+msgstr "員工"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields.selection,name:eh_hr_attendance_access_control.selection__eh_hr_access_reader__last_status__error
+msgid "Error"
+msgstr "錯誤"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.ui.menu,name:eh_hr_attendance_access_control.menu_eh_hr_access_event
+msgid "Events"
+msgstr "活動"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_reader__message_follower_ids
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_zone__message_follower_ids
+msgid "Followers"
+msgstr "關注人"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_reader__message_partner_ids
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_zone__message_partner_ids
+msgid "Followers (Partners)"
+msgstr "關注人（業務夥伴）"
+
+#. module: eh_hr_attendance_access_control
+#: model_terms:ir.ui.view,arch_db:eh_hr_attendance_access_control.view_eh_hr_access_reader_form
+msgid "Front door relay, Server room reader..."
+msgstr "前門繼電器、伺服器機房讀卡機……"
+
+#. module: eh_hr_attendance_access_control
+#: model_terms:ir.ui.view,arch_db:eh_hr_attendance_access_control.view_eh_hr_access_zone_form
+msgid "Front door, Server room..."
+msgstr "前門、伺服器機房……"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,help:eh_hr_attendance_access_control.field_eh_hr_access_reader__webhook_url
+msgid ""
+"HTTP endpoint that the bridge service exposes for unlock commands. We POST a"
+" JSON body to this URL."
+msgstr "橋接服務為解鎖命令公開的 HTTP 端點。我們向此 URL 以 POST 傳送 JSON 主體。"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_reader__timeout_seconds
+msgid "HTTP timeout (seconds)"
+msgstr "HTTP 逾時（秒）"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_reader__has_message
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_zone__has_message
+msgid "Has Message"
+msgstr "有訊息"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_event__id
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_permission__id
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_reader__id
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_zone__id
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_hr_employee__id
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_res_company__id
+msgid "ID"
+msgstr "識別號"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,help:eh_hr_attendance_access_control.field_eh_hr_access_reader__message_needaction
+#: model:ir.model.fields,help:eh_hr_attendance_access_control.field_eh_hr_access_zone__message_needaction
+msgid "If checked, new messages require your attention."
+msgstr "勾選代表有新訊息需要您留意。"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,help:eh_hr_attendance_access_control.field_eh_hr_access_reader__message_has_error
+#: model:ir.model.fields,help:eh_hr_attendance_access_control.field_eh_hr_access_reader__message_has_sms_error
+#: model:ir.model.fields,help:eh_hr_attendance_access_control.field_eh_hr_access_zone__message_has_error
+#: model:ir.model.fields,help:eh_hr_attendance_access_control.field_eh_hr_access_zone__message_has_sms_error
+msgid "If checked, some messages have a delivery error."
+msgstr "勾選代表有訊息發生傳送錯誤。"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_reader__message_is_follower
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_zone__message_is_follower
+msgid "Is Follower"
+msgstr "是關注人"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,help:eh_hr_attendance_access_control.field_eh_hr_access_zone__site_ids
+msgid ""
+"Kiosks at any of these sites can trigger an unlock for this zone, subject to"
+" per-employee permissions."
+msgstr "這些站點中任意一處的自助終端均可觸發此區域的解鎖,但須遵守各員工的權限設定。"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_event__write_uid
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_permission__write_uid
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_reader__write_uid
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_zone__write_uid
+msgid "Last Updated by"
+msgstr "最後更新者"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_event__write_date
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_permission__write_date
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_reader__write_date
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_zone__write_date
+msgid "Last Updated on"
+msgstr "最後更新於"
+
+#. module: eh_hr_attendance_access_control
+#: model_terms:ir.ui.view,arch_db:eh_hr_attendance_access_control.view_eh_hr_access_reader_form
+msgid "Last call"
+msgstr "上次通話"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_reader__last_response
+msgid "Last response"
+msgstr "上次回應"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_reader__last_status
+msgid "Last status"
+msgstr "上次狀態"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_reader__last_unlock_at
+msgid "Last unlock"
+msgstr "上次解鎖"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_reader__message_has_error
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_zone__message_has_error
+msgid "Message Delivery error"
+msgstr "訊息遞送錯誤"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_reader__message_ids
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_zone__message_ids
+msgid "Messages"
+msgstr "訊息"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields.selection,name:eh_hr_attendance_access_control.selection__eh_hr_access_reader__last_status__never
+msgid "Never called"
+msgstr "從未呼叫"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields.selection,name:eh_hr_attendance_access_control.selection__eh_hr_access_event__outcome__no_reader
+msgid "No reader for zone"
+msgstr "該區域沒有讀取器"
+
+#. module: eh_hr_attendance_access_control
+#: model_terms:ir.actions.act_window,help:eh_hr_attendance_access_control.action_eh_hr_access_reader
+msgid "No readers configured yet."
+msgstr "尚未設定讀取器。"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields.selection,name:eh_hr_attendance_access_control.selection__eh_hr_access_event__outcome__no_zone
+msgid "No zone for site"
+msgstr "站點無區域"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_zone__notes
+#: model_terms:ir.ui.view,arch_db:eh_hr_attendance_access_control.view_eh_hr_access_zone_form
+msgid "Notes"
+msgstr "備註"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_reader__message_needaction_counter
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_zone__message_needaction_counter
+msgid "Number of Actions"
+msgstr "動作數量"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_reader__message_has_error_counter
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_zone__message_has_error_counter
+msgid "Number of errors"
+msgstr "錯誤數量"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,help:eh_hr_attendance_access_control.field_eh_hr_access_reader__message_needaction_counter
+#: model:ir.model.fields,help:eh_hr_attendance_access_control.field_eh_hr_access_zone__message_needaction_counter
+msgid "Number of messages requiring action"
+msgstr "需要採取行動的訊息數目"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,help:eh_hr_attendance_access_control.field_eh_hr_access_reader__message_has_error_counter
+#: model:ir.model.fields,help:eh_hr_attendance_access_control.field_eh_hr_access_zone__message_has_error_counter
+msgid "Number of messages with delivery error"
+msgstr "有發送錯誤的郵件數量"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields.selection,name:eh_hr_attendance_access_control.selection__eh_hr_access_reader__last_status__ok
+msgid "OK"
+msgstr "確定"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,help:eh_hr_attendance_access_control.field_eh_hr_access_reader__bearer_token
+msgid ""
+"Optional. When set, the module sends 'Authorization: Bearer ...' on every "
+"webhook call."
+msgstr "選填。設定後，模組會在每次 webhook 呼叫時傳送 'Authorization: Bearer ...'。"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_event__outcome
+#: model_terms:ir.ui.view,arch_db:eh_hr_attendance_access_control.view_eh_hr_access_event_search
+msgid "Outcome"
+msgstr "結果"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.ui.menu,name:eh_hr_attendance_access_control.menu_eh_hr_access_permission
+msgid "Permissions"
+msgstr "許可權限"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_reader__rating_ids
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_zone__rating_ids
+msgid "Ratings"
+msgstr "評分"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_event__reader_id
+msgid "Reader"
+msgstr "讀取器"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields.selection,name:eh_hr_attendance_access_control.selection__eh_hr_access_event__outcome__reader_error
+#: model_terms:ir.ui.view,arch_db:eh_hr_attendance_access_control.view_eh_hr_access_event_search
+msgid "Reader error"
+msgstr "讀取器錯誤"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_reader__name
+msgid "Reader name"
+msgstr "讀取器名稱"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_event__reader_response
+msgid "Reader response"
+msgstr "讀取器回應"
+
+#. module: eh_hr_attendance_access_control
+#. odoo-python
+#: code:addons/eh_hr_attendance_access_control/models/eh_hr_access_reader.py:0
+msgid "Reader test"
+msgstr "讀取器測試"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_zone__reader_ids
+#: model:ir.ui.menu,name:eh_hr_attendance_access_control.menu_eh_hr_access_reader
+#: model_terms:ir.ui.view,arch_db:eh_hr_attendance_access_control.view_eh_hr_access_zone_form
+msgid "Readers"
+msgstr "讀取器"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_event__created_on
+msgid "Recorded on"
+msgstr "記錄日期"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_event__name
+msgid "Reference"
+msgstr "編號"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_reader__message_has_sms_error
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_zone__message_has_sms_error
+msgid "SMS Delivery error"
+msgstr "簡訊發送錯誤"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,help:eh_hr_attendance_access_control.field_eh_hr_access_reader__auto_relock_seconds
+msgid ""
+"Sent to the bridge as 'auto_relock_seconds' so the door can re-lock without "
+"a second call."
+msgstr "以 'auto_relock_seconds' 形式傳送到橋接器，以便門可以在無需第二次呼叫的情況下重新鎖定。"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_event__site_id
+msgid "Site"
+msgstr "網站"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_zone__site_ids
+#: model_terms:ir.ui.view,arch_db:eh_hr_attendance_access_control.view_eh_hr_access_zone_form
+msgid "Sites that grant access here"
+msgstr "在此授予存取權限的站點"
+
+#. module: eh_hr_attendance_access_control
+#. odoo-python
+#: code:addons/eh_hr_attendance_access_control/models/eh_hr_access_reader.py:0
+msgid "Status: %(s)s, %(ms)s ms. %(resp)s"
+msgstr "狀態：%(s)s，%(ms)s 毫秒。%(resp)s"
+
+#. module: eh_hr_attendance_access_control
+#: model_terms:ir.ui.view,arch_db:eh_hr_attendance_access_control.view_eh_hr_access_reader_form
+msgid "Test unlock"
+msgstr "測試解鎖"
+
+#. module: eh_hr_attendance_access_control
+#: model_terms:ir.ui.view,arch_db:eh_hr_attendance_access_control.view_eh_hr_access_reader_form
+msgid ""
+"This will fire an unlock command at the configured webhook URL. Continue?"
+msgstr "這將向已設定的 webhook URL 發送一個解鎖指令。是否繼續？"
+
+#. module: eh_hr_attendance_access_control
+#: model_terms:ir.ui.view,arch_db:eh_hr_attendance_access_control.view_eh_hr_access_event_search
+msgid "Today"
+msgstr "今天"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,help:eh_hr_attendance_access_control.field_eh_hr_access_zone__code
+msgid "URL-safe identifier. Letters, digits, dashes and underscores only."
+msgstr "URL 安全識別碼。僅限字母、數字、連字號和底線。"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_permission__valid_from
+msgid "Valid from"
+msgstr "生效日期"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_permission__valid_to
+msgid "Valid to"
+msgstr "失效日期"
+
+#. module: eh_hr_attendance_access_control
+#. odoo-python
+#: code:addons/eh_hr_attendance_access_control/models/eh_hr_access_permission.py:0
+msgid "Valid to cannot be before valid from."
+msgstr "失效日期不能早於生效日期。"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_reader__webhook_url
+msgid "Webhook URL"
+msgstr "webhook網址"
+
+#. module: eh_hr_attendance_access_control
+#. odoo-python
+#: code:addons/eh_hr_attendance_access_control/models/eh_hr_access_reader.py:0
+msgid "Webhook URL is required."
+msgstr "Webhook URL 為必填項目。"
+
+#. module: eh_hr_attendance_access_control
+#. odoo-python
+#: code:addons/eh_hr_attendance_access_control/models/eh_hr_access_reader.py:0
+msgid "Webhook URL must start with http:// or https://."
+msgstr "Webhook URL 必須以 http:// 或 https:// 開頭。"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_reader__website_message_ids
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_zone__website_message_ids
+msgid "Website Messages"
+msgstr "網站資訊"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,help:eh_hr_attendance_access_control.field_eh_hr_access_reader__website_message_ids
+#: model:ir.model.fields,help:eh_hr_attendance_access_control.field_eh_hr_access_zone__website_message_ids
+msgid "Website communication history"
+msgstr "網站溝通記錄"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_event__zone_id
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_permission__zone_id
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_reader__zone_id
+#: model_terms:ir.ui.view,arch_db:eh_hr_attendance_access_control.view_eh_hr_access_event_search
+msgid "Zone"
+msgstr "區域"
+
+#. module: eh_hr_attendance_access_control
+#. odoo-python
+#: code:addons/eh_hr_attendance_access_control/models/eh_hr_access_zone.py:0
+msgid ""
+"Zone code must be a non-empty string of letters, digits, dashes and "
+"underscores."
+msgstr "區域代碼必須是由字母、數字、連字號和底線組成的非空字串。"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.constraint,message:eh_hr_attendance_access_control.constraint_eh_hr_access_zone_unique_code_per_company
+msgid "Zone code must be unique per company."
+msgstr "每個公司的區域代碼必須唯一。"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.model.fields,field_description:eh_hr_attendance_access_control.field_eh_hr_access_zone__name
+msgid "Zone name"
+msgstr "區域名稱"
+
+#. module: eh_hr_attendance_access_control
+#: model:ir.ui.menu,name:eh_hr_attendance_access_control.menu_eh_hr_access_zone
+msgid "Zones"
+msgstr "區域"

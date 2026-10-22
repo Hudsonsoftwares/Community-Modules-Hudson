@@ -35,9 +35,9 @@ class SignatureUIController(http.Controller):
         # Let's find or create a default root directory
         directory = request.env['dms.directory'].search([], limit=1)
         if not directory:
-            directory = request.env['dms.directory'].create({'name': 'Uploaded for Signature', 'is_root_directory': True})
+            directory = request.env['dms.directory'].sudo().create({'name': 'Uploaded for Signature', 'is_root_directory': True})
             
-        dms_file = request.env['dms.file'].create({
+        dms_file = request.env['dms.file'].sudo().create({
             'name': file_name,
             'directory_id': directory.id,
             'content': file_content

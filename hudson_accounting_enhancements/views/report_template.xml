@@ -9,7 +9,7 @@
                             <t t-foreach="columns" t-as="col">
                                 <th t-attf-class="{{ 'text-end' if col.get('type') == 'monetary' else 'text-start' }}"
                                     style="padding: 12px 8px; font-weight: bold; color: #212529; border-top: none;">
-                                    <t t-esc="col.get('label')"/>
+                                    <t t-out="col.get('label')"/>
                                 </th>
                             </t>
                         </tr>
@@ -39,7 +39,7 @@
                                                     <!-- Expand arrow -->
                                                     <span style="margin-right: 8px; color: #adb5bd; font-size: 0.8em;">▾</span>
                                                 </t>
-                                                <t t-esc="line.get(col.get('field'))"/>
+                                                <t t-out="line.get(col.get('field'))"/>
                                             </div>
                                         </t>
                                         <t t-else="">
@@ -48,11 +48,11 @@
                                                 <t t-set="val" t-value="line.get(col.get('field')) or 0.0"/>
                                                 <span t-attf-style="{{ 'color: #dc3545 !important;' if val &lt; 0 else '' }}"
                                                       t-attf-class="{{ 'text-danger' if val &lt; 0 else '' }}">
-                                                    <t t-esc=" '{:,.2f}'.format(val) "/>
+                                                    <t t-out=" '{:,.2f}'.format(val) "/>
                                                 </span>
                                             </t>
                                             <t t-else="">
-                                                <t t-esc="line.get(col.get('field'))"/>
+                                                <t t-out="line.get(col.get('field'))"/>
                                             </t>
                                         </t>
                                     </td>

@@ -1,0 +1,7 @@
+id,name,model_id,group_id/id,operation,domain
+access_eh_hr_face_template_user,eh.hr.face.template: own only (user),eh.hr.face.template,eh_hr_attendance_base.group_eh_hr_user,r,"[('employee_id.user_id', '=', user.id)]"
+access_eh_hr_face_template_manager,eh.hr.face.template manager,eh.hr.face.template,eh_hr_attendance_base.group_eh_hr_manager,cru,
+access_eh_hr_face_template_admin,eh.hr.face.template admin,eh.hr.face.template,eh_hr_attendance_base.group_eh_hr_admin,crud,
+access_eh_hr_face_template_auditor,eh.hr.face.template auditor,eh.hr.face.template,eh_hr_attendance_base.group_eh_hr_auditor,r,
+rule_eh_hr_face_template_company,eh.hr.face.template: per company,eh.hr.face.template,,crud,"['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]"
+access_eh_hr_face_enrolment_manager,eh.hr.face.enrolment manager,eh.hr.face.enrolment,eh_hr_attendance_base.group_eh_hr_manager,crud,

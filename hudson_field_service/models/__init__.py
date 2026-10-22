@@ -8,3 +8,6 @@ from . import field_service_order
 from . import field_service_project
 from . import field_service_material
 from . import res_config_settings
+from . import field_service_active_timer
+from . import stock_picking
+from . import ir_config_parameter

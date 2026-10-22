@@ -2,7 +2,7 @@
 
 {
     'name': 'Hudson AI Assistant',
-    'version': '19.0.1.0.0',
+    'version': '20.0.1.0.0',
     'category': 'Productivity/AI',
     'sequence': 10,
     'summary': 'Enterprise-grade AI assistant powered by local LM Studio — create records, query data, and get insights using natural language.',
@@ -32,7 +32,7 @@ Features
         'web',
     ],
     'data': [
-        'security/ir.model.access.csv',
+        'security/ir.access.csv',
         'views/hudson_ai_config_views.xml',
         'views/hudson_ai_menu.xml',
     ],

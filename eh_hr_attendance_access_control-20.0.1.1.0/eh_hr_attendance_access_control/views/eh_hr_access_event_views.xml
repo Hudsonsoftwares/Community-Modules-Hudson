@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<odoo>
+    <data>
+
+        <record id="view_eh_hr_access_event_list" model="ir.ui.view">
+            <field name="name">eh.hr.access.event.list</field>
+            <field name="model">eh.hr.access.event</field>
+            <field name="arch" type="xml">
+                <list string="Access events" sample="1" create="false" edit="false" decoration-success="outcome == 'allowed'" decoration-danger="outcome in ('reader_error', 'denied')" decoration-warning="outcome in ('reader_denied', 'no_reader', 'no_zone')">
+                    <field name="created_on"/>
+                    <field name="employee_id"/>
+                    <field name="zone_id"/>
+                    <field name="reader_id"/>
+                    <field name="outcome"/>
+                    <field name="elapsed_ms" optional="hide"/>
+                    <field name="site_id"/>
+                    <field name="company_id" optional="hide" groups="base.group_multi_company"/>
+                </list>
+            </field>
+        </record>
+
+        <record id="view_eh_hr_access_event_search" model="ir.ui.view">
+            <field name="name">eh.hr.access.event.search</field>
+            <field name="model">eh.hr.access.event</field>
+            <field name="arch" type="xml">
+                <search string="Access events">
+                    <field name="employee_id"/>
+                    <field name="zone_id"/>
+                    <field name="reader_id"/>
+                    <field name="site_id"/>
+                    <filter string="Allowed" name="f_allowed" domain="[('outcome', '=', 'allowed')]"/>
+                    <filter string="Denied (no permission)" name="f_denied" domain="[('outcome', '=', 'denied')]"/>
+                    <filter string="Reader error" name="f_error" domain="[('outcome', '=', 'reader_error')]"/>
+                    <separator/>
+                    <filter string="Today" name="f_today" domain="[('created_on', '&gt;=', context_today().strftime('%Y-%m-%d'))]"/>
+                    <group>
+                        <filter string="Outcome" name="g_outcome" context="{'group_by': 'outcome'}"/>
+                        <filter string="Zone" name="g_zone" context="{'group_by': 'zone_id'}"/>
+                        <filter string="Employee" name="g_employee" context="{'group_by': 'employee_id'}"/>
+                        <filter string="Day" name="g_day" context="{'group_by': 'created_on:day'}"/>
+                    </group>
+                </search>
+            </field>
+        </record>
+
+        <record id="action_eh_hr_access_event" model="ir.actions.act_window">
+            <field name="name">Access events</field>
+            <field name="res_model">eh.hr.access.event</field>
+            <field name="view_mode">list</field>
+            <field name="search_view_id" ref="view_eh_hr_access_event_search"/>
+            <field name="context">{'search_default_f_today': 1}</field>
+        </record>
+
+    </data>
+</odoo>

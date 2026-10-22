@@ -1,0 +1,2 @@
+id,name,model_id,group_id/id,operation
+access_hudson_report_export_dms_wizard,hudson.report.export.dms.wizard,hudson.report.export.dms.wizard,base.group_user,crud

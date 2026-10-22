@@ -106,4 +106,116 @@
         </field>
     </record>
 
+    <!-- hudson.loan.line Pivot View (Loans Analysis) -->
+    <record id="view_hudson_loan_line_pivot" model="ir.ui.view">
+        <field name="name">hudson.loan.line.pivot</field>
+        <field name="model">hudson.loan.line</field>
+        <field name="arch" type="xml">
+            <pivot string="Loans Analysis" sample="1">
+                <field name="loan_id" type="row"/>
+                <field name="date" interval="year" type="col"/>
+                <field name="principal" type="measure"/>
+                <field name="interest" type="measure"/>
+                <field name="payment" type="measure"/>
+            </pivot>
+        </field>
+    </record>
+
+    <!-- hudson.loan.line List View -->
+    <record id="view_hudson_loan_line_tree" model="ir.ui.view">
+        <field name="name">hudson.loan.line.list</field>
+        <field name="model">hudson.loan.line</field>
+        <field name="arch" type="xml">
+            <list string="Loans Analysis" create="false" edit="false">
+                <field name="date"/>
+                <field name="loan_id"/>
+                <field name="principal" sum="Total Principal"/>
+                <field name="interest" sum="Total Interest"/>
+                <field name="payment" sum="Total Payment"/>
+                <field name="balance"/>
+                <field name="is_posted" widget="badge" decoration-success="is_posted == True" decoration-muted="is_posted == False"/>
+                <field name="move_id" optional="show"/>
+                <field name="currency_id" column_invisible="True"/>
+                <field name="company_id" optional="hide"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- hudson.loan.line Graph View -->
+    <record id="view_hudson_loan_line_graph" model="ir.ui.view">
+        <field name="name">hudson.loan.line.graph</field>
+        <field name="model">hudson.loan.line</field>
+        <field name="arch" type="xml">
+            <graph string="Loans Analysis" type="bar" sample="1">
+                <field name="date" interval="year"/>
+                <field name="payment" type="measure"/>
+            </graph>
+        </field>
+    </record>
+
+    <!-- hudson.loan.line Search View -->
+    <record id="view_hudson_loan_line_search" model="ir.ui.view">
+        <field name="name">hudson.loan.line.search</field>
+        <field name="model">hudson.loan.line</field>
+        <field name="arch" type="xml">
+            <search string="Loans Analysis">
+                <field name="loan_id"/>
+                <field name="date"/>
+                <filter string="Current" name="current" domain="[('loan_id.state', '=', 'running')]"/>
+                <filter string="Closed" name="closed" domain="[('loan_id.state', '=', 'closed')]"/>
+                <filter string="Draft" name="draft" domain="[('loan_id.state', '=', 'draft')]"/>
+                <separator/>
+                <filter string="Posted" name="posted" domain="[('is_posted', '=', True)]"/>
+                <filter string="Unposted" name="unposted" domain="[('is_posted', '=', False)]"/>
+                <group>
+                    <filter string="Loan" name="group_by_loan" context="{'group_by': 'loan_id'}"/>
+                    <filter string="Month" name="group_by_date_month" context="{'group_by': 'date:month'}"/>
+                    <filter string="Year" name="group_by_date_year" context="{'group_by': 'date:year'}"/>
+                    <filter string="Status" name="group_by_status" context="{'group_by': 'loan_state'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <!-- hudson.loan.line Form View -->
+    <record id="view_hudson_loan_line_form" model="ir.ui.view">
+        <field name="name">hudson.loan.line.form</field>
+        <field name="model">hudson.loan.line</field>
+        <field name="arch" type="xml">
+            <form string="Loan Amortization Line" create="false" edit="false">
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="loan_id"/>
+                            <field name="date"/>
+                            <field name="is_posted"/>
+                            <field name="move_id"/>
+                        </group>
+                        <group>
+                            <field name="principal"/>
+                            <field name="interest"/>
+                            <field name="payment"/>
+                            <field name="balance"/>
+                            <field name="currency_id" invisible="1"/>
+                        </group>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Loans Analysis Action -->
+    <record id="action_hudson_loan_analysis" model="ir.actions.act_window">
+        <field name="name">Loans Analysis</field>
+        <field name="res_model">hudson.loan.line</field>
+        <field name="view_mode">pivot,list,graph,form</field>
+        <field name="search_view_id" ref="view_hudson_loan_line_search"/>
+        <field name="context">{'search_default_current': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                No loan lines found to analyze.
+            </p>
+        </field>
+    </record>
+
 </odoo>

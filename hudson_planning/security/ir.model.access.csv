@@ -1,9 +1,0 @@
-id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
-access_fs_planning_role_user,fs.planning.role.user,model_fs_planning_role,hudson_planning.group_planning_user,1,0,0,0
-access_fs_planning_role_manager,fs.planning.role.manager,model_fs_planning_role,hudson_planning.group_planning_manager,1,1,1,1
-access_fs_shift_template_user,fs.shift.template.user,model_fs_shift_template,hudson_planning.group_planning_user,1,0,0,0
-access_fs_shift_template_manager,fs.shift.template.manager,model_fs_shift_template,hudson_planning.group_planning_manager,1,1,1,1
-access_fs_planning_slot_user,fs.planning.slot.user,model_fs_planning_slot,hudson_planning.group_planning_user,1,1,1,1
-access_fs_planning_slot_manager,fs.planning.slot.manager,model_fs_planning_slot,hudson_planning.group_planning_manager,1,1,1,1
-access_fs_shift_template_apply_wizard,access_fs_shift_template_apply_wizard,model_fs_shift_template_apply_wizard,hudson_planning.group_planning_manager,1,1,1,1
-access_fs_shift_confirm_wizard,access_fs_shift_confirm_wizard,model_fs_shift_confirm_wizard,base.group_user,1,1,1,1

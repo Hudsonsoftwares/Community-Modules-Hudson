@@ -26,26 +26,31 @@ patch(CheckInOut.prototype, {
         }
 
         const photo = this._attendancePhoto;
-        this._attendancePhoto = null; // reset for next time
+        this._attendancePhoto = null; // reset for next attempt
 
-        navigator.geolocation.getCurrentPosition(
-            async ({coords: {latitude, longitude}}) => {
-                await this.orm.call("hr.employee", "update_last_position", [
-                    [this.props.employeeId],
-                    latitude,
-                    longitude
-                ]);
-                await this._executeAttendanceManual(photo, latitude, longitude);
-            },
-            async err => {
-                await this.orm.call("hr.employee", "update_last_position", [
-                    [this.props.employeeId],
-                    false,
-                    false
-                ]);
-                await this._executeAttendanceManual(photo, false, false);
-            }
-        );
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                async ({ coords: { latitude, longitude } }) => {
+                    try {
+                        await this.orm.call("hr.employee", "update_last_position", [
+                            [this.props.employeeId],
+                            latitude,
+                            longitude,
+                        ]);
+                    } catch (e) {
+                        console.warn("Could not update last position:", e);
+                    }
+                    await this._executeAttendanceManual(photo, latitude, longitude);
+                },
+                async (err) => {
+                    console.warn("Geolocation denied or failed in kiosk:", err);
+                    await this._executeAttendanceManual(photo, false, false);
+                },
+                { enableHighAccuracy: true, timeout: 8000 }
+            );
+        } else {
+            await this._executeAttendanceManual(photo, false, false);
+        }
     },
 
     async _executeAttendanceManual(photo, latitude, longitude) {
@@ -61,11 +66,11 @@ patch(CheckInOut.prototype, {
             if (result.action) {
                 this.actionService.doAction(result.action);
             } else if (result.warning) {
-                this.notification.add(result.warning, {type: "danger"});
+                this.notification.add(result.warning, { type: "danger" });
             }
         } catch (error) {
             if (error && error.data && error.data.message) {
-                this.notification.add(error.data.message, {type: "danger"});
+                this.notification.add(error.data.message, { type: "danger", sticky: true });
             } else {
                 throw error;
             }

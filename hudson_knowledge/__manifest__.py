@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     'name': 'Hudson Knowledge',
-    'version': '19.0.1.0.9',
+    'version': '20.0.1.0.13',
     'category': 'Productivity/Knowledge',
     'summary': 'Create, share and manage knowledge articles with a rich text editor',
     'description': """
@@ -26,7 +26,7 @@
     ],
     'data': [
         'security/knowledge_security.xml',
-        'security/ir.model.access.csv',
+        'security/ir.access.csv',
         'data/knowledge_data.xml',
         'views/knowledge_views.xml',
         'views/knowledge_item_views.xml',

@@ -1,0 +1,24 @@
+id,name,model_id,group_id/id,operation,domain
+rule_eh_hr_consent_user_own,EH Consent: own only (user),eh.hr.consent,eh_hr_attendance_base.group_eh_hr_user,r,"[('employee_id.user_id', '=', user.id)]"
+rule_eh_hr_consent_manager_full,EH Consent: full (manager),eh.hr.consent,eh_hr_attendance_base.group_eh_hr_manager,cru,
+rule_eh_hr_consent_manager_full_1,EH Consent: full (manager),eh.hr.consent,eh_hr_attendance_base.group_eh_hr_admin,crud,
+access_eh_hr_consent_auditor,eh.hr.consent auditor,eh.hr.consent,eh_hr_attendance_base.group_eh_hr_auditor,r,
+rule_eh_hr_consent_company,EH Consent: per company,eh.hr.consent,,crud,"[('company_id', 'in', company_ids)]"
+access_eh_hr_kiosk_site_user,eh.hr.kiosk.site user,eh.hr.kiosk.site,eh_hr_attendance_base.group_eh_hr_user,r,
+access_eh_hr_kiosk_site_manager,eh.hr.kiosk.site manager,eh.hr.kiosk.site,eh_hr_attendance_base.group_eh_hr_manager,cru,
+access_eh_hr_kiosk_site_admin,eh.hr.kiosk.site admin,eh.hr.kiosk.site,eh_hr_attendance_base.group_eh_hr_admin,crud,
+access_eh_hr_kiosk_site_auditor,eh.hr.kiosk.site auditor,eh.hr.kiosk.site,eh_hr_attendance_base.group_eh_hr_auditor,r,
+rule_eh_hr_kiosk_site_company,EH Kiosk Site: per company,eh.hr.kiosk.site,,crud,"[('company_id', 'in', company_ids)]"
+access_eh_hr_kiosk_terminal_manager,eh.hr.kiosk.terminal manager,eh.hr.kiosk.terminal,eh_hr_attendance_base.group_eh_hr_manager,r,
+access_eh_hr_kiosk_terminal_admin,eh.hr.kiosk.terminal admin,eh.hr.kiosk.terminal,eh_hr_attendance_base.group_eh_hr_admin,crud,
+access_eh_hr_kiosk_terminal_auditor,eh.hr.kiosk.terminal auditor,eh.hr.kiosk.terminal,eh_hr_attendance_base.group_eh_hr_auditor,r,
+rule_eh_hr_kiosk_terminal_company,EH Kiosk Terminal: per company,eh.hr.kiosk.terminal,,crud,"[('company_id', 'in', company_ids)]"
+access_eh_hr_kiosk_event_manager,eh.hr.kiosk.event manager,eh.hr.kiosk.event,eh_hr_attendance_base.group_eh_hr_manager,r,
+access_eh_hr_kiosk_event_admin,eh.hr.kiosk.event admin,eh.hr.kiosk.event,eh_hr_attendance_base.group_eh_hr_admin,rd,
+access_eh_hr_kiosk_event_auditor,eh.hr.kiosk.event auditor,eh.hr.kiosk.event,eh_hr_attendance_base.group_eh_hr_auditor,r,
+rule_eh_hr_kiosk_event_company,EH Kiosk Event: per company,eh.hr.kiosk.event,,crud,"[('company_id', 'in', company_ids)]"
+rule_eh_hr_attendance_exception_user_own,EH Attendance Exception: own only (user),eh.hr.attendance.exception,eh_hr_attendance_base.group_eh_hr_user,r,"[('employee_id.user_id', '=', user.id)]"
+rule_eh_hr_attendance_exception_manager_full,EH Attendance Exception: full (manager),eh.hr.attendance.exception,eh_hr_attendance_base.group_eh_hr_manager,cru,
+rule_eh_hr_attendance_exception_manager_full_1,EH Attendance Exception: full (manager),eh.hr.attendance.exception,eh_hr_attendance_base.group_eh_hr_admin,crud,
+access_eh_hr_attendance_exception_auditor,eh.hr.attendance.exception auditor,eh.hr.attendance.exception,eh_hr_attendance_base.group_eh_hr_auditor,r,
+rule_eh_hr_attendance_exception_company,EH Attendance Exception: per company,eh.hr.attendance.exception,,crud,"[('company_id', 'in', company_ids)]"

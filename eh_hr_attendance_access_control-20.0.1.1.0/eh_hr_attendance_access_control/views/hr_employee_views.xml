@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<odoo>
+    <data>
+
+        <!-- The page also shows to EH Attendance Users who are HR Officers,
+             and they read only their own door permissions, so the list is for
+             the roles that read them all. -->
+        <record id="view_employee_form_eh_access" model="ir.ui.view">
+            <field name="name">hr.employee.form.eh.access</field>
+            <field name="model">hr.employee</field>
+            <field name="inherit_id" ref="eh_hr_attendance_base.view_employee_form_eh_hr_attendance"/>
+            <field name="arch" type="xml">
+                <xpath expr="//page[@name='page_eh_hr_attendance']" position="inside">
+                    <separator string="Door access permissions"
+                               groups="eh_hr_attendance_base.group_eh_hr_manager,eh_hr_attendance_base.group_eh_hr_auditor"/>
+                    <field name="eh_access_permission_ids"
+                           groups="eh_hr_attendance_base.group_eh_hr_manager,eh_hr_attendance_base.group_eh_hr_auditor">
+                        <list editable="bottom">
+                            <field name="zone_id"/>
+                            <field name="valid_from"/>
+                            <field name="valid_to"/>
+                            <field name="active"/>
+                        </list>
+                    </field>
+                </xpath>
+            </field>
+        </record>
+
+    </data>
+</odoo>

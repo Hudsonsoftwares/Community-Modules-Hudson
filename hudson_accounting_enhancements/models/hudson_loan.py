@@ -60,6 +60,24 @@ class HudsonLoan(models.Model):
         for loan in self:
             loan.move_count = len(loan.move_ids)
             
+    @api.depends('name', 'date', 'duration', 'line_ids.date')
+    def _compute_display_name(self):
+        for loan in self:
+            if loan.line_ids:
+                dates = [d for d in loan.line_ids.mapped('date') if d]
+                if dates:
+                    min_date = min(dates)
+                    max_date = max(dates)
+                    loan.display_name = f"{loan.name}: {min_date.strftime('%m %Y')} - {max_date.strftime('%m %Y')}"
+                    continue
+            if loan.date and loan.duration:
+                from dateutil.relativedelta import relativedelta
+                start = loan.date
+                end = start + relativedelta(months=max(0, loan.duration - 1))
+                loan.display_name = f"{loan.name}: {start.strftime('%m %Y')} - {end.strftime('%m %Y')}"
+            else:
+                loan.display_name = loan.name or _('New Loan')
+
     def action_compute(self):
         self.ensure_one()
         return {
@@ -157,15 +175,19 @@ class HudsonLoanLine(models.Model):
     _description = 'Loan Amortization Line'
     _order = 'date asc'
 
-    loan_id = fields.Many2one('hudson.loan', string='Loan', ondelete='cascade')
-    date = fields.Date(string='Date', required=True)
-    principal = fields.Monetary(string='Principals', currency_field='currency_id')
-    interest = fields.Monetary(string='Interests', currency_field='currency_id')
-    payment = fields.Monetary(string='Payments', currency_field='currency_id')
+    loan_id = fields.Many2one('hudson.loan', string='Loan', ondelete='cascade', index=True)
+    date = fields.Date(string='Date', required=True, index=True)
+    principal = fields.Monetary(string='Principal', currency_field='currency_id')
+    interest = fields.Monetary(string='Interest', currency_field='currency_id')
+    payment = fields.Monetary(string='Payment', currency_field='currency_id')
     balance = fields.Monetary(string='Outstanding Balance', currency_field='currency_id')
     
     move_id = fields.Many2one('account.move', string='Journal Entry', readonly=True)
     is_posted = fields.Boolean(string='Posted', compute='_compute_is_posted', store=True)
+    
+    loan_state = fields.Selection(related='loan_id.state', string='Status', store=True)
+    company_id = fields.Many2one('res.company', related='loan_id.company_id', string='Company', store=True)
+    asset_group = fields.Char(related='loan_id.asset_group', string='Asset Group', store=True)
     
     @api.depends('move_id.state', 'loan_id.skip_until_date', 'loan_id.state', 'date')
     def _compute_is_posted(self):

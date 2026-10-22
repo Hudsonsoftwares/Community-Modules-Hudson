@@ -8,20 +8,20 @@
             <!-- =========================================================== -->
             <div class="sf-navbar d-flex justify-content-between align-items-center px-4 py-3 border-bottom shadow-sm">
                 <div class="d-flex align-items-center">
-                    <t t-foreach="state.workcenters" t-as="wc" t-key="wc.id">
-                        <div t-attf-class="sf-nav-item me-4 fw-bold fs-5 cursor-pointer pb-2 d-flex align-items-center {{ state.selectedWorkcenter === wc.id ? 'border-bottom border-3 border-success text-success' : 'text-dark opacity-75' }}"
+                    <t t-foreach="this.state.workcenters" t-as="wc" t-key="wc.id">
+                        <div t-attf-class="sf-nav-item me-4 fw-bold fs-5 cursor-pointer pb-2 d-flex align-items-center {{ this.state.selectedWorkcenter === wc.id ? 'border-bottom border-3 border-success text-success' : 'text-dark opacity-75' }}"
                              t-on-click="() => this.selectWorkcenter(wc.id)">
-                            <t t-esc="wc.name"/>
+                            <t t-out="wc.name"/>
                             <span class="badge rounded-pill ms-2"
-                                  t-attf-class="{{ state.selectedWorkcenter === wc.id ? 'bg-success text-white' : 'bg-secondary text-white' }}"
+                                  t-attf-class="{{ this.state.selectedWorkcenter === wc.id ? 'bg-success text-white' : 'bg-secondary text-white' }}"
                                   style="font-size: 0.75rem;">
-                                <t t-esc="wc.count"/>
+                                <t t-out="wc.count"/>
                             </span>
                         </div>
                     </t>
                 </div>
-                <div t-if="state.activeEmployee" class="d-flex align-items-center">
-                    <span class="fw-bold me-3 text-success">Logged in: <t t-esc="state.activeEmployee.name"/></span>
+                <div t-if="this.state.activeEmployee" class="d-flex align-items-center">
+                    <span class="fw-bold me-3 text-success">Logged in: <t t-out="this.state.activeEmployee.name"/></span>
                     <button class="btn btn-outline-danger btn-sm rounded-pill" t-on-click="() => this.logoutEmployee()">Sign Out</button>
                 </div>
             </div>
@@ -30,35 +30,35 @@
                 <!-- Left Sidebar (Operators) -->
                 <div class="sf-sidebar border-end p-3 bg-light overflow-auto" style="width: 250px; min-width: 250px;">
                     <h5 class="fw-bold mb-4 text-secondary text-uppercase" style="font-size: 0.85rem; letter-spacing: 1px;">Operators</h5>
-                    <t t-foreach="state.employees" t-as="emp" t-key="emp.id">
-                        <div t-attf-class="d-flex align-items-center mb-3 p-2 rounded cursor-pointer sf-hover-btn {{ state.activeEmployee and state.activeEmployee.id === emp.id ? 'bg-success text-white shadow-sm' : 'bg-white border' }}"
+                    <t t-foreach="this.state.employees" t-as="emp" t-key="emp.id">
+                        <div t-attf-class="d-flex align-items-center mb-3 p-2 rounded cursor-pointer sf-hover-btn {{ this.state.activeEmployee and this.state.activeEmployee.id === emp.id ? 'bg-success text-white shadow-sm' : 'bg-white border' }}"
                              t-on-click="() => this.clickEmployee(emp)">
-                            <div t-attf-class="rounded-circle me-3 d-flex align-items-center justify-content-center {{ state.activeEmployee and state.activeEmployee.id === emp.id ? 'bg-white text-success' : 'bg-secondary text-white' }}" style="width: 36px; height: 36px;">
+                            <div t-attf-class="rounded-circle me-3 d-flex align-items-center justify-content-center {{ this.state.activeEmployee and this.state.activeEmployee.id === emp.id ? 'bg-white text-success' : 'bg-secondary text-white' }}" style="width: 36px; height: 36px;">
                                 <i class="fa fa-user"></i>
                             </div>
-                            <div class="fw-bold"><t t-esc="emp.name"/></div>
+                            <div class="fw-bold"><t t-out="emp.name"/></div>
                         </div>
                     </t>
-                    <div t-if="state.employees.length === 0" class="text-muted small">
+                    <div t-if="this.state.employees.length === 0" class="text-muted small">
                         No employees linked to a system User.
                     </div>
                 </div>
 
                 <!-- Main Content -->
                 <div class="sf-main flex-grow-1 p-4 overflow-auto d-flex flex-wrap align-items-start align-content-start gap-4" style="background-color: #f8f9fa;">
-                    <t t-foreach="state.mos" t-as="mo" t-key="mo.id">
+                    <t t-foreach="this.state.mos" t-as="mo" t-key="mo.id">
                         <div class="sf-wo-card border rounded shadow-sm d-flex flex-column bg-white" style="width: 400px;">
 
                             <!-- LIST VIEW -->
-                            <t t-if="state.activeWoId == null or state.activeWoId != null and !mo.workorders.map(w =&gt; w.id).includes(state.activeWoId)">
+                            <t t-if="!this.isMoActive(mo)">
                                 <div class="p-4 bg-white border-bottom border-secondary-subtle">
                                     <div class="d-flex justify-content-between align-items-center mb-2">
-                                        <h4 class="mb-0 fw-bold"><t t-esc="mo.name"/></h4>
-                                        <span class="badge bg-warning rounded-pill text-dark" t-if="mo.workorders.some(w => w.state === 'progress')">In Progress</span>
+                                        <h4 class="mb-0 fw-bold"><t t-out="mo.name"/></h4>
+                                        <span class="badge bg-warning rounded-pill text-dark" t-if="this.isMoInProgress(mo)">In Progress</span>
                                     </div>
                                     <div class="d-flex justify-content-between fs-5">
-                                        <span class="text-secondary"><t t-esc="mo.product_id[1]"/></span>
-                                        <span class="fw-bold"><t t-esc="mo.qty_producing"/> / <t t-esc="mo.qty_production"/> Units</span>
+                                        <span class="text-secondary"><t t-out="mo.product_id[1]"/></span>
+                                        <span class="fw-bold"><t t-out="mo.qty_producing"/> / <t t-out="mo.qty_production"/> Units</span>
                                     </div>
                                 </div>
                                 <div class="px-4 py-2 bg-white">
@@ -66,8 +66,8 @@
                                         <div t-attf-class="sf-operation-row d-flex justify-content-between align-items-center {{ wo.state === 'ready' ? 'active-clickable' : '' }}"
                                              t-on-click="() => wo.state === 'ready' ? this.actionStartWorkorder(wo.id) : null">
                                             <div class="d-flex align-items-center">
-                                                <span class="badge bg-secondary-subtle text-secondary me-2 p-2" t-if="wo.state !== 'done'"><t t-esc="wo.workcenter_id[1]"/></span>
-                                                <span t-attf-class="fs-6 {{ wo.state === 'done' ? 'text-muted text-decoration-line-through' : '' }}"><t t-esc="wo.name"/></span>
+                                                <span class="badge bg-secondary-subtle text-secondary me-2 p-2" t-if="wo.state !== 'done'"><t t-out="wo.workcenter_id[1]"/></span>
+                                                <span t-attf-class="fs-6 {{ wo.state === 'done' ? 'text-muted text-decoration-line-through' : '' }}"><t t-out="wo.name"/></span>
                                             </div>
                                             <div>
                                                 <i class="fa fa-check text-success ms-2" t-if="wo.state === 'done'"></i>
@@ -86,23 +86,23 @@
                             </t>
 
                             <!-- ACTIVE WORKORDER VIEW -->
-                            <t t-if="state.activeWoId != null and mo.workorders.map(w => w.id).includes(state.activeWoId)">
+                            <t t-if="this.isMoActive(mo)">
                                 <div class="p-4 bg-white flex-grow-1 d-flex flex-column h-100">
                                     <div class="d-flex justify-content-between align-items-center mb-3">
-                                        <h4 class="mb-0 fw-bold text-dark"><t t-esc="mo.name"/></h4>
+                                        <h4 class="mb-0 fw-bold text-dark"><t t-out="mo.name"/></h4>
                                         <div class="d-flex align-items-center gap-2">
                                             <span class="fs-5 fw-bold text-success font-monospace" t-if="this.activeWo.state === 'progress'">
-                                                <t t-esc="this.formatDuration(this.activeWo.date_start, this.activeWo.duration)"/>
+                                                <t t-out="this.formatDuration(this.activeWo.date_start, this.activeWo.duration)"/>
                                             </span>
                                             <div class="bg-primary rounded-circle text-white d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">
                                                 <i class="fa fa-user"></i>
                                             </div>
                                         </div>
                                     </div>
-                                    <div class="mb-1 fs-5 fw-bold text-dark"><t t-esc="this.activeWo.name"/></div>
+                                    <div class="mb-1 fs-5 fw-bold text-dark"><t t-out="this.activeWo.name"/></div>
                                     <div class="d-flex justify-content-between fs-5 text-secondary">
-                                        <span><t t-esc="mo.product_id[1]"/></span>
-                                        <span class="fw-bold text-dark"><t t-esc="mo.qty_producing"/> Units</span>
+                                        <span><t t-out="mo.product_id[1]"/></span>
+                                        <span class="fw-bold text-dark"><t t-out="mo.qty_producing"/> Units</span>
                                     </div>
                                 </div>
                                 <div class="p-3 bg-light border-top border-secondary-subtle d-flex justify-content-between align-items-center mt-auto">
@@ -120,9 +120,9 @@
                         </div>
                     </t>
 
-                    <div t-if="state.mos.length === 0" class="text-muted w-100 text-center mt-5 fs-4">
-                        <t t-if="state.activeEmployee">
-                            No manufacturing orders assigned to <t t-esc="state.activeEmployee.name"/> for this work center.
+                    <div t-if="this.state.mos.length === 0" class="text-muted w-100 text-center mt-5 fs-4">
+                        <t t-if="this.state.activeEmployee">
+                            No manufacturing orders assigned to <t t-out="this.state.activeEmployee.name"/> for this work center.
                         </t>
                         <t t-else="">
                             Please select an operator to view assigned manufacturing orders.
@@ -134,7 +134,7 @@
             <!-- =========================================================== -->
             <!-- OPTIONS MODAL (Enterprise-style 2×3 grid)                   -->
             <!-- =========================================================== -->
-            <div t-if="state.showOptionsModal"
+            <div t-if="this.state.showOptionsModal"
                  class="sf-overlay position-fixed top-0 start-0 w-100 h-100 d-flex justify-content-center align-items-center"
                  style="z-index: 3000; background: rgba(0,0,0,0.45);"
                  t-on-click.self="() => this.closeOptionsModal()">
@@ -149,35 +149,35 @@
                         <div class="row g-3">
                             <div class="col-6">
                                 <button class="sf-option-btn w-100 py-4 border rounded-3 bg-light sf-hover-btn d-flex flex-column align-items-center gap-2"
-                                        t-on-click="() => this.openRegisterQtyModal(state.optionsMoId, state.optionsWoId)">
+                                        t-on-click="() => this.openRegisterQtyModal(this.state.optionsMoId, this.state.optionsWoId)">
                                     <i class="fa fa-plus fs-4"></i>
                                     <span class="fw-semibold text-center">Register Quantity / Lot</span>
                                 </button>
                             </div>
                             <div class="col-6">
                                 <button class="sf-option-btn w-100 py-4 border rounded-3 bg-light sf-hover-btn d-flex flex-column align-items-center gap-2"
-                                        t-on-click="() => this.actionScrap(state.optionsWoId)">
+                                        t-on-click="() => this.actionScrap(this.state.optionsWoId)">
                                     <i class="fa fa-random fs-4"></i>
                                     <span class="fw-semibold">Scrap</span>
                                 </button>
                             </div>
                             <div class="col-6">
                                 <button class="sf-option-btn w-100 py-4 border rounded-3 bg-light sf-hover-btn d-flex flex-column align-items-center gap-2"
-                                        t-on-click="() => this.openAddWorkOrderModal(state.optionsMoId)">
+                                        t-on-click="() => this.openAddWorkOrderModal(this.state.optionsMoId)">
                                     <i class="fa fa-plus fs-4"></i>
                                     <span class="fw-semibold">Add Work Order</span>
                                 </button>
                             </div>
                             <div class="col-6">
                                 <button class="sf-option-btn w-100 py-4 border rounded-3 bg-light sf-hover-btn d-flex flex-column align-items-center gap-2"
-                                        t-on-click="() => this.openCatalogModal(state.optionsMoId)">
+                                        t-on-click="() => this.openCatalogModal(this.state.optionsMoId)">
                                     <i class="fa fa-plus fs-4"></i>
                                     <span class="fw-semibold">Add Component</span>
                                 </button>
                             </div>
                             <div class="col-6">
                                 <button class="sf-option-btn w-100 py-4 border rounded-3 bg-light sf-hover-btn d-flex flex-column align-items-center gap-2"
-                                        t-on-click="() => this.openLogNoteModal(state.optionsMoId)">
+                                        t-on-click="() => this.openLogNoteModal(this.state.optionsMoId)">
                                     <i class="fa fa-sticky-note-o fs-4"></i>
                                     <span class="fw-semibold">Log Note</span>
                                 </button>
@@ -190,7 +190,7 @@
             <!-- =========================================================== -->
             <!-- REGISTER QUANTITY / LOT MODAL                               -->
             <!-- =========================================================== -->
-            <div t-if="state.showRegisterQtyModal"
+            <div t-if="this.state.showRegisterQtyModal"
                  class="sf-overlay position-fixed top-0 start-0 w-100 h-100 d-flex justify-content-center align-items-center"
                  style="z-index: 3100; background: rgba(0,0,0,0.45);">
                 <div class="bg-white rounded-3 shadow-lg" style="width: 460px; max-width: 95vw;">
@@ -201,12 +201,12 @@
                         </button>
                     </div>
                     <div class="p-4 pt-2">
-                        <div class="mb-3" t-if="state.registerProducts.length > 0">
+                        <div class="mb-3" t-if="this.state.registerProducts.length > 0">
                             <label class="form-label fw-semibold">Component</label>
-                            <select class="form-select" t-on-change="onRegisterMoveChange">
-                                <t t-foreach="state.registerProducts" t-as="mv" t-key="mv.id">
-                                    <option t-att-value="mv.id" t-att-selected="mv.id === state.registerSelectedMoveId">
-                                        <t t-esc="mv.product_id[1]"/> (Planned: <t t-esc="mv.product_uom_qty"/>)
+                            <select class="form-select" t-on-change="this.onRegisterMoveChange">
+                                <t t-foreach="this.state.registerProducts" t-as="mv" t-key="mv.id">
+                                    <option t-att-value="mv.id" t-att-selected="mv.id === this.state.registerSelectedMoveId">
+                                        <t t-out="mv.product_id[1]"/> (Planned: <t t-out="mv.product_uom_qty"/>)
                                     </option>
                                 </t>
                             </select>
@@ -214,14 +214,14 @@
                         <div class="mb-3">
                             <label class="form-label fw-semibold">Quantity Done</label>
                             <input type="number" class="form-control" min="0" step="0.01"
-                                   t-att-value="state.registerQtyValue"
-                                   t-on-input="(ev) => state.registerQtyValue = ev.target.value"/>
+                                   t-att-value="this.state.registerQtyValue"
+                                   t-on-input="(ev) => this.state.registerQtyValue = ev.target.value"/>
                         </div>
                         <div class="mb-4">
                             <label class="form-label fw-semibold">Lot / Serial Number <span class="text-muted fw-normal">(optional)</span></label>
                             <input type="text" class="form-control" placeholder="Enter lot or serial number..."
-                                   t-att-value="state.registerLotName"
-                                   t-on-input="(ev) => state.registerLotName = ev.target.value"/>
+                                   t-att-value="this.state.registerLotName"
+                                   t-on-input="(ev) => this.state.registerLotName = ev.target.value"/>
                         </div>
                         <div class="d-flex gap-2 justify-content-end">
                             <button class="btn btn-outline-secondary" t-on-click="() => this.closeRegisterQtyModal()">Cancel</button>
@@ -235,7 +235,7 @@
             <!-- PRODUCT CATALOG MODAL (Add Component)                       -->
             <!-- Enterprise-style full product picker                        -->
             <!-- =========================================================== -->
-            <div t-if="state.showCatalogModal"
+            <div t-if="this.state.showCatalogModal"
                  class="sf-catalog-overlay position-fixed top-0 start-0 w-100 h-100"
                  style="z-index: 3200; background: #fff;">
                 <div class="d-flex flex-column h-100">
@@ -259,25 +259,25 @@
                                 <i class="fa fa-th-list me-1"></i> CATEGORIES
                             </div>
                             <!-- All -->
-                            <div t-attf-class="sf-cat-item {{ !state.catalogSelectedCat and !state.catalogSelectedTag ? 'sf-cat-item-active' : '' }}"
+                            <div t-attf-class="sf-cat-item {{ !this.state.catalogSelectedCat and !this.state.catalogSelectedTag ? 'sf-cat-item-active' : '' }}"
                                  t-on-click="() => this.catalogSelectCategory(null)">All</div>
                             <!-- Individual categories -->
-                            <t t-foreach="state.catalogCategories" t-as="cat" t-key="cat.id">
-                                <div t-attf-class="sf-cat-item {{ state.catalogSelectedCat === cat.id ? 'sf-cat-item-active' : '' }}"
+                            <t t-foreach="this.state.catalogCategories" t-as="cat" t-key="cat.id">
+                                <div t-attf-class="sf-cat-item {{ this.state.catalogSelectedCat === cat.id ? 'sf-cat-item-active' : '' }}"
                                      t-on-click="() => this.catalogSelectCategory(cat.id)">
-                                    <t t-esc="cat.name"/>
+                                    <t t-out="cat.name"/>
                                 </div>
                             </t>
 
                             <!-- Tags (if any) -->
-                            <div t-if="state.catalogTags.length > 0" class="sf-catalog-section-title mt-4 mb-2">
+                            <div t-if="this.state.catalogTags.length > 0" class="sf-catalog-section-title mt-4 mb-2">
                                 <i class="fa fa-tags me-1"></i> TAGS
                             </div>
-                            <t t-foreach="state.catalogTags" t-as="tag" t-key="tag.id">
+                            <t t-foreach="this.state.catalogTags" t-as="tag" t-key="tag.id">
                                 <div class="d-flex justify-content-between align-items-center">
-                                    <div t-attf-class="sf-cat-item flex-grow-1 {{ state.catalogSelectedTag === tag.id ? 'sf-cat-item-active' : '' }}"
+                                    <div t-attf-class="sf-cat-item flex-grow-1 {{ this.state.catalogSelectedTag === tag.id ? 'sf-cat-item-active' : '' }}"
                                          t-on-click="() => this.catalogSelectTag(tag.id)">
-                                        <t t-esc="tag.name"/>
+                                        <t t-out="tag.name"/>
                                     </div>
                                 </div>
                             </t>
@@ -296,7 +296,7 @@
                                         <input type="text" class="form-control border-start-0 ps-0"
                                                placeholder="Search..."
                                                style="border-color: #ced4da;"
-                                               t-att-value="state.catalogSearch"
+                                               t-att-value="this.state.catalogSearch"
                                                t-on-input="(ev) => this.onCatalogSearchInput(ev)"/>
                                         <!-- dropdown arrow to match enterprise look -->
                                         <span class="input-group-text bg-white text-muted" style="border-color: #ced4da; cursor: pointer;">
@@ -306,15 +306,15 @@
                                 </div>
                                 <!-- Pagination info + arrows -->
                                 <div class="d-flex align-items-center gap-2 ms-auto text-muted" style="white-space: nowrap; font-size: 0.9rem;">
-                                    <span t-if="state.catalogTotalCount &gt; 0">
-                                        <t t-esc="this.catalogPageStart"/>-<t t-esc="this.catalogPageEnd"/> / <t t-esc="state.catalogTotalCount"/>
+                                    <span t-if="this.state.catalogTotalCount &gt; 0">
+                                        <t t-out="this.catalogPageStart"/>-<t t-out="this.catalogPageEnd"/> / <t t-out="this.state.catalogTotalCount"/>
                                     </span>
                                     <button class="btn btn-sm btn-outline-secondary sf-page-btn" t-on-click="() => this.catalogPrevPage()"
-                                            t-att-disabled="state.catalogPage &lt;= 1">
+                                            t-att-disabled="this.state.catalogPage &lt;= 1">
                                         <i class="fa fa-chevron-left"></i>
                                     </button>
                                     <button class="btn btn-sm btn-outline-secondary sf-page-btn" t-on-click="() => this.catalogNextPage()"
-                                            t-att-disabled="state.catalogPage * 40 &gt;= state.catalogTotalCount">
+                                            t-att-disabled="this.state.catalogPage * 40 &gt;= this.state.catalogTotalCount">
                                         <i class="fa fa-chevron-right"></i>
                                     </button>
                                 </div>
@@ -323,30 +323,30 @@
                             <!-- Product Grid -->
                             <div class="flex-grow-1 overflow-auto p-3" style="background: #f8f9fa;">
                                 <!-- Loading spinner -->
-                                <div t-if="state.catalogLoading" class="d-flex justify-content-center align-items-center h-100">
+                                <div t-if="this.state.catalogLoading" class="d-flex justify-content-center align-items-center h-100">
                                     <div class="spinner-border text-secondary" role="status">
                                         <span class="visually-hidden">Loading...</span>
                                     </div>
                                 </div>
 
-                                <div t-if="!state.catalogLoading" class="row g-3">
-                                    <t t-foreach="state.catalogProducts" t-as="prod" t-key="prod.id">
+                                <div t-if="!this.state.catalogLoading" class="row g-3">
+                                    <t t-foreach="this.state.catalogProducts" t-as="prod" t-key="prod.id">
                                         <div class="col-6">
                                             <div t-attf-class="sf-product-card h-100 bg-white border rounded p-3 d-flex flex-column {{ this.catalogIsInCart(prod.id) ? 'sf-product-card-selected' : '' }}">
                                                 <!-- Top: text info + image -->
                                                 <div class="d-flex gap-3 flex-grow-1">
                                                     <div class="flex-grow-1 min-w-0">
-                                                        <div class="fw-bold text-dark sf-product-name"><t t-esc="prod.name"/></div>
+                                                        <div class="fw-bold text-dark sf-product-name"><t t-out="prod.name"/></div>
                                                         <div class="text-muted small mt-1" t-if="prod.default_code">
-                                                            <t t-esc="prod.default_code"/>
+                                                            <t t-out="prod.default_code"/>
                                                         </div>
                                                         <!-- Stock availability -->
                                                         <div class="text-muted small mt-1">
                                                             <t t-if="prod.virtual_available and prod.virtual_available != prod.qty_available">
-                                                                <t t-esc="prod.virtual_available"/> Available / <t t-esc="prod.qty_available"/> On Hand
+                                                                <t t-out="prod.virtual_available"/> Available / <t t-out="prod.qty_available"/> On Hand
                                                             </t>
                                                             <t t-else="">
-                                                                <t t-esc="prod.qty_available"/> On Hand
+                                                                <t t-out="prod.qty_available"/> On Hand
                                                             </t>
                                                         </div>
                                                     </div>
@@ -375,7 +375,7 @@
                                                                    t-att-value="this.catalogGetQty(prod.id)"
                                                                    t-on-change="(ev) => this.catalogSetQty(prod.id, ev)"
                                                                    min="1"/>
-                                                            <span class="text-muted small"><t t-esc="this.catalogGetUom(prod.id)"/></span>
+                                                            <span class="text-muted small"><t t-out="this.catalogGetUom(prod.id)"/></span>
                                                             <button class="sf-qty-btn" t-on-click="() => this.catalogIncreaseQty(prod.id)">+</button>
                                                             <button class="btn btn-sm btn-outline-danger sf-remove-btn"
                                                                     t-on-click="() => this.catalogRemoveFromCart(prod.id)">
@@ -388,7 +388,7 @@
                                         </div>
                                     </t>
 
-                                    <div t-if="state.catalogProducts.length === 0 and !state.catalogLoading"
+                                    <div t-if="this.state.catalogProducts.length === 0 and !this.state.catalogLoading"
                                          class="col-12 text-center text-muted py-5 fs-5">
                                         No products found.
                                     </div>
@@ -401,10 +401,10 @@
                                         t-on-click="() => this.closeCatalogModal()">
                                     Back to ShopFloor
                                 </button>
-                                <t t-if="Object.keys(state.catalogCart).length > 0">
+                                <t t-if="this.catalogCartCount > 0">
                                     <button class="btn btn-success px-4 fw-bold"
                                             t-on-click="() => this.submitCatalog()">
-                                        Add <t t-esc="Object.keys(state.catalogCart).length"/> Component(s)
+                                        Add <t t-out="this.catalogCartCount"/> Component(s)
                                     </button>
                                 </t>
                             </div>
@@ -417,7 +417,7 @@
             <!-- =========================================================== -->
             <!-- ADD WORK ORDER MODAL (Enterprise-style form)                -->
             <!-- =========================================================== -->
-            <div t-if="state.showAddWorkOrderModal"
+            <div t-if="this.state.showAddWorkOrderModal"
                  class="sf-overlay position-fixed top-0 start-0 w-100 h-100 d-flex justify-content-center align-items-center"
                  style="z-index: 3100; background: rgba(0,0,0,0.45);">
                 <div class="bg-white rounded-3 shadow-lg" style="width: 580px; max-width: 95vw;">
@@ -434,12 +434,12 @@
                         <div class="sf-wo-form-row">
                             <label class="sf-wo-label">Insert after operation</label>
                             <div class="sf-wo-field">
-                                <select class="form-select sf-wo-select" t-on-change="onAddWorkOrderInsertAfterChange">
+                                <select class="form-select sf-wo-select" t-on-change="this.onAddWorkOrderInsertAfterChange">
                                     <option value="">-- Beginning --</option>
-                                    <t t-foreach="state.addWorkOrderOperations" t-as="op" t-key="op.id">
+                                    <t t-foreach="this.state.addWorkOrderOperations" t-as="op" t-key="op.id">
                                         <option t-att-value="op.id"
-                                                t-att-selected="state.addWorkOrderInsertAfterId === op.id">
-                                            <t t-esc="op.production_id ? op.production_id[1] + ' - ' + op.name : op.name"/>
+                                                t-att-selected="this.state.addWorkOrderInsertAfterId === op.id">
+                                            <t t-out="op.production_id ? op.production_id[1] + ' - ' + op.name : op.name"/>
                                         </option>
                                     </t>
                                 </select>
@@ -451,8 +451,8 @@
                             <label class="sf-wo-label">Title</label>
                             <div class="sf-wo-field">
                                 <input type="text" class="form-control sf-wo-input"
-                                       t-att-value="state.addWorkOrderTitle"
-                                       t-on-input="(ev) => state.addWorkOrderTitle = ev.target.value"/>
+                                       t-att-value="this.state.addWorkOrderTitle"
+                                       t-on-input="(ev) => this.state.addWorkOrderTitle = ev.target.value"/>
                             </div>
                         </div>
 
@@ -460,12 +460,12 @@
                         <div class="sf-wo-form-row">
                             <label class="sf-wo-label">Work Center</label>
                             <div class="sf-wo-field">
-                                <select class="form-select sf-wo-select" t-on-change="onAddWorkOrderWcChange">
+                                <select class="form-select sf-wo-select" t-on-change="this.onAddWorkOrderWcChange">
                                     <option value="">-- Select --</option>
-                                    <t t-foreach="state.addWorkOrderWorkcentersList" t-as="wc" t-key="wc.id">
+                                    <t t-foreach="this.state.addWorkOrderWorkcentersList" t-as="wc" t-key="wc.id">
                                         <option t-att-value="wc.id"
-                                                t-att-selected="state.addWorkOrderWorkcenterId === wc.id">
-                                            <t t-esc="wc.name"/>
+                                                t-att-selected="this.state.addWorkOrderWorkcenterId === wc.id">
+                                            <t t-out="wc.name"/>
                                         </option>
                                     </t>
                                 </select>
@@ -476,11 +476,11 @@
                         <div class="sf-wo-form-row">
                             <label class="sf-wo-label">Expected Duration</label>
                             <div class="sf-wo-field d-flex align-items-center gap-2">
-                                <span class="text-muted" t-if="!state.addWorkOrderDurationMin">0m 0s</span>
+                                <span class="text-muted" t-if="!this.state.addWorkOrderDurationMin">0m 0s</span>
                                 <input type="number" class="form-control sf-wo-input" style="max-width: 100px;"
                                        placeholder="Minutes" min="0"
-                                       t-att-value="state.addWorkOrderDurationMin"
-                                       t-on-input="(ev) => state.addWorkOrderDurationMin = ev.target.value"/>
+                                       t-att-value="this.state.addWorkOrderDurationMin"
+                                       t-on-input="(ev) => this.state.addWorkOrderDurationMin = ev.target.value"/>
                                 <span class="text-muted small">min</span>
                             </div>
                         </div>
@@ -490,8 +490,8 @@
                             <label class="sf-wo-label">Date Start</label>
                             <div class="sf-wo-field">
                                 <input type="datetime-local" class="form-control sf-wo-input"
-                                       t-att-value="state.addWorkOrderDateStart"
-                                       t-on-change="(ev) => state.addWorkOrderDateStart = ev.target.value"/>
+                                       t-att-value="this.state.addWorkOrderDateStart"
+                                       t-on-change="(ev) => this.state.addWorkOrderDateStart = ev.target.value"/>
                             </div>
                         </div>
 
@@ -499,12 +499,12 @@
                         <div class="sf-wo-form-row mb-4">
                             <label class="sf-wo-label">Employee</label>
                             <div class="sf-wo-field">
-                                <select class="form-select sf-wo-select" t-on-change="onAddWorkOrderEmpChange">
+                                <select class="form-select sf-wo-select" t-on-change="this.onAddWorkOrderEmpChange">
                                     <option value="">-- Select --</option>
-                                    <t t-foreach="state.addWorkOrderEmployeesList" t-as="emp" t-key="emp.id">
+                                    <t t-foreach="this.state.addWorkOrderEmployeesList" t-as="emp" t-key="emp.id">
                                         <option t-att-value="emp.id"
-                                                t-att-selected="state.addWorkOrderEmployeeId === emp.id">
-                                            <t t-esc="emp.name"/>
+                                                t-att-selected="this.state.addWorkOrderEmployeeId === emp.id">
+                                            <t t-out="emp.name"/>
                                         </option>
                                     </t>
                                 </select>
@@ -527,7 +527,7 @@
             <!-- =========================================================== -->
             <!-- LOG NOTE MODAL                                              -->
             <!-- =========================================================== -->
-            <div t-if="state.showLogNoteModal"
+            <div t-if="this.state.showLogNoteModal"
                  class="sf-overlay position-fixed top-0 start-0 w-100 h-100 d-flex justify-content-center align-items-center"
                  style="z-index: 3100; background: rgba(0,0,0,0.45);">
                 <div class="bg-white rounded-3 shadow-lg" style="width: 460px; max-width: 95vw;">
@@ -541,8 +541,8 @@
                         <div class="mb-4">
                             <label class="form-label fw-semibold">Note</label>
                             <textarea class="form-control" rows="4" placeholder="Enter your note here..."
-                                      t-att-value="state.logNoteText"
-                                      t-on-input="(ev) => state.logNoteText = ev.target.value"></textarea>
+                                      t-att-value="this.state.logNoteText"
+                                      t-on-input="(ev) => this.state.logNoteText = ev.target.value"></textarea>
                         </div>
                         <div class="d-flex gap-2 justify-content-end">
                             <button class="btn btn-outline-secondary" t-on-click="() => this.closeLogNoteModal()">Cancel</button>
@@ -555,25 +555,25 @@
             <!-- =========================================================== -->
             <!-- PIN Modal Overlay                                           -->
             <!-- =========================================================== -->
-            <div t-if="state.showPinModal"
+            <div t-if="this.state.showPinModal"
                  class="position-absolute top-0 start-0 w-100 h-100 bg-dark bg-opacity-50 d-flex justify-content-center align-items-center"
                  style="z-index: 4000;">
                 <div class="bg-white rounded p-4 shadow-lg text-center" style="width: 350px;">
                     <h4 class="fw-bold mb-3">Sign in</h4>
-                    <p class="text-secondary mb-4">Enter PIN for <strong class="text-dark"><t t-esc="state.pendingEmployee.name"/></strong></p>
+                    <p class="text-secondary mb-4">Enter PIN for <strong class="text-dark"><t t-out="this.state.pendingEmployee.name"/></strong></p>
                     <div class="mb-4 d-flex justify-content-center w-100 p-3 border rounded bg-light" style="min-height: 60px;">
                         <span class="fs-1 fw-bold text-dark" style="letter-spacing: 0.5rem; line-height: 1;">
-                            <t t-esc="'•'.repeat(state.pinInput.length)"/>
+                            <t t-out="'•'.repeat(this.state.pinInput.length)"/>
                         </span>
                     </div>
-                    <div t-if="state.pinError" class="text-danger small fw-bold mb-3">
+                    <div t-if="this.state.pinError" class="text-danger small fw-bold mb-3">
                         Incorrect PIN. Please try again.
                     </div>
                     <div class="row g-2 mb-3">
                         <t t-foreach="[1,2,3,4,5,6,7,8,9]" t-as="num" t-key="num">
                             <div class="col-4">
                                 <button class="btn btn-light border w-100 py-2 fs-4 fw-bold sf-hover-btn"
-                                        t-on-click="() => this.addPinDigit(num)"><t t-esc="num"/></button>
+                                        t-on-click="() => this.addPinDigit(num)"><t t-out="num"/></button>
                             </div>
                         </t>
                         <div class="col-4">

@@ -1,14 +1,46 @@
 /** @odoo-module **/
 
-import { Component, useState, onWillStart, onWillUnmount } from "@odoo/owl";
+import { Component, proxy, onWillStart, onWillUnmount, useProps } from "@odoo/owl";
 import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
+import { standardActionServiceProps } from "@web/webclient/actions/action_plugin";
 
 export class DynamicReport extends Component {
+    props = useProps(standardActionServiceProps);
+
+    _ensureCurrentParams() {
+        if (!this._currentParams) {
+            const initial = this.props?.action?.params ? JSON.parse(JSON.stringify(this.props.action.params)) : {};
+            this._currentParams = initial;
+        }
+        if (!this._currentParams.data) {
+            this._currentParams.data = {};
+        }
+        if (!this._currentParams.data.form) {
+            this._currentParams.data.form = {};
+        }
+        return this._currentParams;
+    }
+
+    _saveParams() {
+        const params = this._ensureCurrentParams();
+        const action = this.props?.action || {};
+        const actionId = action.id || action.tag || this.props?.actionId || 'default';
+        const actionStorageKey = 'hudson_report_params_action_' + actionId;
+        sessionStorage.setItem(actionStorageKey, JSON.stringify(params));
+        if (params.model_name) {
+            sessionStorage.setItem('hudson_report_params_' + params.model_name, JSON.stringify(params));
+        }
+    }
+
+    get reportParams() {
+        return this._ensureCurrentParams();
+    }
+
     setup() {
         this.orm = useService("orm");
         this.action = useService("action");
-        this.state = useState({
+        this.state = proxy({
             title: "Loading...",
             columns: [],
             lines: [],
@@ -17,8 +49,25 @@ export class DynamicReport extends Component {
             alert_message: null,
             filterSummary: {
                 date: 'Fiscal Year',
+                date_type: 'this_year',
+                aged_date_type: 'end_last_year',
+                comparison: 'no_comparison',
+                previous_periods: 1,
+                date_from_cmp: '',
+                date_to_cmp: '',
+                percentage_base: 'revenue',
+                period_order: 'descending',
+                comparison_in: 'amount',
+                rounding: '.',
                 target_move: 'Posted Entries',
                 account_type: 'receivable',
+                account_types: ['receivable', 'payable'],
+                partner_accounts: {
+                    receivable: true,
+                    non_trade_receivable: false,
+                    payable: true,
+                    non_trade_payable: false,
+                },
                 date_basis: 'date_maturity',
                 period_length: 30,
                 show_draft: false,
@@ -30,22 +79,28 @@ export class DynamicReport extends Component {
                 subtotals: false,
                 partners: [],
                 tags: [],
+                analytic_accounts: [],
+                analytic_plans: [],
+                asset_categories: [],
                 gaap: 'Local Gaap',
                 gaap_options: {
                     local_gaap: true
                 }
             },
             available_ledgers: [],
+            percentageMenuOpen: false,
             customDateFrom: '',
             customDateTo: '',
             partnerSearch: '',
             tagSearch: '',
             analyticSearch: '',
             analyticPlanSearch: '',
+            assetCategorySearch: '',
             partnerResults: [],
             tagResults: [],
             analyticResults: [],
             analyticPlanResults: [],
+            assetCategoryResults: [],
             unfoldAll: false,
             model_name: null,
             openDropdownLineId: null,
@@ -127,14 +182,15 @@ export class DynamicReport extends Component {
     }
 
     async fetchData() {
+        const action = this.props?.action || {};
         // Use _currentParams if set (in-place navigation), otherwise fall back to props
-        let params = this._currentParams || this.props.action.params || {};
+        let params = this.reportParams;
         let model_name = params.model_name || this.state.model_name || null;
 
         // Primary storage key is based on model_name; secondary/fallback key is the action ID.
         // We always write to BOTH keys so that back-navigation (where model_name may be missing
         // from the restored props) can still find the full params via the action ID.
-        const actionId = this.props.action.id || this.props.action.tag || 'default';
+        const actionId = action.id || action.tag || this.props?.actionId || 'default';
         const actionStorageKey = 'hudson_report_params_action_' + actionId;
 
         if (params.model_name) {
@@ -163,6 +219,11 @@ export class DynamicReport extends Component {
         this.state.model_name = model_name;
         
         if (!data.form) data.form = {};
+        if (data.date_from && !data.form.date_from) data.form.date_from = data.date_from;
+        if (data.date_to && !data.form.date_to) data.form.date_to = data.date_to;
+        if (data.form.date_from && !data.date_from) data.date_from = data.form.date_from;
+        if (data.form.date_to && !data.date_to) data.date_to = data.form.date_to;
+
         if (!data.form.date_from && !data.form.date_to && model_name !== 'account.aged.report') {
             const now = new Date();
             if (['account.deferred.revenue.report', 'account.deferred.expense.report'].includes(model_name)) {
@@ -170,6 +231,8 @@ export class DynamicReport extends Component {
                 const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
                 data.form.date_from = firstDay.toISOString().split('T')[0];
                 data.form.date_to = lastDay.toISOString().split('T')[0];
+                data.date_from = data.form.date_from;
+                data.date_to = data.form.date_to;
                 const monthName = now.toLocaleString('default', { month: 'short' });
                 this.state.filterSummary.date = `${monthName} ${now.getFullYear()}`;
             } else {
@@ -177,11 +240,22 @@ export class DynamicReport extends Component {
                 const lastDay = new Date(now.getFullYear(), 11, 31);
                 data.form.date_from = firstDay.toISOString().split('T')[0];
                 data.form.date_to = lastDay.toISOString().split('T')[0];
+                data.date_from = data.form.date_from;
+                data.date_to = data.form.date_to;
             }
             if (data.form.used_context) {
                 data.form.used_context.date_from = data.form.date_from;
                 data.form.used_context.date_to = data.form.date_to;
             }
+        }
+
+        if (data.form.date_from) {
+            this.state.customDateFrom = data.form.date_from;
+            this.state.filterSummary.date_from = data.form.date_from;
+        }
+        if (data.form.date_to) {
+            this.state.customDateTo = data.form.date_to;
+            this.state.filterSummary.date_to = data.form.date_to;
         }
 
         // If it's an aged report, try to read the wizard's actual values to populate filterSummary
@@ -222,11 +296,60 @@ export class DynamicReport extends Component {
                             const tags = await this.orm.read('res.partner.category', wiz.partner_category_ids, ['id', 'name']);
                             this.state.filterSummary.tags = tags;
                         }
+                        if (wiz.analytic_account_ids && wiz.analytic_account_ids.length > 0) {
+                            const anAccs = await this.orm.read('account.analytic.account', wiz.analytic_account_ids, ['id', 'name']);
+                            this.state.filterSummary.analytic_accounts = anAccs;
+                        }
                     }
                 } catch (e) {
                     console.warn("Could not read wizard data", e);
                 }
             }
+        }
+
+        // Also restore analytic accounts/plans from form data if not yet populated
+        const currAnAccIds = data.form?.analytic_account_ids || data.analytic_account_ids || [];
+        if (currAnAccIds.length > 0 && (!this.state.filterSummary.analytic_accounts || !this.state.filterSummary.analytic_accounts.length)) {
+            try {
+                const anAccs = await this.orm.read('account.analytic.account', currAnAccIds, ['id', 'name']);
+                this.state.filterSummary.analytic_accounts = anAccs;
+            } catch (e) { }
+        }
+        const currAnPlanIds = data.form?.analytic_plan_ids || data.analytic_plan_ids || [];
+        if (currAnPlanIds.length > 0 && (!this.state.filterSummary.analytic_plans || !this.state.filterSummary.analytic_plans.length)) {
+            try {
+                const anPlans = await this.orm.read('account.analytic.plan', currAnPlanIds, ['id', 'name']);
+                this.state.filterSummary.analytic_plans = anPlans;
+            } catch (e) { }
+        }
+
+        if (['account.partner.ledger', 'account.report.partner.ledger'].includes(model_name)) {
+            const formData = data.form || data;
+            let types = ['receivable', 'payable'];
+            if (formData.account_types && Array.isArray(formData.account_types) && formData.account_types.length > 0) {
+                types = [...formData.account_types];
+            } else if (formData.account_type) {
+                if (formData.account_type === 'receivable') {
+                    types = ['receivable'];
+                } else if (formData.account_type === 'payable') {
+                    types = ['payable'];
+                } else if (formData.account_type === 'all') {
+                    types = ['receivable', 'non_trade_receivable', 'payable', 'non_trade_payable'];
+                } else {
+                    types = ['receivable', 'payable'];
+                }
+            } else {
+                types = ['receivable', 'payable'];
+            }
+            this.state.filterSummary.account_types = types;
+            this.state.filterSummary.partner_accounts = {
+                receivable: types.includes('receivable'),
+                non_trade_receivable: types.includes('non_trade_receivable'),
+                payable: types.includes('payable'),
+                non_trade_payable: types.includes('non_trade_payable'),
+            };
+            formData.account_types = types;
+            data.account_types = types;
         }
 
         const result = await this.orm.call("hudson.dynamic.report", "get_report_data", [
@@ -245,52 +368,79 @@ export class DynamicReport extends Component {
         this.state.title = result.title;
         this.state.columns = result.columns;
         this.state.column_groups = result.column_groups || [];
-        this.state.lines = result.lines;
+        const lines = result.lines || [];
+        for (let i = 0; i < lines.length; i++) {
+            lines[i]._index = i;
+            lines[i].has_children = (i < lines.length - 1) && (lines[i + 1].level > lines[i].level);
+        }
+        this.state.lines = lines;
         this.state.currencyId = result.currency_id;
         this.state.currency_symbol = result.currency_symbol || '₹';
         this.state.alert_message = result.alert_message || null;
         this.state.companies_description = result.companies_description || '';
         this.state.available_ledgers = result.available_ledgers || [];
         
+        if (result.date_from && result.date_to) {
+            this.state.filterSummary.date_from = result.date_from;
+            this.state.filterSummary.date_to = result.date_to;
+            this.state.customDateFrom = result.date_from;
+            this.state.customDateTo = result.date_to;
+        } else if (result.date_to) {
+            this.state.filterSummary.date_to = result.date_to;
+            this.state.customDateTo = result.date_to;
+        }
+        if (result.target_move) {
+            this.state.filterSummary.target_move = (result.target_move === 'posted') ? 'Posted Entries' : 'All Entries';
+        }
+        
         // Setup smart line expansion matching standard ERP reporting
-        this.state.expandedLines = {};
-        if (model_name === 'account.aged.report' || model_name === 'account.print.journal' || model_name === 'account.report.partner.ledger') {
-            // In Aged reports, Journal Audit and Partner Ledger, groups/partners are collapsed by default unless Unfold All is active
+        const expanded = {};
+        if (model_name === 'account.aged.report' || model_name === 'account.report.partner.ledger') {
+            // In Aged reports and Partner Ledger, groups/partners are collapsed by default unless Unfold All is active
             if (this.state.unfoldAll) {
-                for (const line of result.lines) {
-                    this.state.expandedLines[line.id] = true;
+                for (const line of lines) {
+                    expanded[line.id] = true;
+                }
+            }
+        } else if (model_name === 'account.print.journal') {
+            // In Journal Audit, journals (Level 1) are expanded by default so accounts are visible matching Odoo Online
+            for (const line of lines) {
+                if (this.state.unfoldAll || line.level === 1) {
+                    expanded[line.id] = true;
                 }
             }
         } else if (model_name === 'account.cash.flow.wizard') {
             // In Cash Flow Statement, expand Level 1 & 2 by default so sections & sub-lines are visible, while accounts & transactions (Level 3+) stay collapsed
-            for (const line of result.lines) {
+            for (const line of lines) {
                 if (this.state.unfoldAll || line.level <= 2) {
-                    this.state.expandedLines[line.id] = true;
+                    expanded[line.id] = true;
                 }
             }
         } else if (model_name === 'account.report.general.ledger') {
             // In General Ledger, expand Level 1 (Groups) and Level 2 (Accounts) so account headers & transactions are visible
-            for (const line of result.lines) {
+            for (const line of lines) {
                 if (line.level === 1 || line.level === 2) {
-                    this.state.expandedLines[line.id] = true;
+                    expanded[line.id] = true;
                 }
             }
         } else if (model_name === 'account.balance.report') {
             // In Trial Balance, expand Level 1 (Groups) so all accounts are visible
-            for (const line of result.lines) {
+            for (const line of lines) {
                 if (line.level === 1) {
-                    this.state.expandedLines[line.id] = true;
+                    expanded[line.id] = true;
                 }
             }
         } else {
-            for (const line of result.lines) {
-                this.state.expandedLines[line.id] = true;
+            for (const line of lines) {
+                expanded[line.id] = true;
             }
         }
+        this.state.expandedLines = expanded;
     }
 
     async onDateFilter(type) {
-        const data = this.props.action.params.data || {};
+        const params = this._ensureCurrentParams();
+        const data = params.data;
         const form_data = data.form || data;
         const now = new Date();
         
@@ -316,7 +466,6 @@ export class DynamicReport extends Component {
             this.state.filterSummary.date = 'This Quarter';
             this.state.filterSummary.date_type = 'this_quarter';
         } else if (type === 'this_year') {
-            // Assuming Jan-Dec fiscal year for simplicity
             const firstDay = new Date(now.getFullYear(), 0, 1);
             const lastDay = new Date(now.getFullYear(), 11, 31);
             form_data.date_from = firstDay.toISOString().split('T')[0];
@@ -324,15 +473,22 @@ export class DynamicReport extends Component {
             this.state.filterSummary.date = 'Fiscal Year';
             this.state.filterSummary.date_type = 'this_year';
         }
+        data.date_from = form_data.date_from;
+        data.date_to = form_data.date_to;
+        this.state.filterSummary.date_from = form_data.date_from;
+        this.state.filterSummary.date_to = form_data.date_to;
+        this.state.customDateFrom = form_data.date_from;
+        this.state.customDateTo = form_data.date_to;
         
         if (form_data.used_context) {
             form_data.used_context.date_from = form_data.date_from;
             form_data.used_context.date_to = form_data.date_to;
         }
         
-        // Write to wizard to ensure backend sync
-        const wizard_id = this.props.action.params.wizard_id;
-        const model_name = this.props.action.params.model_name;
+        this._saveParams();
+        
+        const wizard_id = params.wizard_id;
+        const model_name = params.model_name;
         if (wizard_id && model_name) {
             try {
                 await this.orm.write(model_name, [wizard_id], {
@@ -340,7 +496,6 @@ export class DynamicReport extends Component {
                     date_to: form_data.date_to,
                 });
             } catch (e) {
-                // Ignore field errors if model doesn't support date_from
                 console.warn("Could not write date fields to wizard", e);
             }
         }
@@ -349,27 +504,44 @@ export class DynamicReport extends Component {
     }
 
     async applyCustomDates() {
-        if (!this.state.customDateFrom || !this.state.customDateTo) return;
+        let fromDate = this.state.customDateFrom;
+        let toDate = this.state.customDateTo;
         
-        const data = this.props.action.params.data || {};
+        if (!fromDate) fromDate = this.state.filterSummary.date_from || toDate;
+        if (!toDate) toDate = this.state.filterSummary.date_to || fromDate;
+        if (!fromDate && !toDate) return;
+        
+        this.state.customDateFrom = fromDate;
+        this.state.customDateTo = toDate;
+        
+        const params = this._ensureCurrentParams();
+        const data = params.data;
         const form_data = data.form || data;
         
-        form_data.date_from = this.state.customDateFrom;
-        form_data.date_to = this.state.customDateTo;
-        this.state.filterSummary.date = `${this.state.customDateFrom} to ${this.state.customDateTo}`;
+        form_data.date_from = fromDate;
+        form_data.date_to = toDate;
+        data.date_from = fromDate;
+        data.date_to = toDate;
+        
+        this.state.filterSummary.date = `${this.formatDateDisplay(fromDate)} to ${this.formatDateDisplay(toDate)}`;
+        this.state.filterSummary.date_type = 'custom';
+        this.state.filterSummary.date_from = fromDate;
+        this.state.filterSummary.date_to = toDate;
         
         if (form_data.used_context) {
-            form_data.used_context.date_from = form_data.date_from;
-            form_data.used_context.date_to = form_data.date_to;
+            form_data.used_context.date_from = fromDate;
+            form_data.used_context.date_to = toDate;
         }
         
-        const wizard_id = this.props.action.params.wizard_id;
-        const model_name = this.props.action.params.model_name;
+        this._saveParams();
+        
+        const wizard_id = params.wizard_id;
+        const model_name = params.model_name;
         if (wizard_id && model_name) {
             try {
                 await this.orm.write(model_name, [wizard_id], {
-                    date_from: form_data.date_from,
-                    date_to: form_data.date_to,
+                    date_from: fromDate,
+                    date_to: toDate,
                 });
             } catch (e) {
                 console.warn("Could not write date fields to wizard", e);
@@ -380,18 +552,24 @@ export class DynamicReport extends Component {
     }
 
     async onTargetMove(type) {
-        const data = this.props.action.params.data || {};
+        const params = this._ensureCurrentParams();
+        const data = params.data;
         const form_data = data.form || data;
         
         form_data.target_move = type;
+        data.target_move = type;
         this.state.filterSummary.target_move = type === 'posted' ? 'Posted Entries' : 'All Entries';
         
-        const wizard_id = this.props.action.params.wizard_id;
-        const model_name = this.props.action.params.model_name;
+        this._saveParams();
+        
+        const wizard_id = params.wizard_id;
+        const model_name = params.model_name;
         if (wizard_id && model_name) {
-            await this.orm.write(model_name, [wizard_id], {
-                target_move: form_data.target_move,
-            });
+            try {
+                await this.orm.write(model_name, [wizard_id], {
+                    target_move: form_data.target_move,
+                });
+            } catch (e) { }
         }
         
         await this.fetchData();
@@ -399,16 +577,56 @@ export class DynamicReport extends Component {
 
     async onComparisonFilter(type) {
         this.state.filterSummary.comparison = type;
-        const data = this.props.action.params.data || {};
+        if (type !== 'percentage') {
+            this.state.percentageMenuOpen = false;
+        }
+        const params = this._ensureCurrentParams ? this._ensureCurrentParams() : this.reportParams;
+        const data = params.data || {};
         const form_data = data.form || data;
+
+        if (!this.state.filterSummary.percentage_base) {
+            this.state.filterSummary.percentage_base = this.isBalanceSheetReport() ? 'total_assets' : 'revenue';
+        }
+
         form_data.comparison = type;
+        data.comparison = type;
         form_data.previous_periods = this.state.filterSummary.previous_periods || 1;
-        if (type === 'specific_date') {
+        data.previous_periods = form_data.previous_periods;
+        form_data.percentage_base = this.state.filterSummary.percentage_base;
+        data.percentage_base = form_data.percentage_base;
+        form_data.period_order = this.state.filterSummary.period_order || 'descending';
+        data.period_order = form_data.period_order;
+        form_data.comparison_in = this.state.filterSummary.comparison_in || 'amount';
+        data.comparison_in = form_data.comparison_in;
+
+        if (type === 'custom_dates' || type === 'specific_date') {
+            if (!this.state.filterSummary.date_from_cmp || !this.state.filterSummary.date_to_cmp) {
+                const df = form_data.date_from || this.state.customDateFrom;
+                const dt = form_data.date_to || this.state.customDateTo;
+                if (df && dt) {
+                    const d1 = new Date(df);
+                    const d2 = new Date(dt);
+                    d1.setFullYear(d1.getFullYear() - 1);
+                    d2.setFullYear(d2.getFullYear() - 1);
+                    this.state.filterSummary.date_from_cmp = d1.toISOString().split('T')[0];
+                    this.state.filterSummary.date_to_cmp = d2.toISOString().split('T')[0];
+                }
+            }
+            form_data.date_from_cmp = this.state.filterSummary.date_from_cmp;
             form_data.date_to_cmp = this.state.filterSummary.date_to_cmp;
+            data.date_from_cmp = form_data.date_from_cmp;
+            data.date_to_cmp = form_data.date_to_cmp;
+        } else {
+            form_data.date_to_cmp = false;
+            form_data.date_from_cmp = false;
+            data.date_to_cmp = false;
+            data.date_from_cmp = false;
         }
         
-        const wizard_id = this.props.action.params.wizard_id;
-        const model_name = this.props.action.params.model_name;
+        if (this._saveParams) this._saveParams();
+
+        const wizard_id = params.wizard_id;
+        const model_name = params.model_name;
         if (wizard_id && model_name) {
             try {
                 // If model supports these fields
@@ -422,9 +640,48 @@ export class DynamicReport extends Component {
         await this.fetchData();
     }
 
+    async onPercentageBaseChange(ev) {
+        this.state.filterSummary.percentage_base = ev.target.value;
+        await this.onComparisonFilter('percentage');
+    }
+
+    async onComparisonOptionsChange() {
+        const data = this.reportParams.data || {};
+        const form_data = data.form || data;
+        form_data.period_order = this.state.filterSummary.period_order || 'descending';
+        form_data.comparison_in = this.state.filterSummary.comparison_in || 'amount';
+        await this.onComparisonFilter(this.state.filterSummary.comparison || 'no_comparison');
+    }
+
+    async onPreviousPeriodsChange(ev) {
+        const val = parseInt(ev.target.value, 10) || 1;
+        this.state.filterSummary.previous_periods = Math.max(1, val);
+        await this.onComparisonFilter('previous_period');
+    }
+
+    async onDateFromCmpChange(ev) {
+        this.state.filterSummary.date_from_cmp = ev.target.value;
+        await this.onComparisonFilter('custom_dates');
+    }
+
+    async onDateToCmpChange(ev) {
+        this.state.filterSummary.date_to_cmp = ev.target.value;
+        await this.onComparisonFilter('custom_dates');
+    }
+
+    async onPeriodOrderChange(ev) {
+        this.state.filterSummary.period_order = ev.target.value;
+        await this.onComparisonOptionsChange();
+    }
+
+    async onComparisonInChange(ev) {
+        this.state.filterSummary.comparison_in = ev.target.value;
+        await this.onComparisonOptionsChange();
+    }
+
     async onRounding(type) {
         this.state.filterSummary.rounding = type;
-        const data = this.props.action.params.data || {};
+        const data = this.reportParams.data || {};
         const form_data = data.form || data;
         form_data.rounding = type;
         await this.fetchData();
@@ -451,18 +708,25 @@ export class DynamicReport extends Component {
             const date = new Date(today.getFullYear(), 0, 0);
             newDate = date.toISOString().split('T')[0];
         } else if (type === 'custom') {
-            newDate = this.state.customDateFrom;
-            if (!newDate) return;
+            newDate = this.state.customDateFrom || this.state.filterSummary.date || today.toISOString().split('T')[0];
         }
 
         this.state.filterSummary.date = newDate;
-        const data = this.props.action.params.data || {};
+        this.state.filterSummary.aged_date_type = type;
+        this.state.customDateFrom = newDate;
+        
+        const params = this._ensureCurrentParams();
+        const data = params.data;
         const form_data = data.form || data;
         form_data.as_of_date = newDate;
         form_data.date_to = newDate;
+        data.as_of_date = newDate;
+        data.date_to = newDate;
 
-        const wizard_id = this.props.action.params.wizard_id;
-        const model_name = this.props.action.params.model_name;
+        this._saveParams();
+
+        const wizard_id = params.wizard_id;
+        const model_name = params.model_name;
         if (wizard_id && model_name === 'account.aged.report') {
             try {
                 await this.orm.write(model_name, [wizard_id], { as_of_date: newDate });
@@ -473,12 +737,12 @@ export class DynamicReport extends Component {
 
     async onAgedAccountFilter(type) {
         this.state.filterSummary.account_type = type;
-        const data = this.props.action.params.data || {};
+        const data = this.reportParams.data || {};
         const form_data = data.form || data;
         form_data.account_type = type;
 
-        const wizard_id = this.props.action.params.wizard_id;
-        const model_name = this.props.action.params.model_name;
+        const wizard_id = this.reportParams.wizard_id;
+        const model_name = this.reportParams.model_name;
         if (wizard_id && model_name === 'account.aged.report') {
             try {
                 await this.orm.write(model_name, [wizard_id], { account_type: type });
@@ -487,14 +751,122 @@ export class DynamicReport extends Component {
         await this.fetchData();
     }
 
+    getPartnerAccountLabel() {
+        const types = this.state.filterSummary.account_types || ['receivable', 'payable'];
+        const hasRec = types.includes('receivable');
+        const hasPay = types.includes('payable');
+        const hasNtRec = types.includes('non_trade_receivable');
+        const hasNtPay = types.includes('non_trade_payable');
+
+        if (types.length === 4) {
+            return 'Account: All';
+        }
+        if (hasRec && hasPay && !hasNtRec && !hasNtPay) {
+            return 'Account: Trade Partners';
+        }
+        if (!hasRec && !hasPay && hasNtRec && hasNtPay) {
+            return 'Account: Non-Trade Partners';
+        }
+        if (types.length === 1) {
+            if (hasRec) return 'Account: Receivable';
+            if (hasPay) return 'Account: Payable';
+            if (hasNtRec) return 'Account: Non Trade Receivable';
+            if (hasNtPay) return 'Account: Non Trade Payable';
+        }
+        const labels = [];
+        if (hasRec) labels.push('Receivable');
+        if (hasNtRec) labels.push('Non Trade Receivable');
+        if (hasPay) labels.push('Payable');
+        if (hasNtPay) labels.push('Non Trade Payable');
+        return 'Account: ' + labels.join(', ');
+    }
+
+    isPartnerAccountTypeSelected(type) {
+        if (this.state.filterSummary.partner_accounts) {
+            return Boolean(this.state.filterSummary.partner_accounts[type]);
+        }
+        const types = this.state.filterSummary.account_types || ['receivable', 'payable'];
+        return types.includes(type);
+    }
+
+    async togglePartnerAccountType(type, ev) {
+        if (ev) {
+            ev.preventDefault();
+            ev.stopPropagation();
+        }
+        let types = [...(this.state.filterSummary.account_types || ['receivable', 'payable'])];
+        if (types.includes(type)) {
+            if (types.length === 1) {
+                return;
+            }
+            types = types.filter(t => t !== type);
+        } else {
+            types.push(type);
+        }
+        this.state.filterSummary.account_types = types;
+        this.state.filterSummary.partner_accounts = {
+            receivable: types.includes('receivable'),
+            non_trade_receivable: types.includes('non_trade_receivable'),
+            payable: types.includes('payable'),
+            non_trade_payable: types.includes('non_trade_payable'),
+        };
+
+        const params = this._ensureCurrentParams();
+        const data = params.data || {};
+        if (!data.form) data.form = {};
+        data.form.account_types = types;
+        data.account_types = types;
+
+        if (types.includes('receivable') && types.includes('payable') && !types.includes('non_trade_receivable') && !types.includes('non_trade_payable')) {
+            data.form.account_type = 'trade';
+        } else if (types.length === 1 && types[0] === 'receivable') {
+            data.form.account_type = 'receivable';
+        } else if (types.length === 1 && types[0] === 'payable') {
+            data.form.account_type = 'payable';
+        } else {
+            data.form.account_type = 'custom';
+        }
+        this.state.filterSummary.account_type = data.form.account_type;
+
+        this._saveParams();
+        await this.fetchData();
+    }
+
+    async onPartnerAccountFilter(type) {
+        let types = ['receivable', 'payable'];
+        if (type === 'receivable') {
+            types = ['receivable'];
+        } else if (type === 'payable') {
+            types = ['payable'];
+        } else if (type === 'all') {
+            types = ['receivable', 'non_trade_receivable', 'payable', 'non_trade_payable'];
+        }
+        this.state.filterSummary.account_types = types;
+        this.state.filterSummary.partner_accounts = {
+            receivable: types.includes('receivable'),
+            non_trade_receivable: types.includes('non_trade_receivable'),
+            payable: types.includes('payable'),
+            non_trade_payable: types.includes('non_trade_payable'),
+        };
+        const params = this._ensureCurrentParams();
+        const data = params.data || {};
+        if (!data.form) data.form = {};
+        data.form.account_types = types;
+        data.account_types = types;
+        data.form.account_type = type;
+        this.state.filterSummary.account_type = type;
+        this._saveParams();
+        await this.fetchData();
+    }
+
     async onAgedBasisFilter(type) {
         this.state.filterSummary.date_basis = type;
-        const data = this.props.action.params.data || {};
+        const data = this.reportParams.data || {};
         const form_data = data.form || data;
         form_data.date_basis = type;
 
-        const wizard_id = this.props.action.params.wizard_id;
-        const model_name = this.props.action.params.model_name;
+        const wizard_id = this.reportParams.wizard_id;
+        const model_name = this.reportParams.model_name;
         if (wizard_id && model_name === 'account.aged.report') {
             try {
                 await this.orm.write(model_name, [wizard_id], { date_basis: type });
@@ -506,12 +878,12 @@ export class DynamicReport extends Component {
     async onAgedPeriodFilter(days) {
         const p = parseInt(days);
         this.state.filterSummary.period_length = p;
-        const data = this.props.action.params.data || {};
+        const data = this.reportParams.data || {};
         const form_data = data.form || data;
         form_data.period_length = p;
 
-        const wizard_id = this.props.action.params.wizard_id;
-        const model_name = this.props.action.params.model_name;
+        const wizard_id = this.reportParams.wizard_id;
+        const model_name = this.reportParams.model_name;
         if (wizard_id && model_name === 'account.aged.report') {
             try {
                 await this.orm.write(model_name, [wizard_id], { period_length: p });
@@ -522,8 +894,8 @@ export class DynamicReport extends Component {
 
     async onAgedToggleOption(option) {
         this.state.filterSummary[option] = !this.state.filterSummary[option];
-        const wizard_id = this.props.action.params.wizard_id;
-        const model_name = this.props.action.params.model_name;
+        const wizard_id = this.reportParams.wizard_id;
+        const model_name = this.reportParams.model_name;
         if (wizard_id && model_name === 'account.aged.report') {
             const vals = {};
             vals[option] = this.state.filterSummary[option];
@@ -604,29 +976,44 @@ export class DynamicReport extends Component {
         this.state.tagResults = [];
     }
 
-    removePartner(pid) {
-        this.state.filterSummary.partners = this.state.filterSummary.partners.filter(p => p.id !== pid);
+    async removePartner(pid) {
+        this.state.filterSummary.partners = (this.state.filterSummary.partners || []).filter(p => p.id !== pid);
+        await this.applyPartnerFilters();
     }
 
-    removeTag(tid) {
-        this.state.filterSummary.tags = this.state.filterSummary.tags.filter(t => t.id !== tid);
+    async removeTag(tid) {
+        this.state.filterSummary.tags = (this.state.filterSummary.tags || []).filter(t => t.id !== tid);
+        await this.applyPartnerFilters();
+    }
+
+    async clearPartnerFilters() {
+        this.state.filterSummary.partners = [];
+        this.state.filterSummary.tags = [];
+        await this.applyPartnerFilters();
     }
 
     async applyPartnerFilters() {
-        const wizard_id = this.props.action.params.wizard_id;
-        const model_name = this.props.action.params.model_name;
+        const wizard_id = this.reportParams.wizard_id;
+        const model_name = this.reportParams.model_name;
+        const partnerIds = (this.state.filterSummary.partners || []).map(p => p.id);
+        const tagIds = (this.state.filterSummary.tags || []).map(t => t.id);
         if (wizard_id && model_name) {
             try {
                 await this.orm.write(model_name, [wizard_id], { 
-                    partner_ids: [[6, 0, this.state.filterSummary.partners.map(p => p.id)]],
-                    partner_category_ids: [[6, 0, this.state.filterSummary.tags.map(t => t.id)]]
+                    partner_ids: [[6, 0, partnerIds]],
+                    partner_category_ids: [[6, 0, tagIds]]
                 });
             } catch (e) { }
         }
-        const data = this.props.action.params.data || {};
+        const data = this.reportParams.data || {};
         const form_data = data.form || data;
-        form_data.partner_ids = this.state.filterSummary.partners.map(p => p.id);
-        form_data.partner_category_ids = this.state.filterSummary.tags.map(t => t.id);
+        form_data.partner_ids = partnerIds;
+        form_data.partner_category_ids = tagIds;
+        if (!form_data.used_context) form_data.used_context = {};
+        form_data.used_context.partner_ids = partnerIds.length > 0 ? partnerIds : false;
+        if (data.form && data.form.used_context) {
+            data.form.used_context.partner_ids = partnerIds.length > 0 ? partnerIds : false;
+        }
         await this.fetchData();
     }
 
@@ -655,34 +1042,44 @@ export class DynamicReport extends Component {
     }
 
     selectAnalyticAccount(a) {
-        if (!this.state.filterSummary.analytic_accounts) this.state.filterSummary.analytic_accounts = [];
-        if (!this.state.filterSummary.analytic_accounts.find(x => x.id === a.id)) {
-            this.state.filterSummary.analytic_accounts.push(a);
+        if (!this.state.filterSummary.analytic_accounts) {
+            this.state.filterSummary.analytic_accounts = [];
+        }
+        if (!this.state.filterSummary.analytic_accounts.some(x => x.id === a.id)) {
+            this.state.filterSummary.analytic_accounts = [...this.state.filterSummary.analytic_accounts, a];
         }
         this.state.analyticSearch = '';
         this.state.analyticResults = [];
     }
 
-    removeAnalyticAccount(aid) {
+    async removeAnalyticAccount(aid) {
         if (this.state.filterSummary.analytic_accounts) {
             this.state.filterSummary.analytic_accounts = this.state.filterSummary.analytic_accounts.filter(a => a.id !== aid);
         }
+        await this.applyAnalyticFilters();
     }
 
     async applyAnalyticFilters() {
-        const wizard_id = this.props.action.params.wizard_id;
-        const model_name = this.props.action.params.model_name;
+        const wizard_id = this.reportParams.wizard_id;
+        const model_name = this.reportParams.model_name;
+        const accountIds = (this.state.filterSummary.analytic_accounts || []).map(a => a.id);
+        const planIds = (this.state.filterSummary.analytic_plans || []).map(p => p.id);
         if (wizard_id && model_name) {
             try {
                 await this.orm.write(model_name, [wizard_id], { 
-                    analytic_account_ids: [[6, 0, (this.state.filterSummary.analytic_accounts || []).map(a => a.id)]]
+                    analytic_account_ids: [[6, 0, accountIds]]
                 });
             } catch (e) { }
         }
-        const data = this.props.action.params.data || {};
+        const data = this.reportParams.data || {};
         const form_data = data.form || data;
-        form_data.analytic_account_ids = (this.state.filterSummary.analytic_accounts || []).map(a => a.id);
-        form_data.analytic_plan_ids = (this.state.filterSummary.analytic_plans || []).map(p => p.id);
+        form_data.analytic_account_ids = accountIds;
+        form_data.analytic_plan_ids = planIds;
+        if (!form_data.used_context) form_data.used_context = {};
+        form_data.used_context.analytic_account_ids = accountIds.length > 0 ? accountIds : false;
+        if (data.form && data.form.used_context) {
+            data.form.used_context.analytic_account_ids = accountIds.length > 0 ? accountIds : false;
+        }
         await this.fetchData();
     }
 
@@ -711,18 +1108,72 @@ export class DynamicReport extends Component {
     }
 
     selectAnalyticPlan(p) {
-        if (!this.state.filterSummary.analytic_plans) this.state.filterSummary.analytic_plans = [];
-        if (!this.state.filterSummary.analytic_plans.find(x => x.id === p.id)) {
-            this.state.filterSummary.analytic_plans.push(p);
+        if (!this.state.filterSummary.analytic_plans) {
+            this.state.filterSummary.analytic_plans = [];
+        }
+        if (!this.state.filterSummary.analytic_plans.some(x => x.id === p.id)) {
+            this.state.filterSummary.analytic_plans = [...this.state.filterSummary.analytic_plans, p];
         }
         this.state.analyticPlanSearch = '';
         this.state.analyticPlanResults = [];
     }
 
-    removeAnalyticPlan(pid) {
+    async removeAnalyticPlan(pid) {
         if (this.state.filterSummary.analytic_plans) {
             this.state.filterSummary.analytic_plans = this.state.filterSummary.analytic_plans.filter(p => p.id !== pid);
         }
+        await this.applyAnalyticFilters();
+    }
+
+    async onAssetCategorySearch(ev) {
+        const val = ev.target.value;
+        if (!val) {
+            await this.loadDefaultAssetCategories();
+            return;
+        }
+        if (this.assetCatTimeout) clearTimeout(this.assetCatTimeout);
+        this.assetCatTimeout = setTimeout(async () => {
+            const results = await this.orm.searchRead('account.asset.category', [['name', 'ilike', val], ['type', '=', 'purchase']], ['id', 'name'], { limit: 10 });
+            this.state.assetCategoryResults = results;
+        }, 300);
+    }
+
+    async loadDefaultAssetCategories() {
+        if (!this.state.assetCategoryResults || this.state.assetCategoryResults.length === 0) {
+            const results = await this.orm.searchRead('account.asset.category', [['type', '=', 'purchase']], ['id', 'name'], { limit: 20, order: 'name asc' });
+            this.state.assetCategoryResults = results;
+        }
+    }
+
+    selectAssetCategory(c) {
+        if (!this.state.filterSummary.asset_categories) {
+            this.state.filterSummary.asset_categories = [];
+        }
+        if (!this.state.filterSummary.asset_categories.some(x => x.id === c.id)) {
+            this.state.filterSummary.asset_categories = [...this.state.filterSummary.asset_categories, c];
+        }
+        this.state.assetCategorySearch = '';
+        this.state.assetCategoryResults = [];
+    }
+
+    async removeAssetCategory(catId) {
+        if (this.state.filterSummary.asset_categories) {
+            this.state.filterSummary.asset_categories = this.state.filterSummary.asset_categories.filter(c => c.id !== catId);
+        }
+        await this.applyAssetCategoryFilters();
+    }
+
+    async clearAssetCategoryFilters() {
+        this.state.filterSummary.asset_categories = [];
+        await this.applyAssetCategoryFilters();
+    }
+
+    async applyAssetCategoryFilters() {
+        const params = this.reportParams;
+        const data = params.data || {};
+        const form_data = data.form || data;
+        form_data.category_ids = (this.state.filterSummary.asset_categories || []).map(c => c.id);
+        await this.loadReportData();
     }
 
     onSearchInput(ev) {
@@ -782,10 +1233,11 @@ export class DynamicReport extends Component {
         
         this.state.filterSummary.gaap = this.getGaapButtonLabel();
         
-        const data = this.props.action.params.data || {};
+        const params = this._ensureCurrentParams();
+        const data = params.data || {};
         const form_data = data.form || data;
         form_data.gaap_options = this.state.filterSummary.gaap_options;
-        
+        this._saveParams();
         await this.fetchData();
     }
 
@@ -795,7 +1247,7 @@ export class DynamicReport extends Component {
 
     async onPartnerAccountFilter(type) {
         this.state.filterSummary.account_type = type;
-        const data = this.props.action.params.data || {};
+        const data = this.reportParams.data || {};
         const form_data = data.form || data;
         form_data.account_type = type;
         await this.fetchData();
@@ -804,8 +1256,15 @@ export class DynamicReport extends Component {
     async switchReport(newModelName) {
         if (this.state.model_name === newModelName) return;
         this.state.model_name = newModelName;
-        this.props.action.params.model_name = newModelName;
-        this.props.action.params.wizard_id = null;
+        if (!this._currentParams) {
+            this._currentParams = Object.assign({}, this.reportParams);
+        }
+        this._currentParams.model_name = newModelName;
+        this._currentParams.wizard_id = null;
+        if (this.props?.action?.params) {
+            this.props.action.params.model_name = newModelName;
+            this.props.action.params.wizard_id = null;
+        }
         await this.fetchData();
     }
 
@@ -822,8 +1281,231 @@ export class DynamicReport extends Component {
         await this.onTargetMove(isDraft ? 'posted' : 'all');
     }
 
-    toggleAnalyticSimulations() {
+    async toggleAnalyticSimulations() {
         this.state.filterSummary.analytic_simulations = !this.state.filterSummary.analytic_simulations;
+        const data = this.reportParams.data || {};
+        const form_data = data.form || data;
+        form_data.analytic_simulations = this.state.filterSummary.analytic_simulations;
+        await this.fetchData();
+    }
+
+    getTargetMoveButtonLabel() {
+        const isDraft = this.state.filterSummary.target_move === 'All Entries';
+        const isAnalyticSim = Boolean(this.state.filterSummary.analytic_simulations);
+        if (isDraft && isAnalyticSim) {
+            return "With Draft Entries, Including Analytic Simulations";
+        } else if (isDraft) {
+            return "With Draft Entries";
+        } else if (isAnalyticSim) {
+            return "Including Analytic Simulations";
+        }
+        return "Posted Entries";
+    }
+
+    isTargetMoveActive() {
+        return this.state.filterSummary.target_move === 'All Entries' || Boolean(this.state.filterSummary.analytic_simulations);
+    }
+
+    isComparisonActive() {
+        const c = this.state.filterSummary.comparison;
+        return Boolean(c && c !== 'no_comparison');
+    }
+
+    getComparisonButtonLabel() {
+        const c = this.state.filterSummary.comparison;
+        if (!c || c === 'no_comparison') return 'Comparison';
+        if (c === 'previous_period') {
+            const periods = this.state.filterSummary.previous_periods || 1;
+            return `Previous Period (${periods})`;
+        }
+        if (c === 'same_last_year') {
+            return 'Same Period Last Year';
+        }
+        if (c === 'percentage') {
+            return `% of ${this.getPercentageBaseLabel()}`;
+        }
+        if (c === 'custom_dates' || c === 'specific_date') {
+            const df = this.state.filterSummary.date_from_cmp;
+            const dt = this.state.filterSummary.date_to_cmp;
+            if (df && dt && df !== dt) {
+                return `${this.formatDateDisplay(df)} to ${this.formatDateDisplay(dt)}`;
+            } else if (dt) {
+                return `As of ${this.formatDateDisplay(dt)}`;
+            }
+            return 'Custom Dates';
+        }
+        return 'Comparison';
+    }
+
+    isComparisonSelected(type) {
+        const c = this.state.filterSummary.comparison;
+        if (type === 'no_comparison') {
+            return !c || c === 'no_comparison';
+        }
+        if (type === 'custom_dates') {
+            return c === 'custom_dates' || c === 'specific_date';
+        }
+        return c === type;
+    }
+
+    isCustomDatesSelected() {
+        return this.isComparisonSelected('custom_dates');
+    }
+
+    onPercentageRowClick() {
+        if (!this.isComparisonSelected('percentage')) {
+            this.state.percentageMenuOpen = true;
+            this.onComparisonFilter('percentage');
+        } else {
+            this.state.percentageMenuOpen = !this.state.percentageMenuOpen;
+        }
+    }
+
+    togglePercentageMenu(ev) {
+        if (ev) ev.stopPropagation();
+        this.state.percentageMenuOpen = !this.state.percentageMenuOpen;
+        if (!this.isComparisonSelected('percentage')) {
+            this.onComparisonFilter('percentage');
+        }
+    }
+
+    async selectPercentageBase(baseId, ev) {
+        if (ev) ev.stopPropagation();
+        this.state.filterSummary.percentage_base = baseId;
+        this.state.percentageMenuOpen = false;
+        await this.onComparisonFilter('percentage');
+    }
+
+    getPercentageBaseName(id) {
+        const opts = this.getPercentageBaseOptions();
+        const match = opts.find(o => o.id === id);
+        if (match) return match.name;
+        return (id || '').replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) || 'Revenue';
+    }
+
+    getPercentageBaseLabel() {
+        if (!this.isComparisonSelected('percentage') && !this.state.percentageMenuOpen) {
+            return '';
+        }
+        let base = this.state.filterSummary.percentage_base;
+        if (!base) {
+            base = this.isBalanceSheetReport() ? 'total_assets' : 'revenue';
+            this.state.filterSummary.percentage_base = base;
+        }
+        return this.getPercentageBaseName(base);
+    }
+
+    getPercentageBaseOptions() {
+        const options = [
+            // Standard P&L sections / account types (exact match with user's image)
+            { id: 'revenue', name: 'Revenue' },
+            { id: 'costs_of_revenue', name: 'Costs of Revenue' },
+            { id: 'gross_profit', name: 'Gross Profit' },
+            { id: 'operating_expenses', name: 'Operating Expenses' },
+            { id: 'operating_income', name: 'Operating Income (or Loss)' },
+            { id: 'other_income', name: 'Other Income' },
+            { id: 'other_expenses', name: 'Other Expenses' },
+            { id: 'net_profit', name: 'Net Profit' },
+            { id: 'allocations', name: 'Allocations and Withdrawals' },
+
+            // Standard Balance Sheet sections / account types
+            { id: 'total_assets', name: 'Total Assets' },
+            { id: 'current_assets', name: 'Current Assets' },
+            { id: 'bank_and_cash', name: 'Bank and Cash' },
+            { id: 'receivables', name: 'Receivables' },
+            { id: 'prepayments', name: 'Prepayments' },
+            { id: 'fixed_assets', name: 'Fixed Assets' },
+            { id: 'non_current_assets', name: 'Non-current Assets' },
+            { id: 'total_liabilities', name: 'Total Liabilities' },
+            { id: 'current_liabilities', name: 'Current Liabilities' },
+            { id: 'payables', name: 'Payables' },
+            { id: 'non_current_liabilities', name: 'Non-current Liabilities' },
+            { id: 'total_equity', name: 'Total Equity' },
+            { id: 'retained_earnings', name: 'Retained Earnings' },
+            { id: 'total_liabilities_equity', name: 'Total Liabilities & Equity' },
+        ];
+
+        // Dynamically append any report sections from active report lines
+        if (this.state.lines && this.state.lines.length) {
+            for (const l of this.state.lines) {
+                if ((l.level === 1 || l.level === 2) && l.name && !l.is_summary_banner) {
+                    const cleanName = l.name.trim();
+                    const cleanId = cleanName.toLowerCase().replace(/[^a-z0-9]+/g, '_');
+                    if (cleanName && !options.some(o => o.id === cleanId || o.name.toLowerCase() === cleanName.toLowerCase())) {
+                        options.push({ id: cleanId, name: cleanName });
+                    }
+                }
+            }
+        }
+
+        return options;
+    }
+
+    isBalanceSheetReport() {
+        const title = (this.state.title || '').toLowerCase();
+        const model = this.state.model_name || '';
+        if (title.includes('balance sheet')) return true;
+        if (model === 'account.financial.report' && !title.includes('profit') && !title.includes('loss') && !title.includes('income')) return true;
+        return false;
+    }
+
+    isProfitAndLossReport() {
+        if (this.isBalanceSheetReport()) return false;
+        const title = (this.state.title || '').toLowerCase();
+        const model = this.state.model_name || '';
+        return title.includes('profit') || title.includes('loss') || title.includes('income') ||
+               model === 'account.profit.and.loss';
+    }
+
+    formatDateRangeLabel(dateFrom, dateTo) {
+        if (!dateFrom || !dateTo) return 'Fiscal Year';
+        const d1 = new Date(dateFrom + 'T00:00:00');
+        const d2 = new Date(dateTo + 'T00:00:00');
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        const m1 = months[d1.getMonth()];
+        const y1 = d1.getFullYear();
+        const m2 = months[d2.getMonth()];
+        const y2 = d2.getFullYear();
+        if (y1 === y2) {
+            if (m1 === 'Jan' && m2 === 'Dec') {
+                return `${y1}`;
+            }
+            return `${m1} - ${m2} ${y1}`;
+        }
+        return `${m1} ${y1} - ${m2} ${y2}`;
+    }
+
+    getDateButtonLabel() {
+        const t = this.state.filterSummary.date_type;
+        if (t === 'today') return 'Today';
+        if (t === 'this_month') return 'This Month';
+        if (t === 'this_quarter') return 'This Quarter';
+        if (t === 'this_year') {
+            if (this.state.filterSummary.date_from && this.state.filterSummary.date_to) {
+                return this.formatDateRangeLabel(this.state.filterSummary.date_from, this.state.filterSummary.date_to);
+            }
+            return 'Fiscal Year';
+        }
+        if (t === 'custom') {
+            if (this.state.filterSummary.date_from && this.state.filterSummary.date_to) {
+                return `${this.formatDateDisplay(this.state.filterSummary.date_from)} to ${this.formatDateDisplay(this.state.filterSummary.date_to)}`;
+            }
+            return this.state.filterSummary.date || 'Custom Dates';
+        }
+        if (this.state.filterSummary.date_from && this.state.filterSummary.date_to) {
+            return this.formatDateRangeLabel(this.state.filterSummary.date_from, this.state.filterSummary.date_to);
+        }
+        return this.state.filterSummary.date || 'Fiscal Year';
+    }
+
+    getAgedDateButtonLabel() {
+        const t = this.state.filterSummary.aged_date_type;
+        if (t === 'today') return 'Today';
+        if (t === 'end_last_month') return 'End of Last Month';
+        if (t === 'end_last_quarter') return 'End of Last Quarter';
+        if (t === 'end_last_year') return 'End of Last Financial Year';
+        if (t === 'custom') return `As of: ${this.formatDateDisplay(this.state.filterSummary.date)}`;
+        return `As of: ${this.formatDateDisplay(this.state.filterSummary.date)}`;
     }
 
     toggleSubtotals() {
@@ -847,7 +1529,7 @@ export class DynamicReport extends Component {
 
     hasNonZeroChildren(line) {
         const lines = this.state.lines;
-        const index = lines.indexOf(line);
+        const index = this.getLineIndex(line);
         if (index === -1) return false;
         for (let i = index + 1; i < lines.length; i++) {
             if (lines[i].level <= line.level) break;
@@ -1005,8 +1687,19 @@ export class DynamicReport extends Component {
         return lines.slice(mid);
     }
 
+    getLineIndex(line) {
+        if (!line) return -1;
+        if (line._index !== undefined) return line._index;
+        const lines = this.state.lines;
+        if (!lines || !lines.length) return -1;
+        const idx = lines.indexOf(line);
+        if (idx !== -1) return idx;
+        return lines.findIndex(l => l.id === line.id);
+    }
+
     toggleExpand(lineId) {
-        this.state.expandedLines[lineId] = !this.state.expandedLines[lineId];
+        const isExp = !this.state.expandedLines[lineId];
+        this.state.expandedLines = Object.assign({}, this.state.expandedLines, { [lineId]: isExp });
     }
 
     isVisible(line) {
@@ -1030,10 +1723,12 @@ export class DynamicReport extends Component {
                 
                 // If it's a parent line and has children matching, show parent
                 const lines = this.state.lines;
-                const index = lines.indexOf(line);
-                for (let i = index + 1; i < lines.length; i++) {
-                    if (lines[i].level <= line.level) break;
-                    if (matches(lines[i])) return true;
+                const index = this.getLineIndex(line);
+                if (index !== -1) {
+                    for (let i = index + 1; i < lines.length; i++) {
+                        if (lines[i].level <= line.level) break;
+                        if (matches(lines[i])) return true;
+                    }
                 }
                 return false;
             }
@@ -1042,7 +1737,8 @@ export class DynamicReport extends Component {
         if (line.level === 1) return true;
         
         const lines = this.state.lines;
-        const index = lines.indexOf(line);
+        const index = this.getLineIndex(line);
+        if (index === -1) return true;
         for (let i = index - 1; i >= 0; i--) {
             if (lines[i].level < line.level) {
                 if (!this.state.expandedLines[lines[i].id]) {
@@ -1083,20 +1779,104 @@ export class DynamicReport extends Component {
         return dateStr;
     }
 
+    parseNumericValue(val) {
+        if (val === undefined || val === null || val === '' || val === '—' || val === '-') return null;
+        if (typeof val === 'number') return val;
+        let s = String(val).replace(/[%$₹€£,\s]/g, '').trim();
+        if (s === '' || s === '-' || s === '—') return null;
+        let num = parseFloat(s);
+        return isNaN(num) ? null : num;
+    }
+
     isNegativeValue(val) {
-        if (val === undefined || val === null || val === '') return false;
-        return (Number(val) || 0) < -0.005;
+        const num = this.parseNumericValue(val);
+        if (num === null) return false;
+        return num < -0.005;
     }
 
     isZeroValue(val) {
-        if (val === undefined || val === null || val === '') return true;
-        return Math.abs(Number(val) || 0) < 0.005;
+        const num = this.parseNumericValue(val);
+        if (num === null) return true;
+        return Math.abs(num) < 0.005;
+    }
+
+    isPositiveValue(val) {
+        const num = this.parseNumericValue(val);
+        if (num === null) return false;
+        return num > 0.005;
+    }
+
+    getColumnClass(col) {
+        if (!col) return '';
+        const field = (col.field || '').replace(/_/g, '-');
+        const fieldClass = field ? `col-${field}` : '';
+        if (col.type === 'monetary' || col.type === 'percentage') {
+            return `col-monetary ${fieldClass}`.trim();
+        }
+        if (col.type === 'integer') {
+            return `text-center ${fieldClass}`.trim();
+        }
+        return fieldClass;
+    }
+
+    getMonetaryValueClass(val) {
+        if (this.isZeroValue(val)) return 'o_report_val_zero';
+        if (this.isNegativeValue(val)) return 'o_report_val_negative';
+        return 'o_report_val_positive';
+    }
+
+    getCellValueClass(val, col) {
+        if (!col) return '';
+        if (col.type === 'percentage' || (col.field && (col.field === 'percentage_val' || col.field.endsWith('_pct')))) {
+            if (this.isZeroValue(val)) return 'o_report_val_zero';
+            if (this.isNegativeValue(val)) return 'o_report_pct_negative text-danger fw-semibold';
+            if (this.isPositiveValue(val)) return 'o_report_pct_positive text-success fw-semibold';
+            return 'o_report_val_zero';
+        }
+        if (col.type === 'monetary') {
+            if (this.isZeroValue(val)) return 'o_report_val_zero';
+            if (this.isNegativeValue(val)) return 'o_report_val_negative';
+            return 'o_report_val_positive';
+        }
+        return '';
+    }
+
+    formatCellValue(value, line, col) {
+        if (!col) return value || '';
+        if (col.type === 'monetary') {
+            return this.formatMonetary(value, line, col);
+        }
+        if (col.type === 'percentage' || (col.field && (col.field === 'percentage_val' || col.field.endsWith('_pct')))) {
+            if (value === null || value === undefined || value === '') return '';
+            if (typeof value === 'string' && value.includes('%')) {
+                let num = this.parseNumericValue(value);
+                if (num !== null && (Math.abs(num) < 0.005 || Object.is(num, -0))) {
+                    return '0.00 %';
+                }
+                return value;
+            }
+            let num = this.parseNumericValue(value);
+            if (num === null) return value || '';
+            if (Math.abs(num) < 0.005 || Object.is(num, -0)) num = 0;
+            return `${num.toFixed(2)} %`;
+        }
+        if (col.type === 'integer') {
+            if (value === null || value === undefined || value === '') return '';
+            let num = Number(value);
+            if (isNaN(num)) return value;
+            if (Math.abs(num) < 0.005 || Object.is(num, -0)) num = 0;
+            return String(num);
+        }
+        return value || '';
     }
 
     formatMonetary(value, line, col) {
         if (value === undefined || value === null || value === '') return "";
         let num = Number(value);
         if (isNaN(num)) return value;
+        if (Math.abs(num) < 0.005 || Object.is(num, -0)) {
+            num = 0;
+        }
         const rounding = this.state.filterSummary.rounding !== undefined ? this.state.filterSummary.rounding : '.';
         if (rounding === 'K') {
             num = num / 1000;
@@ -1104,6 +1884,9 @@ export class DynamicReport extends Component {
             num = num / 100000;
         } else if (rounding === 'M') {
             num = num / 1000000;
+        }
+        if (Math.abs(num) < 0.005 || Object.is(num, -0)) {
+            num = 0;
         }
         const decimals = (rounding === '.') ? 2 : 0;
         const formatted = num.toLocaleString('en-IN', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
@@ -1140,21 +1923,29 @@ export class DynamicReport extends Component {
     }
 
     hasChildren(line) {
+        if (!line) return false;
+        if (line.has_children !== undefined) {
+            return Boolean(line.has_children);
+        }
         const lines = this.state.lines;
-        const index = lines.indexOf(line);
-        if (index < lines.length - 1) {
+        const index = this.getLineIndex(line);
+        if (index !== -1 && index < lines.length - 1) {
             return lines[index + 1].level > line.level;
         }
         return false;
     }
     
     async onLineClicked(line) {
-        const params = this.props.action.params || {};
+        const params = this.reportParams;
         const model_name = params.model_name;
         const data = params.data || {};
         const form_data = data.form || data;
         
-        // Toggle expand for group lines when row is clicked
+        // Toggle expand for expandable lines when row is clicked (if not clicking directly into a transaction/move)
+        if (this.hasChildren(line) && !line.move_id && line.type !== 'move_line' && !line.move_line_id && line.type !== 'account') {
+            this.toggleExpand(line.id);
+            return;
+        }
         if (line.type === 'group' && this.hasChildren(line)) {
             this.toggleExpand(line.id);
             return;
@@ -1191,6 +1982,20 @@ export class DynamicReport extends Component {
                 return;
             }
         }
+
+        // Click on an Asset line (Depreciation Schedule)
+        if (line.asset_id || (line.res_model === 'account.asset.asset' && line.res_id)) {
+            const assetId = line.asset_id || line.res_id;
+            await this.action.doAction({
+                type: 'ir.actions.act_window',
+                name: line.name || 'Asset',
+                res_model: 'account.asset.asset',
+                res_id: assetId,
+                view_mode: 'form',
+                views: [[false, 'form']],
+            });
+            return;
+        }
         
         // 2. Click on an Account line (Trial Balance, General Ledger, Cash Flow, Balance Sheet, P&L)
         if (line.type === 'account') {
@@ -1203,6 +2008,9 @@ export class DynamicReport extends Component {
             } else if (line.name) {
                 const code = line.name.split(' ')[0];
                 domain.push(['account_id.code', '=', code]);
+            }
+            if (line.journal_id) {
+                domain.push(['journal_id', '=', line.journal_id]);
             }
             
             if (date_from) domain.push(['date', '>=', date_from]);
@@ -1223,7 +2031,7 @@ export class DynamicReport extends Component {
     async onAuditTax(line) {
         if (!line.tax_id) return;
         
-        const params = this.props.action.params || {};
+        const params = this.reportParams;
         const data = params.data || {};
         const form_data = data.form || data;
         
@@ -1249,11 +2057,21 @@ export class DynamicReport extends Component {
     }
 
     async onActionClicked(line, actionName) {
-        const params = this.props.action.params || {};
+        const params = this.reportParams;
         const data = params.data || {};
         const form_data = data.form || data;
         
-        if (actionName === 'open_partner' && line.partner_id) {
+        if (actionName === 'open_asset' && (line.asset_id || line.res_id)) {
+            await this.action.doAction({
+                type: 'ir.actions.act_window',
+                name: line.name || 'Asset',
+                res_model: 'account.asset.asset',
+                res_id: line.asset_id || line.res_id,
+                view_mode: 'form',
+                views: [[false, 'form']],
+            });
+            return;
+        } else if (actionName === 'open_partner' && line.partner_id) {
             await this.action.doAction({
                 type: 'ir.actions.act_window',
                 name: 'Partner',
@@ -1289,6 +2107,38 @@ export class DynamicReport extends Component {
             };
             
             await this.action.doAction(action);
+        } else if (actionName === 'open_documents' && line.journal_id) {
+            const date_from = form_data.date_from;
+            const date_to = form_data.date_to;
+            const domain = [['journal_id', '=', line.journal_id]];
+            if (date_from) domain.push(['date', '>=', date_from]);
+            if (date_to) domain.push(['date', '<=', date_to]);
+            if (form_data.target_move === 'posted') domain.push(['state', '=', 'posted']);
+            await this.action.doAction({
+                type: 'ir.actions.act_window',
+                name: `Journal Entries - ${line.name}`,
+                res_model: 'account.move',
+                view_mode: 'list,form',
+                views: [[false, 'list'], [false, 'form']],
+                domain: domain,
+            });
+        } else if (actionName === 'open_to_review' && line.journal_id) {
+            const date_from = form_data.date_from;
+            const date_to = form_data.date_to;
+            const domain = [
+                ['journal_id', '=', line.journal_id],
+                '|', ['state', '=', 'draft'], ['review_state', '=', 'todo']
+            ];
+            if (date_from) domain.push(['date', '>=', date_from]);
+            if (date_to) domain.push(['date', '<=', date_to]);
+            await this.action.doAction({
+                type: 'ir.actions.act_window',
+                name: `Entries To Review - ${line.name}`,
+                res_model: 'account.move',
+                view_mode: 'list,form',
+                views: [[false, 'list'], [false, 'form']],
+                domain: domain,
+            });
         } else if (actionName === 'open_general_ledger') {
             const date_from = form_data.date_from;
             const date_to = form_data.date_to;
@@ -1344,7 +2194,7 @@ export class DynamicReport extends Component {
     }
 
     async exportPDF() {
-        const params = this.props.action.params || {};
+        const params = this.reportParams;
         const model_name = params.model_name;
         const wizard_id = params.wizard_id;
         const data = params.data || {};
@@ -1352,9 +2202,9 @@ export class DynamicReport extends Component {
         if (model_name && wizard_id) {
             try {
                 const context = {
-                    active_model: data.model || this.props.action.context?.active_model || model_name,
-                    active_ids: data.ids || this.props.action.context?.active_ids || [wizard_id],
-                    active_id: (data.ids && data.ids[0]) || this.props.action.context?.active_id || wizard_id,
+                    active_model: data.model || this.props?.action?.context?.active_model || model_name,
+                    active_ids: data.ids || this.props?.action?.context?.active_ids || [wizard_id],
+                    active_id: (data.ids && data.ids[0]) || this.props?.action?.context?.active_id || wizard_id,
                 };
                 const action = await this.orm.call(model_name, "check_report", [[wizard_id]], { context });
                 if (action) {
@@ -1379,7 +2229,7 @@ export class DynamicReport extends Component {
             lines: this.state.lines,
             date_str: this.state.filterSummary.date === 'Fiscal Year' ? new Date().toLocaleDateString() : this.state.filterSummary.date
         };
-        const params = this._currentParams || this.props.action.params || {};
+        const params = this.reportParams;
         const modelName = params.model_name || this.state.model_name;
         const wizardId = params.wizard_id || this.state.wizard_id;
         await this.action.doAction({

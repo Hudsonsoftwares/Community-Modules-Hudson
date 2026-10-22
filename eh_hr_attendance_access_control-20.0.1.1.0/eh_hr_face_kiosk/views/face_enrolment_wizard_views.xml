@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<odoo>
+    <data>
+
+        <record id="view_eh_hr_face_enrolment_form" model="ir.ui.view">
+            <field name="name">eh.hr.face.enrolment.form</field>
+            <field name="model">eh.hr.face.enrolment</field>
+            <field name="arch" type="xml">
+                <form string="Face enrolment">
+                    <sheet>
+                        <group>
+                            <group>
+                                <field name="employee_id" readonly="1"/>
+                                <field name="captured_via"/>
+                                <field name="consent_state" readonly="1"/>
+                            </group>
+                            <group>
+                                <field name="sample_count" readonly="1"/>
+                            </group>
+                        </group>
+                        <separator string="Consent"/>
+                        <group>
+                            <field name="consent_text" readonly="1" nolabel="1"/>
+                        </group>
+                        <group>
+                            <field name="consent_acknowledged" string="Employee has read the above and acknowledges consent"/>
+                        </group>
+                        <separator string="Capture samples"/>
+                        <div>
+                            <p>Use the camera widget below to capture three to five face samples in varied head angles and lighting. The widget computes a 128-dim embedding for each sample locally; no images are sent to the server.</p>
+                            <field name="samples_json" widget="eh_face_enrol_widget"/>
+                        </div>
+                    </sheet>
+                    <footer>
+                        <button name="action_grant_consent_and_enrol" type="object" string="Save consent and enrol" class="oe_highlight"/>
+                        <button special="cancel" string="Cancel"/>
+                    </footer>
+                </form>
+            </field>
+        </record>
+
+    </data>
+</odoo>

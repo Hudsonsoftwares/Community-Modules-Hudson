@@ -16,6 +16,40 @@
                         </div>
                     </setting>
                 </block>
+
+                <block title="Work From Home (WFH) Management" name="wfh_setting_container">
+                    <setting help="Enable special attendance options, live location tracking, and flexible schedules for remote employees" company_dependent="1">
+                        <field name="enable_work_from_home"/>
+                        <div class="content-group" invisible="not enable_work_from_home">
+                            <div class="row mt16">
+                                <label for="wfh_tracking_interval" class="col-lg-4 o_light_label" string="Live Location Ping Interval"/>
+                                <field name="wfh_tracking_interval" class="col-lg-4"/>
+                            </div>
+                            <div class="row mt8">
+                                <div class="col-12">
+                                    <field name="wfh_require_photo" class="oe_inline"/>
+                                    <label for="wfh_require_photo" class="o_light_label ms-2" string="Require Camera Photo on Check In/Out"/>
+                                </div>
+                            </div>
+                            <div class="row mt8">
+                                <div class="col-12">
+                                    <field name="wfh_enforce_home_radius" class="oe_inline"/>
+                                    <label for="wfh_enforce_home_radius" class="o_light_label ms-2" string="Enforce Home Radius Punching"/>
+                                </div>
+                            </div>
+                            <div class="row mt8 ms-3" invisible="not wfh_enforce_home_radius">
+                                <label for="wfh_home_radius" class="col-lg-4 o_light_label" string="Allowed Home Radius (meters)"/>
+                                <field name="wfh_home_radius" class="col-lg-3"/>
+                            </div>
+                            <div class="row mt8 ms-3" invisible="not wfh_enforce_home_radius">
+                                <div class="col-12">
+                                    <field name="wfh_allow_offsite_with_reason" class="oe_inline"/>
+                                    <label for="wfh_allow_offsite_with_reason" class="o_light_label ms-2" string="Allow Check-In Outside Home Radius with Justification"/>
+                                </div>
+                            </div>
+                        </div>
+                    </setting>
+                </block>
             </xpath>
         </field>
     </record>

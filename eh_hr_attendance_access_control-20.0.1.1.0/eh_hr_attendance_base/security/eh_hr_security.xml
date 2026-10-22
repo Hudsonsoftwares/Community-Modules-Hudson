@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<odoo noupdate="0">
+    <data>
+
+        <!--
+            Privilege groups for the ERP Heritage attendance suite.
+
+            The suite ships its own privilege rather than reusing
+            hr.group_hr_user / _manager directly. Reason: a deployment
+            often grants standard HR access to one cohort and biometric /
+            kiosk admin access to a different (overlapping) cohort. A
+            payroll officer can stay on hr.group_hr_user without ever
+            seeing kiosk device tokens or consent evidence. The reverse
+            does not hold: EH Attendance Manager and Admin imply
+            hr.group_hr_manager on purpose, so whoever manages kiosks,
+            exceptions and team consent is also an HR Administrator.
+
+            Only the Manager and Admin roles imply an upstream HR role
+            (hr.group_hr_manager). The User and Auditor roles imply no HR
+            role at all: hr.group_hr_user is create, write and delete on
+            every employee and their private data, which is not what a staff
+            member clocking in or a read only auditor should hold. Both read
+            other employees through the public employee profile, and the
+            kiosk and mobile endpoints read the employee as superuser once
+            the device token is checked. Up to 20.0.1.0.0 both roles implied
+            hr.group_hr_user; the 20.0.1.1.0 upgrade gives HR Officer
+            explicitly to every user who held it only through them and logs
+            their logins, so nobody loses access on upgrade and an
+            administrator can review and revoke.
+        -->
+
+        <!-- The privilege / category grouping is assigned by the post_init_hook
+             via eh_hr_compat.setup_access_dropdown, which branches on version:
+             res.groups.privilege on Odoo 19 and 20, res.groups.category_id
+             on 16 to 18.
+             It cannot be set portably in XML, so it is not declared here. -->
+
+        <!--
+            Staff role: own attendance (through the standard Self Attendance
+            Edit role, which is own rows only), own consent records, own
+            attendance exceptions and face templates, and the kiosk site
+            list. It gives no right on any other employee.
+        -->
+        <record id="group_eh_hr_user" model="res.groups">
+            <field name="name">EH Attendance User</field>
+            <field name="implied_ids" eval="[(4, ref('hr_attendance.group_hr_attendance_own'))]"/>
+            <field name="comment">Own attendance, own consent records, own attendance exceptions and the kiosk site list. Grants no right on other employees: it does not imply the HR Officer role, so other employees are seen through their public profile only.</field>
+        </record>
+
+        <record id="group_eh_hr_manager" model="res.groups">
+            <field name="name">EH Attendance Manager</field>
+            <field name="implied_ids" eval="[(4, ref('eh_hr_attendance_base.group_eh_hr_user')), (4, ref('hr.group_hr_manager'))]"/>
+            <field name="comment">Manager access: kiosk sites, devices, exceptions, team consent records. Sees but does not edit the audit log. Implies the standard HR Manager role.</field>
+        </record>
+
+        <record id="group_eh_hr_admin" model="res.groups">
+            <field name="name">EH Attendance Admin</field>
+            <field name="implied_ids" eval="[(4, ref('eh_hr_attendance_base.group_eh_hr_manager'))]"/>
+            <field name="comment">Full configuration access: device token rotation and revoke, retention horizons, consent text, match threshold, kiosk audit log purge.</field>
+        </record>
+
+        <!--
+            Read-only auditor role.
+
+            Visibility on every audit-log table without write access on
+            any operational object. An auditor can inspect kiosk events,
+            consent history, and exception resolutions; they cannot
+            register a kiosk, edit consent, or post attendance.
+
+            The role is standalone; it deliberately does NOT imply
+            group_eh_hr_user, nor any HR role, so an auditor account stays
+            read-only. It implies only the internal user role.
+
+            Read only holds on every entry point, not only on the screens.
+            The kiosk terminals and face templates are read as metadata:
+            the device token and the face embedding, which together clock
+            an employee in or out at a kiosk, carry the Admin group on the
+            field. The audit log and exception APIs create as superuser, so
+            they are server side only (not callable over RPC). Issuing a
+            kiosk pairing PIN checks for the Admin role in the method
+            (eh.hr.kiosk.site action_issue_pairing_pin). Issuing a mobile
+            pairing PIN (eh_hr_attendance_geofence) checks for the Manager
+            role and for write access to the employee, in
+            eh.hr.mobile.pairing.issue, which is server side only.
+        -->
+        <record id="group_eh_hr_auditor" model="res.groups">
+            <field name="name">EH Attendance Auditor (read-only)</field>
+            <field name="implied_ids" eval="[(4, ref('base.group_user'))]"/>
+            <field name="comment">Read-only auditor: visibility on every ERP Heritage attendance audit log without write access. Cannot edit consent, register devices, post attendance, or change any employee: it does not imply the HR Officer role.</field>
+        </record>
+
+    </data>
+</odoo>

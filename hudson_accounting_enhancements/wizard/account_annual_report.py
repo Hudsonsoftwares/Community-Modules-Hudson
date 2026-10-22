@@ -44,6 +44,18 @@ class AccountAnnualReportWizard(models.TransientModel):
             self.date_from = date(self.fiscal_year, 1, 1)
             self.date_to = date(self.fiscal_year, 12, 31)
 
+    @staticmethod
+    def _clean_zero(val):
+        if val is None or val is False:
+            return 0.0
+        if isinstance(val, (int, float)):
+            return 0.0 if abs(val) < 0.005 else val
+        elif isinstance(val, dict):
+            return {k: AccountAnnualReportWizard._clean_zero(v) for k, v in val.items()}
+        elif isinstance(val, (list, tuple)):
+            return [AccountAnnualReportWizard._clean_zero(v) for v in val]
+        return val
+
     def _get_balance(self, account_types, date_from, date_to, company_id, state):
         """Get net debit-credit balance for given account types in a period."""
         state_clause = "AND aml.parent_state = 'posted'" if state == 'posted' else ''
@@ -60,7 +72,8 @@ class AccountAnnualReportWizard(models.TransientModel):
         """
         self.env.cr.execute(query, (tuple(account_types), date_from, date_to, company_id))
         result = self.env.cr.fetchone()
-        return result[0] if result else 0.0
+        val = result[0] if (result and result[0] is not None) else 0.0
+        return 0.0 if abs(val) < 0.005 else val
 
     def _get_cumulative_balance(self, account_types, as_of_date, company_id, state):
         """Get cumulative balance up to a date for BS items."""
@@ -77,7 +90,8 @@ class AccountAnnualReportWizard(models.TransientModel):
         """
         self.env.cr.execute(query, (tuple(account_types), as_of_date, company_id))
         result = self.env.cr.fetchone()
-        return result[0] if result else 0.0
+        val = result[0] if (result and result[0] is not None) else 0.0
+        return 0.0 if abs(val) < 0.005 else val
 
     def _compute_annual_data(self):
         self.ensure_one()
@@ -124,11 +138,12 @@ class AccountAnnualReportWizard(models.TransientModel):
         retained_earnings = -self._get_cumulative_balance(['equity_unaffected'], dt, cid, st)
         total_equity = share_capital + retained_earnings + net_profit
 
-        return {
+        data = {
             'fiscal_year': self.fiscal_year,
             'date_from': df,
             'date_to': dt,
             'company': self.company_id.id,
+            'company_id': self.company_id.id,
             'target_move': st,
             # P&L
             'revenue': revenue,
@@ -150,6 +165,7 @@ class AccountAnnualReportWizard(models.TransientModel):
             'retained_earnings': retained_earnings,
             'total_equity': total_equity,
         }
+        return self._clean_zero(data)
 
     def action_print_report(self):
         self.ensure_one()

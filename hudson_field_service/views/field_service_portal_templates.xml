@@ -8,7 +8,7 @@
                 <t t-else="">Field Services</t>
             </li>
             <li t-if="order" class="breadcrumb-item active">
-                <t t-esc="order.name"/>
+                <t t-out="order.name"/>
             </li>
         </xpath>
     </template>
@@ -46,11 +46,11 @@
                 <tbody>
                     <t t-foreach="orders" t-as="order">
                         <tr>
-                            <td><a t-att-href="order.get_portal_url()"><t t-esc="order.name"/></a></td>
+                            <td><a t-att-href="order.get_portal_url()"><t t-out="order.name"/></a></td>
                             <td class="text-right"><span t-field="order.create_date" t-options="{'widget': 'date'}"/></td>
                             <td class="text-center">
                                 <span t-attf-class="badge rounded-pill #{'bg-success' if order.state == 'done' else 'bg-info' if order.state == 'in_progress' else 'bg-secondary'}">
-                                    <t t-esc="dict(order._fields['state'].selection).get(order.state)"/>
+                                    <t t-out="dict(order._fields['state'].selection).get(order.state)"/>
                                 </span>
                             </td>
                         </tr>
@@ -188,7 +188,7 @@
                                             <select name="product_id" class="form-select" required="1">
                                                 <option value="">Select a product...</option>
                                                 <t t-foreach="products" t-as="p">
-                                                    <option t-att-value="p.id"><t t-esc="p.display_name"/></option>
+                                                    <option t-att-value="p.id"><t t-out="p.display_name"/></option>
                                                 </t>
                                             </select>
                                         </div>
@@ -224,7 +224,7 @@
                                             </td>
                                             <td class="text-end">
                                                 <t t-set="line_amount" t-value="line.duration * order.hourly_rate"/>
-                                                <span t-esc="line_amount" t-options='{"widget": "monetary", "display_currency": order.company_id.currency_id}'/>
+                                                <span t-out="line_amount" t-options='{"widget": "monetary", "display_currency": order.company_id.currency_id}'/>
                                             </td>
                                         </tr>
                                     </t>
@@ -256,7 +256,7 @@
                                             <td>
                                                 <t t-set="total_time" t-value="sum(l.duration * order.hourly_rate for l in order.timesheet_ids)"/>
                                                 <t t-set="total_prod" t-value="sum(l.price_subtotal for l in order.product_line_ids)"/>
-                                                <span t-esc="total_time + total_prod" t-options='{"widget": "monetary", "display_currency": order.company_id.currency_id}'/>
+                                                <span t-out="total_time + total_prod" t-options='{"widget": "monetary", "display_currency": order.company_id.currency_id}'/>
                                             </td>
                                         </tr>
                                     </table>

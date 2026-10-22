@@ -10,7 +10,6 @@
                 <xpath expr="//field[@name='target_move']" position="after">
                     <field name="amount_currency" groups="base.group_multi_currency"/>
                     <field name="sort_selection" widget="radio"/>
-                    <newline/>
                 </xpath>
             </data>
         </field>
@@ -22,14 +21,14 @@
         <field name="res_model">account.print.journal</field>
         <field name="view_mode">form</field>
         <field name="view_id" ref="account_report_print_journal_view"/>
-        <field name="target">current</field>
+        <field name="target">new</field>
     </record>
 
     <menuitem id="menu_print_journal"
               name="Journals Audit"
-              sequence="40"
+              sequence="30"
               parent="menu_finance_audit_reports"
               action="action_account_print_journal_menu"
-              groups="account.group_account_manager,account.group_account_user"/>
+              groups="account.group_account_readonly,account.group_account_manager"/>
 
 </odoo>

@@ -1,5 +1,6 @@
 from odoo import models, api, fields, _
 from odoo.exceptions import AccessError, ValidationError
+from odoo.tools.misc import file_path
 
 class DmsDirectory(models.Model):
     _inherit = 'dms.directory'
@@ -18,6 +19,8 @@ class DmsDirectory(models.Model):
 
     @api.model_create_multi
     def create(self, vals_list):
+        if not self.env.su and not self._is_dms_privileged_user():
+            raise AccessError(_("Only Documents Managers and Administrators are allowed to create folders."))
         for vals in vals_list:
             # Auto-promote to root directory when no parent is given
             if not vals.get('parent_id') and not vals.get('is_root_directory'):
@@ -32,6 +35,19 @@ class DmsDirectory(models.Model):
         return super().create(vals_list)
 
 
+    @api.depends("file_ids.is_trashed", "file_ids.active")
+    def _compute_count_files(self):
+        file_data = self.env['dms.file']._read_group(
+            [('directory_id', 'in', self.ids), ('is_trashed', '=', False)],
+            groupby=['directory_id'],
+            aggregates=['__count']
+        )
+        counts = {dir_rec.id: count for dir_rec, count in file_data}
+        for record in self:
+            count = counts.get(record.id, 0)
+            record.count_files = count
+            record.count_files_title = _("%s Files") % count
+
     @api.depends("count_files", "count_directories")
     def _compute_count_elements(self):
         """Override to neutralize element counting for performance."""
@@ -44,6 +60,31 @@ class DmsDirectory(models.Model):
         for record in self:
             record.size = 0
             record.human_size = ""
+
+    # Icon
+    def _get_icon_placeholder_name(self):
+        return "open-folder.png"
+
+    def _get_icon_disk_path(self):
+        try:
+            return file_path("dms/static/description/open-folder.png")
+        except FileNotFoundError:
+            try:
+                return file_path("dms/static/icons/open-folder.png")
+            except FileNotFoundError:
+                return super()._get_icon_disk_path()
+
+    def _get_icon_url(self):
+        return "/dms/static/description/open-folder.png"
+
+    @api.depends("image_128")
+    def _compute_icon_url(self):
+        for one in self:
+            one.icon_url = (
+                f"/web/image/{one._name}/{one.id}/image_128/128x128?crop=1"
+                if one.image_128
+                else "/dms/static/description/open-folder.png"
+            )
 
     @api.model
     def search_panel_select_range(self, field_name, **kwargs):
@@ -224,3 +265,24 @@ class DmsDirectory(models.Model):
             'url': f'/dms/directory/{self.id}/download_zip',
             'target': 'self',
         }
+
+    @api.model
+    def _search_starred(self, operator, operand):
+        import collections.abc
+        if isinstance(operand, (list, tuple, set, collections.abc.Set)):
+            has_true = True in operand
+            has_false = False in operand
+        else:
+            has_true = bool(operand)
+            has_false = not bool(operand)
+        if operator in ("!=", "not in"):
+            has_true, has_false = not has_true, not has_false
+        if has_true and not has_false:
+            return [("user_star_ids", "in", [self.env.uid])]
+        elif has_false and not has_true:
+            return [("user_star_ids", "not in", [self.env.uid])]
+        elif has_true and has_false:
+            return []
+        else:
+            return [("id", "=", False)]
+

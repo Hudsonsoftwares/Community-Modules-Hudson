@@ -71,11 +71,7 @@ class FsPlanningSlot(models.Model):
         string='Client',
         ondelete='set null',
     )
-    attendance_status = fields.Selection([
-        ('unmarked', 'Unmarked'),
-        ('present', 'Present'),
-        ('absent', 'Absent'),
-    ], string='Attendance Status', default='unmarked', required=True, tracking=True)
+
     shift_template_id = fields.Many2one(
         'fs.shift.template',
         string='Shift Template',

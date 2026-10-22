@@ -10,22 +10,21 @@ class ReportDayBook(models.AbstractModel):
 
     def _get_account_move_entry(self, accounts, form_data, date):
         cr = self.env.cr
-        MoveLine = self.env['account.move.line']
-        init_wheres = [""]
+        if not accounts or not form_data.get('journal_ids'):
+            return {'debit': 0.0, 'credit': 0.0, 'balance': 0.0, 'lines': []}
 
-        init_tables, init_where_clause, init_where_params =MoveLine._query_get()
-        if init_where_clause.strip():
-            init_wheres.append(init_where_clause.strip())
         if form_data['target_move'] == 'posted':
             target_move = "AND m.state = 'posted'"
         else:
-            target_move = ''
+            target_move = "AND m.state != 'cancel'"
 
         sql = ("""
                     SELECT 0 AS lid, 
                           l.account_id AS account_id, l.date AS ldate, j.code AS lcode, 
                           l.amount_currency AS amount_currency,l.ref AS lref,l.name AS lname, 
-                          COALESCE(SUM(l.credit),0.0) AS credit,COALESCE(l.debit,0) AS debit,COALESCE(SUM(l.debit),0) - COALESCE(SUM(l.credit),0) as balance, 
+                          COALESCE(SUM(l.credit),0.0) AS credit,COALESCE(l.debit,0) AS debit,"""
+               """COALESCE(SUM(l.debit),0) - COALESCE(SUM(l.credit),0) as balance, """
+               """
                               m.name AS move_name, 
                               c.symbol AS currency_code, 
                               p.name AS lpartner_id, 
@@ -40,6 +39,8 @@ class ReportDayBook(models.AbstractModel):
                             WHERE 
                               l.account_id IN %s 
                               AND l.journal_id IN %s """ + target_move + """ 
+                              AND l.company_id IN %s 
+                              AND l.display_type NOT IN ('line_section', 'line_note') 
                               AND l.date = %s 
                             GROUP BY 
                               l.id, 
@@ -55,7 +56,8 @@ class ReportDayBook(models.AbstractModel):
                               l.date DESC
                      """)
 
-        where_params = (tuple(accounts.ids), tuple(form_data['journal_ids']), date)
+        where_params = (tuple(accounts.ids), tuple(form_data['journal_ids']),
+                        tuple(self.env.companies.ids), date)
         cr.execute(sql, where_params)
         data = cr.dictfetchall()
         res = {}
@@ -74,6 +76,8 @@ class ReportDayBook(models.AbstractModel):
     def _get_report_values(self, docids, data=None):
         if not data.get('form') or not self.env.context.get('active_model'):
             raise UserError(_("Form content is missing, this report cannot be printed."))
+        # the entries are read with SQL: write the pending changes first
+        self.env.flush_all()
         model = self.env.context.get('active_model')
         docs = self.env[model].browse(self.env.context.get('active_ids', []))
         form_data = data['form']
@@ -93,7 +97,8 @@ class ReportDayBook(models.AbstractModel):
             dates.append(date_from + timedelta(days=day))
         for date in dates:
             date_data = str(date)
-            accounts_res = self.with_context(data['form'].get('comparison_context', {}))._get_account_move_entry(accounts, form_data, date_data)
+            accounts_res = self.with_context(
+                data['form'].get('comparison_context', {}))._get_account_move_entry(accounts, form_data, date_data)
             if accounts_res['lines']:
                 record.append({
                     'date': date,

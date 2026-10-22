@@ -3,6 +3,9 @@ from odoo.exceptions import UserError
 from datetime import timedelta, date, datetime
 from dateutil.relativedelta import relativedelta
 import uuid
+import logging
+
+_logger = logging.getLogger(__name__)
 
 class HudsonDynamicReport(models.AbstractModel):
     _name = "hudson.dynamic.report"
@@ -39,6 +42,291 @@ class HudsonDynamicReport(models.AbstractModel):
                 'default_partner_id': partner_id,
             },
         }
+
+    @api.model
+    def _get_query_components(self, model_name, domain):
+        """Build FROM and WHERE clauses and parameters compatible across all Odoo versions."""
+        model = self.env[model_name]
+        if hasattr(model, '_where_calc'):
+            query = model._where_calc(domain)
+        else:
+            query = model._search(domain)
+
+        from_clause = getattr(query, 'from_clause', None)
+        where_clause = getattr(query, 'where_clause', None)
+
+        from_string = ""
+        where_string = ""
+        where_params = []
+
+        if hasattr(from_clause, '_sql_tuple'):
+            from_string, from_params, _ = from_clause._sql_tuple
+            if where_clause and hasattr(where_clause, '_sql_tuple'):
+                where_string, w_params, _ = where_clause._sql_tuple
+            else:
+                where_string, w_params = "", ()
+            where_params = list(from_params) + list(w_params)
+        elif hasattr(from_clause, 'code'):
+            from_string = from_clause.code
+            where_string = where_clause.code if where_clause else ""
+            where_params = list(where_clause.params or []) if where_clause else []
+        elif isinstance(from_clause, (tuple, list)):
+            from_string, from_params = from_clause
+            where_string, w_params = where_clause if where_clause else ("", ())
+            where_params = list(from_params) + list(w_params)
+        else:
+            from_string = str(from_clause) if from_clause else ""
+            where_string = str(where_clause) if where_clause else ""
+            where_params = []
+
+        return from_string, where_string, where_params
+
+    @api.model
+    def _compute_percentage_comparison(self, result, form_data, is_pl=False, is_bs=False, pl_base_map=None, cmp_periods_info=None):
+        """Universal percentage comparison calculator supporting Balance Sheet, P&L, Annual Report, Trial Balance, etc."""
+        if not result or not result.get('lines'):
+            return
+
+        lines = result['lines']
+        columns = result.setdefault('columns', [])
+
+        if form_data.get('comparison') == 'percentage':
+            if any(c.get('field') == 'percentage_val' for c in columns):
+                return
+
+            percentage_base = form_data.get('percentage_base', 'revenue')
+            base_labels = {
+                'revenue': _('Revenue'),
+                'costs_of_revenue': _('Costs of Revenue'),
+                'gross_profit': _('Gross Profit'),
+                'operating_expenses': _('Operating Expenses'),
+                'operating_income': _('Operating Income (or Loss)'),
+                'other_income': _('Other Income'),
+                'other_expenses': _('Other Expenses'),
+                'net_profit': _('Net Profit'),
+                'allocations': _('Allocations and Withdrawals'),
+                'total_assets': _('Total Assets'),
+                'current_assets': _('Current Assets'),
+                'bank_and_cash': _('Bank and Cash'),
+                'receivables': _('Receivables'),
+                'prepayments': _('Prepayments'),
+                'fixed_assets': _('Fixed Assets'),
+                'non_current_assets': _('Non-current Assets'),
+                'total_liabilities': _('Total Liabilities'),
+                'current_liabilities': _('Current Liabilities'),
+                'payables': _('Payables'),
+                'non_current_liabilities': _('Non-current Liabilities'),
+                'total_equity': _('Total Equity'),
+                'retained_earnings': _('Retained Earnings'),
+                'total_liabilities_equity': _('Total Liabilities & Equity'),
+                'total_debit': _('Total Debit'),
+                'total_credit': _('Total Credit'),
+                'total_balance': _('Total Balance'),
+            }
+
+            base_name = base_labels.get(percentage_base, percentage_base.replace('_', ' ').title())
+            base_balance = 0.0
+
+            # 1. Check P&L calculated section map if available
+            if pl_base_map and percentage_base in pl_base_map:
+                base_balance = abs(pl_base_map[percentage_base])
+
+            # 2. Specific matching against current report lines
+            if not base_balance:
+                if percentage_base in ('total_assets', 'assets'):
+                    for fl in lines:
+                        fn = (fl.get('name') or '').strip().lower()
+                        fid = str(fl.get('id') or '').lower()
+                        if ('asset' in fn or 'asset' in fid) and fl.get('level') in (1, 2):
+                            bal = abs(fl.get('balance', 0.0))
+                            if bal > base_balance:
+                                base_balance = bal
+                elif percentage_base in ('current_assets',):
+                    for fl in lines:
+                        fn = (fl.get('name') or '').strip().lower()
+                        if 'current asset' in fn and fl.get('level') in (1, 2):
+                            base_balance = max(base_balance, abs(fl.get('balance', 0.0)))
+                elif percentage_base in ('bank_and_cash', 'bank', 'cash'):
+                    for fl in lines:
+                        fn = (fl.get('name') or '').strip().lower()
+                        if 'bank' in fn or 'cash' in fn:
+                            base_balance = max(base_balance, abs(fl.get('balance', 0.0)))
+                elif percentage_base in ('receivables', 'receivable'):
+                    for fl in lines:
+                        fn = (fl.get('name') or '').strip().lower()
+                        if 'receivable' in fn:
+                            base_balance = max(base_balance, abs(fl.get('balance', 0.0)))
+                elif percentage_base in ('total_liabilities', 'liabilities'):
+                    for fl in lines:
+                        fn = (fl.get('name') or '').strip().lower()
+                        fid = str(fl.get('id') or '').lower()
+                        if ('liabilit' in fn or 'liabilit' in fid) and fl.get('level') in (1, 2):
+                            bal = abs(fl.get('balance', 0.0))
+                            if bal > base_balance:
+                                base_balance = bal
+                elif percentage_base in ('current_liabilities',):
+                    for fl in lines:
+                        fn = (fl.get('name') or '').strip().lower()
+                        if 'current liabilit' in fn and fl.get('level') in (1, 2):
+                            base_balance = max(base_balance, abs(fl.get('balance', 0.0)))
+                elif percentage_base in ('payables', 'payable'):
+                    for fl in lines:
+                        fn = (fl.get('name') or '').strip().lower()
+                        if 'payable' in fn:
+                            base_balance = max(base_balance, abs(fl.get('balance', 0.0)))
+                elif percentage_base in ('total_equity', 'equity'):
+                    for fl in lines:
+                        fn = (fl.get('name') or '').strip().lower()
+                        fid = str(fl.get('id') or '').lower()
+                        if ('equity' in fn or 'capital' in fn or 'equity' in fid) and fl.get('level') in (1, 2):
+                            bal = abs(fl.get('balance', 0.0))
+                            if bal > base_balance:
+                                base_balance = bal
+                elif percentage_base in ('total_liabilities_equity', 'liabilities_equity'):
+                    liab = 0.0
+                    eq = 0.0
+                    for fl in lines:
+                        fn = (fl.get('name') or '').strip().lower()
+                        if 'liabilit' in fn and fl.get('level') == 1:
+                            liab = max(liab, abs(fl.get('balance', 0.0)))
+                        elif ('equity' in fn or 'capital' in fn) and fl.get('level') == 1:
+                            eq = max(eq, abs(fl.get('balance', 0.0)))
+                    base_balance = liab + eq
+
+            # 3. Match by name keyword or id across lines
+            if not base_balance:
+                target = base_name.lower().replace('total', '').strip()
+                for fl in lines:
+                    fn = (fl.get('name') or '').strip().lower()
+                    fid = str(fl.get('id') or '').lower()
+                    if (target and target in fn) or percentage_base in fid:
+                        bal = abs(fl.get('balance', 0.0))
+                        if bal:
+                            base_balance = bal
+                            break
+
+            # 4. If not found in current report lines (e.g. cross-statement base like Revenue on Balance Sheet), query move lines
+            if not base_balance:
+                account_type_map = {
+                    'revenue': ['income', 'income_other'],
+                    'costs_of_revenue': ['expense_direct_cost'],
+                    'operating_expenses': ['expense', 'expense_depreciation'],
+                    'other_income': ['income_other'],
+                    'other_expenses': ['expense_other'],
+                    'total_assets': ['asset_receivable', 'asset_cash', 'asset_current', 'asset_non_current', 'asset_prepayments', 'asset_fixed'],
+                    'assets': ['asset_receivable', 'asset_cash', 'asset_current', 'asset_non_current', 'asset_prepayments', 'asset_fixed'],
+                    'current_assets': ['asset_receivable', 'asset_cash', 'asset_current', 'asset_prepayments'],
+                    'bank_and_cash': ['asset_cash'],
+                    'receivables': ['asset_receivable'],
+                    'prepayments': ['asset_prepayments'],
+                    'fixed_assets': ['asset_fixed'],
+                    'non_current_assets': ['asset_non_current', 'asset_fixed'],
+                    'total_liabilities': ['liability_payable', 'liability_credit_card', 'liability_current', 'liability_non_current'],
+                    'liabilities': ['liability_payable', 'liability_credit_card', 'liability_current', 'liability_non_current'],
+                    'current_liabilities': ['liability_payable', 'liability_credit_card', 'liability_current'],
+                    'payables': ['liability_payable'],
+                    'non_current_liabilities': ['liability_non_current'],
+                    'total_equity': ['equity', 'equity_unaffected'],
+                    'equity': ['equity', 'equity_unaffected'],
+                    'retained_earnings': ['equity_unaffected'],
+                }
+                date_from = form_data.get('date_from')
+                date_to = form_data.get('date_to')
+                target_move = form_data.get('target_move', 'posted')
+
+                domain = [('company_id', 'in', self.env.companies.ids)]
+                if target_move == 'posted':
+                    domain.append(('move_id.state', '=', 'posted'))
+                if date_from:
+                    domain.append(('date', '>=', date_from))
+                if date_to:
+                    domain.append(('date', '<=', date_to))
+
+                if percentage_base in ('gross_profit', 'operating_income', 'net_profit'):
+                    rev_amls = self.env['account.move.line'].search(domain + [('account_id.account_type', 'in', ['income', 'income_other'])])
+                    rev = abs(sum(rev_amls.mapped('balance')))
+                    cogs_amls = self.env['account.move.line'].search(domain + [('account_id.account_type', 'in', ['expense_direct_cost'])])
+                    cogs = abs(sum(cogs_amls.mapped('balance')))
+                    opex_amls = self.env['account.move.line'].search(domain + [('account_id.account_type', 'in', ['expense', 'expense_depreciation'])])
+                    opex = abs(sum(opex_amls.mapped('balance')))
+                    gp = rev - cogs
+                    op_inc = gp - opex
+                    if percentage_base == 'gross_profit':
+                        base_balance = gp
+                    elif percentage_base in ('operating_income', 'net_profit'):
+                        base_balance = op_inc
+                elif percentage_base in ('total_liabilities_equity', 'liabilities_equity'):
+                    l_types = account_type_map['total_liabilities'] + account_type_map['total_equity']
+                    amls = self.env['account.move.line'].search(domain + [('account_id.account_type', 'in', l_types)])
+                    base_balance = abs(sum(amls.mapped('balance')))
+                elif percentage_base in account_type_map:
+                    target_types = account_type_map[percentage_base]
+                    amls = self.env['account.move.line'].search(domain + [('account_id.account_type', 'in', target_types)])
+                    base_balance = abs(sum(amls.mapped('balance')))
+
+            # 5. Fallback if base is genuinely 0.0 in the company
+            if not base_balance:
+                if is_bs:
+                    for fl in lines:
+                        if 'asset' in (fl.get('name') or '').lower() and fl.get('balance'):
+                            base_balance = abs(fl['balance'])
+                            break
+                elif is_pl:
+                    for fl in lines:
+                        if 'revenue' in (fl.get('name') or '').lower() and fl.get('balance'):
+                            base_balance = abs(fl['balance'])
+                            break
+                if not base_balance:
+                    for fl in lines:
+                        if fl.get('level') == 1 and fl.get('balance'):
+                            bal = abs(fl['balance'])
+                            if bal > base_balance:
+                                base_balance = bal
+
+            columns.append({
+                'label': f'% of {base_name}',
+                'field': 'percentage_val',
+                'type': 'percentage'
+            })
+
+            for fl in lines:
+                bal = fl.get('balance')
+                if bal is None:
+                    bal = fl.get('net', fl.get('total', 0.0))
+                if bal is None:
+                    bal = 0.0
+                if base_balance and abs(base_balance) > 0.0001:
+                    val = (bal / base_balance) * 100.0
+                    if abs(val) < 0.005 or val == 0.0:
+                        val = 0.0
+                    fl['percentage_val'] = f"{val:,.2f} %"
+                else:
+                    fl['percentage_val'] = "0.00 %"
+
+        elif form_data.get('comparison_in') == 'percentage' and cmp_periods_info:
+            for cmp_info in cmp_periods_info:
+                p = cmp_info['p']
+                field_name = f'balance_cmp_{p}_pct'
+                if any(c.get('field') == field_name for c in columns):
+                    continue
+                columns.append({
+                    'label': f"% Change",
+                    'field': field_name,
+                    'type': 'percentage'
+                })
+                for fl in lines:
+                    cmp_bal = fl.get(f'balance_cmp_{p}', 0.0)
+                    curr_bal = fl.get('balance', 0.0)
+                    if cmp_bal and abs(cmp_bal) > 0.0001:
+                        diff_pct = ((curr_bal - cmp_bal) / abs(cmp_bal)) * 100.0
+                        if abs(diff_pct) < 0.005 or diff_pct == 0.0:
+                            diff_pct = 0.0
+                        fl[field_name] = f"{diff_pct:,.2f} %"
+                    else:
+                        if curr_bal and abs(curr_bal) > 0.0001:
+                            fl[field_name] = "100.00 %"
+                        else:
+                            fl[field_name] = "0.00 %"
 
     @api.model
     def get_report_data(self, model_name, wizard_id, data):
@@ -99,14 +387,26 @@ class HudsonDynamicReport(models.AbstractModel):
             
         if form_data.get('partner_ids'):
             form_data['used_context']['partner_ids'] = self.env['res.partner'].browse(form_data['partner_ids'])
+        else:
+            form_data['used_context']['partner_ids'] = False
             
-        if form_data.get('analytic_account_ids') or form_data.get('analytic_plan_ids'):
-            analytic_accounts = self.env['account.analytic.account'].browse(form_data.get('analytic_account_ids', []))
-            if form_data.get('analytic_plan_ids'):
-                plan_accounts = self.env['account.analytic.account'].search([('plan_id', 'in', form_data['analytic_plan_ids'])])
+        analytic_acc_ids = list(form_data.get('analytic_account_ids') or [])
+        analytic_plan_ids = list(form_data.get('analytic_plan_ids') or [])
+        if analytic_acc_ids or analytic_plan_ids:
+            analytic_accounts = self.env['account.analytic.account'].browse(analytic_acc_ids)
+            if analytic_plan_ids:
+                plan_accounts = self.env['account.analytic.account'].search([('plan_id', 'in', analytic_plan_ids)])
                 analytic_accounts |= plan_accounts
-            if analytic_accounts:
-                form_data['used_context']['analytic_account_ids'] = analytic_accounts
+            form_data['used_context']['analytic_account_ids'] = analytic_accounts if analytic_accounts else False
+            all_analytic_ids = analytic_accounts.ids
+            form_data['analytic_account_ids'] = all_analytic_ids
+            if 'form' in data:
+                data['form']['analytic_account_ids'] = all_analytic_ids
+                data['form']['analytic_plan_ids'] = analytic_plan_ids
+                if 'used_context' in data['form']:
+                    data['form']['used_context']['analytic_account_ids'] = analytic_accounts if analytic_accounts else False
+        else:
+            form_data['used_context']['analytic_account_ids'] = False
 
         # Comparison logic
         cmp_periods_info = []
@@ -158,12 +458,20 @@ class HudsonDynamicReport(models.AbstractModel):
                             'date_to': cmp_date_to_str,
                             'label': label
                         })
-                elif form_data['comparison'] == 'specific_date':
+                elif form_data['comparison'] in ('specific_date', 'custom_dates'):
                     date_to_cmp_str = form_data.get('date_to_cmp')
                     date_from_cmp_str = form_data.get('date_from_cmp') or date_to_cmp_str
                     if date_to_cmp_str:
-                        dparts = date_to_cmp_str.split('-')
-                        label = f"As of {dparts[2]}/{dparts[1]}/{dparts[0]}" if len(dparts) == 3 else f"As of {date_to_cmp_str}"
+                        if date_from_cmp_str and date_from_cmp_str != date_to_cmp_str:
+                            f_parts = date_from_cmp_str.split('-')
+                            t_parts = date_to_cmp_str.split('-')
+                            if len(f_parts) == 3 and len(t_parts) == 3:
+                                label = f"{f_parts[2]}/{f_parts[1]}/{f_parts[0]} - {t_parts[2]}/{t_parts[1]}/{t_parts[0]}"
+                            else:
+                                label = f"{date_from_cmp_str} - {date_to_cmp_str}"
+                        else:
+                            dparts = date_to_cmp_str.split('-')
+                            label = f"As of {dparts[2]}/{dparts[1]}/{dparts[0]}" if len(dparts) == 3 else f"As of {date_to_cmp_str}"
                         cmp_periods_info.append({
                             'p': 1,
                             'date_from': date_from_cmp_str,
@@ -177,34 +485,55 @@ class HudsonDynamicReport(models.AbstractModel):
         # --- MULTI LEDGER / JOURNAL GROUP LOGIC ---
         available_ledgers = []
         ledger_journals_map = {}
+        seen_names = set()
 
-        # 1. Standard Odoo Journal Groups (used as Multi Ledgers in Odoo)
-        if 'account.journal.group' in self.env:
-            for group in self.env['account.journal.group'].sudo().search([]):
-                g_id = group.id
-                g_name = group.name
-                if isinstance(g_name, dict):
-                    g_name = g_name.get(self.env.lang or 'en_US') or list(g_name.values())[0] if g_name else 'Unnamed'
-                available_ledgers.append({'id': g_id, 'name': g_name})
-                
-                comp_id = group.company_id.id or self.env.company.id
-                company_journals = self.env['account.journal'].sudo().search([('company_id', '=', comp_id)])
-                included = company_journals - group.excluded_journal_ids
-                ledger_journals_map[g_id] = included.ids
-                ledger_journals_map[str(g_id)] = included.ids
-
-        # 2. Custom account.multi.ledger
+        # 1. Custom account.multi.ledger (configured by user under Configuration > Multi Ledgers)
         if 'account.multi.ledger' in self.env:
-            for ledger in self.env['account.multi.ledger'].sudo().search([]):
-                l_id = ledger.id
-                if l_id in ledger_journals_map:
-                    custom_key = f"multi_{l_id}"
-                    available_ledgers.append({'id': custom_key, 'name': ledger.name})
-                    ledger_journals_map[custom_key] = ledger.journal_ids.ids
-                else:
-                    available_ledgers.append({'id': l_id, 'name': ledger.name})
-                    ledger_journals_map[l_id] = ledger.journal_ids.ids
-                    ledger_journals_map[str(l_id)] = ledger.journal_ids.ids
+            try:
+                company_id = self.env.company.id
+                domain = ['|', ('company_id', '=', False), ('company_id', '=', company_id)]
+                for ledger in self.env['account.multi.ledger'].sudo().search(domain):
+                    l_id = ledger.id
+                    l_name = ledger.name or f"Ledger {l_id}"
+                    available_ledgers.append({'id': l_id, 'name': l_name})
+                    seen_names.add(l_name.strip().lower())
+                    j_ids = ledger.journal_ids.ids
+                    ledger_journals_map[l_id] = j_ids
+                    ledger_journals_map[str(l_id)] = j_ids
+            except Exception as e:
+                _logger.warning("Error loading account.multi.ledger: %s", e)
+
+        # 2. Standard Odoo Journal Groups (account.journal.group)
+        if 'account.journal.group' in self.env:
+            try:
+                for group in self.env['account.journal.group'].sudo().search([]):
+                    g_id = group.id
+                    g_name = group.name
+                    if isinstance(g_name, dict):
+                        g_name = g_name.get(self.env.lang or 'en_US') or list(g_name.values())[0] if g_name else 'Unnamed'
+                    g_name = str(g_name or f"Group {g_id}").strip()
+
+                    if hasattr(group, 'included_journal_ids') and group.included_journal_ids:
+                        included_ids = group.included_journal_ids.ids
+                    elif hasattr(group, 'excluded_journal_ids'):
+                        comp_id = getattr(group, 'company_id', None) and group.company_id.id or self.env.company.id
+                        company_journals = self.env['account.journal'].sudo().search([('company_id', '=', comp_id)])
+                        included_ids = (company_journals - group.excluded_journal_ids).ids
+                    else:
+                        included_ids = []
+
+                    if g_name.lower() not in seen_names:
+                        key = f"jg_{g_id}" if g_id in ledger_journals_map else g_id
+                        available_ledgers.append({'id': key, 'name': g_name})
+                        seen_names.add(g_name.lower())
+                        ledger_journals_map[key] = included_ids
+                        ledger_journals_map[g_id] = included_ids
+                        ledger_journals_map[str(g_id)] = included_ids
+                    else:
+                        ledger_journals_map[g_id] = included_ids
+                        ledger_journals_map[str(g_id)] = included_ids
+            except Exception as e:
+                _logger.warning("Error loading account.journal.group: %s", e)
 
         gaap_options = form_data.get('gaap_options', {})
         selected_ledger_keys = [k for k, v in gaap_options.items() if v and k != 'local_gaap']
@@ -216,9 +545,16 @@ class HudsonDynamicReport(models.AbstractModel):
                 elif str(key).isdigit() and int(key) in ledger_journals_map:
                     filtered_journal_ids.update(ledger_journals_map[int(key)])
             
-            if filtered_journal_ids:
-                form_data['used_context']['journal_ids'] = list(filtered_journal_ids)
-                form_data['journal_ids'] = list(filtered_journal_ids)
+            selected_journals_list = list(filtered_journal_ids) if filtered_journal_ids else [-1]
+            if 'used_context' not in form_data:
+                form_data['used_context'] = {}
+            form_data['used_context']['journal_ids'] = selected_journals_list
+            form_data['journal_ids'] = selected_journals_list
+            if 'form' in data and isinstance(data['form'], dict):
+                data['form']['journal_ids'] = selected_journals_list
+                if 'used_context' not in data['form']:
+                    data['form']['used_context'] = {}
+                data['form']['used_context']['journal_ids'] = selected_journals_list
         # ------------------------------------------
 
         result = {
@@ -297,34 +633,304 @@ class HudsonDynamicReport(models.AbstractModel):
                             all_lines_map[key]['credit'] = line.get('credit', 0.0)
                         all_lines_map[key][f'balance_cmp_{p}'] = line.get('balance_cmp', 0.0)
 
-            seen_ids = {}
-            formatted_lines = []
-            for key in ordered_keys:
-                line = all_lines_map[key]
-                base_id = f"{line.get('type')}_{line.get('name')}"
-                if base_id in seen_ids:
-                    seen_ids[base_id] += 1
-                    line_id = f"{base_id}_{seen_ids[base_id]}"
-                else:
-                    seen_ids[base_id] = 0
-                    line_id = base_id
+            result['companies_description'] = ", ".join(self.env.companies.mapped('name'))
+            is_bs = ('balance sheet' in result['title'].lower())
+            is_pl = ('profit' in result['title'].lower() or 'loss' in result['title'].lower())
 
-                formatted_line = {
-                    'id': line_id,
-                    'name': line.get('name', ''),
-                    'debit': line.get('debit', 0.0),
-                    'credit': line.get('credit', 0.0),
-                    'balance': line.get('balance', 0.0),
-                    'level': line.get('level', 1),
-                    'type': line.get('type', 'report'),
-                    'is_summary_total': line.get('is_summary_total', False),
+            if is_pl:
+                # Structure Profit and Loss to match standard Odoo Online format:
+                # 1. Revenue
+                # 2. Costs of Revenue
+                # 3. Gross Profit (summary banner)
+                # 4. Operating Expenses (with Total Operating Expenses)
+                # 5. Operating Income (or Loss) (summary banner)
+                # 6. Other Income
+                # 7. Other Expenses
+                # 8. Net Profit (summary banner)
+                # 9. Allocations and Withdrawals
+
+                sections = {
+                    'revenue': {'name': _('Revenue'), 'header': None, 'accounts': []},
+                    'costs_of_revenue': {'name': _('Costs of Revenue'), 'header': None, 'accounts': []},
+                    'operating_expenses': {'name': _('Operating Expenses'), 'header': None, 'accounts': []},
+                    'other_income': {'name': _('Other Income'), 'header': None, 'accounts': []},
+                    'other_expenses': {'name': _('Other Expenses'), 'header': None, 'accounts': []},
+                    'allocations': {'name': _('Allocations and Withdrawals'), 'header': None, 'accounts': []},
                 }
+
+                current_section = None
+                for key in ordered_keys:
+                    raw_line = all_lines_map[key]
+                    l_type = raw_line.get('type')
+                    l_name = (raw_line.get('name') or '').strip()
+                    l_acc_type = raw_line.get('account_type', '')
+
+                    if l_type == 'report':
+                        name_lower = l_name.lower()
+                        if 'revenue' in name_lower or (name_lower == 'income' and not sections['revenue']['header']):
+                            current_section = 'revenue'
+                            sections['revenue']['header'] = raw_line.copy()
+                            sections['revenue']['header']['name'] = _('Revenue')
+                        elif 'cost' in name_lower or 'cogs' in name_lower:
+                            current_section = 'costs_of_revenue'
+                            sections['costs_of_revenue']['header'] = raw_line.copy()
+                            sections['costs_of_revenue']['header']['name'] = _('Costs of Revenue')
+                        elif 'operating expense' in name_lower or (name_lower == 'expense' and not sections['operating_expenses']['header']):
+                            current_section = 'operating_expenses'
+                            sections['operating_expenses']['header'] = raw_line.copy()
+                            sections['operating_expenses']['header']['name'] = _('Operating Expenses')
+                        elif 'other income' in name_lower:
+                            current_section = 'other_income'
+                            sections['other_income']['header'] = raw_line.copy()
+                            sections['other_income']['header']['name'] = _('Other Income')
+                        elif 'other expense' in name_lower:
+                            current_section = 'other_expenses'
+                            sections['other_expenses']['header'] = raw_line.copy()
+                            sections['other_expenses']['header']['name'] = _('Other Expenses')
+                        elif 'allocation' in name_lower or 'withdrawal' in name_lower:
+                            current_section = 'allocations'
+                            sections['allocations']['header'] = raw_line.copy()
+                            sections['allocations']['header']['name'] = _('Allocations and Withdrawals')
+                    elif l_type == 'account':
+                        if l_acc_type in ('expense_direct_cost',):
+                            sections['costs_of_revenue']['accounts'].append(raw_line.copy())
+                        elif l_acc_type in ('income_other',):
+                            sections['other_income']['accounts'].append(raw_line.copy())
+                        elif l_acc_type in ('expense_other',):
+                            sections['other_expenses']['accounts'].append(raw_line.copy())
+                        elif l_acc_type in ('income', 'revenue'):
+                            sections['revenue']['accounts'].append(raw_line.copy())
+                        elif l_acc_type in ('expense', 'expense_depreciation'):
+                            sections['operating_expenses']['accounts'].append(raw_line.copy())
+                        else:
+                            target = current_section or 'operating_expenses'
+                            sections[target]['accounts'].append(raw_line.copy())
+
+                def make_blank_line(line_id, name, level=1, is_banner=False, is_summary=False):
+                    bl = {
+                        'id': line_id,
+                        'name': name,
+                        'balance': 0.0,
+                        'debit': 0.0,
+                        'credit': 0.0,
+                        'level': level,
+                        'type': 'summary' if (is_banner or is_summary) else 'report',
+                        'is_summary_total': is_summary or is_banner,
+                        'is_summary_banner': is_banner,
+                    }
+                    for cmp_info in cmp_periods_info:
+                        bl[f"balance_cmp_{cmp_info['p']}"] = 0.0
+                    return bl
+
+                def compute_section_totals(sec_key):
+                    sec = sections[sec_key]
+                    accs = sec['accounts']
+                    hdr = sec['header']
+                    if accs:
+                        bal = sum(a.get('balance', 0.0) for a in accs)
+                        deb = sum(a.get('debit', 0.0) for a in accs)
+                        crd = sum(a.get('credit', 0.0) for a in accs)
+                    elif hdr:
+                        bal = hdr.get('balance', 0.0)
+                        deb = hdr.get('debit', 0.0)
+                        crd = hdr.get('credit', 0.0)
+                    else:
+                        bal = 0.0
+                        deb = 0.0
+                        crd = 0.0
+                    cmps = {}
+                    for cmp_info in cmp_periods_info:
+                        p = cmp_info['p']
+                        if accs:
+                            cmps[p] = sum(a.get(f'balance_cmp_{p}', 0.0) for a in accs)
+                        elif hdr:
+                            cmps[p] = hdr.get(f'balance_cmp_{p}', 0.0)
+                        else:
+                            cmps[p] = 0.0
+                    return bal, deb, crd, cmps
+
+                rev_bal, rev_deb, rev_crd, rev_cmps = compute_section_totals('revenue')
+                cogs_bal, cogs_deb, cogs_crd, cogs_cmps = compute_section_totals('costs_of_revenue')
+                opex_bal, opex_deb, opex_crd, opex_cmps = compute_section_totals('operating_expenses')
+                oinc_bal, oinc_deb, oinc_crd, oinc_cmps = compute_section_totals('other_income')
+                oexp_bal, oexp_deb, oexp_crd, oexp_cmps = compute_section_totals('other_expenses')
+                alloc_bal, alloc_deb, alloc_crd, alloc_cmps = compute_section_totals('allocations')
+
+                gross_profit_bal = rev_bal - cogs_bal
+                operating_income_bal = gross_profit_bal - opex_bal
+                net_profit_bal = operating_income_bal + oinc_bal - oexp_bal
+
+                formatted_lines = []
+
+                # 1. Revenue
+                rev_hdr = make_blank_line('report_revenue', _('Revenue'), level=1)
+                rev_hdr['balance'] = rev_bal
+                rev_hdr['debit'] = rev_deb
+                rev_hdr['credit'] = rev_crd
+                for cmp_info in cmp_periods_info:
+                    rev_hdr[f"balance_cmp_{cmp_info['p']}"] = rev_cmps.get(cmp_info['p'], 0.0)
+                formatted_lines.append(rev_hdr)
+                for a in sections['revenue']['accounts']:
+                    a_line = a.copy()
+                    a_line['id'] = f"acc_{a.get('name')}"
+                    a_line['level'] = 2
+                    formatted_lines.append(a_line)
+
+                # 2. Costs of Revenue
+                cogs_hdr = make_blank_line('report_costs_of_revenue', _('Costs of Revenue'), level=1)
+                cogs_hdr['balance'] = cogs_bal
+                cogs_hdr['debit'] = cogs_deb
+                cogs_hdr['credit'] = cogs_crd
+                for cmp_info in cmp_periods_info:
+                    cogs_hdr[f"balance_cmp_{cmp_info['p']}"] = cogs_cmps.get(cmp_info['p'], 0.0)
+                formatted_lines.append(cogs_hdr)
+                for a in sections['costs_of_revenue']['accounts']:
+                    a_line = a.copy()
+                    a_line['id'] = f"acc_{a.get('name')}"
+                    a_line['level'] = 2
+                    formatted_lines.append(a_line)
+
+                # 3. Gross Profit (summary banner)
+                gp_line = make_blank_line('summary_gross_profit', _('Gross Profit'), level=1, is_banner=True)
+                gp_line['balance'] = gross_profit_bal
                 for cmp_info in cmp_periods_info:
                     p = cmp_info['p']
-                    formatted_line[f'balance_cmp_{p}'] = line.get(f'balance_cmp_{p}', 0.0)
-                formatted_lines.append(formatted_line)
-                
-            result['lines'] = formatted_lines
+                    gp_line[f'balance_cmp_{p}'] = rev_cmps.get(p, 0.0) - cogs_cmps.get(p, 0.0)
+                formatted_lines.append(gp_line)
+
+                # 4. Operating Expenses
+                opex_hdr = make_blank_line('report_operating_expenses', _('Operating Expenses'), level=1)
+                opex_hdr['balance'] = opex_bal
+                opex_hdr['debit'] = opex_deb
+                opex_hdr['credit'] = opex_crd
+                for cmp_info in cmp_periods_info:
+                    opex_hdr[f"balance_cmp_{cmp_info['p']}"] = opex_cmps.get(cmp_info['p'], 0.0)
+                formatted_lines.append(opex_hdr)
+                for a in sections['operating_expenses']['accounts']:
+                    a_line = a.copy()
+                    a_line['id'] = f"acc_{a.get('name')}"
+                    a_line['level'] = 2
+                    formatted_lines.append(a_line)
+                if sections['operating_expenses']['accounts']:
+                    tot_opex = make_blank_line('summary_total_operating_expenses', _('Total Operating Expenses'), level=2, is_summary=True)
+                    tot_opex['balance'] = opex_bal
+                    tot_opex['debit'] = opex_deb
+                    tot_opex['credit'] = opex_crd
+                    for cmp_info in cmp_periods_info:
+                        tot_opex[f"balance_cmp_{cmp_info['p']}"] = opex_cmps.get(cmp_info['p'], 0.0)
+                    formatted_lines.append(tot_opex)
+
+                # 5. Operating Income (or Loss) (summary banner)
+                oi_line = make_blank_line('summary_operating_income', _('Operating Income (or Loss)'), level=1, is_banner=True)
+                oi_line['balance'] = operating_income_bal
+                for cmp_info in cmp_periods_info:
+                    p = cmp_info['p']
+                    oi_line[f'balance_cmp_{p}'] = (rev_cmps.get(p, 0.0) - cogs_cmps.get(p, 0.0)) - opex_cmps.get(p, 0.0)
+                formatted_lines.append(oi_line)
+
+                # 6. Other Income
+                oinc_hdr = make_blank_line('report_other_income', _('Other Income'), level=1)
+                oinc_hdr['balance'] = oinc_bal
+                for cmp_info in cmp_periods_info:
+                    oinc_hdr[f"balance_cmp_{cmp_info['p']}"] = oinc_cmps.get(cmp_info['p'], 0.0)
+                formatted_lines.append(oinc_hdr)
+                for a in sections['other_income']['accounts']:
+                    a_line = a.copy()
+                    a_line['id'] = f"acc_{a.get('name')}"
+                    a_line['level'] = 2
+                    formatted_lines.append(a_line)
+
+                # 7. Other Expenses
+                oexp_hdr = make_blank_line('report_other_expenses', _('Other Expenses'), level=1)
+                oexp_hdr['balance'] = oexp_bal
+                for cmp_info in cmp_periods_info:
+                    oexp_hdr[f"balance_cmp_{cmp_info['p']}"] = oexp_cmps.get(cmp_info['p'], 0.0)
+                formatted_lines.append(oexp_hdr)
+                for a in sections['other_expenses']['accounts']:
+                    a_line = a.copy()
+                    a_line['id'] = f"acc_{a.get('name')}"
+                    a_line['level'] = 2
+                    formatted_lines.append(a_line)
+
+                # 8. Net Profit (summary banner)
+                np_line = make_blank_line('summary_net_profit', _('Net Profit'), level=1, is_banner=True)
+                np_line['balance'] = net_profit_bal
+                for cmp_info in cmp_periods_info:
+                    p = cmp_info['p']
+                    np_line[f'balance_cmp_{p}'] = ((rev_cmps.get(p, 0.0) - cogs_cmps.get(p, 0.0)) - opex_cmps.get(p, 0.0)) + oinc_cmps.get(p, 0.0) - oexp_cmps.get(p, 0.0)
+                formatted_lines.append(np_line)
+
+                # 9. Allocations and Withdrawals
+                alloc_hdr = make_blank_line('report_allocations', _('Allocations and Withdrawals'), level=1)
+                alloc_hdr['balance'] = alloc_bal
+                for cmp_info in cmp_periods_info:
+                    alloc_hdr[f"balance_cmp_{cmp_info['p']}"] = alloc_cmps.get(cmp_info['p'], 0.0)
+                formatted_lines.append(alloc_hdr)
+                for a in sections['allocations']['accounts']:
+                    a_line = a.copy()
+                    a_line['id'] = f"acc_{a.get('name')}"
+                    a_line['level'] = 2
+                    formatted_lines.append(a_line)
+
+                result['lines'] = formatted_lines
+            else:
+                seen_ids = {}
+                formatted_lines = []
+                for key in ordered_keys:
+                    line = all_lines_map[key]
+                    base_id = f"{line.get('type')}_{line.get('name')}"
+                    if base_id in seen_ids:
+                        seen_ids[base_id] += 1
+                        line_id = f"{base_id}_{seen_ids[base_id]}"
+                    else:
+                        seen_ids[base_id] = 0
+                        line_id = base_id
+
+                    formatted_line = {
+                        'id': line_id,
+                        'name': line.get('name', ''),
+                        'debit': line.get('debit', 0.0),
+                        'credit': line.get('credit', 0.0),
+                        'balance': line.get('balance', 0.0),
+                        'level': line.get('level', 1),
+                        'type': line.get('type', 'report'),
+                        'is_summary_total': line.get('is_summary_total', False),
+                        'is_summary_banner': line.get('is_summary_banner', False),
+                    }
+                    for cmp_info in cmp_periods_info:
+                        p = cmp_info['p']
+                        formatted_line[f'balance_cmp_{p}'] = line.get(f'balance_cmp_{p}', 0.0)
+                    formatted_lines.append(formatted_line)
+                    
+                result['lines'] = formatted_lines
+
+            pl_base_map = None
+            if is_pl:
+                pl_base_map = {
+                    'revenue': rev_bal,
+                    'costs_of_revenue': cogs_bal,
+                    'gross_profit': gross_profit_bal,
+                    'operating_expenses': opex_bal,
+                    'operating_income': operating_income_bal,
+                    'other_income': oinc_bal,
+                    'other_expenses': oexp_bal,
+                    'net_profit': net_profit_bal,
+                    'allocations': alloc_bal,
+                }
+
+            self._compute_percentage_comparison(
+                result, form_data, is_pl=is_pl, is_bs=is_bs,
+                pl_base_map=pl_base_map,
+                cmp_periods_info=cmp_periods_info
+            )
+
+            if form_data.get('period_order') == 'ascending' and cmp_periods_info:
+                name_cols = [c for c in result['columns'] if c['field'] in ('name', 'debit', 'credit')]
+                cmp_cols = [c for c in result['columns'] if c['field'].startswith('balance_cmp_')]
+                cmp_cols.reverse()
+                bal_col = [c for c in result['columns'] if c['field'] == 'balance']
+                other_cols = [c for c in result['columns'] if c not in name_cols and c not in cmp_cols and c not in bal_col]
+                result['columns'] = name_cols + cmp_cols + bal_col + other_cols
 
         elif model_name == 'account.tax.report.wizard':
             result['title'] = _("Tax Report")
@@ -487,19 +1093,47 @@ class HudsonDynamicReport(models.AbstractModel):
             ]
             
             # Setup account types filter
-            account_type_filter = form_data.get('account_type', 'trade')
+            selected_account_types = form_data.get('account_types')
+            if not selected_account_types:
+                account_type_filter = form_data.get('account_type', 'trade')
+                if account_type_filter == 'receivable':
+                    selected_account_types = ['receivable']
+                elif account_type_filter == 'payable':
+                    selected_account_types = ['payable']
+                elif account_type_filter == 'all':
+                    selected_account_types = ['receivable', 'non_trade_receivable', 'payable', 'non_trade_payable']
+                else: # 'trade'
+                    selected_account_types = ['receivable', 'payable']
+            elif isinstance(selected_account_types, str):
+                selected_account_types = [selected_account_types]
+                
+            has_non_trade = 'non_trade' in self.env['account.account']._fields
+            acc_id_set = set()
+            if 'receivable' in selected_account_types:
+                dom = [('account_type', '=', 'asset_receivable')]
+                if has_non_trade:
+                    dom.append(('non_trade', '=', False))
+                acc_id_set.update(self.env['account.account'].search(dom).ids)
+            if 'non_trade_receivable' in selected_account_types:
+                dom = [('account_type', '=', 'asset_receivable')]
+                if has_non_trade:
+                    dom.append(('non_trade', '=', True))
+                acc_id_set.update(self.env['account.account'].search(dom).ids)
+            if 'payable' in selected_account_types:
+                dom = [('account_type', '=', 'liability_payable')]
+                if has_non_trade:
+                    dom.append(('non_trade', '=', False))
+                acc_id_set.update(self.env['account.account'].search(dom).ids)
+            if 'non_trade_payable' in selected_account_types:
+                dom = [('account_type', '=', 'liability_payable')]
+                if has_non_trade:
+                    dom.append(('non_trade', '=', True))
+                acc_id_set.update(self.env['account.account'].search(dom).ids)
+
+            acc_ids = list(acc_id_set) if acc_id_set else [0]
+
             if 'computed' not in data:
                 data['computed'] = {}
-                
-            if account_type_filter == 'receivable':
-                acc_ids = self.env['account.account'].search([('account_type', '=', 'asset_receivable')]).ids
-            elif account_type_filter == 'payable':
-                acc_ids = self.env['account.account'].search([('account_type', '=', 'liability_payable')]).ids
-            elif account_type_filter == 'all':
-                acc_ids = self.env['account.account'].search([]).ids
-            else: # 'trade' or 'trade_partners'
-                acc_ids = self.env['account.account'].search([('account_type', 'in', ['asset_receivable', 'liability_payable'])]).ids
-                
             data['computed']['account_ids'] = acc_ids
             data['computed']['move_state'] = ['posted'] if form_data.get('target_move') == 'posted' else ['posted', 'draft']
             
@@ -508,18 +1142,25 @@ class HudsonDynamicReport(models.AbstractModel):
                 cat_partners = self.env['res.partner'].search([('category_id', 'in', form_data['partner_category_ids'])]).ids
                 p_ids = list(set(p_ids + cat_partners))
             
-            if p_ids:
-                form_data['partner_ids'] = p_ids
+            form_data['partner_ids'] = p_ids
+            if 'form' in data:
                 data['form']['partner_ids'] = p_ids
-                data['computed']['partner_ids'] = p_ids
+            data['computed']['partner_ids'] = p_ids
 
             if form_data.get('target_move') != 'posted':
                 unposted_count = self.env['account.move'].search_count([('state', '=', 'draft')])
                 if unposted_count > 0:
                     result['alert_message'] = _('There are unposted Journal Entries prior or included in this period.')
             
+            if 'reconciled' not in form_data:
+                form_data['reconciled'] = False
+            if 'form' in data and 'reconciled' not in data['form']:
+                data['form']['reconciled'] = form_data['reconciled']
+                
             report_model = self.env['report.accounting_pdf_reports.report_partnerledger']
             report_data = report_model._get_report_values(None, data)
+            data['computed']['account_ids'] = acc_ids
+            data['computed']['move_state'] = ['posted'] if form_data.get('target_move') == 'posted' else ['posted', 'draft']
             partners = report_data.get('docs', [])
             
             formatted_lines = []
@@ -649,19 +1290,27 @@ class HudsonDynamicReport(models.AbstractModel):
             if form_data.get('journal_ids'):
                 domain_initial.append(('journal_id', 'in', form_data['journal_ids']))
                 domain_period.append(('journal_id', 'in', form_data['journal_ids']))
+
+            # Filter by analytic accounts in Trial Balance
+            resolved_analytic_acc_ids = []
+            if form_data.get('used_context', {}).get('analytic_account_ids'):
+                ctx_an = form_data['used_context']['analytic_account_ids']
+                resolved_analytic_acc_ids = ctx_an.ids if hasattr(ctx_an, 'ids') else (list(ctx_an) if isinstance(ctx_an, (list, tuple, set)) else [ctx_an])
+            elif form_data.get('analytic_account_ids'):
+                resolved_analytic_acc_ids = list(form_data['analytic_account_ids'])
+            if resolved_analytic_acc_ids:
+                domain_initial.append(('analytic_distribution', 'in', resolved_analytic_acc_ids))
+                domain_period.append(('analytic_distribution', 'in', resolved_analytic_acc_ids))
+
+            # Filter by partners if selected
+            if form_data.get('partner_ids'):
+                domain_initial.append(('partner_id', 'in', form_data['partner_ids']))
+                domain_period.append(('partner_id', 'in', form_data['partner_ids']))
                 
             # Compute Initial Balance
             initial_balances = {}
             if date_from:
-                query = self.env['account.move.line']._where_calc(domain_initial)
-                if hasattr(query, 'from_clause') and hasattr(query.from_clause, 'code'):
-                    from_string = query.from_clause.code
-                    where_string = query.where_clause.code
-                    where_params = query.where_clause.params or []
-                else:
-                    from_string, from_params = query.from_clause
-                    where_string, where_params = query.where_clause
-                    where_params = list(from_params) + list(where_params)
+                from_string, where_string, where_params = self._get_query_components('account.move.line', domain_initial)
                 if where_string:
                     self.env.cr.execute(f"SELECT account_id, SUM(debit - credit) as balance FROM {from_string} WHERE {where_string} GROUP BY account_id", where_params)
                     for row in self.env.cr.dictfetchall():
@@ -669,16 +1318,7 @@ class HudsonDynamicReport(models.AbstractModel):
                         
             # Compute Period Movement
             period_movements = {}
-            query = self.env['account.move.line']._where_calc(domain_period)
-            if hasattr(query, 'from_clause') and hasattr(query.from_clause, 'code'):
-                from_string = query.from_clause.code
-                where_string = query.where_clause.code
-                where_params = query.where_clause.params or []
-            else:
-                from_string, from_params = query.from_clause
-                where_string, where_params = query.where_clause
-                where_params = list(from_params) + list(where_params)
-            
+            from_string, where_string, where_params = self._get_query_components('account.move.line', domain_period)
             if where_string:
                 self.env.cr.execute(f"SELECT account_id, SUM(debit) as debit, SUM(credit) as credit FROM {from_string} WHERE {where_string} GROUP BY account_id", where_params)
                 for row in self.env.cr.dictfetchall():
@@ -706,13 +1346,14 @@ class HudsonDynamicReport(models.AbstractModel):
                     continue
                 
                 # Determine group
-                if account.group_id:
-                    pfx = account.group_id.code_prefix_start or (account.code[:2] if len(account.code) >= 2 else account.code)
+                code = str(account.code or '')
+                acc_group = getattr(account, 'group_id', False)
+                if acc_group:
+                    pfx = str(acc_group.code_prefix_start or (code[:2] if len(code) >= 2 else code) or '')
                     grp_code = pfx.ljust(6, '0') if len(pfx) <= 6 else pfx
-                    grp_id = f"grp_{account.group_id.id}"
-                    grp_name = f"{grp_code} {account.group_id.name}"
+                    grp_id = f"grp_{acc_group.id}"
+                    grp_name = f"{grp_code} {acc_group.name}"
                 else:
-                    code = account.code or ''
                     pfx = code[:2] if len(code) >= 2 else code
                     grp_code = pfx.ljust(6, '0') if len(pfx) <= 6 else pfx
                     type_name = type_labels.get(account.account_type, account.account_type.replace('_', ' ').title()) if account.account_type else 'Other'
@@ -739,7 +1380,7 @@ class HudsonDynamicReport(models.AbstractModel):
                 
                 account_groups_dict[grp_id]['accounts'].append({
                     'id': f'account_{account.id}',
-                    'name': f"{account.code} {account.name}",
+                    'name': f"{account.code} {account.name}" if account.code else (account.name or ''),
                     'initial_balance': initial_balance,
                     'debit': debit,
                     'credit': credit,
@@ -851,13 +1492,14 @@ class HudsonDynamicReport(models.AbstractModel):
                 if display_account == 'not_zero' and round(a_balance, 2) == 0:
                     continue
 
-                code = account.get('code', '')
+                code = str(account.get('code') or '')
                 acc_obj = acc_by_code.get(code)
-                if acc_obj and acc_obj.group_id:
-                    pfx = acc_obj.group_id.code_prefix_start or (code[:2] if len(code) >= 2 else code)
+                acc_group = getattr(acc_obj, 'group_id', False) if acc_obj else False
+                if acc_group:
+                    pfx = str(acc_group.code_prefix_start or (code[:2] if len(code) >= 2 else code) or '')
                     grp_code = pfx.ljust(6, '0') if len(pfx) <= 6 else pfx
-                    grp_id = f"gl_grp_{acc_obj.group_id.id}"
-                    grp_name = f"{grp_code} {acc_obj.group_id.name}"
+                    grp_id = f"gl_grp_{acc_group.id}"
+                    grp_name = f"{grp_code} {acc_group.name}"
                 else:
                     pfx = code[:2] if len(code) >= 2 else code
                     grp_code = pfx.ljust(6, '0') if len(pfx) <= 6 else pfx
@@ -911,7 +1553,7 @@ class HudsonDynamicReport(models.AbstractModel):
                     
                     formatted_lines.append({
                         'id': f'account_{account["code"]}',
-                        'name': f"{account['code']} {account['name']}",
+                        'name': f"{account['code']} {account['name']}" if account.get('code') else (account.get('name') or ''),
                         'debit': a_debit,
                         'credit': a_credit,
                         'balance': a_balance,
@@ -957,16 +1599,7 @@ class HudsonDynamicReport(models.AbstractModel):
                     domain_initial.append(('move_id.state', '=', 'posted'))
                 domain_initial.append(('date', '<', date_from))
                 
-                query = self.env['account.move.line']._where_calc(domain_initial)
-                if hasattr(query, 'from_clause') and hasattr(query.from_clause, 'code'):
-                    from_string = query.from_clause.code
-                    where_string = query.where_clause.code
-                    where_params = query.where_clause.params or []
-                else:
-                    from_string, from_params = query.from_clause
-                    where_string, where_params = query.where_clause
-                    where_params = list(from_params) + list(where_params)
-                    
+                from_string, where_string, where_params = self._get_query_components('account.move.line', domain_initial)
                 if where_string:
                     self.env.cr.execute(f"SELECT SUM(debit - credit) as balance FROM {from_string} WHERE {where_string}", where_params)
                     res = self.env.cr.fetchone()
@@ -1428,15 +2061,23 @@ class HudsonDynamicReport(models.AbstractModel):
                 {'label': 'Balance', 'field': 'balance', 'type': 'monetary'},
             ]
             
-            wizard = self.env[model_name].browse(wizard_id)
-            if not wizard.exists():
+            wizard = self.env[model_name].browse(wizard_id) if wizard_id else False
+            if not wizard or not wizard.exists():
                 clean_data = {k: v for k, v in form_data.items() if k in self.env[model_name]._fields}
                 wizard = self.env[model_name].new(clean_data)
                 
             journal_ids = wizard.journal_ids.ids if hasattr(wizard, 'journal_ids') and wizard.journal_ids else form_data.get('journal_ids', [])
-            target_move = wizard.target_move if hasattr(wizard, 'target_move') else form_data.get('target_move', 'all')
-            date_from = wizard.date_from if hasattr(wizard, 'date_from') else form_data.get('date_from')
-            date_to = wizard.date_to if hasattr(wizard, 'date_to') else form_data.get('date_to')
+            target_move = wizard.target_move if hasattr(wizard, 'target_move') and wizard.target_move else form_data.get('target_move', 'posted')
+            date_from = wizard.date_from if hasattr(wizard, 'date_from') and wizard.date_from else form_data.get('date_from')
+            date_to = wizard.date_to if hasattr(wizard, 'date_to') and wizard.date_to else form_data.get('date_to')
+
+            today = fields.Date.context_today(self)
+            if not date_from or not date_to:
+                fiscal_dates = self.env.company.compute_fiscalyear_dates(today)
+                date_from = date_from or fiscal_dates['date_from']
+                date_to = date_to or fiscal_dates['date_to']
+
+            company_ids = (self.env.company.id,)
             
             cr = self.env.cr
             # 1. Journals Summary
@@ -1445,22 +2086,21 @@ class HudsonDynamicReport(models.AbstractModel):
                     j.id as journal_id,
                     j.name as journal_name,
                     j.code as journal_code,
-                    COUNT(DISTINCT m.id) as docs_count,
-                    COUNT(DISTINCT CASE WHEN m.state = 'draft' THEN m.id END) as draft_count,
-                    SUM(l.debit) as debit,
-                    SUM(l.credit) as credit,
-                    SUM(l.balance) as balance
+                    COUNT(DISTINCT CASE WHEN (%s = 'all' OR m.state = 'posted') THEN m.id END) as docs_count,
+                    COUNT(DISTINCT CASE WHEN (m.state = 'draft' OR m.review_state = 'todo') THEN m.id END) as draft_count,
+                    SUM(CASE WHEN (%s = 'all' OR m.state = 'posted') THEN l.debit ELSE 0 END) as debit,
+                    SUM(CASE WHEN (%s = 'all' OR m.state = 'posted') THEN l.credit ELSE 0 END) as credit,
+                    SUM(CASE WHEN (%s = 'all' OR m.state = 'posted') THEN l.balance ELSE 0 END) as balance
                 FROM account_move_line l
                 JOIN account_move m ON l.move_id = m.id
                 JOIN account_journal j ON l.journal_id = j.id
                 WHERE l.display_type NOT IN ('line_section', 'line_note')
+                  AND l.company_id IN %s
             """
-            j_params = []
+            j_params = [target_move, target_move, target_move, target_move, company_ids]
             if journal_ids:
                 j_query += " AND l.journal_id IN %s"
                 j_params.append(tuple(journal_ids))
-            if target_move == 'posted':
-                j_query += " AND m.state = 'posted'"
             if date_from:
                 j_query += " AND l.date >= %s"
                 j_params.append(date_from)
@@ -1468,7 +2108,7 @@ class HudsonDynamicReport(models.AbstractModel):
                 j_query += " AND l.date <= %s"
                 j_params.append(date_to)
                 
-            j_query += " GROUP BY j.id, j.name, j.code ORDER BY j.name"
+            j_query += " GROUP BY j.id, j.name, j.code, j.sequence ORDER BY j.sequence, j.name"
             cr.execute(j_query, tuple(j_params))
             journals_data = cr.dictfetchall()
             
@@ -1485,13 +2125,14 @@ class HudsonDynamicReport(models.AbstractModel):
                 JOIN account_journal j ON l.journal_id = j.id
                 JOIN account_account a ON l.account_id = a.id
                 WHERE l.display_type NOT IN ('line_section', 'line_note')
+                  AND l.company_id IN %s
             """
-            a_params = []
+            a_params = [company_ids]
+            if target_move == 'posted':
+                a_query += " AND m.state = 'posted'"
             if journal_ids:
                 a_query += " AND l.journal_id IN %s"
                 a_params.append(tuple(journal_ids))
-            if target_move == 'posted':
-                a_query += " AND m.state = 'posted'"
             if date_from:
                 a_query += " AND l.date >= %s"
                 a_params.append(date_from)
@@ -1507,76 +2148,44 @@ class HudsonDynamicReport(models.AbstractModel):
             accounts = self.env['account.account'].browse(account_ids)
             account_map = {acc.id: {'code': acc.code, 'name': acc.name} for acc in accounts}
             
-            # 3. Taxes Summary (Child of Journal)
-            t_query = """
-                SELECT 
-                    l.journal_id as journal_id,
-                    t.id as tax_id,
-                    t.name as tax_name,
-                    SUM(l.tax_base_amount) as base_amount,
-                    SUM(l.balance) as tax_amount
-                FROM account_move_line l
-                JOIN account_move m ON l.move_id = m.id
-                JOIN account_tax t ON l.tax_line_id = t.id
-                WHERE l.tax_line_id IS NOT NULL
-            """
-            t_params = []
-            if journal_ids:
-                t_query += " AND l.journal_id IN %s"
-                t_params.append(tuple(journal_ids))
-            if target_move == 'posted':
-                t_query += " AND m.state = 'posted'"
-            if date_from:
-                t_query += " AND l.date >= %s"
-                t_params.append(date_from)
-            if date_to:
-                t_query += " AND l.date <= %s"
-                t_params.append(date_to)
-                
-            t_query += " GROUP BY l.journal_id, t.id, t.name ORDER BY t.name"
-            cr.execute(t_query, tuple(t_params))
-            taxes_data = cr.dictfetchall()
-            
-            tax_ids = [t['tax_id'] for t in taxes_data]
-            taxes = self.env['account.tax'].browse(tax_ids)
-            tax_map = {t.id: t.name for t in taxes}
-            
-            journal_ids_fetched = [j['journal_id'] for j in journals_data]
-            journals = self.env['account.journal'].browse(journal_ids_fetched)
-            journal_map = {j.id: {'name': j.name, 'code': j.code} for j in journals}
-            
             formatted_lines = []
             
             for j in journals_data:
-                j_info = journal_map[j['journal_id']]
+                j_name = j['journal_name']
+                if isinstance(j_name, dict):
+                    j_name = j_name.get(self.env.lang) or next(iter(j_name.values()), '')
+
                 # Add Journal Group Row
                 formatted_lines.append({
                     'id': f"journal_{j['journal_id']}",
-                    'name': f"{j_info['name']} {j_info['code']}",
+                    'name': f"{j_name} {j['journal_code']}",
                     'docs_count': j['docs_count'],
                     'draft_count': j['draft_count'],
                     'debit': j['debit'] or 0.0,
                     'credit': j['credit'] or 0.0,
-                    'balance': '',  # Blank for journal level
+                    'balance': '',  # Blank for journal level matching Odoo Online
                     'level': 1,
                     'type': 'group',
                     'journal_id': j['journal_id'],
                     'action_buttons': [
-                        {'label': 'Audit', 'class': 'btn-outline-secondary btn-sm badge-pill me-1', 'action': 'open_journal_items'},
+                        {'label': 'Audit', 'class': 'o_audit_badge ms-2', 'action': 'open_journal_items'},
                     ]
                 })
                 
                 # Accounts inside this Journal
                 j_accounts = [a for a in accounts_data if a['journal_id'] == j['journal_id']]
                 
-                # Sort j_accounts by account code since we didn't sort in SQL
-                j_accounts = sorted(j_accounts, key=lambda a: account_map[a['account_id']]['code'] or '')
+                # Sort j_accounts by account code
+                j_accounts = sorted(j_accounts, key=lambda a: account_map.get(a['account_id'], {}).get('code') or '')
                 
                 for a in j_accounts:
-                    acc_info = account_map[a['account_id']]
+                    acc_info = account_map.get(a['account_id'], {'code': '', 'name': ''})
+                    acc_name = acc_info['name']
+                    if isinstance(acc_name, dict):
+                        acc_name = acc_name.get(self.env.lang) or next(iter(acc_name.values()), '')
                     formatted_lines.append({
                         'id': f"account_{j['journal_id']}_{a['account_id']}",
-                        'name': f"{acc_info['code'] or ''} {acc_info['name'] or ''}".strip(),
+                        'name': f"{acc_info['code'] or ''} {acc_name}".strip(),
                         'docs_count': '',
                         'draft_count': '',
                         'debit': a['debit'] or 0.0,
@@ -1587,59 +2196,11 @@ class HudsonDynamicReport(models.AbstractModel):
                         'account_id': a['account_id'],
                         'journal_id': j['journal_id'],
                     })
-                
-                # Taxes inside this Journal
-                j_taxes = [t for t in taxes_data if t['journal_id'] == j['journal_id']]
-                if j_taxes:
-                    formatted_lines.append({
-                        'id': f"tax_header_title_{j['journal_id']}",
-                        'name': 'Taxes Applied',
-                        'docs_count': '',
-                        'draft_count': '',
-                        'debit': '',
-                        'credit': '',
-                        'balance': '',
-                        'level': 2,
-                        'type': 'group',
-                        'journal_id': j['journal_id'],
-                        'action_buttons': [{'label': 'Audit', 'class': 'btn-outline-secondary btn-sm badge-pill', 'action': 'open_journal_items'}]
-                    })
-                    
-                    formatted_lines.append({
-                        'id': f"tax_header_cols_{j['journal_id']}",
-                        'name': 'Name',
-                        'docs_count': '',
-                        'draft_count': '',
-                        'debit': 'Base Amount',  # Overloaded into debit
-                        'credit': 'Tax Amount',  # Overloaded into credit
-                        'balance': '',
-                        'level': 3,
-                        'type': 'tax_cols'
-                    })
-                    
-                    for t in j_taxes:
-                        tax_name = tax_map.get(t['tax_id'])
-                        if not tax_name:
-                            t_val = t.get('tax_name')
-                            if isinstance(t_val, dict):
-                                tax_name = t_val.get(self.env.lang) or next(iter(t_val.values()), '')
-                            else:
-                                tax_name = str(t_val or '')
-
-                        formatted_lines.append({
-                            'id': f"tax_{j['journal_id']}_{t['tax_id']}",
-                            'name': tax_name,
-                            'docs_count': '',
-                            'draft_count': '',
-                            'debit': t['base_amount'] or 0.0,
-                            'credit': abs(t['tax_amount']) or 0.0,
-                            'balance': '',
-                            'level': 3,
-                            'type': 'tax',
-                            'tax_id': t['tax_id'],
-                        })
             
             result['lines'] = formatted_lines
+            result['date_from'] = str(date_from) if date_from else False
+            result['date_to'] = str(date_to) if date_to else False
+            result['target_move'] = target_move
         elif model_name in ('account.deferred.revenue.report', 'account.deferred.expense.report'):
             is_revenue = (model_name == 'account.deferred.revenue.report')
             result['title'] = _("Deferred Revenues") if is_revenue else _("Deferred Expenses")
@@ -1662,11 +2223,13 @@ class HudsonDynamicReport(models.AbstractModel):
             else:
                 p_end = (p_start + relativedelta(months=1, days=-1))
                 
-            # Period column label matching enterprise screenshot (e.g. 'Jul 2026')
-            if p_start.month == p_end.month and p_start.year == p_end.year:
+            # Period column label matching enterprise screenshot (e.g. 'Jul 2026' or '01/10/2026 - 15/10/2026')
+            if p_start.day == 1 and (p_end + relativedelta(days=1)).day == 1 and p_start.month == p_end.month and p_start.year == p_end.year:
                 period_col_label = p_start.strftime('%b %Y')
-            else:
+            elif p_start.day == 1 and (p_end + relativedelta(days=1)).day == 1:
                 period_col_label = f"{p_start.strftime('%b %Y')} - {p_end.strftime('%b %Y')}"
+            else:
+                period_col_label = f"{p_start.strftime('%d/%m/%Y')} - {p_end.strftime('%d/%m/%Y')}"
                 
             result['columns'] = [
                 {'label': '', 'field': 'name'},
@@ -1817,7 +2380,7 @@ class HudsonDynamicReport(models.AbstractModel):
                 # Account Level 1 Line
                 formatted_lines.append({
                     'id': f"acc_{acc.id}",
-                    'name': f"{acc.code} {acc.name}",
+                    'name': f"{acc.code} {acc.name}" if acc.code else (acc.name or ''),
                     'total': acc_total,
                     'not_started': acc_not_started,
                     'before': acc_before,
@@ -1854,6 +2417,9 @@ class HudsonDynamicReport(models.AbstractModel):
             })
             
             result['lines'] = formatted_lines
+            result['date_from'] = fields.Date.to_string(p_start) if p_start else False
+            result['date_to'] = fields.Date.to_string(p_end) if p_end else False
+            result['target_move'] = form_data.get('target_move', 'posted')
         elif model_name == 'account.analytic.report':
             result['title'] = _("Analytic Report")
             result['companies_description'] = ", ".join(self.env.companies.mapped('name'))
@@ -1938,7 +2504,7 @@ class HudsonDynamicReport(models.AbstractModel):
                         'name': l.name or '/',
                         'date': l.date.strftime('%d/%m/%Y') if l.date else '',
                         'partner': l.partner_id.name or '',
-                        'general_account': f"{l.general_account_id.code} {l.general_account_id.name}" if l.general_account_id else '',
+                        'general_account': (f"{l.general_account_id.code} {l.general_account_id.name}" if l.general_account_id.code else (l.general_account_id.name or '')) if l.general_account_id else '',
                         'product_task': prod_task,
                         'unit_amount': round(l.unit_amount or 0.0, 2),
                         'amount': round(l.amount or 0.0, 2),
@@ -1967,6 +2533,9 @@ class HudsonDynamicReport(models.AbstractModel):
             })
             
             result['lines'] = formatted_lines
+            result['date_from'] = str(date_from) if date_from else False
+            result['date_to'] = str(date_to) if date_to else False
+            result['target_move'] = form_data.get('target_move', 'posted')
         elif model_name in ('account.unrealized.currency.wizard', 'account.unrealized.currency.report'):
             result['title'] = _("Unrealized Currency Gains/Losses")
             result['companies_description'] = ", ".join(self.env.companies.mapped('name'))
@@ -2105,7 +2674,7 @@ class HudsonDynamicReport(models.AbstractModel):
                 })
                 
                 for acc, a_data in c_data['accounts'].items():
-                    acc_label = f"{acc.code} {acc.name}"
+                    acc_label = f"{acc.code} {acc.name}" if acc.code else (acc.name or '')
                     formatted_lines.append({
                         'id': f"acc_{curr.id}_{acc.id}",
                         'name': acc_label,
@@ -2174,9 +2743,154 @@ class HudsonDynamicReport(models.AbstractModel):
                 })
                 
             result['lines'] = formatted_lines
+        elif model_name == 'asset.depreciation.schedule':
+            result['title'] = _("Depreciation Schedule")
+            
+            wizard = self.env['asset.depreciation.schedule'].browse(wizard_id) if wizard_id else False
+            if not wizard or not wizard.exists():
+                wizard = self.env['asset.depreciation.schedule'].create({})
+                wizard_id = wizard.id
+
+            # Sync dates and category from form_data
+            vals_to_write = {}
+            if form_data.get('date_from'):
+                vals_to_write['date_from'] = form_data['date_from']
+            if form_data.get('date_to'):
+                vals_to_write['date_to'] = form_data['date_to']
+            if form_data.get('category_ids') is not None:
+                vals_to_write['category_ids'] = [(6, 0, form_data['category_ids'])]
+            if vals_to_write:
+                try:
+                    wizard.write(vals_to_write)
+                except Exception:
+                    pass
+
+            df_str = fields.Date.to_string(wizard.date_from)
+            dt_str = fields.Date.to_string(wizard.date_to)
+            df_label = df_str
+            dt_label = dt_str
+            if df_str:
+                p = df_str.split('-')
+                if len(p) == 3:
+                    df_label = f"{p[2]}/{p[1]}/{p[0]}"
+            if dt_str:
+                p = dt_str.split('-')
+                if len(p) == 3:
+                    dt_label = f"{p[2]}/{p[1]}/{p[0]}"
+
+            result['date_from'] = df_str
+            result['date_to'] = dt_str
+            result['currency_id'] = wizard.company_id.currency_id.id
+            result['company_id'] = wizard.company_id.id
+
+            result['columns'] = [
+                {'label': _('Asset'), 'field': 'name'},
+                {'label': _('In Service'), 'field': 'in_service'},
+                {'label': _('Life'), 'field': 'life'},
+                {'label': _('Cost'), 'field': 'cost', 'type': 'monetary'},
+                {'label': _('Salvage'), 'field': 'salvage_value', 'type': 'monetary'},
+                {'label': (_('NBV at %s') % df_label) if df_label else _('Opening NBV'), 'field': 'nbv_opening', 'type': 'monetary'},
+                {'label': _('Depreciation'), 'field': 'depreciation_charge', 'type': 'monetary'},
+                {'label': _('Disposed NBV'), 'field': 'disposed_nbv', 'type': 'monetary'},
+                {'label': (_('NBV at %s') % dt_label) if dt_label else _('Closing NBV'), 'field': 'nbv_closing', 'type': 'monetary'},
+                {'label': _('Depreciated %'), 'field': 'depreciated_percent_str', 'type': 'percentage'},
+            ]
+
+            schedule_data = wizard._get_schedule_data()
+            formatted_lines = []
+
+            for group in schedule_data.get('register', []):
+                totals = group.get('totals', {})
+                cat_id_slug = group['name'].replace(' ', '_').lower()
+
+                # Category group header
+                formatted_lines.append({
+                    'id': f"cat_{cat_id_slug}",
+                    'name': group['name'],
+                    'in_service': '',
+                    'life': '',
+                    'cost': totals.get('cost', 0.0),
+                    'salvage_value': totals.get('salvage_value', 0.0),
+                    'nbv_opening': totals.get('nbv_opening', 0.0),
+                    'depreciation_charge': totals.get('depreciation_charge', 0.0),
+                    'disposed_nbv': totals.get('disposed_nbv', 0.0),
+                    'nbv_closing': totals.get('nbv_closing', 0.0),
+                    'depreciated_percent_str': '',
+                    'level': 1,
+                    'type': 'group',
+                })
+
+                # Individual asset rows
+                for l in group.get('lines', []):
+                    asset = l['asset']
+                    asset_display = f"[{l['code']}] {asset.name}" if l.get('code') else asset.name
+                    if l.get('is_disposed'):
+                        asset_display += _(" (disposed)")
+                    elif l.get('is_partly_disposed'):
+                        asset_display += _(" (partly disposed)")
+
+                    in_svc = str(asset.date) if asset.date else ''
+                    if in_svc:
+                        sp = in_svc.split('-')
+                        if len(sp) == 3:
+                            in_svc = f"{sp[2]}/{sp[1]}/{sp[0]}"
+
+                    formatted_lines.append({
+                        'id': f"asset_{asset.id}",
+                        'name': asset_display,
+                        'in_service': in_svc,
+                        'life': l.get('life', ''),
+                        'cost': l.get('cost', 0.0),
+                        'salvage_value': l.get('salvage_value', 0.0),
+                        'nbv_opening': l.get('nbv_opening', 0.0),
+                        'depreciation_charge': l.get('depreciation_charge', 0.0),
+                        'disposed_nbv': l.get('disposed_nbv', 0.0),
+                        'nbv_closing': l.get('nbv_closing', 0.0),
+                        'depreciated_percent_str': f"{l.get('depreciated_percent', 0)} %",
+                        'level': 2,
+                        'type': 'asset',
+                        'asset_id': asset.id,
+                        'res_model': 'account.asset.asset',
+                        'res_id': asset.id,
+                        'action_buttons': [{'label': _('View Asset'), 'action': 'open_asset'}],
+                    })
+
+            # Grand total
+            grand_total = schedule_data.get('total', {})
+            formatted_lines.append({
+                'id': 'deprec_grand_total',
+                'name': _('Total'),
+                'in_service': '',
+                'life': '',
+                'cost': grand_total.get('cost', 0.0),
+                'salvage_value': grand_total.get('salvage_value', 0.0),
+                'nbv_opening': grand_total.get('nbv_opening', 0.0),
+                'depreciation_charge': grand_total.get('depreciation_charge', 0.0),
+                'disposed_nbv': grand_total.get('disposed_nbv', 0.0),
+                'nbv_closing': grand_total.get('nbv_closing', 0.0),
+                'depreciated_percent_str': '',
+                'level': 1,
+                'type': 'total',
+                'is_summary_total': True,
+            })
+
+            result['lines'] = formatted_lines
         else:
             result['title'] = _("Report")
             result['columns'] = [{'label': 'Name', 'field': 'name'}]
-            
+
+        if form_data.get('comparison') == 'percentage' or form_data.get('comparison_in') == 'percentage':
+            if not any(c.get('type') == 'percentage' for c in result.get('columns', [])):
+                is_bs = 'balance sheet' in (result.get('title') or '').lower()
+                is_pl = ('profit' in (result.get('title') or '').lower() or 'loss' in (result.get('title') or '').lower())
+                self._compute_percentage_comparison(result, form_data, is_pl=is_pl, is_bs=is_bs, cmp_periods_info=cmp_periods_info)
+
+        if 'date_from' not in result:
+            result['date_from'] = form_data.get('date_from', False)
+        if 'date_to' not in result:
+            result['date_to'] = form_data.get('date_to', False)
+        if 'target_move' not in result:
+            result['target_move'] = form_data.get('target_move', 'posted')
+
         return result
 

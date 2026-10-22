@@ -20,6 +20,8 @@ class ReportFinancial(models.AbstractModel):
         for account in accounts:
             res[account.id] = dict.fromkeys(mapping, 0.0)
         if accounts:
+            # the query below reads the journal items from the database
+            self.env['account.move.line'].flush_model()
             tables, where_clause, where_params = self.env['account.move.line']._query_get()
             tables = tables.replace('"', '') if tables else "account_move_line"
             wheres = [""]
@@ -95,78 +97,47 @@ class ReportFinancial(models.AbstractModel):
                 if report_acc:
                     for account_id, val in comparison_res[report_id].get('account').items():
                         report_acc[account_id]['comp_bal'] = val['balance']
-
-        is_pl = account_report and ('profit' in account_report.name.lower() or 'loss' in account_report.name.lower())
-        section_balances = {}
-        added_summaries = set()
-
-        def get_sec(keywords):
-            for k, v in section_balances.items():
-                if any(kw in k for kw in keywords):
-                    return v
-            return {'balance': 0.0, 'balance_cmp': 0.0, 'debit': 0.0, 'credit': 0.0}
-
-        def make_summary_row(name, bal, bal_cmp, deb, cred):
-            s_vals = {
-                'name': name,
-                'balance': bal,
-                'type': 'report',
-                'level': 1,
-                'account_type': False,
-                'is_summary_total': True,
-            }
-            if data['debit_credit']:
-                s_vals['debit'] = deb
-                s_vals['credit'] = cred
-            if data['enable_filter']:
-                s_vals['balance_cmp'] = bal_cmp
-            return s_vals
-
         for report in child_reports:
-            rep_name = (report.name or '').strip().lower()
-            rep_bal = res[report.id]['balance'] * float(report.sign)
-            rep_cmp = res[report.id].get('comp_bal', 0.0) * float(report.sign) if data['enable_filter'] else 0.0
-            rep_debit = res[report.id].get('debit', 0.0) if data['debit_credit'] else 0.0
-            rep_credit = res[report.id].get('credit', 0.0) if data['debit_credit'] else 0.0
-
-            section_balances[rep_name] = {
-                'balance': rep_bal,
-                'balance_cmp': rep_cmp,
-                'debit': rep_debit,
-                'credit': rep_credit,
-            }
-
             vals = {
                 'name': report.name,
-                'balance': rep_bal,
+                'balance': res[report.id]['balance'] * float(report.sign),
                 'type': 'report',
-                'level': bool(report.style_overwrite) and report.style_overwrite or report.level,
+                # the style is a selection of strings: '0' is the automatic formatting, i.e. the level in the tree
+                'level': int(report.style_overwrite or 0) or report.level,
                 'account_type': report.type or False, #used to underline the financial report balances
             }
             if data['debit_credit']:
-                vals['debit'] = rep_debit
-                vals['credit'] = rep_credit
+                vals['debit'] = res[report.id]['debit']
+                vals['credit'] = res[report.id]['credit']
 
             if data['enable_filter']:
-                vals['balance_cmp'] = rep_cmp
+                vals['balance_cmp'] = res[report.id]['comp_bal'] * float(report.sign)
 
             lines.append(vals)
-            if report.display_detail != 'no_detail' and res[report.id].get('account'):
+            if report.display_detail == 'no_detail':
+                #the rest of the loop is used to display the details of the financial report, so it's not needed here.
+                continue
+            if res[report.id].get('account'):
                 sub_lines = []
                 for account_id, value in res[report.id]['account'].items():
+                    #if there are accounts to display, we add them to the lines with a level equals to their level in
+                    #the COA + 1 (to avoid having them with a too low level that would conflicts with the level of data
+                    #financial reports for Assets, liabilities...)
                     flag = False
                     account = self.env['account.account'].browse(account_id)
                     vals = {
-                        'name': (account.code + ' ' if account.code else '') + (account.name or ''),
+                        'name': ' '.join(part for part in (account.code, account.name) if part),
                         'balance': value['balance'] * float(report.sign) or 0.0,
                         'type': 'account',
-                        'level': 4 if report.display_detail == 'detail_with_hierarchy' else 2,
+                        # must never be False: the template skips rows whose level is 0/False
+                        'level': 4 if report.display_detail == 'detail_with_hierarchy' else report.level + 1,
                         'account_type': account.account_type,
                     }
                     if data['debit_credit']:
                         vals['debit'] = value['debit']
                         vals['credit'] = value['credit']
-                        if not self.env.company.currency_id.is_zero(vals['debit']) or not self.env.company.currency_id.is_zero(vals['credit']):
+                        if (not self.env.company.currency_id.is_zero(vals['debit'])
+                                or not self.env.company.currency_id.is_zero(vals['credit'])):
                             flag = True
                     if not self.env.company.currency_id.is_zero(vals['balance']):
                         flag = True
@@ -177,136 +148,12 @@ class ReportFinancial(models.AbstractModel):
                     if flag:
                         sub_lines.append(vals)
                 lines += sorted(sub_lines, key=lambda sub_line: sub_line['name'])
-
-            if is_pl:
-                # 1. Gross Profit: Inserted immediately after Costs of Revenue
-                if 'cost' in rep_name and 'gross_profit' not in added_summaries:
-                    rev = get_sec(['revenue', 'income'])
-                    cor = get_sec(['cost'])
-                    gp_bal = rev['balance'] - cor['balance']
-                    gp_cmp = rev['balance_cmp'] - cor['balance_cmp']
-                    gp_deb = rev['debit'] + cor['debit']
-                    gp_crd = rev['credit'] + cor['credit']
-                    lines.append(make_summary_row(_('Gross Profit'), gp_bal, gp_cmp, gp_deb, gp_crd))
-                    added_summaries.add('gross_profit')
-
-                # 2. Operating Income (or Loss): Inserted immediately after Operating Expenses
-                elif ('operating expense' in rep_name or ('expense' in rep_name and 'cost' not in rep_name and 'other' not in rep_name)) and 'operating_income' not in added_summaries:
-                    rev = get_sec(['revenue', 'income'])
-                    cor = get_sec(['cost'])
-                    opex = get_sec(['operating expense', 'expense'])
-                    gp_bal = rev['balance'] - cor['balance']
-                    gp_cmp = rev['balance_cmp'] - cor['balance_cmp']
-                    op_inc_bal = gp_bal - opex['balance']
-                    op_inc_cmp = gp_cmp - opex['balance_cmp']
-                    op_inc_deb = rev['debit'] + cor['debit'] + opex['debit']
-                    op_inc_crd = rev['credit'] + cor['credit'] + opex['credit']
-                    lines.append(make_summary_row(_('Operating Income (or Loss)'), op_inc_bal, op_inc_cmp, op_inc_deb, op_inc_crd))
-                    added_summaries.add('operating_income')
-
-                # 3. Net Profit: Inserted immediately after Other Expenses
-                elif 'other expense' in rep_name and 'net_profit' not in added_summaries:
-                    rev = get_sec(['revenue', 'income'])
-                    cor = get_sec(['cost'])
-                    opex = get_sec(['operating expense', 'expense'])
-                    other_inc = get_sec(['other income'])
-                    other_exp = get_sec(['other expense'])
-                    gp_bal = rev['balance'] - cor['balance']
-                    gp_cmp = rev['balance_cmp'] - cor['balance_cmp']
-                    op_inc_bal = gp_bal - opex['balance']
-                    op_inc_cmp = gp_cmp - opex['balance_cmp']
-                    net_prof_bal = op_inc_bal + other_inc['balance'] - other_exp['balance']
-                    net_prof_cmp = op_inc_cmp + other_inc['balance_cmp'] - other_exp['balance_cmp']
-                    net_prof_deb = rev['debit'] + cor['debit'] + opex['debit'] + other_inc['debit'] + other_exp['debit']
-                    net_prof_crd = rev['credit'] + cor['credit'] + opex['credit'] + other_inc['credit'] + other_exp['credit']
-                    lines.append(make_summary_row(_('Net Profit'), net_prof_bal, net_prof_cmp, net_prof_deb, net_prof_crd))
-                    added_summaries.add('net_profit')
-
-                # 4. Net Profit Left After Allocations and Withdrawals: Inserted after Allocations and Withdrawals
-                elif ('allocation' in rep_name or 'withdrawal' in rep_name) and 'net_profit_left' not in added_summaries:
-                    rev = get_sec(['revenue', 'income'])
-                    cor = get_sec(['cost'])
-                    opex = get_sec(['operating expense', 'expense'])
-                    other_inc = get_sec(['other income'])
-                    other_exp = get_sec(['other expense'])
-                    alloc = get_sec(['allocation', 'withdrawal'])
-                    gp_bal = rev['balance'] - cor['balance']
-                    gp_cmp = rev['balance_cmp'] - cor['balance_cmp']
-                    op_inc_bal = gp_bal - opex['balance']
-                    op_inc_cmp = gp_cmp - opex['balance_cmp']
-                    net_prof_bal = op_inc_bal + other_inc['balance'] - other_exp['balance']
-                    net_prof_cmp = op_inc_cmp + other_inc['balance_cmp'] - other_exp['balance_cmp']
-                    net_left_bal = net_prof_bal - alloc['balance']
-                    net_left_cmp = net_prof_cmp - alloc['balance_cmp']
-                    net_left_deb = rev['debit'] + cor['debit'] + opex['debit'] + other_inc['debit'] + other_exp['debit'] + alloc['debit']
-                    net_left_crd = rev['credit'] + cor['credit'] + opex['credit'] + other_inc['credit'] + other_exp['credit'] + alloc['credit']
-                    lines.append(make_summary_row(_('Net Profit Left After Allocations and Withdrawals'), net_left_bal, net_left_cmp, net_left_deb, net_left_crd))
-                    added_summaries.add('net_profit_left')
-
-        if is_pl:
-            # Fallback to ensure all 4 summary rows exist even if certain optional sections were omitted from DB
-            rev = get_sec(['revenue', 'income'])
-            cor = get_sec(['cost'])
-            opex = get_sec(['operating expense', 'expense'])
-            other_inc = get_sec(['other income'])
-            other_exp = get_sec(['other expense'])
-            alloc = get_sec(['allocation', 'withdrawal'])
-
-            gp_bal = rev['balance'] - cor['balance']
-            gp_cmp = rev['balance_cmp'] - cor['balance_cmp']
-            gp_deb = rev['debit'] + cor['debit']
-            gp_crd = rev['credit'] + cor['credit']
-
-            op_inc_bal = gp_bal - opex['balance']
-            op_inc_cmp = gp_cmp - opex['balance_cmp']
-            op_inc_deb = gp_deb + opex['debit']
-            op_inc_crd = gp_crd + opex['credit']
-
-            net_prof_bal = op_inc_bal + other_inc['balance'] - other_exp['balance']
-            net_prof_cmp = op_inc_cmp + other_inc['balance_cmp'] - other_exp['balance_cmp']
-            net_prof_deb = op_inc_deb + other_inc['debit'] + other_exp['debit']
-            net_prof_crd = op_inc_crd + other_inc['credit'] + other_exp['credit']
-
-            net_left_bal = net_prof_bal - alloc['balance']
-            net_left_cmp = net_prof_cmp - alloc['balance_cmp']
-            net_left_deb = net_prof_deb + alloc['debit']
-            net_left_crd = net_prof_crd + alloc['credit']
-
-            if 'gross_profit' not in added_summaries:
-                lines.append(make_summary_row(_('Gross Profit'), gp_bal, gp_cmp, gp_deb, gp_crd))
-            if 'operating_income' not in added_summaries:
-                lines.append(make_summary_row(_('Operating Income (or Loss)'), op_inc_bal, op_inc_cmp, op_inc_deb, op_inc_crd))
-            if 'net_profit' not in added_summaries:
-                lines.append(make_summary_row(_('Net Profit'), net_prof_bal, net_prof_cmp, net_prof_deb, net_prof_crd))
-            if 'net_profit_left' not in added_summaries:
-                lines.append(make_summary_row(_('Net Profit Left After Allocations and Withdrawals'), net_left_bal, net_left_cmp, net_left_deb, net_left_crd))
-
-        if account_report and 'balance sheet' in account_report.name.lower():
-            liabilities_val = sum(res[r.id]['balance'] * float(r.sign) for r in child_reports if r.name == 'Liabilities' and r.id in res)
-            equity_val = sum(res[r.id]['balance'] * float(r.sign) for r in child_reports if r.name == 'Equity' and r.id in res)
-            
-            summary_vals = {
-                'name': _('LIABILITIES + TOTAL EQUITY'),
-                'balance': liabilities_val + equity_val,
-                'type': 'report',
-                'level': 1,
-                'account_type': False,
-                'is_summary_total': True,
-            }
-            if data.get('debit_credit'):
-                summary_vals['debit'] = sum(res[r.id]['debit'] for r in child_reports if r.name in ('Liabilities', 'Equity') and r.id in res)
-                summary_vals['credit'] = sum(res[r.id]['credit'] for r in child_reports if r.name in ('Liabilities', 'Equity') and r.id in res)
-            if data.get('enable_filter'):
-                comp_liab = sum(res[r.id].get('comp_bal', 0.0) * float(r.sign) for r in child_reports if r.name == 'Liabilities' and r.id in res)
-                comp_eq = sum(res[r.id].get('comp_bal', 0.0) * float(r.sign) for r in child_reports if r.name == 'Equity' and r.id in res)
-                summary_vals['balance_cmp'] = comp_liab + comp_eq
-            lines.append(summary_vals)
-
         return lines
 
     @api.model
     def _get_report_values(self, docids, data=None):
-        if not data.get('form') or not self.env.context.get('active_model') or not self.env.context.get('active_id'):
+        if (not data.get('form') or not self.env.context.get('active_model')
+                or self.env.context.get('active_id') is None):
             raise UserError(_("Form content is missing, this report cannot be printed."))
 
         model = self.env.context.get('active_model')

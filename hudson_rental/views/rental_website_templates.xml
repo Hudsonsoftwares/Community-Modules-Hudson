@@ -23,20 +23,20 @@
                                         </t>
                                         <div class="card-body d-flex flex-column">
                                             <h5 class="card-title">
-                                                <a t-attf-href="/rental/product/#{product.id}" t-esc="product.name"/>
+                                                <a t-attf-href="/rental/product/#{product.id}" t-out="product.name"/>
                                             </h5>
                                             <p class="card-text text-muted small flex-grow-1" t-if="product.description_sale">
-                                                <t t-esc="product.description_sale[:100]"/>...
+                                                <t t-out="product.description_sale[:100]"/>...
                                             </p>
                                             <div class="mt-auto">
                                                 <t t-if="product.rental_pricing_ids">
                                                     <p class="mb-1">
                                                         <strong>Starting from:</strong><br/>
                                                         <span class="text-primary h5">
-                                                            <t t-esc="product.rental_pricing_ids[0].price"/> 
-                                                            <t t-esc="product.currency_id.symbol"/>
+                                                            <t t-out="product.rental_pricing_ids[0].price"/> 
+                                                            <t t-out="product.currency_id.symbol"/>
                                                         </span>
-                                                        / <t t-esc="product.rental_pricing_ids[0].duration_unit"/>
+                                                        / <t t-out="product.rental_pricing_ids[0].duration_unit"/>
                                                     </p>
                                                 </t>
                                                 <a t-attf-href="/rental/product/#{product.id}" 
@@ -73,8 +73,8 @@
                                 </t>
                             </div>
                             <div class="col-md-6">
-                                <h1 t-esc="product.name"/>
-                                <p class="lead" t-if="product.description_sale" t-esc="product.description_sale"/>
+                                <h1 t-out="product.name"/>
+                                <p class="lead" t-if="product.description_sale" t-out="product.description_sale"/>
                                 
                                 <hr/>
                                 
@@ -84,11 +84,11 @@
                                         <div class="list-group-item">
                                             <div class="d-flex justify-content-between align-items-center">
                                                 <span>
-                                                    <t t-esc="pricing.duration"/> 
-                                                    <t t-esc="dict(pricing._fields['duration_unit'].selection).get(pricing.duration_unit)"/>
+                                                    <t t-out="pricing.duration"/> 
+                                                    <t t-out="dict(pricing._fields['duration_unit'].selection).get(pricing.duration_unit)"/>
                                                 </span>
                                                 <span class="badge bg-primary rounded-pill">
-                                                    <t t-esc="pricing.price"/> <t t-esc="product.currency_id.symbol"/>
+                                                    <t t-out="pricing.price"/> <t t-out="product.currency_id.symbol"/>
                                                 </span>
                                             </div>
                                         </div>
@@ -134,7 +134,7 @@
                         var core = require('web.core');
                         
                         $(document).ready(function() {
-                            var productId = <t t-esc="product.product_variant_id.id"/>;
+                            var productId = <t t-out="product.product_variant_id.id"/>;
                             
                             function calculatePrice() {
                                 var pickupDate = $('#pickup_date').val();

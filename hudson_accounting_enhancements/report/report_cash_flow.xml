@@ -3,16 +3,16 @@
     <template id="cf_section">
         <t t-if="round(section_data.get('total', 0.0), 2) != 0 or section_data.get('account_lines')">
             <tr>
-                <td style="padding-left:30px;"><t t-esc="section_name"/></td>
+                <td style="padding-left:30px;"><t t-out="section_name"/></td>
                 <td class="text-end">
-                    <span t-esc="section_data.get('total', 0.0)" t-options="{'widget': 'monetary', 'display_currency': currency}"/>
+                    <span t-out="section_data.get('total', 0.0)" t-options="{'widget': 'monetary', 'display_currency': currency}"/>
                 </td>
             </tr>
             <t t-foreach="section_data.get('account_lines', [])" t-as="acc">
                 <tr>
-                    <td style="padding-left:45px; color:#555; font-size:12px;"><t t-esc="acc['name']"/></td>
+                    <td style="padding-left:45px; color:#555; font-size:12px;"><t t-out="acc['name']"/></td>
                     <td class="text-end" style="color:#555; font-size:12px;">
-                        <span t-esc="acc['balance']" t-options="{'widget': 'monetary', 'display_currency': currency}"/>
+                        <span t-out="acc['balance']" t-options="{'widget': 'monetary', 'display_currency': currency}"/>
                     </td>
                 </tr>
             </t>
@@ -27,13 +27,13 @@
                     <div class="row">
                         <div class="col-12 text-center mb-4">
                             <h2 style="font-weight:bold;">Cash Flow Statement</h2>
-                            <h4 t-esc="company.name"/>
+                            <h4 t-out="company.name"/>
                             <p class="text-muted">
                                 <t t-if="data.get('date_from')">
                                     For the period from
-                                    <strong><t t-esc="data['date_from']"/></strong>
+                                    <strong><t t-out="data['date_from']"/></strong>
                                     to
-                                    <strong><t t-esc="data['date_to']"/></strong>
+                                    <strong><t t-out="data['date_to']"/></strong>
                                 </t>
                             </p>
                             <p class="text-muted small">
@@ -56,7 +56,7 @@
                             <tr style="background:#ecf0f1; font-weight:bold;">
                                 <td style="font-size:14px; padding:8px;">Cash and cash equivalents, beginning of period</td>
                                 <td class="text-end" style="font-size:14px; padding:8px;">
-                                    <span t-esc="data.get('opening_cash', 0)" t-options="{'widget': 'monetary', 'display_currency': currency}"/>
+                                    <span t-out="data.get('opening_cash', 0)" t-options="{'widget': 'monetary', 'display_currency': currency}"/>
                                 </td>
                             </tr>
 
@@ -64,7 +64,7 @@
                             <tr style="font-weight:bold;">
                                 <td style="padding:8px;">Net increase in cash and cash equivalents</td>
                                 <td class="text-end" style="padding:8px;">
-                                    <span t-esc="data.get('net_increase', 0)" t-options="{'widget': 'monetary', 'display_currency': currency}"/>
+                                    <span t-out="data.get('net_increase', 0)" t-options="{'widget': 'monetary', 'display_currency': currency}"/>
                                 </td>
                             </tr>
 
@@ -128,7 +128,7 @@
                             <tr style="background:#2c3e50; color:white; font-weight:bold;">
                                 <td style="font-size:14px; padding:8px;">Cash and cash equivalents, closing balance</td>
                                 <td class="text-end" style="font-size:14px; padding:8px;">
-                                    <span t-esc="data.get('closing_cash', 0)" t-options="{'widget': 'monetary', 'display_currency': currency}"/>
+                                    <span t-out="data.get('closing_cash', 0)" t-options="{'widget': 'monetary', 'display_currency': currency}"/>
                                 </td>
                             </tr>
 

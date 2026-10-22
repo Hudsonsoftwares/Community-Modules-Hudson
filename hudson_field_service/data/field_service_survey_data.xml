@@ -35,7 +35,6 @@
             <field name="scale_min">1</field>
             <field name="scale_max">5</field>
             <field name="scale_min_label">Very Dissatisfied</field>
-            <field name="scale_mid_label">Neutral</field>
             <field name="scale_max_label">Very Satisfied</field>
             <field name="constr_mandatory" eval="True"/>
         </record>

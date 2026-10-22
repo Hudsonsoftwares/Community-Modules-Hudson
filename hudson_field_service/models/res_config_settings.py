@@ -100,6 +100,18 @@ class ResConfigSettings(models.TransientModel):
             'Managers can view all active technicians on the Live Map.'
         ),
     )
+    fs_location_radius = fields.Float(
+        string='Location Radius (meters)',
+        config_parameter='hudson_field_service.fs_location_radius',
+        default=500.0,
+        help='Radius around the customer address. Used for validation or live map alerts.',
+    )
+    fs_radius_validation = fields.Boolean(
+        string='Radius Sign In',
+        config_parameter='hudson_field_service.fs_radius_validation',
+        default=False,
+        help='Strictly allow sign in/out only within the specified radius of the customer location.',
+    )
 
     # ── Sale Order & Invoicing ─────────────────────────────────────────────────
 
@@ -132,17 +144,19 @@ class ResConfigSettings(models.TransientModel):
         help='The survey sent to customers after a completed intervention.',
     )
 
-    @api.model
-    def get_values(self):
-        res = super().get_values()
-        IrConfigParam = self.env['ir.config_parameter'].sudo()
-        survey_id = IrConfigParam.get_param('hudson_field_service.fs_rating_survey_id', False)
-        res['fs_rating_survey_id'] = int(survey_id) if survey_id and survey_id.isdigit() else False
-        return res
+    # ── Inventory & Stock ─────────────────────────────────────────────────────
 
-    def set_values(self):
-        super().set_values()
-        self.env['ir.config_parameter'].sudo().set_param(
-            'hudson_field_service.fs_rating_survey_id',
-            self.fs_rating_survey_id.id if self.fs_rating_survey_id else False,
-        )
+    fs_stock_deduction = fields.Boolean(
+        string='Automatic Stock Deduction',
+        config_parameter='hudson_field_service.fs_stock_deduction',
+        default=False,
+        help='Automatically deduct stock (create and validate a delivery order) when a field service order is marked Done.',
+    )
+    fs_default_picking_type_id = fields.Many2one(
+        'stock.picking.type',
+        string='Default Picking Type',
+        config_parameter='hudson_field_service.fs_default_picking_type_id',
+        domain="[('code', '=', 'outgoing')]",
+        help='The operation type used to deduct stock for field service products.',
+    )
+

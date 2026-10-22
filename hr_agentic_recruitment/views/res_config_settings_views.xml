@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="res_config_settings_view_form" model="ir.ui.view">
+        <field name="name">res.config.settings.view.form.inherit.hr.agentic</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="hr_recruitment.res_config_settings_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//app[@name='hr_recruitment']" position="inside">
+                <block title="Agentic AI Settings" name="agentic_ai_setting_container">
+                    <setting string="AI Provider" help="Select the LLM provider for resume parsing.">
+                        <field name="ai_provider"/>
+                    </setting>
+                    <setting string="API Key" help="Your API key for OpenAI or Google Gemini.">
+                        <field name="ai_api_key" password="True"/>
+                    </setting>
+                    <setting string="Model Name" help="e.g. gemini-1.5-flash or gpt-4o-mini">
+                        <field name="ai_model_name"/>
+                    </setting>
+                    <setting string="System Prompt" help="Instructions given to the AI.">
+                        <field name="ai_system_prompt"/>
+                    </setting>
+                </block>
+            </xpath>
+        </field>
+    </record>
+</odoo>

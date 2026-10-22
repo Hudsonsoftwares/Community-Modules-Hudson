@@ -13,12 +13,12 @@ class ResPartner(models.Model):
     )
 
     def _compute_subscription_count(self):
-        subscription_data = self.env['sale.order'].read_group(
+        subscription_data = self.env['sale.order']._read_group(
             domain=[('is_subscription', '=', True), ('partner_id', 'in', self.ids)],
-            fields=['partner_id'],
-            groupby=['partner_id']
+            groupby=['partner_id'],
+            aggregates=['__count']
         )
-        mapped_data = {data['partner_id'][0]: data['partner_id_count'] for data in subscription_data}
+        mapped_data = {partner.id: count for partner, count in subscription_data}
         for partner in self:
             partner.subscription_count = mapped_data.get(partner.id, 0)
 

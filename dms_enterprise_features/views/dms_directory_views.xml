@@ -117,6 +117,11 @@
             <xpath expr="//page[field[@name='complete_group_ids']]" position="attributes">
                 <attribute name="invisible">1</attribute>
             </xpath>
+
+            <!-- Remove Subdirectories tab -->
+            <xpath expr="//page[@name='page_directories']" position="attributes">
+                <attribute name="invisible">1</attribute>
+            </xpath>
         </field>
     </record>
     <!-- Disable default delete on form -->
@@ -179,7 +184,7 @@
                 </div>
             </xpath>
             <xpath expr="//a[i[hasclass('fa-pencil')]]/.." position="replace">
-                <div role="menuitem" t-if="!record.is_trashed.raw_value and record.permission_write and record.permission_write.raw_value">
+                <div role="menuitem" t-if="!record.is_trashed.raw_value and record.permission_edit and record.permission_edit.raw_value">
                     <a type="object" name="action_open_form_view" class="dropdown-item">
                         <i class="fa fa-pencil" />
                         Edit

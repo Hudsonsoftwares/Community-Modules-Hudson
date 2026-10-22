@@ -65,6 +65,19 @@
                         <setting string="Geolocation"
                                  help="Track technicians' GPS location when they start or resume a timer. View all active technicians on the Live Map.">
                             <field name="fs_geolocation"/>
+                            <div class="content-group" invisible="not fs_geolocation">
+                                <div class="row mt8">
+                                    <label for="fs_location_radius" class="col-lg-4 o_light_label"/>
+                                    <field name="fs_location_radius" class="col-lg-8"/>
+                                </div>
+                                <div class="row mt8">
+                                    <label for="fs_radius_validation" class="col-lg-4 o_light_label" string="Radius Sign In"/>
+                                    <field name="fs_radius_validation" class="col-lg-8"/>
+                                </div>
+                                <div class="text-muted" style="font-size: 12px; margin-top: 4px;">
+                                    The radius is used for live map alerts. Enable "Radius Sign In" to strictly prevent sign in/out outside the radius.
+                                </div>
+                            </div>
                         </setting>
 
                     </block>
@@ -131,6 +144,24 @@
                             </div>
                         </setting>
 
+                    </block>
+
+                    <!-- ─── Inventory ────────────────────────── -->
+                    <block title="Inventory">
+                        <setting string="Automatic Stock Deduction"
+                                 help="Automatically deduct stock (create and validate a delivery order) when a field service order is marked Done.">
+                            <field name="fs_stock_deduction"/>
+                            <div class="content-group" invisible="not fs_stock_deduction">
+                                <div class="row mt8">
+                                    <label for="fs_default_picking_type_id" class="col-lg-4 o_light_label"
+                                           string="Picking Type"/>
+                                    <field name="fs_default_picking_type_id"
+                                           class="col-lg-6"
+                                           options="{'no_create': True}"
+                                           placeholder="e.g. San Francisco: Delivery Orders"/>
+                                </div>
+                            </div>
+                        </setting>
                     </block>
 
                 </app>

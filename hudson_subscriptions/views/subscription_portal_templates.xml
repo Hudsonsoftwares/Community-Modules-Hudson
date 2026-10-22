@@ -8,7 +8,7 @@
                 <t t-else="">Subscriptions</t>
             </li>
             <li t-if="subscription" class="breadcrumb-item active">
-                <t t-esc="subscription.name"/>
+                <t t-out="subscription.name"/>
             </li>
         </xpath>
     </template>
@@ -51,10 +51,10 @@
                     <tr t-foreach="subscriptions" t-as="sub">
                         <td>
                             <a t-attf-href="/my/subscriptions/#{sub.id}">
-                                <t t-esc="sub.name"/>
+                                <t t-out="sub.name"/>
                             </a>
                         </td>
-                        <td><t t-esc="sub.plan_id.name if sub.plan_id else 'N/A'"/></td>
+                        <td><t t-out="sub.plan_id.name if sub.plan_id else 'N/A'"/></td>
                         <td><span t-field="sub.start_date"/></td>
                         <td><span t-field="sub.next_invoice_date"/></td>
                         <td><span t-field="sub.recurring_total" t-options='{"widget": "monetary", "display_currency": sub.currency_id}'/></td>
@@ -63,7 +63,7 @@
                             <span t-elif="sub.subscription_state == '5_renew'" class="badge rounded-pill text-bg-warning">To Renew</span>
                             <span t-elif="sub.subscription_state == '4_paused'" class="badge rounded-pill text-bg-secondary">Paused</span>
                             <span t-elif="sub.subscription_state == '6_churn'" class="badge rounded-pill text-bg-danger">Churned</span>
-                            <span t-else="" class="badge rounded-pill text-bg-info"><t t-esc="sub.subscription_state"/></span>
+                            <span t-else="" class="badge rounded-pill text-bg-info"><t t-out="sub.subscription_state"/></span>
                         </td>
                     </tr>
                 </tbody>
@@ -96,7 +96,7 @@
                             <div t-if="subscription.user_id" class="d-flex align-items-center mt-2">
                                 <img t-attf-src="/web/image/res.users/#{subscription.user_id.id}/avatar_128" class="o_image_40_cover rounded-circle me-2" alt="Salesperson"/>
                                 <div>
-                                    <span class="fw-bold" t-esc="subscription.user_id.name"/><br/>
+                                    <span class="fw-bold" t-out="subscription.user_id.name"/><br/>
                                     <a href="#" class="small text-muted"><i class="fa fa-envelope"/> Send message</a>
                                 </div>
                             </div>
@@ -196,7 +196,7 @@
                                                     <span t-field="line.price_unit" t-options="{'widget': 'monetary', 'display_currency': subscription.currency_id}"/>
                                                 </td>
                                                 <td class="text-end">
-                                                    <span t-esc="', '.join(map(lambda x: (x.description or x.name), line.tax_ids))"/>
+                                                    <span t-out="', '.join(map(lambda x: (x.description or x.name), line.tax_ids))"/>
                                                 </td>
                                                 <td class="text-end">
                                                     <span t-field="line.price_subtotal" t-options="{'widget': 'monetary', 'display_currency': subscription.currency_id}"/>
@@ -387,7 +387,7 @@
                     <form method="POST" t-attf-action="/my/subscriptions/#{sale_order.id}/change_plan" class="modal-content">
                         <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                         <header class="modal-header">
-                            <h4 class="modal-title">Change Plan for <t t-esc="sale_order.name"/></h4>
+                            <h4 class="modal-title">Change Plan for <t t-out="sale_order.name"/></h4>
                             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                         </header>
                         <main class="modal-body">
@@ -396,7 +396,7 @@
                                 <select class="form-select" name="plan_id" id="plan_id" required="required">
                                     <option value="">Select...</option>
                                     <t t-foreach="sale_order.plan_id.optional_plan_ids" t-as="optional_plan">
-                                        <option t-att-value="optional_plan.id"><t t-esc="optional_plan.name"/></option>
+                                        <option t-att-value="optional_plan.id"><t t-out="optional_plan.name"/></option>
                                     </t>
                                 </select>
                             </div>
@@ -415,13 +415,13 @@
                     <form method="POST" t-attf-action="/my/subscriptions/#{sale_order.id}/close" class="modal-content">
                         <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                         <header class="modal-header">
-                            <h4 class="modal-title">Close Subscription <t t-esc="sale_order.name"/></h4>
+                            <h4 class="modal-title">Close Subscription <t t-out="sale_order.name"/></h4>
                             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                         </header>
                         <main class="modal-body">
                             <div class="alert alert-warning mb-3">
                                 You are about to permanently close a subscription that is valid until 
-                                <span t-esc="sale_order.end_date or 'Indefinite'"/>.
+                                <span t-out="sale_order.end_date or 'Indefinite'"/>.
                             </div>
                             <h5>We are sorry to see you go.</h5>
                             <div class="mb-3">
@@ -430,7 +430,7 @@
                                 <select class="form-select" name="close_reason_id" id="close_reason_id" required="required">
                                     <option value="">Choose a reason...</option>
                                     <t t-foreach="close_reasons" t-as="reason">
-                                        <option t-att-value="reason.id"><t t-esc="reason.name"/></option>
+                                        <option t-att-value="reason.id"><t t-out="reason.name"/></option>
                                     </t>
                                 </select>
                             </div>
@@ -459,7 +459,7 @@
 
     <!-- Inherit Standard Sale Order Portal Content to add "Your Subscription" section -->
     <template id="sale_order_portal_content_inherit_subscriptions" inherit_id="sale.sale_order_portal_content" name="Sales Order Portal Content Subscription Extensions">
-        <xpath expr="//div[@id='sale_info']" position="before">
+        <xpath expr="//div[@id='informations']" position="inside">
             <t t-if="sale_order.is_subscription">
                 <div id="subscription_info" class="col-12 col-lg-6 mb-4">
                     <span id="subscription_info_title">
@@ -476,10 +476,10 @@
                                 <th class="ps-0 pb-0">Reference:</th>
                                 <td class="w-100 pb-0 text-wrap">
                                     <t t-if="sale_order.origin_order_id">
-                                        <a t-att-href="sale_order.origin_order_id.get_portal_url()"><t t-esc="sale_order.origin_order_id.name"/></a>
+                                        <a t-att-href="sale_order.origin_order_id.get_portal_url()"><t t-out="sale_order.origin_order_id.name"/></a>
                                     </t>
                                     <t t-else="">
-                                        <span t-esc="sale_order.client_order_ref or sale_order.name"/>
+                                        <span t-out="sale_order.client_order_ref or sale_order.name"/>
                                     </t>
                                 </td>
                             </tr>

@@ -1,3 +1,0 @@
-id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
-access_hudson_ai_config_user,hudson.ai.config user,model_hudson_ai_config,base.group_user,1,0,0,0
-access_hudson_ai_config_admin,hudson.ai.config admin,model_hudson_ai_config,base.group_system,1,1,1,1

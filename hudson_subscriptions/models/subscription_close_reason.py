@@ -20,11 +20,11 @@ class SaleSubscriptionCloseReason(models.Model):
     )
 
     def _compute_subscription_count(self):
-        subscription_data = self.env['sale.order'].read_group(
+        subscription_data = self.env['sale.order']._read_group(
             domain=[('is_subscription', '=', True), ('close_reason_id', 'in', self.ids)],
-            fields=['close_reason_id'],
-            groupby=['close_reason_id']
+            groupby=['close_reason_id'],
+            aggregates=['__count']
         )
-        mapped_data = {data['close_reason_id'][0]: data['close_reason_id_count'] for data in subscription_data}
+        mapped_data = {reason.id: count for reason, count in subscription_data}
         for reason in self:
             reason.subscription_count = mapped_data.get(reason.id, 0)

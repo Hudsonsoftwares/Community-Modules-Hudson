@@ -5,11 +5,110 @@ import { Component } from "@odoo/owl";
 import { Dropdown } from "@web/core/dropdown/dropdown";
 import { DropdownItem } from "@web/core/dropdown/dropdown_item";
 import { useService } from "@web/core/utils/hooks";
+import { SelectCreateDialog } from "@web/views/view_dialogs/select_create_dialog";
 
 export class BankRecActionDropdown extends Component {
     setup() {
         this.action = useService("action");
         this.orm = useService("orm");
+        this.dialog = useService("dialog");
+    }
+
+    get record() {
+        return this.props?.record;
+    }
+
+    get recordData() {
+        return this.record?.data || {};
+    }
+
+    get isReconciled() {
+        return Boolean(this.recordData.is_reconciled);
+    }
+
+    get hasPartner() {
+        const p = this.recordData.partner_id;
+        return Boolean(p && (Array.isArray(p) ? p.length > 0 : (p.id || typeof p === 'number')));
+    }
+
+    get hasMatches() {
+        return Boolean(this.recordData.hudson_has_matches);
+    }
+
+    get matchCount() {
+        return this.recordData.hudson_match_count || 0;
+    }
+
+    get suggestedAccountName() {
+        return this.recordData.hudson_suggested_account_name || (this.hasPartner ? 'Receivable' : '');
+    }
+
+    get matchedAccountName() {
+        return this.recordData.hudson_matched_account_name || 'Reconciled';
+    }
+
+    async reloadView() {
+        if (this.record?.model?.load) {
+            await this.record.model.load();
+        } else if (this.action?.doAction) {
+            await this.action.doAction({ type: "ir.actions.client", tag: "reload" });
+        }
+    }
+
+    async onApplySuggestedAccount() {
+        const resId = this.record?.resId;
+        if (!resId) return;
+        await this.orm.call(
+            "account.bank.statement.line",
+            "action_apply_suggested_account",
+            [[resId]]
+        );
+        await this.reloadView();
+    }
+
+    async onSetPartner() {
+        const resId = this.record?.resId;
+        if (!resId) return;
+        this.dialog.add(SelectCreateDialog, {
+            resModel: "res.partner",
+            title: "Search: Partner",
+            onSelected: async (resIds) => {
+                if (resIds.length > 0) {
+                    await this.orm.write("account.bank.statement.line", [resId], {
+                        partner_id: resIds[0]
+                    });
+                    await this.reloadView();
+                }
+            }
+        });
+    }
+
+    async onSetAccount() {
+        const resId = this.record?.resId;
+        if (!resId) return;
+        this.dialog.add(SelectCreateDialog, {
+            resModel: "account.account",
+            title: "Search: Account",
+            onSelected: async (resIds) => {
+                if (resIds.length > 0) {
+                    await this.orm.write("account.bank.statement.line", [resId], {
+                        hudson_account_id: resIds[0]
+                    });
+                    await this.reloadView();
+                }
+            }
+        });
+    }
+
+    async onResetMatch() {
+        const resId = this.record?.resId;
+        if (!resId) return;
+        await this.orm.call(
+            "account.bank.statement.line",
+            "action_hudson_reset",
+            [[resId]]
+        );
+        await this.reloadView();
     }
 
     async onReconcile() {
@@ -20,20 +119,15 @@ export class BankRecActionDropdown extends Component {
             ['journal_id.type', 'not in', ['bank', 'cash']]
         ];
         
-        let amount = this.props.record.data.amount;
+        let amount = this.recordData.amount;
         if (typeof amount === 'object' && amount !== null) {
             amount = amount.value !== undefined ? amount.value : (amount.amount !== undefined ? amount.amount : 0);
         }
         amount = typeof amount === 'number' ? amount : (parseFloat(amount) || 0.0);
-
-        if (amount < 0) {
-            domain.push(['amount_residual', '<', 0]);
-        } else if (amount > 0) {
-            domain.push(['amount_residual', '>', 0]);
-        }
+        const roundedAmount = Math.round(amount * 100) / 100;
         
         let partnerId = false;
-        const partner = this.props.record.data.partner_id;
+        const partner = this.recordData.partner_id;
         if (Array.isArray(partner) && partner.length > 0) {
             partnerId = partner[0];
         } else if (typeof partner === 'object' && partner !== null) {
@@ -42,12 +136,15 @@ export class BankRecActionDropdown extends Component {
             partnerId = partner;
         }
         
-        this.env.services.dialog.add(SelectCreateDialog, {
+        const resId = this.record?.resId;
+        if (!resId) return;
+
+        this.dialog.add(SelectCreateDialog, {
             resModel: "account.move.line",
-            title: "Search: Journal Items to Match",
+            title: "Select Journal Items to Match",
             domain: domain,
             context: {
-                hudson_match_amount: amount,
+                hudson_match_amount: roundedAmount !== 0 ? roundedAmount : false,
                 hudson_match_partner_id: partnerId || false,
             },
             multiSelect: true,
@@ -57,19 +154,21 @@ export class BankRecActionDropdown extends Component {
                     await this.orm.call(
                         "account.bank.statement.line",
                         "action_hudson_reconcile_items",
-                        [[this.props.record.resId], resIds]
+                        [[resId], resIds]
                     );
-                    window.location.reload();
+                    await this.reloadView();
                 }
             }
         });
     }
 
     async onUploadBills() {
+        const resId = this.record?.resId;
+        if (!resId) return;
         const action = await this.orm.call(
             "account.bank.statement.line",
             "action_hudson_upload_bills",
-            [[this.props.record.resId]]
+            [[resId]]
         );
         if (action) {
             this.action.doAction(action);
@@ -77,23 +176,25 @@ export class BankRecActionDropdown extends Component {
     }
 
     async onDelete() {
-        // Call unlink directly or via a method
-        await this.orm.unlink("account.bank.statement.line", [this.props.record.resId]);
-        // Reload the view
-        this.props.record.model.load();
+        const resId = this.record?.resId;
+        if (!resId) return;
+        await this.orm.unlink("account.bank.statement.line", [resId]);
+        await this.reloadView();
     }
     
     async onInternalTransfers() {
+        const resId = this.record?.resId;
+        if (!resId) return;
         await this.orm.call(
             "account.bank.statement.line",
             "action_hudson_internal_transfer",
-            [[this.props.record.resId]]
+            [[resId]]
         );
-        window.location.reload();
+        await this.reloadView();
     }
     
     async onManageModels() {
-        this.env.services.action.doAction("account.action_account_reconcile_model");
+        this.action.doAction("account.action_account_reconcile_model");
     }
 }
 
@@ -106,8 +207,6 @@ export const bankRecActionDropdown = {
 
 registry.category("fields").add("bank_rec_action_dropdown", bankRecActionDropdown);
 
-import { SelectCreateDialog } from "@web/views/view_dialogs/select_create_dialog";
-
 function hudsonSetPartnerAction(env, action) {
     env.services.dialog.add(SelectCreateDialog, {
         resModel: "res.partner",
@@ -119,8 +218,7 @@ function hudsonSetPartnerAction(env, action) {
                 await env.services.orm.write("account.bank.statement.line", [statementLineId], {
                     partner_id: partnerId
                 });
-                // Reload window to reflect changes
-                window.location.reload();
+                await env.services.action.doAction({ type: "ir.actions.client", tag: "reload" });
             }
         }
     });
@@ -138,7 +236,7 @@ function hudsonSetAccountAction(env, action) {
                 await env.services.orm.write("account.bank.statement.line", [statementLineId], {
                     hudson_account_id: accountId
                 });
-                window.location.reload();
+                await env.services.action.doAction({ type: "ir.actions.client", tag: "reload" });
             }
         }
     });

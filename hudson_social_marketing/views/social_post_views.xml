@@ -521,7 +521,7 @@
                                                 <t t-name="card">
                                                     <div class="hs_posted_comment">
                                                         <div class="hs_posted_avatar">
-                                                            <t t-esc="record.author_name.raw_value ? record.author_name.raw_value[0] : 'U'"/>
+                                                            <t t-out="record.author_name.raw_value ? record.author_name.raw_value[0] : 'U'"/>
                                                         </div>
                                                         <div class="hs_posted_comment_body">
                                                             <div class="hs_posted_comment_box">

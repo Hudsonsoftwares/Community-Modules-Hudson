@@ -1,0 +1,5 @@
+# face-api.js library + models are deliberately NOT vendored.
+# See README.md in this directory for the rationale and download
+# instructions. Operators install them at deploy time.
+face-api.min.js
+models/

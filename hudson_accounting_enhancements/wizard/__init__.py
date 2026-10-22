@@ -11,4 +11,5 @@ from . import hudson_bank_match_wizard
 from . import hudson_loan_compute_wizard
 from . import account_accrued_orders_wizard
 from . import hudson_inventory_valuation_wizard
+from . import asset_depreciation_schedule
 

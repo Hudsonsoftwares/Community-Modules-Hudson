@@ -2,7 +2,7 @@
 
 {
     'name': 'Field Service',
-    'version': '19.0.2.0.0',
+    'version': '20.0.2.0.0',
     'category': 'Services/Field Service',
     'sequence': 55,
     'summary': 'Schedule onsite interventions, invoice time and materials, complete worksheets, and track customer satisfaction',
@@ -43,11 +43,12 @@ A comprehensive field service management module for Odoo 19 that provides:
         'uom',
         'survey',           # Required: Customer satisfaction survey feature
         'hudson_planning',
+        'stock',            # Required: Inventory deductions
     ],
     'data': [
         # Security (must be loaded first)
         'security/field_service_security.xml',
-        'security/ir.model.access.csv',
+        'security/ir.access.csv',
         'data/field_service_sequence_data.xml',
         'data/field_service_stage_data.xml',
         'data/field_service_mail_template.xml',
@@ -83,9 +84,6 @@ A comprehensive field service management module for Odoo 19 that provides:
             'hudson_field_service/static/src/css/fs_board.css',
             'hudson_field_service/static/src/js/fs_board.js',
             'hudson_field_service/static/src/xml/fs_board.xml',
-        ],
-        'web.assets_frontend': [
-            'hudson_field_service/static/src/js/portal_fix.js',
         ],
     },
     'installable': True,

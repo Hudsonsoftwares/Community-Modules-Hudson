@@ -1,0 +1,10 @@
+id,name,model_id,group_id/id,operation,domain
+access_hr_audit_log_auditor,access.eh.hr.audit.log.auditor,eh.hr.audit.log,eh_hr_core.group_hr_auditor,r,
+access_hr_audit_log_officer,access.eh.hr.audit.log.officer,eh.hr.audit.log,eh_hr_core.group_hr_officer,r,
+rule_eh_hr_audit_log_company,EH Audit Log: per company,eh.hr.audit.log,,crud,"['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]"
+access_hr_settings_entry_admin,access.eh.hr.settings.entry.admin,eh.hr.settings.entry,eh_hr_core.group_hr_admin,cru,
+access_hr_settings_entry_officer,access.eh.hr.settings.entry.officer,eh.hr.settings.entry,eh_hr_core.group_hr_officer,r,
+rule_eh_hr_settings_entry_company,eh.hr.settings.entry: per company,eh.hr.settings.entry,,crud,"['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]"
+access_hr_feature_flag_admin,access.eh.hr.feature.flag.admin,eh.hr.feature.flag,eh_hr_core.group_hr_admin,crud,
+access_hr_feature_flag_officer,access.eh.hr.feature.flag.officer,eh.hr.feature.flag,eh_hr_core.group_hr_officer,r,
+access_hr_rate_limit_admin,access.eh.hr.rate.limit.admin,eh.hr.rate.limit,eh_hr_core.group_hr_admin,crud,

@@ -9,7 +9,6 @@
             <data>
                 <xpath expr="//field[@name='target_move']" position="after">
                     <field name="display_account" widget="radio"/>
-                    <newline/>
                 </xpath>
                 <xpath expr="//field[@name='journal_ids']" position="after">
                     <field name="analytic_account_ids" widget="many2many_tags"
@@ -26,7 +25,7 @@
         <field name="res_model">account.balance.report</field>
         <field name="view_mode">form</field>
         <field name="view_id" ref="account_report_balance_view"/>
-        <field name="target">current</field>
+        <field name="target">new</field>
         <field name="binding_model_id" ref="account.model_account_account" />
         <field name="binding_type">report</field>
     </record>
@@ -36,6 +35,6 @@
               sequence="20"
               parent="menu_finance_audit_reports"
               action="action_account_balance_menu"
-              groups="account.group_account_user,account.group_account_manager"/>
+              groups="account.group_account_readonly,account.group_account_manager"/>
 
 </odoo>

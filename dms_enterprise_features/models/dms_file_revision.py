@@ -93,13 +93,13 @@ class DMSFileRevision(models.Model):
                 'content': record.content,
                 'name': record.file_name or file_rec.name,
             }
-            file_rec.with_context(from_revert_revision=True).write(file_vals)
+            file_rec.with_context(from_revert_revision=True, dms_skip_log=True).write(file_vals)
             
             # Update image_1920 directly for image file types
             if file_rec.mimetype != "application/pdf" and file_rec.mimetype in (*Image.MIME.values(), "image/svg+xml"):
-                file_rec.sudo().write({'image_1920': record.content})
+                file_rec.sudo().with_context(dms_skip_log=True).write({'image_1920': record.content})
             else:
-                file_rec.sudo().write({'image_1920': False})
+                file_rec.sudo().with_context(dms_skip_log=True).write({'image_1920': False})
 
     def action_make_current(self):
         self.ensure_one()

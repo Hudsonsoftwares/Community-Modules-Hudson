@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Client Action for WFH Live Map -->
+    <record id="action_wfh_live_map" model="ir.actions.client">
+        <field name="name">Live Remote Employees Map</field>
+        <field name="tag">wfh_live_map</field>
+        <field name="target">current</field>
+    </record>
+
+    <!-- Location Log Search View -->
+    <record id="view_hr_employee_location_log_search" model="ir.ui.view">
+        <field name="name">hr.employee.location.log.search</field>
+        <field name="model">hr.employee.location.log</field>
+        <field name="arch" type="xml">
+            <search string="Search Location Logs">
+                <field name="employee_id"/>
+                <field name="status"/>
+                <field name="ip_address"/>
+                <filter string="Date" name="timestamp_filter" date="timestamp"/>
+                <separator/>
+                <filter string="At Home" name="filter_at_home" domain="[('status', '=', 'at_home')]"/>
+                <filter string="Near Home" name="filter_near_home" domain="[('status', '=', 'near_home')]"/>
+                <filter string="Offsite / Away" name="filter_offsite" domain="[('status', '=', 'offsite')]"/>
+                <group>
+                    <filter string="Employee" name="group_by_employee" context="{'group_by': 'employee_id'}"/>
+                    <filter string="Status" name="group_by_status" context="{'group_by': 'status'}"/>
+                    <filter string="Date" name="group_by_date" context="{'group_by': 'timestamp:day'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <!-- Location Log List View -->
+    <record id="view_hr_employee_location_log_tree" model="ir.ui.view">
+        <field name="name">hr.employee.location.log.list</field>
+        <field name="model">hr.employee.location.log</field>
+        <field name="arch" type="xml">
+            <list string="Location Logs" create="0">
+                <field name="timestamp"/>
+                <field name="employee_id" widget="many2one_avatar_employee"/>
+                <field name="status" widget="badge" 
+                       decoration-success="status == 'at_home'" 
+                       decoration-warning="status == 'near_home'" 
+                       decoration-danger="status == 'offsite'"/>
+                <field name="distance_from_home" string="Dist from Home (m)"/>
+                <field name="distance_from_checkin" string="Dist from Punch (m)"/>
+                <field name="latitude"/>
+                <field name="longitude"/>
+                <field name="ip_address"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- Location Log Form View -->
+    <record id="view_hr_employee_location_log_form" model="ir.ui.view">
+        <field name="name">hr.employee.location.log.form</field>
+        <field name="model">hr.employee.location.log</field>
+        <field name="arch" type="xml">
+            <form string="Location Log" create="0">
+                <sheet>
+                    <group>
+                        <group string="Employee &amp; Time">
+                            <field name="employee_id"/>
+                            <field name="attendance_id"/>
+                            <field name="timestamp"/>
+                            <field name="status"/>
+                        </group>
+                        <group string="GPS Coordinates &amp; Distances">
+                            <field name="latitude"/>
+                            <field name="longitude"/>
+                            <field name="accuracy"/>
+                            <field name="distance_from_home"/>
+                            <field name="distance_from_checkin"/>
+                            <field name="ip_address"/>
+                        </group>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Location Log Graph View -->
+    <record id="view_hr_employee_location_log_graph" model="ir.ui.view">
+        <field name="name">hr.employee.location.log.graph</field>
+        <field name="model">hr.employee.location.log</field>
+        <field name="arch" type="xml">
+            <graph string="Location Logs Analysis" type="bar" sample="1">
+                <field name="employee_id"/>
+                <field name="status"/>
+            </graph>
+        </field>
+    </record>
+
+    <!-- Location Log Pivot View -->
+    <record id="view_hr_employee_location_log_pivot" model="ir.ui.view">
+        <field name="name">hr.employee.location.log.pivot</field>
+        <field name="model">hr.employee.location.log</field>
+        <field name="arch" type="xml">
+            <pivot string="Location Logs Analysis" sample="1">
+                <field name="employee_id" type="row"/>
+                <field name="status" type="col"/>
+                <field name="distance_from_home" type="measure"/>
+            </pivot>
+        </field>
+    </record>
+
+    <!-- Action for Location Logs -->
+    <record id="action_hr_employee_location_log" model="ir.actions.act_window">
+        <field name="name">Employee Location Logs</field>
+        <field name="res_model">hr.employee.location.log</field>
+        <field name="view_mode">list,form,graph,pivot</field>
+        <field name="search_view_id" ref="view_hr_employee_location_log_search"/>
+        <field name="context">{'search_default_timestamp_filter': 1}</field>
+    </record>
+
+    <!-- Menus under Attendances (Restricted to Officers and Managers) -->
+    <menuitem id="menu_hr_attendance_wfh"
+              name="Work From Home"
+              parent="hr_attendance.menu_hr_attendance_root"
+              sequence="15"
+              groups="hr_attendance.group_hr_attendance_officer"/>
+
+    <menuitem id="menu_wfh_live_map"
+              name="Live Employee Map"
+              parent="menu_hr_attendance_wfh"
+              action="action_wfh_live_map"
+              sequence="1"
+              groups="hr_attendance.group_hr_attendance_officer"/>
+
+    <menuitem id="menu_wfh_location_logs"
+              name="Location Logs"
+              parent="menu_hr_attendance_wfh"
+              action="action_hr_employee_location_log"
+              sequence="2"
+              groups="hr_attendance.group_hr_attendance_officer"/>
+</odoo>

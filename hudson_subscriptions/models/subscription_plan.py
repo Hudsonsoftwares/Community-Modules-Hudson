@@ -71,12 +71,12 @@ class SaleSubscriptionPlan(models.Model):
     )
 
     def _compute_subscription_count(self):
-        subscription_data = self.env['sale.order'].read_group(
+        subscription_data = self.env['sale.order']._read_group(
             domain=[('is_subscription', '=', True), ('plan_id', 'in', self.ids)],
-            fields=['plan_id'],
-            groupby=['plan_id']
+            groupby=['plan_id'],
+            aggregates=['__count']
         )
-        mapped_data = {data['plan_id'][0]: data['plan_id_count'] for data in subscription_data}
+        mapped_data = {plan.id: count for plan, count in subscription_data}
         for plan in self:
             plan.subscription_count = mapped_data.get(plan.id, 0)
 

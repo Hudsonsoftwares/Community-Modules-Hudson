@@ -9,9 +9,12 @@ class HrEmployee(models.Model):
         employee = self.sudo().browse(employee_id)
         if not employee.exists():
             return False
-            
+
+        emp_pin = (employee.pin or '').strip()
+        input_pin = (str(pin) if pin is not None else '').strip()
+
         # If employee has no pin, allow empty pin login
-        if not employee.pin and not pin:
+        if not emp_pin and not input_pin:
             return True
-            
-        return employee.pin == pin
+
+        return emp_pin == input_pin

@@ -123,7 +123,7 @@ class SaleOrder(models.Model):
         for order in self:
             if order.payment_token_id or order.subscription_paid or order.transaction_ids.filtered(lambda t: t.state in ('done', 'authorized')):
                 order.payment_mode = 'automatic'
-            elif not order.payment_mode:
+            else:
                 order.payment_mode = 'manual'
 
     @api.depends('transaction_ids', 'transaction_ids.state')

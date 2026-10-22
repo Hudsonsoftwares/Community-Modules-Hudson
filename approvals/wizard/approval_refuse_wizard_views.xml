@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="approval_refuse_wizard_view_form" model="ir.ui.view">
+        <field name="name">approval.refuse.wizard.form</field>
+        <field name="model">approval.refuse.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Refuse Reason">
+                <field name="request_id" invisible="1"/>
+                <group>
+                    <field name="reason" placeholder="Explain why you are refusing this request..."/>
+                </group>
+                <footer>
+                    <button string="Refuse" type="object" name="action_refuse"
+                            class="btn-primary"/>
+                    <button string="Cancel" special="cancel" class="btn-secondary"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="approval_refuse_wizard_action" model="ir.actions.act_window">
+        <field name="name">Refuse Request</field>
+        <field name="res_model">approval.refuse.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+</odoo>

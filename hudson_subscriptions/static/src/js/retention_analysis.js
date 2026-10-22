@@ -1,6 +1,6 @@
 /** @odoo-module **/
 
-import { Component, useState, onWillStart, onMounted } from "@odoo/owl";
+import { Component, proxy, onWillStart, onMounted } from "@odoo/owl";
 import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
 
@@ -11,7 +11,7 @@ export class RetentionAnalysis extends Component {
         this.orm = useService("orm");
         this.action = useService("action");
 
-        this.state = useState({
+        this.state = proxy({
             loading: true,
             measure: "count", // 'count', 'recurring_monthly', 'recurring_total'
             interval: "month", // 'day', 'week', 'month', 'year'

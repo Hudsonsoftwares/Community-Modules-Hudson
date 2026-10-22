@@ -20,6 +20,35 @@ try:
 except ImportError:
     _logger.debug("PyPDF2 or reportlab not installed.")
 
+def _extract_pdf_bytes(raw_field):
+    """Safely extracts raw binary bytes from a PDF binary/base64 field."""
+    if not raw_field:
+        return b''
+    raw_bytes = None
+    if hasattr(raw_field, '__bytes__') or isinstance(raw_field, (bytes, bytearray)):
+        raw_bytes = bytes(raw_field)
+    elif isinstance(raw_field, str):
+        if raw_field.startswith('%PDF'):
+            return raw_field.encode('latin1')
+        try:
+            raw_bytes = base64.b64decode(raw_field.encode('ascii'))
+        except Exception:
+            raw_bytes = raw_field.encode('utf-8')
+
+    if raw_bytes is not None:
+        idx = raw_bytes.find(b'%PDF')
+        if idx != -1:
+            return raw_bytes[idx:]
+        try:
+            decoded = base64.b64decode(raw_bytes)
+            idx_dec = decoded.find(b'%PDF')
+            if idx_dec != -1:
+                return decoded[idx_dec:]
+        except Exception:
+            pass
+        return raw_bytes
+    return b''
+
 class DMSFileSignatureItem(models.Model):
     _name = "dms.file.signature.item"
     _description = "Signature Request Item"
@@ -28,6 +57,7 @@ class DMSFileSignatureItem(models.Model):
     item_type = fields.Selection([
         ('signature', 'Signature'),
         ('initial', 'Initials'),
+        ('initials', 'Initials'),
         ('name', 'Name'),
         ('email', 'Email'),
         ('phone', 'Phone'),
@@ -455,7 +485,9 @@ class DMSFileSignatureRequest(models.Model):
         if self.revision_id.file_id.mimetype != 'application/pdf':
             return self.revision_id.content
 
-        original_pdf = base64.b64decode(self.revision_id.content)
+        original_pdf = _extract_pdf_bytes(self.revision_id.content)
+        if not original_pdf:
+            return self.revision_id.content
         
         pdf_reader = PdfReader(io.BytesIO(original_pdf))
         pdf_writer = PdfWriter()
@@ -648,7 +680,9 @@ class DMSFileSignatureRequest(models.Model):
             raise UserError("Only PDF documents can be stamped with signatures.")
 
         try:
-            original_pdf = base64.b64decode(self.revision_id.content)
+            original_pdf = _extract_pdf_bytes(self.revision_id.content)
+            if not original_pdf:
+                raise UserError("The document has no PDF content to sign.")
             
             pdf_reader = PdfReader(io.BytesIO(original_pdf))
             pdf_writer = PdfWriter()
@@ -721,7 +755,19 @@ class DMSFileSignatureRequest(models.Model):
                 
                 if item.item_type in ['signature', 'initial', 'initials', 'stamp']:
                     if item.value_image:
-                        img_data = base64.b64decode(item.value_image)
+                        img_raw = item.value_image
+                        if isinstance(img_raw, str) and ',' in img_raw:
+                            img_raw = img_raw.split(',', 1)[1]
+                        if isinstance(img_raw, str):
+                            img_data = base64.b64decode(img_raw)
+                        elif hasattr(img_raw, '__bytes__') or isinstance(img_raw, (bytes, bytearray)):
+                            raw_b = bytes(img_raw)
+                            try:
+                                img_data = base64.b64decode(raw_b)
+                            except Exception:
+                                img_data = raw_b
+                        else:
+                            img_data = img_raw
                         img = ImageReader(io.BytesIO(img_data))
                         
                         # Reportlab drawImage x,y are ALWAYS the bottom-left of the bounding box.

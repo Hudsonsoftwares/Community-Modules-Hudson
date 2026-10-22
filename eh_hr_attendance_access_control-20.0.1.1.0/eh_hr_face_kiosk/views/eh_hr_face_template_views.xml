@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<odoo>
+    <data>
+
+        <record id="view_eh_hr_face_template_list" model="ir.ui.view">
+            <field name="name">eh.hr.face.template.list</field>
+            <field name="model">eh.hr.face.template</field>
+            <field name="arch" type="xml">
+                <list string="Face templates" sample="1" decoration-muted="not active">
+                    <field name="employee_id"/>
+                    <field name="captured_on"/>
+                    <field name="captured_via"/>
+                    <field name="quality_score"/>
+                    <field name="active"/>
+                    <field name="company_id" optional="hide" groups="base.group_multi_company"/>
+                </list>
+            </field>
+        </record>
+
+        <record id="view_eh_hr_face_template_form" model="ir.ui.view">
+            <field name="name">eh.hr.face.template.form</field>
+            <field name="model">eh.hr.face.template</field>
+            <field name="arch" type="xml">
+                <form string="Face template">
+                    <header>
+                        <button name="action_deactivate" type="object" string="Deactivate" invisible="not active"/>
+                        <button name="action_reactivate" type="object" string="Reactivate" invisible="active"/>
+                    </header>
+                    <sheet>
+                        <widget name="web_ribbon" title="Inactive" bg_color="bg-danger" invisible="active"/>
+                        <div class="oe_title">
+                            <h1>
+                                <field name="name" readonly="1"/>
+                            </h1>
+                        </div>
+                        <group>
+                            <group>
+                                <field name="employee_id"/>
+                                <field name="consent_id"/>
+                                <field name="captured_via"/>
+                                <field name="quality_score"/>
+                            </group>
+                            <group>
+                                <field name="captured_on"/>
+                                <field name="model_name"/>
+                                <field name="model_version"/>
+                                <field name="embedding_dim"/>
+                                <field name="company_id" groups="base.group_multi_company"/>
+                                <field name="active" invisible="1"/>
+                            </group>
+                        </group>
+                        <notebook>
+                            <page string="Embedding" groups="eh_hr_attendance_base.group_eh_hr_admin">
+                                <field name="embedding" widget="text" readonly="1"/>
+                            </page>
+                        </notebook>
+                    </sheet>
+                    <chatter/>
+                </form>
+            </field>
+        </record>
+
+        <record id="view_eh_hr_face_template_search" model="ir.ui.view">
+            <field name="name">eh.hr.face.template.search</field>
+            <field name="model">eh.hr.face.template</field>
+            <field name="arch" type="xml">
+                <search string="Face templates">
+                    <field name="employee_id"/>
+                    <filter string="Active" name="f_active" domain="[('active', '=', True)]"/>
+                    <filter string="Inactive" name="f_inactive" domain="[('active', '=', False)]"/>
+                    <separator/>
+                    <filter string="Captured at kiosk" name="f_kiosk" domain="[('captured_via', '=', 'kiosk_screen')]"/>
+                    <filter string="Captured by HR" name="f_hr" domain="[('captured_via', '=', 'hr_admin')]"/>
+                    <group>
+                        <filter string="Employee" name="g_employee" context="{'group_by': 'employee_id'}"/>
+                        <filter string="Captured via" name="g_via" context="{'group_by': 'captured_via'}"/>
+                    </group>
+                </search>
+            </field>
+        </record>
+
+        <record id="action_eh_hr_face_template" model="ir.actions.act_window">
+            <field name="name">Face templates</field>
+            <field name="res_model">eh.hr.face.template</field>
+            <field name="view_mode">list,form</field>
+            <field name="search_view_id" ref="view_eh_hr_face_template_search"/>
+            <field name="context">{'search_default_f_active': 1}</field>
+            <field name="help" type="html">
+                <p class="o_view_nocontent_smiling_face">No face templates yet.</p>
+                <p>Templates are stored when an employee enrols at a kiosk or via the Face enrolment wizard on their employee record. Each row holds one numeric embedding; it does not hold a photograph.</p>
+            </field>
+        </record>
+
+    </data>
+</odoo>

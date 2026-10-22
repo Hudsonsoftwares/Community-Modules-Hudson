@@ -7,7 +7,7 @@
                 <t t-else="">Signatures</t>
             </li>
             <li t-if="signature_req" class="breadcrumb-item active">
-                <t t-esc="signature_req.revision_id.file_id.name"/>
+                <t t-out="signature_req.revision_id.file_id.name"/>
             </li>
             <li t-if="page_name == 'dms_documents'" class="breadcrumb-item active">
                 Documents
@@ -51,10 +51,10 @@
                             <td>
                                 <a t-attf-href="/dms/share/file/#{file.access_token}" class="fw-bold text-decoration-none">
                                     <i class="fa fa-file-text-o me-2 text-primary"></i>
-                                    <t t-esc="file.name"/>
+                                    <t t-out="file.name"/>
                                 </a>
                             </td>
-                            <td><t t-esc="file.directory_id.name or 'Root'"/></td>
+                            <td><t t-out="file.directory_id.name or 'Root'"/></td>
                             <td>
                                 <span t-if="file.is_locked" class="badge bg-warning text-dark me-1" t-attf-title="Locked by #{file.locked_by.name}"><i class="fa fa-lock me-1"/>Locked</span>
                                 <span t-if="file.share_link_access == 'editor' or any((a.user_id == request.env.user or a.partner_id == request.env.user.partner_id) and a.perm_edit for a in file.access_ids)" class="badge bg-primary">Editor</span>
@@ -97,8 +97,8 @@
                 <tbody>
                     <t t-foreach="signatures" t-as="sig">
                         <tr>
-                            <td><a t-att-href="sig.get_portal_url()"><t t-esc="sig.revision_id.file_id.name"/></a></td>
-                            <td><t t-esc="sig.revision_id.version"/></td>
+                            <td><a t-att-href="sig.get_portal_url()"><t t-out="sig.revision_id.file_id.name"/></a></td>
+                            <td><t t-out="sig.revision_id.version"/></td>
                             <td><span t-field="sig.create_date" t-options="{'widget': 'date'}"/></td>
                             <td class="text-right">
                                 <span t-attf-class="badge badge-pill #{'badge-success' if sig.state == 'signed' else 'badge-info'}" t-field="sig.state"/>
@@ -116,13 +116,19 @@
         <head>
             <meta charset="utf-8"/>
             <meta name="viewport" content="width=device-width, initial-scale=1"/>
-            <title><t t-esc="signature_req.revision_id.file_id.name"/> — Sign Document</title>
+            <title><t t-out="signature_req.revision_id.file_id.name"/> — Sign Document</title>
             <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"/>
+            <!-- Standalone PDF.js & SignaturePad -->
             <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
-            <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.0.0/dist/signature_pad.umd.min.js"></script>
+            <script src="/web/static/lib/signature_pad/signature_pad.umd.js"></script>
+            <script>
+                if (typeof SignaturePad === 'undefined') {
+                    document.write('&lt;script src="https://cdn.jsdelivr.net/npm/signature_pad@4.0.0/dist/signature_pad.umd.min.js"&gt;&lt;\/script&gt;');
+                }
+            </script>
             <link rel="preconnect" href="https://fonts.googleapis.com"/>
             <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous"/>
-            <link href="https://fonts.googleapis.com/css2?family=Great+Vibes&amp;display=swap" rel="stylesheet"/>
+            <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&amp;family=Dancing+Script:wght@600;700&amp;family=Homemade+Apple&amp;family=Sacramento&amp;display=swap" rel="stylesheet"/>
             <style>
                 * { box-sizing: border-box; }
                 body { margin: 0; font-family: 'Segoe UI', Arial, sans-serif; background: #f0f1f5; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
@@ -161,7 +167,32 @@
                 .sign-field input, .sign-field textarea { width: 100%; height: 100%; border: none; background: transparent; padding: 4px; outline: none; font-size: 13px; }
                 .sign-field input[type="checkbox"], .sign-field input[type="radio"] { width: 18px; height: 18px; cursor: pointer; accent-color: #714B67; }
                 .sign-field .field-btn { width: 100%; height: 100%; border: none; background: transparent; color: #714B67; font-weight: 600; font-size: 12px; cursor: pointer; }
-                .sign-field img { width: 100%; height: 100%; object-fit: contain; }
+                .sign-field img { width: 100%; height: 100%; object-fit: contain; padding: 2px; }
+                .sign-field.sig-type.completed { position: relative; }
+                .sign-field.sig-type.completed:hover::after {
+                    content: '✏ Edit';
+                    position: absolute;
+                    bottom: 2px;
+                    right: 4px;
+                    background: rgba(0, 0, 0, 0.75);
+                    color: #fff;
+                    font-size: 10px;
+                    font-weight: 600;
+                    padding: 1px 6px;
+                    border-radius: 3px;
+                    pointer-events: none;
+                    z-index: 10;
+                }
+                .sig-font-btn {
+                    padding: 3px 9px;
+                    border: 1px solid #dee2e6;
+                    border-radius: 4px;
+                    background: #f8f9fa;
+                    color: #495057;
+                    cursor: pointer;
+                    transition: all .15s;
+                    user-select: none;
+                }
 
                 /* ── Signature modal ── */
                 #sig-modal-overlay {
@@ -211,7 +242,7 @@
                             ← Back to Document
                         </a>
                     </t>
-                    <div class="doc-title"><t t-esc="signature_req.revision_id.file_id.name"/></div>
+                    <div class="doc-title"><t t-out="signature_req.revision_id.file_id.name"/></div>
                 </div>
                 <div class="actions">
                     <t t-set="is_expired" t-value="signature_req.valid_until and signature_req.valid_until &lt; datetime.date.today()"/>
@@ -233,7 +264,7 @@
                 <div style="text-align:center; padding: 50px; font-family: sans-serif;">
                     <i class="fa fa-exclamation-triangle fa-4x text-danger mb-3"></i>
                     <h2>This document has expired</h2>
-                    <p>The signature request was valid until <strong><t t-esc="signature_req.valid_until"/></strong> and can no longer be signed.</p>
+                    <p>The signature request was valid until <strong><t t-out="signature_req.valid_until"/></strong> and can no longer be signed.</p>
                 </div>
             </t>
             <t t-else="">
@@ -262,10 +293,17 @@
                         <div class="sig-tab" id="tab-load" onclick="switchTab('load')">Load</div>
                     </div>
                     
-                    <div class="sig-pad-wrap" id="wrap-auto" style="height: 250px; background: #fff; padding: 15px; border: 1px solid #ddd; border-radius: 4px; display: flex; flex-direction: column;">
+                    <div class="sig-pad-wrap" id="wrap-auto" style="height: 250px; background: #fff; padding: 12px; border: 1px solid #ddd; border-radius: 4px; display: flex; flex-direction: column;">
                         <t t-set="default_signer_name" t-value="signature_req.recipient_id.name if signature_req.recipient_id and signature_req.recipient_id.name and not signature_req.recipient_id.name.isdigit() else ''"/>
-                        <input type="text" id="auto-name-input" class="form-control mb-3" placeholder="Your Name" t-att-value="default_signer_name" oninput="updateAutoSignature()" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;"/>
-                        <canvas id="auto-canvas" style="flex-grow: 1; width: 100%;"></canvas>
+                        <input type="text" id="auto-name-input" class="form-control mb-2" placeholder="Your Name" t-att-value="default_signer_name" oninput="updateAutoSignature()" style="width: 100%; padding: 7px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;"/>
+                        <div class="d-flex align-items-center gap-1 mb-2" style="flex-wrap: wrap;">
+                            <span style="font-size: 11px; color: #666; font-weight: 600; margin-right: 2px;">Handwriting:</span>
+                            <button type="button" class="sig-font-btn active" onclick="selectSigFont(this, '\'Caveat\', cursive')" style="font-family: 'Caveat', cursive; font-size: 16px; background: #714B67; border-color: #714B67; color: #fff;">Caveat</button>
+                            <button type="button" class="sig-font-btn" onclick="selectSigFont(this, '\'Dancing Script\', cursive')" style="font-family: 'Dancing Script', cursive; font-size: 14px; background: #f8f9fa; border-color: #ccc; color: #333;">Dancing Script</button>
+                            <button type="button" class="sig-font-btn" onclick="selectSigFont(this, '\'Homemade Apple\', cursive')" style="font-family: 'Homemade Apple', cursive; font-size: 11px; background: #f8f9fa; border-color: #ccc; color: #333;">Homemade Apple</button>
+                            <button type="button" class="sig-font-btn" onclick="selectSigFont(this, '\'Sacramento\', cursive')" style="font-family: 'Sacramento', cursive; font-size: 16px; background: #f8f9fa; border-color: #ccc; color: #333;">Sacramento</button>
+                        </div>
+                        <canvas id="auto-canvas" style="flex-grow: 1; width: 100%; border: 1px dashed #e2e8f0; border-radius: 4px;"></canvas>
                     </div>
                     
                     <div class="sig-pad-wrap" id="wrap-draw" style="display:none; height: 250px; background: #fff; border: 1px solid #ddd; border-radius: 4px;">
@@ -289,31 +327,31 @@
             </div>
 
             <script>
-                const reqId = <t t-esc="signature_req.id"/>;
-                const accessToken = '<t t-esc="access_token or ''"/>';
-                const isSigned = '<t t-esc="signature_req.state"/>' === 'signed';
-                const origPdfUrl = isSigned
-                    ? '/web/content/dms.file.signature.request/' + reqId + '/pdf_content'
-                    : '/web/content/dms.file.revision/<t t-esc="signature_req.revision_id.id"/>/content';
+                const reqId = <t t-out="signature_req.id"/>;
+                const accessToken = '<t t-out="access_token or signature_req.access_token or ''"/>';
+                const isSigned = '<t t-out="signature_req.state"/>' === 'signed';
+                const origPdfUrl = accessToken 
+                    ? '/dms/signature/' + reqId + '/' + accessToken + '/pdf'
+                    : '/dms/signature/' + reqId + '/pdf';
 
                 const itemsData = [
                     <t t-foreach="signature_req.item_ids" t-as="item">
                     {
-                        id: <t t-esc="item.id"/>,
-                        type: '<t t-esc="item.item_type"/>',
-                        page: <t t-esc="item.page_number"/>,
-                        x: <t t-esc="item.pos_x"/>,
-                        y: <t t-esc="item.pos_y"/>,
-                        width: <t t-esc="item.width"/>,
-                        height: <t t-esc="item.height"/>,
-                        state: '<t t-esc="item.state"/>',
-                        valueText: `<t t-esc="item.value_text or ''"/>`,
-                        valueBool: !!<t t-esc="1 if item.value_bool else 0"/>,
-                        valueImage: `<t t-esc="item.value_image or ''"/>`,
-                        radioGroupName: `<t t-esc="item.radio_group_name or ''"/>`,
-                        radioOptionValue: `<t t-esc="item.radio_option_value or ''"/>`,
-                        placeholder: `<t t-esc="item.placeholder or ''"/>`,
-                        readonly: !!<t t-esc="1 if item.readonly else 0"/>
+                        id: <t t-out="item.id"/>,
+                        type: '<t t-out="item.item_type"/>',
+                        page: <t t-out="item.page_number"/>,
+                        x: <t t-out="item.pos_x"/>,
+                        y: <t t-out="item.pos_y"/>,
+                        width: <t t-out="item.width"/>,
+                        height: <t t-out="item.height"/>,
+                        state: '<t t-out="item.state"/>',
+                        valueText: `<t t-out="item.value_text or ''"/>`,
+                        valueBool: !!<t t-out="1 if item.value_bool else 0"/>,
+                        valueImage: `<t t-out="item.value_image or ''"/>`,
+                        radioGroupName: `<t t-out="item.radio_group_name or ''"/>`,
+                        radioOptionValue: `<t t-out="item.radio_option_value or ''"/>`,
+                        placeholder: `<t t-out="item.placeholder or ''"/>`,
+                        readonly: !!<t t-out="1 if item.readonly else 0"/>
                     },
                     </t>
                 ];
@@ -325,16 +363,33 @@
                 let signaturePad = null;
                 let totalFields = itemsData.filter(i => i.type !== 'strikethrough').length;
 
-                pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
-                const scale = 1.4;
                 const viewer = document.getElementById('pdf-viewer');
+                viewer.innerHTML = '<div id="pdf-loading-spinner" style="text-align:center;padding:80px 20px;"><div class="spinner-border text-primary" role="status" style="width:3rem;height:3rem;margin-bottom:1rem;"></div><h5 style="color:#495057;font-weight:600;">Loading document preview…</h5><p style="color:#6c757d;font-size:13px;">Please wait while the PDF is preparing.</p></div>';
 
-                pdfjsLib.getDocument(origPdfUrl).promise.then(function(pdfDoc) {
+                if (window.pdfjsLib) {
+                    try {
+                        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+                    } catch (_) {}
+                }
+
+                const scale = 1.4;
+
+                pdfjsLib.getDocument({ url: origPdfUrl, withCredentials: true }).promise.then(function(pdfDoc) {
+                    const spinner = document.getElementById('pdf-loading-spinner');
+                    if (spinner) spinner.remove();
+
                     const pages = [];
                     for (let num = 1; num &lt;= pdfDoc.numPages; num++) pages.push(num);
                     pages.reduce((p, num) => p.then(() => renderPage(pdfDoc, num)), Promise.resolve());
                 }).catch(err => {
-                    viewer.innerHTML = '&lt;p style="color:red;text-align:center;"&gt;Could not load PDF: ' + err.message + '&lt;/p&gt;';
+                    viewer.innerHTML = `
+                        <div style="text-align:center;padding:50px 20px;background:#fff;border-radius:8px;margin:40px auto;max-width:520px;box-shadow:0 4px 16px rgba(0,0,0,.12);">
+                            <div style="font-size:42px;margin-bottom:12px;">⚠️</div>
+                            <h5 style="font-weight:700;margin-bottom:8px;color:#212529;">Unable to Preview PDF</h5>
+                            <p style="color:#6c757d;font-size:14px;margin-bottom:20px;">${err.message || 'The document could not be loaded. Please verify your connection or try refreshing.'}</p>
+                            <button class="btn text-white px-4 shadow-sm" style="background:#714B67;font-weight:600;" onclick="location.reload()">Retry</button>
+                        </div>
+                    `;
                 });
 
                 function renderPage(pdfDoc, num) {
@@ -413,16 +468,28 @@
                         };
                         fd.appendChild(chk);
                     } else if (['signature','initial','initials','stamp'].includes(item.type)) {
+                        fd.classList.add('sig-type');
                         if (item.valueImage) {
                             const img = document.createElement('img');
                             img.src = 'data:image/png;base64,' + item.valueImage;
-                            fd.appendChild(img); fd.classList.add('completed');
+                            img.style.width = '100%';
+                            img.style.height = '100%';
+                            img.style.objectFit = 'contain';
+                            img.style.padding = '2px';
+                            fd.appendChild(img);
+                            fd.classList.add('completed');
                         } else {
                             const btn = document.createElement('button');
                             btn.className = 'field-btn';
                             btn.innerHTML = '✍ ' + (item.type === 'signature' ? 'Sign here' : 'Initials');
-                            btn.onclick = () => openSigModal(item, fd);
                             fd.appendChild(btn);
+                        }
+                        if (!item.readonly) {
+                            fd.onclick = (e) => {
+                                e.stopPropagation();
+                                openSigModal(item, fd);
+                            };
+                            fd.title = 'Click to sign or edit signature';
                         }
                     } else if (item.type === 'strikethrough') {
                         fd.style.borderTop = '2px solid #333';
@@ -503,7 +570,21 @@
                 }
 
                 let currentTab = 'auto';
+                let currentAutoFont = "'Caveat', cursive";
                 let loadedImageBase64 = null;
+
+                function selectSigFont(btn, fontName) {
+                    currentAutoFont = fontName;
+                    document.querySelectorAll('.sig-font-btn').forEach(b => {
+                        b.style.background = '#f8f9fa';
+                        b.style.borderColor = '#ccc';
+                        b.style.color = '#333';
+                    });
+                    btn.style.background = '#714B67';
+                    btn.style.borderColor = '#714B67';
+                    btn.style.color = '#fff';
+                    updateAutoSignature();
+                }
 
                 function switchTab(t) {
                     currentTab = t;
@@ -516,13 +597,17 @@
                     document.getElementById('wrap-' + t).style.display = (t === 'auto') ? 'flex' : 'block';
                     
                     if (t === 'auto') {
-                        updateAutoSignature();
+                        setTimeout(() => updateAutoSignature(), 30);
                     } else if (t === 'draw') {
                         const canvas = document.getElementById('sig-canvas');
                         if (!signaturePad) {
-                            signaturePad = new SignaturePad(canvas, { backgroundColor: 'rgba(255, 255, 255, 0)' });
+                            signaturePad = new SignaturePad(canvas, { 
+                                backgroundColor: 'rgba(255, 255, 255, 0)',
+                                penColor: '#0c2340',
+                                minWidth: 1.5,
+                                maxWidth: 3.5
+                            });
                         }
-                        // resize canvas might be needed when switching
                         const dpr = window.devicePixelRatio || 1;
                         canvas.width = canvas.parentElement.offsetWidth * dpr;
                         canvas.height = canvas.parentElement.offsetHeight * dpr;
@@ -533,19 +618,75 @@
 
                 function updateAutoSignature() {
                     const canvas = document.getElementById('auto-canvas');
+                    if (!canvas) return;
                     const ctx = canvas.getContext('2d');
-                    const text = document.getElementById('auto-name-input').value || 'Signature';
+                    const inputVal = (document.getElementById('auto-name-input').value || '').trim();
+                    const text = inputVal || 'Signature';
                     
-                    // Simple resize based on wrapper
-                    canvas.width = canvas.parentElement.offsetWidth;
-                    canvas.height = canvas.parentElement.offsetHeight - 50; // account for input
+                    const w = canvas.parentElement.offsetWidth || 450;
+                    const h = Math.max(120, (canvas.parentElement.offsetHeight || 220) - 85);
+                    canvas.width = w;
+                    canvas.height = h;
                     
-                    ctx.clearRect(0, 0, canvas.width, canvas.height);
-                    ctx.font = "400 64px 'Great Vibes', cursive";
-                    ctx.fillStyle = "#000080";
+                    ctx.clearRect(0, 0, w, h);
+                    
+                    let fontSize = 58;
+                    if (currentAutoFont.includes('Homemade Apple')) fontSize = 34;
+                    else if (currentAutoFont.includes('Sacramento')) fontSize = 62;
+                    else if (currentAutoFont.includes('Dancing Script')) fontSize = 54;
+                    
+                    if (text.length > 20) fontSize = Math.max(22, Math.round(fontSize * 0.6));
+                    else if (text.length > 12) fontSize = Math.max(28, Math.round(fontSize * 0.78));
+                    
+                    ctx.font = `600 ${fontSize}px ${currentAutoFont}`;
+                    ctx.fillStyle = "#0c2340";
                     ctx.textAlign = "center";
                     ctx.textBaseline = "middle";
-                    ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+                    ctx.fillText(text, w / 2, h / 2);
+                }
+
+                function cropCanvas(sourceCanvas) {
+                    const ctx = sourceCanvas.getContext('2d');
+                    const w = sourceCanvas.width;
+                    const h = sourceCanvas.height;
+                    if (!w || !h) return sourceCanvas;
+                    
+                    try {
+                        const imgData = ctx.getImageData(0, 0, w, h);
+                        const data = imgData.data;
+                        let minX = w, minY = h, maxX = -1, maxY = -1;
+                        
+                        for (let y = 0; y &lt; h; y++) {
+                            for (let x = 0; x &lt; w; x++) {
+                                const alpha = data[((y * w) + x) * 4 + 3];
+                                if (alpha > 15) {
+                                    if (x &lt; minX) minX = x;
+                                    if (x > maxX) maxX = x;
+                                    if (y &lt; minY) minY = y;
+                                    if (y > maxY) maxY = y;
+                                }
+                            }
+                        }
+                        
+                        if (maxX &lt; minX || maxY &lt; minY) {
+                            return sourceCanvas;
+                        }
+                        
+                        const pad = 6;
+                        const cropX = Math.max(0, minX - pad);
+                        const cropY = Math.max(0, minY - pad);
+                        const cropW = Math.min(w - cropX, (maxX - minX) + (pad * 2));
+                        const cropH = Math.min(h - cropY, (maxY - minY) + (pad * 2));
+                        
+                        const cropped = document.createElement('canvas');
+                        cropped.width = cropW;
+                        cropped.height = cropH;
+                        const cropCtx = cropped.getContext('2d');
+                        cropCtx.drawImage(sourceCanvas, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
+                        return cropped;
+                    } catch (e) {
+                        return sourceCanvas;
+                    }
                 }
 
                 function handleSignatureUpload(e) {
@@ -570,6 +711,7 @@
                     document.getElementById('sig-modal-overlay').classList.add('show');
                     
                     switchTab('auto');
+                    setTimeout(() => updateAutoSignature(), 50);
                 }
                 
                 function closeSigModal() { document.getElementById('sig-modal-overlay').classList.remove('show'); }
@@ -590,15 +732,32 @@
                 function getSignatureBase64() {
                     if (currentTab === 'draw') {
                         if (!signaturePad || signaturePad.isEmpty()) return null;
-                        return signaturePad.toDataURL();
+                        const canvas = document.getElementById('sig-canvas');
+                        const cropped = cropCanvas(canvas);
+                        return cropped.toDataURL('image/png');
                     } else if (currentTab === 'auto') {
-                        const input = document.getElementById('auto-name-input').value;
+                        const input = (document.getElementById('auto-name-input').value || '').trim();
                         if (!input) return null;
-                        return document.getElementById('auto-canvas').toDataURL();
+                        const canvas = document.getElementById('auto-canvas');
+                        const cropped = cropCanvas(canvas);
+                        return cropped.toDataURL('image/png');
                     } else if (currentTab === 'load') {
                         return loadedImageBase64;
                     }
                     return null;
+                }
+
+                function renderCompletedSig(targetFd, dataUrl) {
+                    targetFd.innerHTML = '';
+                    const img = document.createElement('img');
+                    img.src = dataUrl;
+                    img.style.width = '100%';
+                    img.style.height = '100%';
+                    img.style.objectFit = 'contain';
+                    img.style.padding = '2px';
+                    targetFd.appendChild(img);
+                    targetFd.classList.add('completed');
+                    targetFd.title = 'Click to edit or redraw signature';
                 }
 
                 function saveSig(signAll = false) {
@@ -611,33 +770,21 @@
                     const base64 = dataUrl.split(',')[1];
                     
                     if (signAll) {
-                        const typeToSign = currentItem.type; // sign all signatures or all initials
+                        const typeToSign = currentItem.type;
                         const uncompleted = itemsData.filter(i => i.type === typeToSign &amp;&amp; !answers[i.id] &amp;&amp; !i.readonly);
                         
                         uncompleted.forEach(item => {
                             const fd = document.getElementById('sign-field-' + item.id);
                             if (fd) {
                                 setAnswer(item.id, 'value_image', base64, fd);
-                                fd.innerHTML = '';
-                                const img = document.createElement('img');
-                                img.src = dataUrl;
-                                img.style.width = '100%';
-                                img.style.height = '100%';
-                                img.style.objectFit = 'contain';
-                                fd.appendChild(img);
-                                fd.classList.add('completed');
+                                renderCompletedSig(fd, dataUrl);
                             }
                         });
+                        setAnswer(currentItem.id, 'value_image', base64, currentFieldDiv);
+                        renderCompletedSig(currentFieldDiv, dataUrl);
                     } else {
                         setAnswer(currentItem.id, 'value_image', base64, currentFieldDiv);
-                        currentFieldDiv.innerHTML = '';
-                        const img = document.createElement('img');
-                        img.src = dataUrl;
-                        img.style.width = '100%';
-                        img.style.height = '100%';
-                        img.style.objectFit = 'contain';
-                        currentFieldDiv.appendChild(img);
-                        currentFieldDiv.classList.add('completed');
+                        renderCompletedSig(currentFieldDiv, dataUrl);
                     }
                     
                     closeSigModal();

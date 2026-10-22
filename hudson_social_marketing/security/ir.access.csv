@@ -1,0 +1,12 @@
+id,name,model_id,group_id/id,operation
+access_hudson_social_connector_user,hudson.social.connector user,hudson.social.connector,hudson_social_marketing.group_social_user,r
+access_hudson_social_connector_manager,hudson.social.connector manager,hudson.social.connector,hudson_social_marketing.group_social_manager,crud
+access_hudson_social_account_user,hudson.social.account user,hudson.social.account,hudson_social_marketing.group_social_user,r
+access_hudson_social_account_manager,hudson.social.account manager,hudson.social.account,hudson_social_marketing.group_social_manager,crud
+access_hudson_social_post_user,hudson.social.post user,hudson.social.post,hudson_social_marketing.group_social_user,cru
+access_hudson_social_post_manager,hudson.social.post manager,hudson.social.post,hudson_social_marketing.group_social_manager,crud
+access_hudson_social_stream_post_user,hudson.social.stream.post user,hudson.social.stream.post,hudson_social_marketing.group_social_user,r
+access_hudson_social_stream_post_manager,hudson.social.stream.post manager,hudson.social.stream.post,hudson_social_marketing.group_social_manager,crud
+access_hudson_social_post_publish_wizard_user,hudson.social.post.publish.wizard user,hudson.social.post.publish.wizard,hudson_social_marketing.group_social_user,crud
+access_hudson_social_comment_user,hudson.social.comment user,hudson.social.comment,hudson_social_marketing.group_social_user,crud
+access_hudson_social_comment_manager,hudson.social.comment manager,hudson.social.comment,hudson_social_marketing.group_social_manager,crud

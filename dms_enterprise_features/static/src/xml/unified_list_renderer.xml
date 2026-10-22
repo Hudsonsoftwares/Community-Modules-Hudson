@@ -1,46 +1,75 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <templates xml:space="preserve">
+
+    <!-- 1. Inject folder rows into the list tbody -->
     <t t-inherit="dms.ListRenderer" t-inherit-mode="extension">
-        <xpath expr="//tbody" position="inside">
-            <style t-if="dmsDirectoriesState.data.length">
-                .o_view_nocontent {
+        <xpath expr="//tbody/t" position="before">
+            <style t-if="this.dmsDirectoriesState.data.length">
+                .file_list .o_list_renderer:has(.o_dms_directory_row) .o_view_nocontent {
                     display: none !important;
                 }
             </style>
-            <!-- Go Up Row -->
-            <tr t-if="dmsDirectoriesState.currentDir" class="o_data_row cursor-pointer text-muted bg-light" t-on-click="() => this.navigateUp()">
-                <td t-if="hasSelectors" class="o_list_record_selector" tabindex="-1"></td>
-                <td class="o_data_cell" colspan="100%">
-                    <i class="fa fa-level-up fa-lg me-3 text-secondary"/>
-                    <span class="fw-bold">.. Go to <t t-esc="dmsDirectoriesState.currentDir.name"/></span>
-                </td>
-            </tr>
-            <!-- Directory Rows -->
-            <t t-foreach="dmsDirectoriesState.data" t-as="directory" t-key="'dir_' + directory.id">
-                <tr class="o_data_row cursor-pointer text-muted" t-on-click="() => this.openDirectory(directory.id)">
-                    <td t-if="hasSelectors" class="o_list_record_selector" tabindex="-1">
+
+            <t t-foreach="this.dmsDirectoriesState.data" t-as="directory" t-key="'dir_' + directory.id">
+                <tr class="o_data_row o_dms_directory_row cursor-pointer text-muted" t-on-click="() => this.openDirectory(directory.id)">
+                    <td t-if="this.hasSelectors" class="o_list_record_selector user-select-none" tabindex="-1">
                         <div class="form-check o_checkbox">
-                            <input type="checkbox" class="form-check-input" t-on-click.stop="() => {}" />
+                            <input type="checkbox" class="form-check-input" t-on-click.stop="() => {}" disabled="1" style="opacity: 0.2;" />
                         </div>
                     </td>
-                    <t t-foreach="this.columns || state.columns" t-as="column" t-key="column.id">
-                        <td class="o_data_cell">
+                    <t t-foreach="this.columns" t-as="column" t-key="column.id">
+                        <td class="o_data_cell cursor-pointer" t-att-name="column.name">
                             <t t-if="column.name === 'name'">
                                 <div class="d-flex align-items-center">
-                                    <i class="fa fa-folder text-warning me-3" style="font-size: 1.2em;"/>
-                                    <span class="fw-bold text-dark" t-esc="directory.display_name || directory.name || 'Untitled Folder'"/>
+                                    <img t-if="directory.icon_url" t-att-src="directory.icon_url" class="me-2 flex-shrink-0" style="width: 22px; height: 22px; object-fit: contain;"/>
+                                    <img t-else="" src="/dms/static/description/open-folder.png" class="me-2 flex-shrink-0" style="width: 22px; height: 22px; object-fit: contain;"/>
+                                    <span class="fw-bold text-dark text-truncate" t-esc="directory.name || directory.display_name || 'Untitled Folder'"/>
                                 </div>
                             </t>
+                            <t t-elif="column.name === 'write_date'">
+                                <span class="text-muted" t-esc="directory.write_date ? directory.write_date.slice(0, 10) : ''"/>
+                            </t>
+                            <t t-elif="column.name === 'human_size'">
+                                <span class="o_dms_folder_row_badge">
+                                    <t t-if="directory.count_files"><t t-esc="directory.count_files"/> file<t t-if="directory.count_files != 1">s</t></t>
+                                    <t t-else="">0 files</t>
+                                </span>
+                            </t>
+                            <t t-elif="column.name === 'mimetype'">
+                                <span class="badge bg-light text-muted border">Folder</span>
+                            </t>
                             <t t-elif="column.name === 'directory_id'">
-                                <span t-if="dmsDirectoriesState.currentDir" t-esc="dmsDirectoriesState.currentDir.name"/>
+                                <span t-if="this.dmsDirectoriesState.currentDir" t-esc="this.dmsDirectoriesState.currentDir.name"/>
                             </t>
-                            <t t-else="">
-                                <span/>
-                            </t>
+                            <t t-else=""><span/></t>
                         </td>
                     </t>
+                    <td t-if="this.hasOpenFormViewColumn" class="w-print-0 p-print-0"/>
+                    <td t-if="this.displayOptionalFields or this.activeActions.onDelete" class="w-print-0 p-print-0 text-end pe-2">
+                        <t t-if="directory.is_trashed">
+                            <button type="button" class="btn btn-sm btn-link text-success p-0 me-2" title="Restore" t-on-click.stop="() => this.restoreDirectory(directory.id)">
+                                <i class="fa fa-undo"/>
+                            </button>
+                            <button type="button" class="btn btn-sm btn-link text-danger p-0" title="Delete permanently" t-on-click.stop="() => this.deleteDirectoryPermanently(directory.id)">
+                                <i class="fa fa-trash-o"/>
+                            </button>
+                        </t>
+                    </td>
                 </tr>
             </t>
         </xpath>
     </t>
+
+    <!-- 2. dms.ListButtons extension:
+            Guard upload buttons to DMS admins
+    -->
+    <t t-inherit="dms.ListButtons" t-inherit-mode="extension">
+        <xpath expr="//button[contains(@class, 'o_button_upload_expense')][1]" position="attributes">
+            <attribute name="t-if">this.canCreate</attribute>
+        </xpath>
+        <xpath expr="//button[contains(@class, 'o_button_upload_expense')][2]" position="attributes">
+            <attribute name="t-if">this.canCreate</attribute>
+        </xpath>
+    </t>
+
 </templates>

@@ -15,7 +15,6 @@ class AccountAnnualReport(models.Model):
     name = fields.Char(
         string='Title',
         required=True,
-        placeholder='e.g. Annual Financial Overview',
     )
 
     date_from = fields.Date(
@@ -51,10 +50,35 @@ class AccountAnnualReport(models.Model):
         default='draft',
         readonly=True,
     )
+    period_display = fields.Char(
+        string='Period',
+        compute='_compute_period_display',
+        store=True,
+    )
+
+    @api.depends('date_from', 'date_to')
+    def _compute_period_display(self):
+        for r in self:
+            if r.date_from and r.date_to:
+                r.period_display = f"{r.date_from.strftime('%b %d, %Y')} – {r.date_to.strftime('%b %d, %Y')}"
+            else:
+                r.period_display = ''
 
     # ──────────────────────────────────────────────────────
     # Data Computation Helpers
     # ──────────────────────────────────────────────────────
+
+    @staticmethod
+    def _clean_zero(val):
+        if val is None or val is False:
+            return 0.0
+        if isinstance(val, (int, float)):
+            return 0.0 if abs(val) < 0.005 else val
+        elif isinstance(val, dict):
+            return {k: AccountAnnualReport._clean_zero(v) for k, v in val.items()}
+        elif isinstance(val, (list, tuple)):
+            return [AccountAnnualReport._clean_zero(v) for v in val]
+        return val
 
     def _get_balance(self, account_types, date_from, date_to, company_id, state):
         """Period movement balance for P&L items."""
@@ -72,7 +96,8 @@ class AccountAnnualReport(models.Model):
         """
         self.env.cr.execute(query, (tuple(account_types), date_from, date_to, company_id))
         result = self.env.cr.fetchone()
-        return result[0] if result else 0.0
+        val = result[0] if (result and result[0] is not None) else 0.0
+        return 0.0 if abs(val) < 0.005 else val
 
     def _get_cumulative_balance(self, account_types, as_of_date, company_id, state):
         """Cumulative balance up to date for BS items."""
@@ -89,7 +114,8 @@ class AccountAnnualReport(models.Model):
         """
         self.env.cr.execute(query, (tuple(account_types), as_of_date, company_id))
         result = self.env.cr.fetchone()
-        return result[0] if result else 0.0
+        val = result[0] if (result and result[0] is not None) else 0.0
+        return 0.0 if abs(val) < 0.005 else val
 
     def _get_prior_year_balance(self, account_types, as_of_date, company_id, state):
         """Get balance as of one year before (prior year comparison)."""
@@ -222,13 +248,14 @@ class AccountAnnualReport(models.Model):
         aged_payable = self._get_aged_lines('liability_payable', dt, cid, st)
         aged_receivable = self._get_aged_lines('asset_receivable', dt, cid, st)
 
-        return {
+        data = {
             # meta
             'report_name': self.name,
             'date_from': df,
             'date_to': dt,
             'prior_date_to': prior_dt,
             'company_id': cid,
+            'company': cid,
             'target_move': st,
             # P&L current
             'revenue': revenue, 'other_income': other_income,
@@ -263,12 +290,14 @@ class AccountAnnualReport(models.Model):
             'aged_payable': aged_payable,
             'aged_receivable': aged_receivable,
         }
+        return self._clean_zero(data)
 
     def action_print_report(self):
         self.ensure_one()
+        data = self._compute_annual_data()
         return self.env.ref(
             'hudson_accounting_enhancements.action_report_annual'
-        ).report_action(self)
+        ).report_action(self, data={'form': data})
 
     def check_report(self):
         return self.action_print_report()

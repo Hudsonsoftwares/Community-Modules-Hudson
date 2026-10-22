@@ -2,7 +2,7 @@
 
 {
     'name': 'Social Media Marketing',
-    'version': '19.0.1.0.0',
+    'version': '20.0.1.0.0',
     'category': 'Marketing/Social Marketing',
     'sequence': 45,
     'summary': 'Manage and publish social media posts via Odoo Enterprise connector',
@@ -32,7 +32,7 @@ Features:
     'data': [
         # Security (must be first)
         'security/hudson_social_security.xml',
-        'security/ir.model.access.csv',
+        'security/ir.access.csv',
         # Data
         'data/hudson_social_config_data.xml',
         'data/hudson_social_cron.xml',

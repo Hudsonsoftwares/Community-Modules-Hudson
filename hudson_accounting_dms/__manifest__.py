@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     'name': 'Hudson Accounting DMS Integration',
-    'version': '19.0.1.0.0',
+    'version': '20.0.1.0.0',
     'category': 'Accounting/Accounting',
     'summary': 'Export Accounting Reports to DMS Documents',
     'author': 'Hudson Softwares',
@@ -12,9 +12,9 @@
         'dms',
     ],
     'data': [
-        'security/ir.model.access.csv',
+        'security/ir.access.csv',
         'wizard/hudson_report_export_dms_wizard_views.xml',
     ],
     'installable': True,
-    'auto_install': True,
+    'auto_install': False,
 }

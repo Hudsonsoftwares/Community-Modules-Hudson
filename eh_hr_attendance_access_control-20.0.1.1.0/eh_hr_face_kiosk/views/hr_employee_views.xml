@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<odoo>
+    <data>
+
+        <record id="view_employee_form_eh_face_kiosk" model="ir.ui.view">
+            <field name="name">hr.employee.form.eh.face.kiosk</field>
+            <field name="model">hr.employee</field>
+            <field name="inherit_id" ref="eh_hr_attendance_base.view_employee_form_eh_hr_attendance"/>
+            <field name="arch" type="xml">
+                <xpath expr="//page[@name='page_eh_hr_attendance']" position="inside">
+                    <separator string="Face enrolment"/>
+                    <group>
+                        <group>
+                            <field name="eh_face_template_count" readonly="1"/>
+                        </group>
+                        <group>
+                            <button name="action_eh_open_face_enrolment" type="object" string="Enrol face" class="oe_highlight" groups="eh_hr_attendance_base.group_eh_hr_manager"/>
+                            <button name="action_eh_view_face_templates" type="object" string="View templates" groups="eh_hr_attendance_base.group_eh_hr_manager"/>
+                        </group>
+                    </group>
+                    <field name="eh_face_template_ids" mode="list" readonly="1">
+                        <list>
+                            <field name="captured_on"/>
+                            <field name="captured_via"/>
+                            <field name="quality_score"/>
+                            <field name="active"/>
+                        </list>
+                    </field>
+                </xpath>
+            </field>
+        </record>
+
+    </data>
+</odoo>

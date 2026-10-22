@@ -1,70 +1,57 @@
-<?xml version="1.0" encoding="utf-8"?>
+<?xml version='1.0' encoding='utf-8'?>
 <odoo>
-    <!--
-        Odoo 19 compatibility:
-        - res.groups no longer has 'category_id' (removed in v19)
-        - Groups are linked to a 'res.groups.privilege' via 'privilege_id'
-        - Admin users are added via res.users 'group_ids' field
-    -->
+    
 
-    <!-- Module Category -->
+    
     <record id="module_category_hudson_knowledge" model="ir.module.category">
         <field name="name">Knowledge</field>
         <field name="description">Manage knowledge articles and documentation.</field>
         <field name="sequence">75</field>
     </record>
 
-    <!-- Privilege (groups container shown in Settings → Users) -->
+    
     <record id="privilege_hudson_knowledge" model="res.groups.privilege">
         <field name="name">Knowledge</field>
         <field name="sequence">75</field>
-        <field name="category_id" ref="module_category_hudson_knowledge"/>
+        <field name="category_id" ref="module_category_hudson_knowledge" />
     </record>
 
-    <!-- Knowledge User group -->
+    
     <record id="group_knowledge_user" model="res.groups">
         <field name="name">User</field>
-        <field name="privilege_id" ref="privilege_hudson_knowledge"/>
-        <field name="implied_ids" eval="[(4, ref('base.group_user'))]"/>
+        <field name="privilege_id" ref="privilege_hudson_knowledge" />
+        <field name="implied_ids" eval="[(4, ref('base.group_user'))]" />
         <field name="comment">Can create and edit knowledge articles.</field>
     </record>
 
-    <!-- Knowledge Manager group -->
+    
     <record id="group_knowledge_manager" model="res.groups">
         <field name="name">Manager</field>
-        <field name="privilege_id" ref="privilege_hudson_knowledge"/>
-        <field name="implied_ids" eval="[(4, ref('group_knowledge_user'))]"/>
+        <field name="privilege_id" ref="privilege_hudson_knowledge" />
+        <field name="implied_ids" eval="[(4, ref('group_knowledge_user'))]" />
         <field name="comment">Full access to knowledge articles and configuration.</field>
     </record>
 
-    <!-- Add admin users to manager group -->
+    
     <record id="base.user_root" model="res.users">
-        <field name="group_ids" eval="[(4, ref('hudson_knowledge.group_knowledge_manager'))]"/>
+        <field name="group_ids" eval="[(4, ref('hudson_knowledge.group_knowledge_manager'))]" />
     </record>
     <record id="base.user_admin" model="res.users">
-        <field name="group_ids" eval="[(4, ref('hudson_knowledge.group_knowledge_manager'))]"/>
+        <field name="group_ids" eval="[(4, ref('hudson_knowledge.group_knowledge_manager'))]" />
     </record>
 
-    <!-- Record Rules -->
-    <record id="rule_knowledge_article_workspace_read" model="ir.rule">
+    
+    <record id="rule_knowledge_article_workspace_read" model="ir.access">
         <field name="name">Knowledge: workspace and shared articles are readable by all users</field>
-        <field name="model_id" ref="model_knowledge_management_article"/>
-        <field name="groups" eval="[(4, ref('group_knowledge_user'))]"/>
-        <field name="domain_force">[('visibility', 'in', ['workspace', 'shared'])]</field>
-        <field name="perm_read" eval="True"/>
-        <field name="perm_write" eval="False"/>
-        <field name="perm_create" eval="False"/>
-        <field name="perm_unlink" eval="False"/>
-    </record>
+        <field name="model_id" ref="model_knowledge_management_article" />
+        <field name="group_id" ref="group_knowledge_user" />
+        <field name="domain">[('visibility', 'in', ['workspace', 'shared'])]</field>
+        <field name="operation">r</field></record>
 
-    <record id="rule_knowledge_article_owner_all" model="ir.rule">
+    <record id="rule_knowledge_article_owner_all" model="ir.access">
         <field name="name">Knowledge: owners have full access to their own articles</field>
-        <field name="model_id" ref="model_knowledge_management_article"/>
-        <field name="groups" eval="[(4, ref('group_knowledge_user'))]"/>
-        <field name="domain_force">['|', ('visibility', '!=', 'private'), ('create_uid', '=', user.id)]</field>
-        <field name="perm_read" eval="True"/>
-        <field name="perm_write" eval="True"/>
-        <field name="perm_create" eval="True"/>
-        <field name="perm_unlink" eval="True"/>
-    </record>
+        <field name="model_id" ref="model_knowledge_management_article" />
+        <field name="group_id" ref="group_knowledge_user" />
+        <field name="domain">['|', ('visibility', '!=', 'private'), ('create_uid', '=', user.id)]</field>
+        <field name="operation">crud</field></record>
 </odoo>

@@ -1,0 +1,6 @@
+id,name,model_id,group_id/id,operation
+access_hr_overtime_report_manager,hr.overtime.report.manager,hr.overtime.report,hr_attendance.group_hr_attendance_manager,crud
+access_hr_overtime_report_officer,hr.overtime.report.officer,hr.overtime.report,hr_attendance.group_hr_attendance_officer,crud
+access_hr_overtime_report_user,hr.overtime.report.user,hr.overtime.report,hr_attendance.group_hr_attendance_user,crud
+access_hr_overtime_report_payroll_user,hr.overtime.report.payroll.user,hr.overtime.report,hudson_payroll_base.group_payroll_user,r
+access_hr_overtime_report_payroll_manager,hr.overtime.report.payroll.manager,hr.overtime.report,hudson_payroll_base.group_payroll_manager,crud

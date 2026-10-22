@@ -47,12 +47,12 @@ class DmsFileShareWizard(models.TransientModel):
     )
     share_internal_access = fields.Selection(
         selection=[
-            ("none", "None"),
-            ("viewer", "Viewer"),
             ("editor", "Editor"),
+            ("viewer", "Viewer"),
+            ("none", "None"),
         ],
         string="Internal Users",
-        default="none",
+        default="editor",
         required=True,
     )
     share_link_access = fields.Selection(
@@ -62,7 +62,7 @@ class DmsFileShareWizard(models.TransientModel):
             ("editor", "Editor"),
         ],
         string="Access Through Link",
-        default="viewer",
+        default="none",
         required=True,
     )
     share_is_discoverable = fields.Selection(
@@ -96,8 +96,8 @@ class DmsFileShareWizard(models.TransientModel):
                 if not file_rec.permission_share and not self.env.user.has_group('dms.group_dms_manager') and not self.env.su:
                     raise UserError(_("You do not have permission to share '%s'.") % file_rec.name)
                 res["file_id"] = file_rec.id
-                res["share_internal_access"] = file_rec.share_internal_access or "none"
-                res["share_link_access"] = file_rec.share_link_access or "viewer"
+                res["share_internal_access"] = file_rec.share_internal_access or "editor"
+                res["share_link_access"] = file_rec.share_link_access or "none"
                 res["share_is_discoverable"] = file_rec.share_is_discoverable or "no"
         return res
 
@@ -184,6 +184,17 @@ class DmsFileShareWizard(models.TransientModel):
 
             wizard.people_with_access_html = "".join(rows_html)
 
+    @api.onchange("share_link_access", "share_internal_access", "share_is_discoverable")
+    def _onchange_share_settings(self):
+        for wizard in self:
+            if wizard.file_id:
+                wizard.file_id.sudo().write({
+                    "share_internal_access": wizard.share_internal_access,
+                    "share_link_access": wizard.share_link_access,
+                    "share_is_discoverable": wizard.share_is_discoverable,
+                })
+                wizard.share_link_url = wizard.file_id.share_link_url
+
     def action_add_access(self):
         """Add selected contacts or groups to file access rules."""
         self.ensure_one()
@@ -239,32 +250,70 @@ class DmsFileShareWizard(models.TransientModel):
                     })
             self.group_ids = [(5, 0, 0)]
 
+        # Also persist general access settings
+        file_rec.write({
+            "share_internal_access": self.share_internal_access,
+            "share_link_access": self.share_link_access,
+            "share_is_discoverable": self.share_is_discoverable,
+        })
+        self.share_link_url = file_rec.share_link_url
+
         # Re-open wizard to show updated list
         return {
             "type": "ir.actions.act_window",
             "res_model": "dms.file.share.wizard",
             "res_id": self.id,
+            "views": [[False, "form"]],
             "view_mode": "form",
             "target": "new",
+            "context": {"dialog_size": "md"},
+        }
+
+    def action_save(self):
+        """Save General Access and any pending contacts/groups immediately to the document."""
+        self.ensure_one()
+        file_rec = self.file_id
+        if not file_rec:
+            return {"type": "ir.actions.act_window_close"}
+
+        if file_rec.is_locked and not file_rec.is_lock_editor and not self.env.user.has_group('dms.group_dms_manager') and not self.env.su:
+            raise UserError(_("Cannot modify access settings because '%s' is locked by %s.") % (file_rec.name, file_rec.locked_by.name or 'another user'))
+        if not file_rec.permission_share and not self.env.user.has_group('dms.group_dms_manager') and not self.env.su:
+            raise UserError(_("You do not have permission to share '%s'.") % file_rec.name)
+
+        # 1. Process any pending contacts or groups if selected
+        if self.partner_ids or self.group_ids:
+            self.action_add_access()
+
+        # 2. Write general access settings to document
+        file_rec.write({
+            "share_internal_access": self.share_internal_access,
+            "share_link_access": self.share_link_access,
+            "share_is_discoverable": self.share_is_discoverable,
+        })
+        self.share_link_url = file_rec.share_link_url
+
+        return {
+            "type": "ir.actions.client",
+            "tag": "display_notification",
+            "params": {
+                "title": _("Saved"),
+                "message": _("Access settings saved successfully."),
+                "type": "success",
+                "sticky": False,
+                "next": {
+                    "type": "ir.actions.act_window",
+                    "res_model": "dms.file.share.wizard",
+                    "res_id": self.id,
+                    "views": [[False, "form"]],
+                    "view_mode": "form",
+                    "target": "new",
+                    "context": {"dialog_size": "md"},
+                }
+            }
         }
 
     def action_save_and_close(self):
         """Save General Access settings to document and close."""
-        self.ensure_one()
-        if self.file_id:
-            file_rec = self.file_id
-            if file_rec.is_locked and not file_rec.is_lock_editor and not self.env.user.has_group('dms.group_dms_manager') and not self.env.su:
-                raise UserError(_("Cannot modify access settings because '%s' is locked by %s.") % (file_rec.name, file_rec.locked_by.name or 'another user'))
-            if not file_rec.permission_share and not self.env.user.has_group('dms.group_dms_manager') and not self.env.su:
-                raise UserError(_("You do not have permission to share '%s'.") % file_rec.name)
-
-            # Also process any pending selected contacts or groups if the user clicked Done without clicking Add
-            if self.partner_ids or self.group_ids:
-                self.action_add_access()
-
-            self.file_id.write({
-                "share_internal_access": self.share_internal_access,
-                "share_link_access": self.share_link_access,
-                "share_is_discoverable": self.share_is_discoverable,
-            })
+        self.action_save()
         return {"type": "ir.actions.act_window_close"}

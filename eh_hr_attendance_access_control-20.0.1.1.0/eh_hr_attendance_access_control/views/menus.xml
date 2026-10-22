@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<odoo>
+    <data>
+
+        <menuitem id="menu_eh_hr_access_root"
+                  name="Access control"
+                  parent="eh_hr_attendance_base.menu_eh_hr_root"
+                  sequence="80"
+                  groups="eh_hr_attendance_base.group_eh_hr_manager,eh_hr_attendance_base.group_eh_hr_auditor"/>
+
+        <menuitem id="menu_eh_hr_access_zone"
+                  name="Zones"
+                  parent="menu_eh_hr_access_root"
+                  action="action_eh_hr_access_zone"
+                  sequence="10"/>
+
+        <menuitem id="menu_eh_hr_access_reader"
+                  name="Readers"
+                  parent="menu_eh_hr_access_root"
+                  action="action_eh_hr_access_reader"
+                  sequence="20"
+                  groups="eh_hr_attendance_base.group_eh_hr_admin"/>
+
+        <menuitem id="menu_eh_hr_access_permission"
+                  name="Permissions"
+                  parent="menu_eh_hr_access_root"
+                  action="action_eh_hr_access_permission"
+                  sequence="30"/>
+
+        <menuitem id="menu_eh_hr_access_event"
+                  name="Events"
+                  parent="menu_eh_hr_access_root"
+                  action="action_eh_hr_access_event"
+                  sequence="40"/>
+
+    </data>
+</odoo>

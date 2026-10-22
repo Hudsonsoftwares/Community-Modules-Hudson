@@ -3,4 +3,4 @@
 from . import fs_planning_role
 from . import fs_shift_template
 from . import fs_planning_slot
-from . import hr_attendance
+

@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
+    <!-- Form View Extension on hr.attendance -->
     <record id="hr_attendance_view_form" model="ir.ui.view">
         <field name="name">hr.attendance.view.form.inherit.enhancement</field>
         <field name="model">hr.attendance</field>
@@ -9,15 +10,144 @@
                 <notebook>
                     <page string="Attendance Photos">
                         <group>
-                            <group string="Check In">
+                            <group string="Check In Photo">
                                 <field name="check_in_photo" widget="image" options="{'size': [256, 256]}"/>
                             </group>
-                            <group string="Check Out">
+                            <group string="Check Out Photo">
                                 <field name="check_out_photo" widget="image" options="{'size': [256, 256]}"/>
                             </group>
                         </group>
                     </page>
+                    <page string="Work From Home Details" invisible="not is_wfh">
+                        <group>
+                            <group string="WFH Verification">
+                                <field name="is_wfh" readonly="1"/>
+                                <field name="wfh_status" widget="badge" 
+                                       decoration-success="wfh_status == 'verified_home'"
+                                       decoration-danger="wfh_status == 'offsite' or wfh_status == 'outside_radius'"/>
+                                <field name="wfh_offsite_reason" invisible="not wfh_offsite_reason"/>
+                            </group>
+                            <group string="Distances from Home">
+                                <field name="check_in_distance_from_home" readonly="1"/>
+                                <field name="check_out_distance_from_home" readonly="1"/>
+                            </group>
+                        </group>
+                    </page>
                 </notebook>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- List View Extension on hr.attendance -->
+    <record id="view_attendance_tree_inherit_photos" model="ir.ui.view">
+        <field name="name">hr.attendance.list.inherit.photos</field>
+        <field name="model">hr.attendance</field>
+        <field name="inherit_id" ref="hr_attendance.view_attendance_tree"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='check_out']" position="after">
+                <field name="check_in_photo" widget="image" options="{'size': [40, 40]}" optional="show"/>
+                <field name="check_out_photo" widget="image" options="{'size': [40, 40]}" optional="show"/>
+                <field name="is_wfh" string="WFH" optional="show"/>
+                <field name="wfh_status" widget="badge" 
+                       decoration-success="wfh_status == 'verified_home'" 
+                       decoration-danger="wfh_status == 'offsite'"
+                       optional="show"/>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- Employee Form View Extension: WFH Schedule, Home Location & Telemetry -->
+    <record id="view_employee_form_inherit_wfh" model="ir.ui.view">
+        <field name="name">hr.employee.form.inherit.wfh</field>
+        <field name="model">hr.employee</field>
+        <field name="inherit_id" ref="hr.view_employee_form"/>
+        <field name="arch" type="xml">
+            <!-- Smart Button for Location Logs -->
+            <xpath expr="//div[@name='button_box']" position="inside">
+                <button name="action_view_location_logs" 
+                        type="object" 
+                        class="oe_stat_button" 
+                        icon="fa-map-marker"
+                        invisible="not is_wfh_employee"
+                        groups="hr_attendance.group_hr_attendance_officer">
+                    <field name="location_log_count" widget="statinfo" string="Location Pings"/>
+                </button>
+            </xpath>
+
+            <!-- WFH Tab -->
+            <xpath expr="//notebook" position="inside">
+                <page string="Attendance Verification" groups="hr_attendance.group_hr_attendance_officer">
+                    <group>
+                        <group string="Latest Attendance Photo">
+                            <field name="last_attendance_photo" widget="image" options="{'size': [256, 256], 'zoom': true}"/>
+                        </group>
+                    </group>
+                </page>
+
+                <page string="Work From Home" groups="hr_attendance.group_hr_attendance_officer">
+                    <group>
+                        <group string="WFH Arrangement &amp; Flexibility">
+                            <field name="is_wfh_employee"/>
+                            <field name="wfh_type" invisible="not is_wfh_employee"/>
+                            <field name="wfh_max_days_per_week" invisible="wfh_type != 'hybrid_count'"/>
+                            <label for="wfh_date_from" string="Valid Dates" invisible="wfh_type != 'temporary'"/>
+                            <div invisible="wfh_type != 'temporary'">
+                                <field name="wfh_date_from" class="oe_inline"/> - <field name="wfh_date_to" class="oe_inline"/>
+                            </div>
+                        </group>
+                        <group string="Authorized Days of the Week" invisible="wfh_type != 'hybrid_days'">
+                            <div class="o_row">
+                                <field name="wfh_monday" class="oe_inline me-1"/><label for="wfh_monday" class="me-3"/>
+                                <field name="wfh_tuesday" class="oe_inline me-1"/><label for="wfh_tuesday" class="me-3"/>
+                                <field name="wfh_wednesday" class="oe_inline me-1"/><label for="wfh_wednesday" class="me-3"/>
+                                <field name="wfh_thursday" class="oe_inline me-1"/><label for="wfh_thursday" class="me-3"/>
+                                <field name="wfh_friday" class="oe_inline me-1"/><label for="wfh_friday" class="me-3"/>
+                                <field name="wfh_saturday" class="oe_inline me-1"/><label for="wfh_saturday" class="me-3"/>
+                                <field name="wfh_sunday" class="oe_inline me-1"/><label for="wfh_sunday"/>
+                            </div>
+                        </group>
+                    </group>
+
+                    <group invisible="not is_wfh_employee">
+                        <group string="Approved Home Geofence Location">
+                            <field name="home_address_name" placeholder="e.g. Apartment 402, Residence Tower, City"/>
+                            <field name="home_latitude"/>
+                            <field name="home_longitude"/>
+                            <field name="home_radius"/>
+                            <div class="d-flex flex-wrap gap-2 mt-2">
+                                <button name="action_fetch_home_from_private_address" 
+                                        type="object" 
+                                        string="Fetch from Private Address" 
+                                        class="btn btn-sm btn-outline-success" 
+                                        icon="fa-address-card"/>
+                                <button name="action_set_home_from_last_location" 
+                                        type="object" 
+                                        string="Set from Last GPS Ping" 
+                                        class="btn btn-sm btn-outline-primary" 
+                                        icon="fa-crosshairs"/>
+                            </div>
+                        </group>
+                        <group string="Real-Time Telemetry &amp; Distance">
+                            <field name="wfh_location_status" widget="badge"
+                                   decoration-success="wfh_location_status == 'at_home'"
+                                   decoration-warning="wfh_location_status == 'near_home'"
+                                   decoration-danger="wfh_location_status == 'offsite'"/>
+                            <field name="current_distance_from_home"/>
+                            <field name="current_distance_from_checkin"/>
+                            <field name="last_location_update"/>
+                            <field name="last_known_latitude" readonly="1"/>
+                            <field name="last_known_longitude" readonly="1"/>
+                        </group>
+                    </group>
+
+                    <separator string="Interactive Home Geofence Map Picker" invisible="not is_wfh_employee"/>
+                    <div class="o_horizontal_separator text-uppercase fw-bolder small text-muted mb-2" invisible="not is_wfh_employee">
+                        Click on map, drag marker, search address, or fetch from Private Address to set approved coordinates
+                    </div>
+                    <div invisible="not is_wfh_employee">
+                        <widget name="employee_home_map_picker"/>
+                    </div>
+                </page>
             </xpath>
         </field>
     </record>

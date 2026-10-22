@@ -18,3 +18,6 @@ from . import account_analytic_line
 from . import html_reports
 from . import dynamic_report
 from . import account_multi_ledger
+from . import account_review_config_models
+from . import ir_ui_view
+from . import account_invoice_report

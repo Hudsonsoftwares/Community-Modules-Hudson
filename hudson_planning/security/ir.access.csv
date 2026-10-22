@@ -1,0 +1,9 @@
+id,name,model_id,group_id/id,operation
+access_fs_planning_role_user,fs.planning.role.user,fs.planning.role,hudson_planning.group_planning_user,r
+access_fs_planning_role_manager,fs.planning.role.manager,fs.planning.role,hudson_planning.group_planning_manager,crud
+access_fs_shift_template_user,fs.shift.template.user,fs.shift.template,hudson_planning.group_planning_user,r
+access_fs_shift_template_manager,fs.shift.template.manager,fs.shift.template,hudson_planning.group_planning_manager,crud
+access_fs_planning_slot_user,fs.planning.slot.user,fs.planning.slot,hudson_planning.group_planning_user,crud
+access_fs_planning_slot_manager,fs.planning.slot.manager,fs.planning.slot,hudson_planning.group_planning_manager,crud
+access_fs_shift_template_apply_wizard,access_fs_shift_template_apply_wizard,fs.shift.template.apply.wizard,hudson_planning.group_planning_manager,crud
+access_fs_shift_confirm_wizard,access_fs_shift_confirm_wizard,fs.shift.confirm.wizard,base.group_user,crud

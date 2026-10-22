@@ -1,0 +1,185 @@
+<?xml version="1.0" encoding="utf-8"?>
+<templates xml:space="preserve">
+
+    <!-- Gantt View Controller Template -->
+    <t t-name="hudson_attendance_enhancement.AttendanceGanttController">
+        <div t-attf-class="o_attendance_gantt_view {{ state.isFullscreen ? 'o_attendance_gantt_fullscreen' : '' }} {{ props.className }}" t-ref="root">
+            <Layout className="'d-flex flex-column h-100'" display="props.display">
+                <t t-set-slot="control-panel-additional-actions">
+                    <CogMenu/>
+                </t>
+                <t t-set-slot="layout-buttons">
+                    <button class="btn btn-primary o_gantt_button_new" type="button" t-on-click="() => this.createAttendance()">
+                        New
+                    </button>
+                </t>
+                <t t-set-slot="layout-actions">
+                    <SearchBar toggler="searchBarToggler"/>
+                </t>
+                <t t-set-slot="control-panel-navigation-additional">
+                    <t t-component="searchBarToggler.component" t-props="searchBarToggler.props"/>
+                </t>
+
+                <!-- Sub-header Toolbar -->
+                <div class="o_attendance_gantt_subbar">
+                    <!-- Period Navigation -->
+                    <div class="btn-group">
+                        <button class="btn btn-sm btn-outline-secondary" title="Previous Period" t-on-click="() => this.onDateNav('previous')">
+                            <i class="oi oi-arrow-left"/>
+                        </button>
+                        <button class="btn btn-sm btn-outline-secondary" title="Next Period" t-on-click="() => this.onDateNav('next')">
+                            <i class="oi oi-arrow-right"/>
+                        </button>
+                    </div>
+
+                    <!-- Scale Selector Dropdown -->
+                    <Dropdown class="'d-inline-block'">
+                        <button class="btn btn-sm btn-outline-secondary dropdown-toggle">
+                            <t t-out="currentScaleLabel"/>
+                        </button>
+                        <t t-set-slot="content">
+                            <DropdownItem onSelected="() => this.onScaleSelect('day')">Day</DropdownItem>
+                            <DropdownItem onSelected="() => this.onScaleSelect('week')">Week</DropdownItem>
+                            <DropdownItem onSelected="() => this.onScaleSelect('month')">Month</DropdownItem>
+                        </t>
+                    </Dropdown>
+
+                    <!-- Today Button -->
+                    <button class="btn btn-sm btn-outline-secondary" t-on-click="() => this.onDateNav('today')">
+                        Today
+                    </button>
+
+                    <!-- Fullscreen Toggle -->
+                    <button class="btn btn-sm btn-outline-secondary ms-1" title="Toggle Fullscreen" t-on-click="toggleFullscreen">
+                        <i class="fa fa-arrows-alt"/>
+                    </button>
+                </div>
+
+                <!-- Date Title Bar -->
+                <div class="o_attendance_gantt_title_bar d-flex align-items-center">
+                    <span class="ps-2 text-dark font-weight-bold" t-out="model.dateTitle"/>
+                </div>
+
+                <!-- Content Area / Renderer -->
+                <div class="o_attendance_gantt_content">
+                    <t t-component="props.Renderer"
+                        model="model"
+                        onBarClick.bind="openAttendance"
+                        onTimeRangeSelected.bind="openCreateWithRange"
+                        onEmployeeClick.bind="openEmployee"
+                        onExtendAttendance.bind="onExtendAttendance"
+                    />
+                </div>
+            </Layout>
+        </div>
+    </t>
+
+    <!-- Gantt View Renderer Template -->
+    <t t-name="hudson_attendance_enhancement.AttendanceGanttRenderer">
+        <div class="o_attendance_gantt_wrapper">
+            <!-- Header Row -->
+            <div class="o_attendance_gantt_header">
+                <div class="o_attendance_gantt_side_col">
+                    Days
+                </div>
+                <div class="o_attendance_gantt_slots_row">
+                    <t t-foreach="props.model.slots" t-as="slot" t-key="slot.index">
+                        <div t-attf-class="o_attendance_gantt_header_slot {{ slot.isCurrent ? 'current_slot' : '' }} {{ slot.isWeekend ? 'weekend_slot' : '' }}">
+                            <t t-out="slot.label"/>
+                        </div>
+                    </t>
+                </div>
+            </div>
+
+            <!-- Employee Rows -->
+            <div class="o_attendance_gantt_body">
+                <t t-foreach="props.model.processedRows" t-as="row" t-key="row.employee.id">
+                    <div class="o_attendance_gantt_row">
+                        <!-- Left: Employee Avatar & Name (Clickable link to employee profile) -->
+                        <div t-attf-class="o_attendance_gantt_side_col o_attendance_gantt_employee_cell {{ row.hasOvertime ? 'has_overtime_row' : '' }}"
+                             t-att-title="row.employeeTooltip">
+                            <div class="o_attendance_gantt_employee_info">
+                                <img class="o_attendance_gantt_avatar"
+                                     t-att-src="row.avatarUrl"
+                                     t-att-alt="row.employee.name"
+                                     title="Open employee profile"
+                                     t-on-click.stop="() => this.props.onEmployeeClick(row.employee.id)"
+                                     onerror="this.style.display='none'; if(this.nextElementSibling) this.nextElementSibling.style.display='flex';"
+                                />
+                                <div class="o_attendance_gantt_avatar_placeholder"
+                                     title="Open employee profile"
+                                     t-on-click.stop="() => this.props.onEmployeeClick(row.employee.id)"
+                                     t-attf-style="background-color: {{ row.color }}; display: none;">
+                                    <t t-out="row.initials"/>
+                                </div>
+                                <span class="o_attendance_gantt_employee_name"
+                                      title="Open employee profile"
+                                      t-on-click.stop="() => this.props.onEmployeeClick(row.employee.id)">
+                                    <t t-out="row.employee.name"/>
+                                </span>
+                            </div>
+                            <!-- Daily worked vs scheduled badge for attendance marked employees -->
+                            <t t-if="row.hasAttendance">
+                                <span t-attf-class="o_attendance_gantt_worked_badge {{ row.hasOvertime ? 'badge_overtime' : 'badge_normal' }}"
+                                      t-att-title="'Daily Worked: ' + row.dailyWorkedDisplay + ' scheduled'">
+                                    <t t-out="row.dailyWorkedDisplay"/>
+                                </span>
+                            </t>
+                        </div>
+
+                        <!-- Right: Timeline Grid & Attendance Bars -->
+                        <div class="o_attendance_gantt_timeline_track"
+                             t-on-mousedown="(ev) => this.onTrackMouseDown(row, ev)">
+                            <!-- Background Grid Columns -->
+                            <div class="o_attendance_gantt_grid_bg">
+                                <t t-foreach="props.model.slots" t-as="slot" t-key="slot.index">
+                                    <div t-attf-class="o_attendance_gantt_col_bg {{ slot.isCurrent ? 'current_slot' : '' }} {{ slot.isWeekend ? 'weekend_slot' : '' }}"/>
+                                </t>
+                            </div>
+
+                            <!-- Attendance Bars & Selection Layer -->
+                            <div class="o_attendance_gantt_bars_layer">
+                                <t t-foreach="row.bars" t-as="bar" t-key="bar.id">
+                                    <t t-set="isResizingThis" t-value="state.resizingBar.active and state.resizingBar.barId === bar.id"/>
+                                    <div t-attf-class="o_attendance_gantt_bar {{ bar.isActive ? 'is_active' : 'is_checked_out' }} {{ bar.isAllOvertime ? 'is_all_overtime' : '' }} {{ bar.hasOvertime ? 'has_overtime' : '' }} {{ bar.isWfh ? 'is_wfh' : '' }} {{ isResizingThis ? 'is_resizing' : '' }}"
+                                         t-attf-style="left: {{ isResizingThis ? state.resizingBar.left : bar.left }}%; width: {{ isResizingThis ? state.resizingBar.width : bar.width }}%; {{ bar.barStyle || '' }}"
+                                         t-att-title="isResizingThis ? state.resizingBar.label : bar.tooltip"
+                                         t-on-click="(ev) => this.onBarClick(bar.id, ev)">
+                                        <!-- Left handle to adjust start time -->
+                                        <div class="o_attendance_gantt_bar_handle_start"
+                                             title="Drag to adjust start time (two-way arrow)"
+                                             t-on-mousedown="(ev) => this.onHandleMouseDown(bar, row, 'start', ev)"
+                                        />
+                                        <!-- Overtime Pale Segment for split bars -->
+                                        <t t-if="bar.hasOvertime and !bar.isAllOvertime and !bar.isActive">
+                                            <div class="o_attendance_gantt_bar_overtime_segment"
+                                                 t-attf-style="left: {{ bar.regPercent }}%; width: {{ bar.otPercent }}%;"
+                                                 title="Overtime Period"
+                                            />
+                                        </t>
+                                        <!-- Bar Label -->
+                                        <span class="o_attendance_gantt_bar_text" t-out="isResizingThis ? state.resizingBar.label : bar.label"/>
+                                        <!-- Right handle to extend attendance -->
+                                        <div class="o_attendance_gantt_bar_handle_end"
+                                             title="Drag to extend attendance (two-way arrow)"
+                                             t-on-mousedown="(ev) => this.onHandleMouseDown(bar, row, 'end', ev)"
+                                        />
+                                    </div>
+                                </t>
+
+                                <!-- Drag Selection Preview Box -->
+                                <t t-if="state.dragSelection.active and state.dragSelection.employeeId === row.employee.id">
+                                    <div class="o_attendance_gantt_selection_preview"
+                                         t-attf-style="left: {{ state.dragSelection.left }}%; width: {{ state.dragSelection.width }}%;">
+                                        <span class="o_attendance_gantt_selection_label" t-out="state.dragSelection.label"/>
+                                    </div>
+                                </t>
+                            </div>
+                        </div>
+                    </div>
+                </t>
+            </div>
+        </div>
+    </t>
+
+</templates>

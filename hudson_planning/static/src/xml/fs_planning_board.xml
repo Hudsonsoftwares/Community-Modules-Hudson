@@ -17,15 +17,15 @@
                 <!-- Date navigation -->
                 <div class="fs-board-nav">
                     <button class="fs-board-btn btn-icon" t-on-click="prevPeriod" title="Previous">
-                        <i class="fa fa-chevron-left"/>
+                        <i class="oi" data-icon="chevron_backward"/>
                     </button>
 
                     <span class="fs-board-date-label">
-                        <t t-esc="state.dateLabel"/>
+                        <t t-out="state.dateLabel"/>
                     </span>
 
                     <button class="fs-board-btn btn-icon" t-on-click="nextPeriod" title="Next">
-                        <i class="fa fa-chevron-right"/>
+                        <i class="oi" data-icon="chevron_forward"/>
                     </button>
 
                     <button class="fs-board-btn" t-on-click="goToday">
@@ -84,7 +84,7 @@
                     <t t-foreach="state.slots" t-as="slot" t-key="slot.key">
                         <div class="fs-board-time-header"
                              t-att-class="slot.cssClass">
-                            <t t-esc="slot.label"/>
+                            <t t-out="slot.label"/>
                         </div>
                     </t>
 
@@ -103,15 +103,15 @@
                             <t t-else="">
                                 <div class="fs-board-employee-avatar-placeholder"
                                      t-att-style="'background:' + emp.color">
-                                    <t t-esc="emp.initials"/>
+                                    <t t-out="emp.initials"/>
                                 </div>
                             </t>
                             <div class="fs-board-employee-info">
-                                <div class="fs-board-employee-name" t-esc="emp.name"/>
+                                <div class="fs-board-employee-name" t-out="emp.name"/>
                                 <t t-if="emp.employeeId">
                                     <div class="fs-board-progress-container" t-att-title="Math.round(emp.allocatedHours) + 'h / ' + emp.hoursPerWeek + 'h'">
                                         <div class="fs-board-progress-text">
-                                            <b><t t-esc="Math.round(emp.allocatedHours)"/>h</b> / <t t-esc="emp.hoursPerWeek"/>h
+                                            <b><t t-out="Math.round(emp.allocatedHours)"/>h</b> / <t t-out="emp.hoursPerWeek"/>h
                                         </div>
                                         <div class="fs-board-progress-bar">
                                             <div class="fs-board-progress-fill" t-att-style="'width: ' + Math.min((emp.allocatedHours / emp.hoursPerWeek) * 100, 100) + '%; background-color: ' + ((emp.allocatedHours > emp.hoursPerWeek) ? '#dc3545' : '#28a745')"/>
@@ -140,16 +140,16 @@
                                         <div class="card-title">
                                             <i t-if="!order.isPublished" class="fa fa-eye-slash me-1" title="Draft (Unpublished)"/>
                                             <t t-if="order.timeString">
-                                                <span class="fs-card-time me-1" t-esc="order.timeString"/>
+                                                <span class="fs-card-time me-1" t-out="order.timeString"/>
                                             </t>
-                                            <strong t-if="order.name" t-esc="order.name"/>
+                                            <strong t-if="order.name" t-out="order.name"/>
                                         </div>
                                         <div class="card-sub" t-if="order.title">
-                                            <t t-esc="order.title"/>
+                                            <t t-out="order.title"/>
                                         </div>
                                         <div t-if="order.partner" class="card-sub text-muted">
                                             <i class="fa fa-map-marker me-1"/>
-                                            <t t-esc="order.partner"/>
+                                            <t t-out="order.partner"/>
                                         </div>
                                     </div>
                                 </t>

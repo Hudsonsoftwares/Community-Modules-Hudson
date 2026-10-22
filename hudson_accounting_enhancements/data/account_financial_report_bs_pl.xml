@@ -111,18 +111,6 @@
         <field name="account_type_ids" eval="[(5, 0, 0)]"/>
     </record>
 
-    <!-- Orphan legacy nested records so they are excluded from the P&L tree -->
-    <record id="account_financial_report_operating_profit" model="account.financial.report">
-        <field name="name">_legacy_operating_profit_unused</field>
-        <field name="parent_id" eval="False"/>
-        <field name="account_type_ids" eval="[(5, 0, 0)]"/>
-    </record>
-
-    <record id="account_financial_report_gross_profit" model="account.financial.report">
-        <field name="name">_legacy_gross_profit_unused</field>
-        <field name="parent_id" eval="False"/>
-        <field name="account_type_ids" eval="[(5, 0, 0)]"/>
-    </record>
 
     <!--
     ============================================================

@@ -53,16 +53,16 @@ class AccountMoveLine(models.Model):
             
             if match_amount is not None and match_partner_id:
                 conditions.append(
-                    SQL("(%s.amount_residual = %s AND %s.partner_id = %s) THEN 1",
+                    SQL("(ABS(%s.amount_residual - %s) < 0.005 AND %s.partner_id = %s) THEN 1",
                         SQL.identifier(alias), match_amount, SQL.identifier(alias), match_partner_id)
                 )
             if match_amount is not None:
                 conditions.append(
-                    SQL("%s.amount_residual = %s THEN 2",
+                    SQL("ABS(%s.amount_residual - %s) < 0.005 THEN 2",
                         SQL.identifier(alias), match_amount)
                 )
                 conditions.append(
-                    SQL("ABS(%s.amount_residual) = ABS(%s) THEN 3",
+                    SQL("ABS(ABS(%s.amount_residual) - ABS(%s)) < 0.005 THEN 3",
                         SQL.identifier(alias), match_amount)
                 )
             if match_partner_id:
@@ -78,6 +78,8 @@ class AccountMoveLine(models.Model):
                 
             if query.order:
                 order_terms.append(query.order)
+            else:
+                order_terms.append(SQL("%s.date DESC, %s.id DESC", SQL.identifier(alias), SQL.identifier(alias)))
                 
             query.order = SQL(", ").join(order_terms)
             

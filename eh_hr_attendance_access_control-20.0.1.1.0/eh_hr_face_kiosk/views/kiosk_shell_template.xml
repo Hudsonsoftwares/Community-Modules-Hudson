@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<odoo>
+    <data>
+
+        <!--
+            Public kiosk shell page.
+
+            Rendered by /eh_hr/kiosk/<site_code>. Loads face-api.js from
+            static/lib/face-api/, the kiosk JS from static/src/js/, and
+            the kiosk SCSS bundle. The page does not depend on the Odoo
+            web client; it is a standalone HTML document so the kiosk
+            can run on devices that may have heavy CSP restrictions
+            (e.g. corporate iPads).
+        -->
+
+        <template id="kiosk_shell" name="EH Face Kiosk Shell">
+            <html>
+                <head>
+                    <meta charset="utf-8"/>
+                    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
+                    <meta name="format-detection" content="telephone=no"/>
+                    <title t-out="'Attendance Kiosk - ' + (site_name or site_code)"/>
+
+                    <!-- Direct link/script tags. The kiosk shell is a public standalone page that does not run inside the Odoo web client, so we must not use t-call-assets (which wraps JS in an Odoo module loader expecting the `odoo` global). The ?v= query string is the controller-computed mtime of these files, so browsers refetch whenever they change. -->
+                    <!-- face-api.js source is controller-selected: the locally vendored copy when static/lib/face-api/ is populated, otherwise a pinned immutable CDN build (unless the operator disabled the fallback via the eh_hr_face_kiosk.disable_cdn_fallback system parameter). See static/lib/face-api/README.md and tools/fetch_face_api.sh. -->
+                    <link rel="stylesheet" t-attf-href="/eh_hr_face_kiosk/static/src/scss/kiosk.css?v=#{asset_v}"/>
+                    <script t-att-src="faceapi_src" defer="defer"></script>
+                    <script t-attf-src="/eh_hr_face_kiosk/static/src/js/face_capture.js?v=#{asset_v}" defer="defer"></script>
+                    <script t-attf-src="/eh_hr_face_kiosk/static/src/js/kiosk_shell.js?v=#{asset_v}" defer="defer"></script>
+                    <!-- Extension modules (jobcost, health, liveness, access) inject their <link> and <script> tags here via QWeb inheritance. -->
+                    <t t-set="kiosk_extras"/>
+                </head>
+                <body class="eh-kiosk-body" t-att-data-site-code="site_code" t-att-data-site-found="site_found and 'true' or 'false'"
+                      t-att-data-faceapi-models="faceapi_models"
+                      t-att-data-faceapi-vendored="faceapi_vendored and 'true' or 'false'"
+                      t-att-data-faceapi-cdn="faceapi_cdn_disabled and 'off' or 'on'"
+                      t-att-data-faceapi-blocked="faceapi_setup_blocked and 'true' or 'false'">
+                    <div id="eh-kiosk-root">
+                        <!-- Pairing screen, shown when no device token is in localStorage. Hidden up front when the setup-required panel is active. -->
+                        <section t-attf-class="eh-screen eh-screen-pair #{faceapi_setup_blocked and 'eh-hidden' or ''}" data-screen="pair">
+                            <div class="eh-card">
+                                <h1 class="eh-h1">Pair this device</h1>
+                                <p class="eh-p">
+                                    Site: <strong t-out="site_name or site_code"/>
+                                </p>
+                                <p class="eh-p">
+                                    Ask an administrator for a pairing PIN, then enter it below.
+                                </p>
+                                <div class="eh-form">
+                                    <label class="eh-label">Device name</label>
+                                    <input class="eh-input" id="eh-pair-name" type="text" placeholder="Front desk iPad"/>
+                                    <label class="eh-label">Pairing PIN</label>
+                                    <input class="eh-input eh-input-pin" id="eh-pair-pin" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="one-time-code"/>
+                                    <button class="eh-button eh-button-primary" id="eh-pair-submit">Pair</button>
+                                    <p class="eh-error" id="eh-pair-error"></p>
+                                </div>
+                            </div>
+                        </section>
+
+                        <!-- Welcome screen, shown when paired and idle. -->
+                        <section class="eh-screen eh-screen-welcome eh-hidden" data-screen="welcome">
+                            <div class="eh-card eh-card-large">
+                                <h1 class="eh-h1">Welcome</h1>
+                                <p class="eh-p" id="eh-welcome-site"></p>
+                                <p class="eh-p eh-p-muted">Step into view to clock in or clock out.</p>
+                                <div class="eh-camera-frame" id="eh-camera-frame">
+                                    <video id="eh-camera" class="eh-camera" autoplay="autoplay" muted="muted" playsinline="playsinline"></video>
+                                    <canvas id="eh-overlay" class="eh-overlay"></canvas>
+                                    <div class="eh-scanring" aria-hidden="true"></div>
+                                </div>
+                                <div class="eh-status" id="eh-status"></div>
+                            </div>
+                        </section>
+
+                        <!-- Match success screen. -->
+                        <section class="eh-screen eh-screen-success eh-hidden" data-screen="success">
+                            <div class="eh-card eh-card-large eh-card-success">
+                                <h1 class="eh-h1" id="eh-success-name">Welcome</h1>
+                                <p class="eh-p eh-p-large" id="eh-success-action"></p>
+                                <p class="eh-p eh-p-muted" id="eh-success-time"></p>
+                            </div>
+                        </section>
+
+                        <!-- Match failure screen. -->
+                        <section class="eh-screen eh-screen-fail eh-hidden" data-screen="fail">
+                            <div class="eh-card eh-card-large eh-card-fail">
+                                <h1 class="eh-h1">No match</h1>
+                                <p class="eh-p" id="eh-fail-reason"></p>
+                                <p class="eh-p eh-p-muted">Please try again, or contact your manager.</p>
+                            </div>
+                        </section>
+
+                        <!-- Setup-required panel: the face-api.js bundle is not vendored AND the CDN fallback is disabled by policy, so the kiosk cannot load models from anywhere. Rendered server-side because the JS cannot recover from this state. -->
+                        <section class="eh-screen eh-screen-error" data-screen="setup" t-if="faceapi_setup_blocked and site_found">
+                            <div class="eh-card eh-card-large eh-card-fail">
+                                <h1 class="eh-h1">Kiosk setup required</h1>
+                                <p class="eh-p">The face recognition model files are not installed on this server, and the CDN fallback is disabled by your administrator's policy.</p>
+                                <p class="eh-p eh-p-muted">Administrator: run <code>eh_hr_face_kiosk/tools/fetch_face_api.sh</code> on the Odoo server (details in <code>static/lib/face-api/README.md</code> inside the module), then reload this page.</p>
+                            </div>
+                        </section>
+
+                        <!-- Site-not-found error, shown if the URL site_code is unknown. -->
+                        <section class="eh-screen eh-screen-error eh-hidden" data-screen="error" t-if="not site_found">
+                            <div class="eh-card eh-card-large eh-card-fail">
+                                <h1 class="eh-h1">Site not configured</h1>
+                                <p class="eh-p">No active kiosk site exists for <code t-out="site_code"/>. Ask an administrator to create one in People Operations &gt; Kiosks &gt; Sites.</p>
+                            </div>
+                        </section>
+                    </div>
+                </body>
+            </html>
+        </template>
+
+    </data>
+</odoo>

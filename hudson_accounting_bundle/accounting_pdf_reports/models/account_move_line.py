@@ -1,50 +1,9 @@
 import ast
-from odoo.osv import expression
-from odoo import api, models, fields
-from odoo.tools import Query
+from odoo import api, models
 
 
 class AccountMoveLine(models.Model):
     _inherit = "account.move.line"
-
-    @api.model
-    def _where_calc(self, domain, active_test=True):
-        """Computes the WHERE clause needed to implement an OpenERP domain.
-
-        :param list domain: the domain to compute
-        :param bool active_test: whether the default filtering of records with
-            ``active`` field set to ``False`` should be applied.
-        :return: the query expressing the given domain as provided in domain
-        :rtype: Query
-        """
-        # if the object has an active field ('active', 'x_active'), filter out all
-        # inactive records unless they were explicitly asked for
-        if self._active_name and active_test and self.env.context.get('active_test', True):
-            # the item[0] trick below works for domain items and '&'/'|'/'!'
-            # operators too
-            if not any(item[0] == self._active_name for item in domain):
-                domain = [(self._active_name, '=', 1)] + domain
-
-        if domain:
-            return expression.expression(domain, self).query
-        else:
-            return Query(self.env, self._table, self._table_sql)
-
-    @api.model
-    def _apply_ir_rules(self, query, mode='read'):
-        """Add what's missing in ``query`` to implement all appropriate ir.rules
-          (using the ``model_name``'s rules or the current model's rules if ``model_name`` is None)
-
-        :param query: the current query object
-        """
-        if self.env.su:
-            return
-
-        # apply main rules on the object
-        Rule = self.env['ir.rule']
-        domain = Rule._compute_domain(self._name, mode)
-        if domain:
-            expression.expression(domain, self.sudo(), self._table, query)
 
     @api.model
     def _query_get(self, domain=None):
@@ -62,7 +21,8 @@ class AccountMoveLine(models.Model):
             domain += [(date_field, '<=', context['date_to'])]
         if context.get('date_from'):
             if not context.get('strict_range'):
-                domain += ['|', (date_field, '>=', context['date_from']), ('account_id.include_initial_balance', '=', True)]
+                domain += ['|', (date_field, '>=', context['date_from']),
+                           ('account_id.include_initial_balance', '=', True)]
             elif context.get('initial_bal'):
                 domain += [(date_field, '<', context['date_from'])]
             else:
@@ -74,6 +34,9 @@ class AccountMoveLine(models.Model):
         state = context.get('state')
         if state and state.lower() != 'all':
             domain += [('parent_state', '=', state)]
+        else:
+            # "All Entries" are the draft and posted ones: cancelled entries never count
+            domain += [('parent_state', '!=', 'cancel')]
 
         if context.get('company_id'):
             domain += [('company_id', '=', context['company_id'])]
@@ -83,7 +46,9 @@ class AccountMoveLine(models.Model):
             domain += [('company_id', '=', self.env.company.id)]
 
         if context.get('reconcile_date'):
-            domain += ['|', ('reconciled', '=', False), '|', ('matched_debit_ids.max_date', '>', context['reconcile_date']), ('matched_credit_ids.max_date', '>', context['reconcile_date'])]
+            domain += ['|', ('reconciled', '=', False), '|',
+                       ('matched_debit_ids.max_date', '>', context['reconcile_date']),
+                       ('matched_credit_ids.max_date', '>', context['reconcile_date'])]
 
         if context.get('account_tag_ids'):
             domain += [('account_id.tag_ids', 'in', context['account_tag_ids'].ids)]
@@ -92,7 +57,9 @@ class AccountMoveLine(models.Model):
             domain += [('account_id', 'in', context['account_ids'].ids)]
 
         if context.get('analytic_account_ids'):
-            domain += [('analytic_distribution', 'in', context['analytic_account_ids'].ids)]
+            val = context['analytic_account_ids']
+            analytic_ids = val.ids if hasattr(val, 'ids') else (list(val) if isinstance(val, (list, tuple, set)) else [val])
+            domain += [('analytic_distribution', 'in', analytic_ids)]
 
         if context.get('partner_ids'):
             domain += [('partner_id', 'in', context['partner_ids'].ids)]
@@ -107,15 +74,31 @@ class AccountMoveLine(models.Model):
             domain.append(('display_type', 'not in', ('line_section', 'line_note')))
             domain.append(('parent_state', '!=', 'cancel'))
 
-            query = self._where_calc(domain)
-            self._apply_ir_rules(query)
-            if hasattr(query, 'from_clause') and hasattr(query.from_clause, 'code'):
-                from_string = query.from_clause.code
-                from_params = query.from_clause.params or []
-                where_string = query.where_clause.code
-                where_params = query.where_clause.params or []
-            else:
-                from_string, from_params = query.from_clause
-                where_string, where_params = query.where_clause
-            tables, where_clause, where_clause_params = from_string, where_string, list(from_params) + list(where_params)
+            query = self._search(domain)
+            tables, from_params, _to_flush = query.from_clause._sql_tuple
+            where_clause, where_params, _to_flush = query.where_clause._sql_tuple
+            where_clause_params = list(from_params) + list(where_params)
         return tables, where_clause, where_clause_params
+
+    def format_analytic_distribution(self, distribution):
+        """ Render an analytic distribution as "Account A, Account B: 40.0%" lines.
+
+        The keys of the distribution hold one id per analytic plan, comma
+        separated, so a single entry may name several accounts.
+        """
+        self.ensure_one()
+        if not distribution:
+            return []
+        result = []
+        for key, percentage in distribution.items():
+            accounts = self.env["account.analytic.account"].browse(
+                int(account_id) for account_id in key.split(",")
+            ).exists()
+            if not accounts:
+                continue
+            names = [
+                "%s - %s" % (account.name, account.partner_id.name) if account.partner_id else account.name
+                for account in accounts
+            ]
+            result.append("%s: %s%%" % (", ".join(names), percentage))
+        return result

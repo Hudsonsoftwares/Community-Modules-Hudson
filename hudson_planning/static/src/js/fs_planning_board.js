@@ -16,7 +16,9 @@
 
 import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
-import { Component, useState, onMounted, onWillUnmount, useRef } from "@odoo/owl";
+import { Component, useState, onMounted, onWillUnmount, useRef, proxy } from "@odoo/owl";
+
+const useStateHook = proxy || useState || ((obj) => obj);
 
 // ─── Palette for avatar initials background ──────────────────────────────────
 const AVATAR_COLORS = [
@@ -109,7 +111,7 @@ export class FsPlanningBoard extends Component {
 
         this.gridWrapper = useRef("gridWrapper");
 
-        this.state = useState({
+        this.state = useStateHook({
             mode: "week",          // "day" | "week"
             anchorDate: startOfDay(new Date()),
             loading: true,

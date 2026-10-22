@@ -3,7 +3,7 @@
 
 {
     'name': 'Hudson Rental Management',
-    'version': '19.0.1.0.0',
+    'version': '20.0.1.0.0',
     'category': 'Sales/Rental',
     'sequence': 60,
     'summary': 'Rent products to customers with flexible pricing and scheduling',
@@ -40,7 +40,7 @@ Complete rental management solution for renting products to customers:
     'data': [
         # Security
         'security/rental_security.xml',
-        'security/ir.model.access.csv',
+        'security/ir.access.csv',
         
         # Data
         'data/rental_sequence.xml',

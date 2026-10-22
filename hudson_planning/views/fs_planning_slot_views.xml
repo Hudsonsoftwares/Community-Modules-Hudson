@@ -14,7 +14,7 @@
                 <field name="allocated_hours" sum="Total Hours"/>
                 <field name="project_id" optional="show"/>
                 <field name="partner_id" optional="show"/>
-                <field name="attendance_status" widget="badge" decoration-success="attendance_status == 'present'" decoration-danger="attendance_status == 'absent'" decoration-muted="attendance_status == 'unmarked'"/>
+
                 <field name="state" widget="badge" decoration-info="state == 'draft'" decoration-success="state == 'published'"/>
             </list>
         </field>
@@ -51,7 +51,7 @@
                             <field name="resource_id" widget="many2one_avatar_employee"/>
                             <field name="project_id"/>
                             <field name="partner_id"/>
-                            <field name="attendance_status"/>
+
                         </group>
                         <group>
                             <label for="date_start" string="Date"/>

@@ -5,13 +5,56 @@ import { useService } from "@web/core/utils/hooks";
 import { patch } from "@web/core/utils/patch";
 import {
     Component,
-    useState,
-    useRef,
+    proxy,
+    signal,
     onMounted,
     onWillStart,
     onWillUnmount,
     markup,
+    useProps,
 } from "@odoo/owl";
+
+const useState = proxy || ((obj) => obj);
+
+function useRef(name) {
+    const s = signal.ref();
+    Object.defineProperty(s, "el", {
+        get() {
+            return s();
+        },
+    });
+    return s;
+}
+
+function enableOwl2TemplateScope(comp) {
+    const node = comp.__owl__;
+    if (!node || !node.app || !comp.constructor.template) return;
+    const templateFn = node.app.getTemplate(comp.constructor.template);
+    const target = { this: comp, __owl__: node };
+    const proxyCtx = new Proxy(target, {
+        get(t, prop, receiver) {
+            if (prop in t) {
+                return t[prop];
+            }
+            if (prop in comp) {
+                const val = comp[prop];
+                return typeof val === "function" ? val.bind(comp) : val;
+            }
+            if (typeof globalThis !== "undefined" && prop in globalThis) {
+                return globalThis[prop];
+            }
+            return undefined;
+        },
+        set(t, prop, val) {
+            t[prop] = val;
+            return true;
+        },
+        has(t, prop) {
+            return prop in t || prop in comp || (typeof globalThis !== "undefined" && prop in globalThis);
+        },
+    });
+    node.renderFn = () => templateFn.call(comp, proxyCtx, node);
+}
 import { Wysiwyg } from "@html_editor/wysiwyg";
 import { MAIN_PLUGINS } from "@html_editor/plugin_sets";
 import { KnowledgeEditorPlugin } from "./knowledge_wysiwyg_commands";
@@ -125,13 +168,7 @@ function computeHtmlDiff(olderHtml, currentHtml) {
 // ─────────────────────────────────────────────────────────────────
 export class KnowledgeEmbeddedView extends Component {
     static template = "hudson_knowledge.KnowledgeEmbeddedView";
-    static props = {
-        articleId: Number,
-        viewRefId: String,
-        viewType: String,
-        viewName: { type: String, optional: true },
-        isLocked: { type: Boolean, optional: true },
-    };
+    props = useProps();
 
     setup() {
         this.orm = useService("orm");
@@ -149,6 +186,7 @@ export class KnowledgeEmbeddedView extends Component {
         onMounted(async () => {
             await this.loadData();
         });
+        enableOwl2TemplateScope(this);
     }
 
     promptDialog({ title, defaultValue = "" }) {
@@ -620,11 +658,7 @@ const EMOJI_DATA = [
 
 export class KnowledgeEmojiPicker extends Component {
     static template = "hudson_knowledge.KnowledgeEmojiPicker";
-    static props = {
-        onSelect: { type: Function },
-        onRemove: { type: Function, optional: true },
-        close: { type: Function, optional: true },
-    };
+    props = useProps();
 
     setup() {
         this.categories = EMOJI_CATEGORIES;
@@ -633,6 +667,7 @@ export class KnowledgeEmojiPicker extends Component {
             activeCategory: "smileys",
             hoveredItem: null,
         });
+        enableOwl2TemplateScope(this);
     }
 
     get currentCategoryTitle() {
@@ -927,7 +962,7 @@ const CURATED_COVERS = [
 export class KnowledgeClientAction extends Component {
     static template = "hudson_knowledge.KnowledgeClientAction";
     static components = { KnowledgeEmbeddedView, Wysiwyg, KnowledgeEmojiPicker };
-    static props = ["*"];
+    props = useProps();
 
     setup() {
         this.orm = useService("orm");
@@ -941,6 +976,8 @@ export class KnowledgeClientAction extends Component {
         this.insertViewNameInput = useRef("insertViewNameInput");
         this.titleEmojiRef = useRef("titleEmoji");
         this.toolbarEmojiRef = useRef("toolbarEmoji");
+        this.titleEmoji = this.titleEmojiRef;
+        this.toolbarEmoji = this.toolbarEmojiRef;
         this.kebabBtn = useRef("kebabBtn");
         this.coverImg = useRef("coverImg");
 
@@ -1054,6 +1091,7 @@ export class KnowledgeClientAction extends Component {
             if (this._autoSaveTimer) clearTimeout(this._autoSaveTimer);
             this.editor = null;
         });
+        enableOwl2TemplateScope(this);
     }
 
     // ── Editor Configuration & Keys ───────────────────────────────

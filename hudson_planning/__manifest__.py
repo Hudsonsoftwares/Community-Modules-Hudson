@@ -2,7 +2,7 @@
 
 {
     'name': 'Planning',
-    'version': '19.0.1.0.0',
+    'version': '20.0.1.0.0',
     'category': 'Human Resources/Planning',
     'sequence': 56,
     'summary': 'Manage shifts, planning roles, and assignments',
@@ -27,7 +27,7 @@ A planning management module for Odoo 19 that provides:
     ],
     'data': [
         'security/planning_security.xml',
-        'security/ir.model.access.csv',
+        'security/ir.access.csv',
         'data/fs_planning_role_data.xml',
         'wizard/fs_shift_template_apply_wizard_views.xml',
         'wizard/fs_shift_confirm_wizard_views.xml',

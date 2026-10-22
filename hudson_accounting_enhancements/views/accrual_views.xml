@@ -19,7 +19,7 @@
                 <field name="product_qty" string="Quantity" sum="Total Quantity"/>
                 <field name="qty_received" string="Received" sum="Total Received"/>
                 <field name="qty_invoiced" string="Billed" sum="Total Billed"/>
-                <field name="product_uom_id" string="Unit"/>
+                <field name="uom_id" string="Unit"/>
                 <field name="price_unit" string="Unit Price"/>
                 <field name="price_subtotal" string="Amount" sum="Total Amount"/>
                 <button name="action_open_invoices" type="object" string="View Bill" icon="fa-pencil-square-o" title="Open Vendor Bill"/>

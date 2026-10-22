@@ -2,8 +2,9 @@
 
 import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
-import { Component, useState, useRef, onMounted, onWillUnmount, onPatched } from "@odoo/owl";
+import { Component, proxy, signal, useProps, t, onMounted, onWillUnmount, onPatched } from "@odoo/owl";
 import { loadJS } from "@web/core/assets";
+import { loadPDFJSAssets } from "@web/core/utils/pdfjs";
 import { Dialog } from "@web/core/dialog/dialog";
 
 // -----------------------------------------------------------------------------
@@ -12,10 +13,20 @@ import { Dialog } from "@web/core/dialog/dialog";
 export class SignatureSendDialog extends Component {
     static template = "dms_enterprise_features.SignatureSendDialog";
     static components = { Dialog };
+    props = useProps({
+        close: t.function().optional(),
+        title: t.any().optional(),
+        defaultSubject: t.any().optional(),
+        rolesWithFields: t.any().optional(),
+        roles: t.any().optional(),
+        isSignNow: t.any().optional(),
+        onConfirm: t.function().optional(),
+    });
 
     setup() {
         this.orm = useService("orm");
-        this.state = useState({
+        const useStateHook = proxy || (typeof owl !== "undefined" && (owl.proxy || owl.useState)) || (typeof useState === "function" ? useState : (obj => obj));
+        this.state = useStateHook({
             subject: this.props.defaultSubject || "Signature Request",
             message: "",
             cc: "",
@@ -57,25 +68,57 @@ export class SignatureSendDialog extends Component {
 }
 
 // -----------------------------------------------------------------------------
+// Role Color Palette (Consistent with Modern Signature Standards)
+// -----------------------------------------------------------------------------
+export const ROLE_PALETTE = [
+    { color: "#d1fae5", borderColor: "#10b981", textColor: "#065f46", name: "Emerald" },
+    { color: "#fef3c7", borderColor: "#f59e0b", textColor: "#92400e", name: "Amber" },
+    { color: "#e0e7ff", borderColor: "#6366f1", textColor: "#3730a3", name: "Indigo" },
+    { color: "#fce7f3", borderColor: "#ec4899", textColor: "#9d174d", name: "Rose" },
+    { color: "#e0f2fe", borderColor: "#0ea5e9", textColor: "#075985", name: "Sky" },
+    { color: "#ffedd5", borderColor: "#f97316", textColor: "#9a3412", name: "Orange" },
+    { color: "#f3e8ff", borderColor: "#a855f7", textColor: "#6b21a8", name: "Purple" },
+    { color: "#ccfbf1", borderColor: "#14b8a6", textColor: "#115e59", name: "Teal" },
+];
+
+// -----------------------------------------------------------------------------
 // Signer Settings Dialog Component
 // -----------------------------------------------------------------------------
 export class SignerSettingsDialog extends Component {
     static template = "dms_enterprise_features.SignerSettingsDialog";
     static components = { Dialog };
+    props = useProps({
+        close: t.function().optional(),
+        role: t.any().optional(),
+        onConfirm: t.function().optional(),
+    });
 
     setup() {
-        this.state = useState({
+        this.palette = ROLE_PALETTE;
+        this.state = proxy({
             name: this.props.role.name || "",
             authMethod: this.props.role.authMethod || "none",
-            canDelegate: this.props.role.canDelegate || false
+            canDelegate: this.props.role.canDelegate || false,
+            color: this.props.role.color || ROLE_PALETTE[0].color,
+            borderColor: this.props.role.borderColor || ROLE_PALETTE[0].borderColor,
+            textColor: this.props.role.textColor || ROLE_PALETTE[0].textColor,
         });
+    }
+
+    selectPalette(theme) {
+        this.state.color = theme.color;
+        this.state.borderColor = theme.borderColor;
+        this.state.textColor = theme.textColor;
     }
 
     onConfirm() {
         this.props.onConfirm({
             name: this.state.name,
             authMethod: this.state.authMethod,
-            canDelegate: this.state.canDelegate
+            canDelegate: this.state.canDelegate,
+            color: this.state.color,
+            borderColor: this.state.borderColor,
+            textColor: this.state.textColor,
         });
         this.props.close();
     }
@@ -87,22 +130,41 @@ export class SignerSettingsDialog extends Component {
 // -----------------------------------------------------------------------------
 export class DmsSignaturePdfViewer extends Component {
     static template = "dms_enterprise_features.SignatureClientAction";
+    props = useProps({
+        action: t.any().optional(),
+        className: t.any().optional(),
+    });
+
+    docUploadInputRef = signal.ref();
+
+    get pdfContainer() {
+        return { el: document.querySelector(".o_dms_sign_viewport") };
+    }
+
+    get docUploadInput() {
+        return { el: this.docUploadInputRef() };
+    }
 
     setup() {
         this.orm = useService("orm");
         this.dialog = useService("dialog");
         this.notification = useService("notification");
 
-        this.pdfContainer = useRef("pdfContainer");
-        this.docUploadInput = useRef("docUploadInput");
-
-        this.state = useState({
+        this.state = proxy({
             documents: [],
             currentDocIndex: 0,
             currentDocument: null,
 
             roles: [
-                { id: "signer1", name: "Signer 1", color: "#e6f2eb", authMethod: "none", canDelegate: false }
+                {
+                    id: "signer1",
+                    name: "Signer 1",
+                    color: ROLE_PALETTE[0].color,
+                    borderColor: ROLE_PALETTE[0].borderColor,
+                    textColor: ROLE_PALETTE[0].textColor,
+                    authMethod: "none",
+                    canDelegate: false
+                }
             ],
             currentRoleIndex: 0,
 
@@ -139,25 +201,47 @@ export class DmsSignaturePdfViewer extends Component {
             boxStartRect: null,
 
             needsRender: false,
+            isLoading: false,
+            errorMessage: false,
 
-            allUsers: []
+            allUsers: [],
+            openDropdownRoleId: null,
         });
 
+        this.onOutsidePointerDown = (e) => {
+            if (this.state.openDropdownRoleId && !e.target.closest('.o_signer_menu_toggle') && !e.target.closest('.o_signer_dropdown_menu')) {
+                this.state.openDropdownRoleId = null;
+            }
+            if (this.state.editingBoxId) {
+                if (!e.target.closest('.o_dms_box_popover') && !e.target.closest('.signature-box')) {
+                    this.state.editingBoxId = null;
+                }
+            }
+        };
+
+        this.onWindowMouseMoveBound = this.onWindowMouseMove.bind(this);
+        this.onWindowMouseUpBound = this.onWindowMouseUp.bind(this);
+
         onMounted(async () => {
-            // Load PDF.js
+            // Mouse tracking & outside click listeners (capture phase ensures no child can block them)
+            window.addEventListener('mousemove', this.onWindowMouseMoveBound);
+            window.addEventListener('mouseup', this.onWindowMouseUpBound);
+            window.addEventListener('pointerdown', this.onOutsidePointerDown, true);
+            window.addEventListener('click', this.onOutsidePointerDown, true);
+
+            // Load PDF.js assets properly
             try {
-                await loadJS("/web/static/lib/pdfjs/build/pdf.js");
-                window.pdfjsLib.GlobalWorkerOptions.workerSrc = "/web/static/lib/pdfjs/build/pdf.worker.js";
+                await loadPDFJSAssets();
+                const pdfLib = window.pdfjsLib || globalThis.pdfjsLib;
+                if (pdfLib?.GlobalWorkerOptions) {
+                    pdfLib.GlobalWorkerOptions.workerSrc = "/web/static/lib/pdfjs/build/pdf.worker.js";
+                }
             } catch (e) {
                 console.error("Failed to load PDF.js", e);
             }
 
             // Fetch initial data
             await this.loadInitialData();
-
-            // Mouse tracking for drag/drop
-            window.addEventListener('mousemove', this.onWindowMouseMove.bind(this));
-            window.addEventListener('mouseup', this.onWindowMouseUp.bind(this));
         });
 
         onPatched(() => {
@@ -168,13 +252,32 @@ export class DmsSignaturePdfViewer extends Component {
         });
 
         onWillUnmount(() => {
-            window.removeEventListener('mousemove', this.onWindowMouseMove.bind(this));
-            window.removeEventListener('mouseup', this.onWindowMouseUp.bind(this));
+            window.removeEventListener('mousemove', this.onWindowMouseMoveBound);
+            window.removeEventListener('mouseup', this.onWindowMouseUpBound);
+            window.removeEventListener('pointerdown', this.onOutsidePointerDown, true);
+            window.removeEventListener('click', this.onOutsidePointerDown, true);
         });
     }
 
+    onActionClick(e) {
+        if (this.state.editingBoxId && !e.target.closest('.o_dms_box_popover') && !e.target.closest('.signature-box')) {
+            this.state.editingBoxId = null;
+        }
+    }
+
+    onViewportClick(e) {
+        if (this.state.editingBoxId && !e.target.closest('.o_dms_box_popover') && !e.target.closest('.signature-box')) {
+            this.state.editingBoxId = null;
+        }
+    }
+
+    getAction() {
+        return this.props?.action || this.env?.config?.action || {};
+    }
+
     async onBack() {
-        let fileId = this.props.action.context?.default_file_id;
+        const action = this.getAction();
+        let fileId = action.context?.default_file_id;
         if (!fileId && this.state.documents.length > 0) {
             const revId = this.state.documents[0].id;
             try {
@@ -205,7 +308,8 @@ export class DmsSignaturePdfViewer extends Component {
 
     async loadInitialData() {
         // Load default documents from context
-        const context = this.props.action.context || {};
+        const action = this.getAction();
+        const context = action.context || this.env?.searchModel?.context || {};
         const defaultRevIds = context.default_revision_ids || context.default_revision_id;
 
         if (!defaultRevIds) {
@@ -219,15 +323,21 @@ export class DmsSignaturePdfViewer extends Component {
             return this.onBack();
         }
 
-        this.state.documents = records.map(r => ({
-            id: r.id,
-            name: r.file_name,
-            content: r.content,
-            items: [] // array of boxes
-        }));
+        this.state.documents = records.map(r => {
+            let base64 = r.content;
+            if (base64 && typeof base64 === 'object' && base64.content) {
+                base64 = base64.content;
+            }
+            return {
+                id: r.id,
+                name: r.file_name,
+                content: typeof base64 === 'string' ? base64 : false,
+                items: [] // array of boxes
+            };
+        });
 
         if (this.state.documents.length > 0) {
-            this.selectDocument(0);
+            await this.selectDocument(0);
         }
 
         // Fetch all users for assignment
@@ -240,13 +350,27 @@ export class DmsSignaturePdfViewer extends Component {
         this.state.currentDocument = this.state.documents[index];
         this.state.editingBoxId = null;
 
-        if (this.state.currentDocument.content) {
-            await this.renderPDFFromBase64(this.state.currentDocument.content);
+        if (this.state.currentDocument) {
+            await this.renderPDFDocument(this.state.currentDocument);
         }
     }
 
     selectRole(index) {
         this.state.currentRoleIndex = index;
+    }
+
+    toggleRoleDropdown(roleId) {
+        this.state.openDropdownRoleId = this.state.openDropdownRoleId === roleId ? null : roleId;
+    }
+
+    editRoleAndClose(roleId) {
+        this.state.openDropdownRoleId = null;
+        this.editRole(roleId);
+    }
+
+    deleteRoleAndClose(roleId) {
+        this.state.openDropdownRoleId = null;
+        this.deleteRole(roleId);
     }
 
     editRole(roleId) {
@@ -259,6 +383,9 @@ export class DmsSignaturePdfViewer extends Component {
                 role.name = data.name;
                 role.authMethod = data.authMethod;
                 role.canDelegate = data.canDelegate;
+                if (data.color) role.color = data.color;
+                if (data.borderColor) role.borderColor = data.borderColor;
+                if (data.textColor) role.textColor = data.textColor;
             }
         });
     }
@@ -280,53 +407,74 @@ export class DmsSignaturePdfViewer extends Component {
 
     onAddRole() {
         const nextIdx = this.state.roles.length + 1;
+        const theme = ROLE_PALETTE[(nextIdx - 1) % ROLE_PALETTE.length];
         this.state.roles.push({
             id: `signer${nextIdx}`,
             name: `Signer ${nextIdx}`,
-            color: `#f${nextIdx}e6e6`
+            color: theme.color,
+            borderColor: theme.borderColor,
+            textColor: theme.textColor,
+            authMethod: "none",
+            canDelegate: false
         });
+        this.state.currentRoleIndex = this.state.roles.length - 1;
     }
 
     onAddDocument() {
         this.docUploadInput.el.click();
     }
 
-    onZoomChange(e) {
-        let val = parseInt(e.target.value);
-        if (isNaN(val) || val < 20) val = 20;
-        if (val > 500) val = 500;
+    zoomIn() {
+        this.setZoom(Math.min(300, (this.state.zoomLevel || 100) + 15));
+    }
 
-        const ratio = val / this.state.zoomLevel;
-        this.state.zoomLevel = val;
+    zoomOut() {
+        this.setZoom(Math.max(30, (this.state.zoomLevel || 100) - 15));
+    }
+
+    setZoom(val) {
+        let newZoom = Math.round(val);
+        if (isNaN(newZoom) || newZoom < 30) newZoom = 30;
+        if (newZoom > 300) newZoom = 300;
+        if (newZoom === this.state.zoomLevel) return;
+
+        const ratio = newZoom / (this.state.zoomLevel || 100);
+        this.state.zoomLevel = newZoom;
 
         if (this.state.currentDocument) {
-            // Scale existing items
             for (const item of this.state.currentDocument.items) {
                 item.x = Math.round(item.x * ratio);
                 item.y = Math.round(item.y * ratio);
                 item.width = Math.round(item.width * ratio);
                 item.height = Math.round(item.height * ratio);
             }
-            // Trigger recalculation of page sizes
+        }
+
+        if (this.pdfDoc) {
             this.state.pages = [];
+            const pagesList = [];
             for (let i = 1; i <= this.pdfDoc.numPages; i++) {
                 this.pdfDoc.getPage(i).then(page => {
                     const scale = this.state.zoomLevel / 100;
                     const viewport = page.getViewport({ scale });
-                    this.state.pages.push({
+                    pagesList.push({
                         num: i,
                         width: viewport.width,
                         height: viewport.height
                     });
-
-                    // Once all pages are collected, queue render
-                    if (this.state.pages.length === this.pdfDoc.numPages) {
-                        this.state.pages.sort((a, b) => a.num - b.num);
+                    if (pagesList.length === this.pdfDoc.numPages) {
+                        pagesList.sort((a, b) => a.num - b.num);
+                        this.state.pages = pagesList;
                         this.state.needsRender = true;
                     }
                 });
             }
         }
+    }
+
+    onZoomChange(e) {
+        let val = parseInt(e.target.value);
+        this.setZoom(val);
     }
 
     async onDocumentUpload(e) {
@@ -343,8 +491,6 @@ export class DmsSignaturePdfViewer extends Component {
                 content: base64Data
             }]);
 
-
-
             const fileRec = await this.orm.read("dms.file", fileId, ["current_revision_id"]);
             const revId = fileRec[0].current_revision_id[0];
 
@@ -354,46 +500,89 @@ export class DmsSignaturePdfViewer extends Component {
                 content: base64Data,
                 items: []
             });
-            this.selectDocument(this.state.documents.length - 1);
+            await this.selectDocument(this.state.documents.length - 1);
         };
         reader.readAsDataURL(file);
     }
 
-    async renderPDFFromBase64(base64) {
-        if (!window.pdfjsLib) return;
+    async renderPDFDocument(doc) {
+        this.state.isLoading = true;
+        this.state.errorMessage = false;
         try {
-            const binaryString = window.atob(base64);
-            const bytes = new Uint8Array(binaryString.length);
-            for (let i = 0; i < binaryString.length; i++) {
-                bytes[i] = binaryString.charCodeAt(i);
+            await loadPDFJSAssets();
+            const pdfLib = window.pdfjsLib || globalThis.pdfjsLib;
+            if (!pdfLib) {
+                throw new Error("PDF.js engine is unavailable");
+            }
+            if (pdfLib.GlobalWorkerOptions && !pdfLib.GlobalWorkerOptions.workerSrc) {
+                pdfLib.GlobalWorkerOptions.workerSrc = "/web/static/lib/pdfjs/build/pdf.worker.js";
             }
 
-            // Store pdfDoc directly on the instance to avoid OWL Proxy breaking PDF.js private fields
-            this.pdfDoc = await window.pdfjsLib.getDocument({ data: bytes }).promise;
+            let loadingTask = null;
+            let base64Str = doc.content;
+            if (base64Str && typeof base64Str === "string" && base64Str.length > 50) {
+                if (base64Str.includes(",")) {
+                    base64Str = base64Str.split(",")[1];
+                }
+                const binaryString = window.atob(base64Str);
+                const bytes = new Uint8Array(binaryString.length);
+                for (let i = 0; i < binaryString.length; i++) {
+                    bytes[i] = binaryString.charCodeAt(i);
+                }
+                loadingTask = pdfLib.getDocument({
+                    data: bytes,
+                    cMapUrl: '/web/static/lib/pdfjs/build/pdf.js/web/cmaps/',
+                    cMapPacked: true,
+                    standardFontDataUrl: '/web/static/lib/pdfjs/build/pdf.js/web/standard_fonts/',
+                });
+            } else if (doc.id) {
+                loadingTask = pdfLib.getDocument({
+                    url: `/web/content/dms.file.revision/${doc.id}/content`,
+                    cMapUrl: '/web/static/lib/pdfjs/build/pdf.js/web/cmaps/',
+                    cMapPacked: true,
+                    standardFontDataUrl: '/web/static/lib/pdfjs/build/pdf.js/web/standard_fonts/',
+                });
+            } else {
+                throw new Error("No PDF data found for this document.");
+            }
 
-            this.state.pages = [];
+            this.pdfDoc = await loadingTask.promise;
+            const pagesList = [];
             for (let i = 1; i <= this.pdfDoc.numPages; i++) {
                 const page = await this.pdfDoc.getPage(i);
-                const scale = this.state.zoomLevel / 100;
+                const scale = (this.state.zoomLevel || 100) / 100;
                 const viewport = page.getViewport({ scale });
-                this.state.pages.push({
+                pagesList.push({
                     num: i,
                     width: viewport.width,
                     height: viewport.height
                 });
             }
-
+            this.state.pages = pagesList;
+            this.state.isLoading = false;
             this.state.needsRender = true;
         } catch (err) {
-            console.error("PDF.js render error:", err);
+            console.error("PDF render error:", err);
+            this.state.isLoading = false;
+            this.state.errorMessage = err.message || "Failed to render PDF preview.";
             if (this.notification) {
-                this.notification.add("The selected document is not a valid PDF for signing.", { type: "danger" });
+                this.notification.add("Could not load PDF document preview: " + (err.message || "Invalid format"), { type: "danger" });
             }
         }
     }
 
+    async renderPDFFromBase64(base64) {
+        return this.renderPDFDocument({
+            id: this.state.currentDocument?.id,
+            content: base64
+        });
+    }
+
     async renderAllPages() {
         if (!this.pdfDoc) return;
+        if (!this.renderTasks) {
+            this.renderTasks = {};
+        }
 
         const outputScale = window.devicePixelRatio || 1;
 
@@ -401,29 +590,45 @@ export class DmsSignaturePdfViewer extends Component {
             const canvas = document.getElementById('pdf-canvas-' + pageInfo.num);
             if (!canvas) continue;
 
-            const page = await this.pdfDoc.getPage(pageInfo.num);
-            const scale = this.state.zoomLevel / 100;
-            const viewport = page.getViewport({ scale });
+            if (this.renderTasks[pageInfo.num]) {
+                try {
+                    this.renderTasks[pageInfo.num].cancel();
+                } catch (_) {}
+            }
 
-            canvas.width = Math.floor(viewport.width * outputScale);
-            canvas.height = Math.floor(viewport.height * outputScale);
-            canvas.style.width = Math.floor(viewport.width) + "px";
-            canvas.style.height = Math.floor(viewport.height) + "px";
+            try {
+                const page = await this.pdfDoc.getPage(pageInfo.num);
+                const scale = (this.state.zoomLevel || 100) / 100;
+                const viewport = page.getViewport({ scale });
 
-            const context = canvas.getContext('2d');
-            const transform = outputScale !== 1 ? [outputScale, 0, 0, outputScale, 0, 0] : null;
+                canvas.width = Math.floor(viewport.width * outputScale);
+                canvas.height = Math.floor(viewport.height * outputScale);
+                canvas.style.width = Math.floor(viewport.width) + "px";
+                canvas.style.height = Math.floor(viewport.height) + "px";
 
-            const renderContext = {
-                canvasContext: context,
-                transform: transform,
-                viewport: viewport
-            };
-            page.render(renderContext);
+                const context = canvas.getContext('2d');
+                const transform = outputScale !== 1 ? [outputScale, 0, 0, outputScale, 0, 0] : null;
+
+                const renderContext = {
+                    canvasContext: context,
+                    transform: transform,
+                    viewport: viewport
+                };
+
+                const renderTask = page.render(renderContext);
+                this.renderTasks[pageInfo.num] = renderTask;
+                await renderTask.promise;
+            } catch (e) {
+                if (e?.name !== "RenderingCancelledException") {
+                    console.error("Canvas render error:", e);
+                }
+            }
         }
     }
 
     // --- Drag & Drop UI Logic ---
     startDrag(e, type) {
+        e.preventDefault();
         this.state.dragType = type;
         this.state.mouseX = e.clientX;
         this.state.mouseY = e.clientY;
@@ -433,7 +638,7 @@ export class DmsSignaturePdfViewer extends Component {
         if (this.state.dragType) {
             this.state.mouseX = e.clientX;
             this.state.mouseY = e.clientY;
-        } else if (this.state.boxDragId) {
+        } else if (this.state.boxDragId && this.state.currentDocument) {
             const dx = e.clientX - this.state.dragStartX;
             const dy = e.clientY - this.state.dragStartY;
             const box = this.state.currentDocument.items.find(b => b.id === this.state.boxDragId);
@@ -441,8 +646,9 @@ export class DmsSignaturePdfViewer extends Component {
                 let newX = this.state.boxStartRect.x + dx;
                 let newY = this.state.boxStartRect.y + dy;
 
-                if (this.pdfContainer && this.pdfContainer.el) {
-                    const pageEl = this.pdfContainer.el.querySelector(`.pdf-page[data-page-num="${box.page}"]`);
+                const viewportEl = document.querySelector(".o_dms_sign_viewport");
+                if (viewportEl) {
+                    const pageEl = viewportEl.querySelector(`.pdf-page[data-page-num="${box.page}"], .o_dms_pdf_page[data-page-num="${box.page}"]`);
                     if (pageEl) {
                         const rect = pageEl.getBoundingClientRect();
                         newX = Math.min(Math.max(0, newX), rect.width - box.width);
@@ -453,15 +659,17 @@ export class DmsSignaturePdfViewer extends Component {
                 box.x = newX;
                 box.y = newY;
             }
-        } else if (this.state.boxResizeId) {
+        } else if (this.state.boxResizeId && this.state.currentDocument) {
             const dx = e.clientX - this.state.dragStartX;
-            const dy = e.clientY - this.state.dragStartY; ind(b => b.id === this.state.boxResizeId);
+            const dy = e.clientY - this.state.dragStartY;
+            const box = this.state.currentDocument.items.find(b => b.id === this.state.boxResizeId);
             if (box) {
                 let newW = this.state.boxStartRect.width + dx;
                 let newH = this.state.boxStartRect.height + dy;
 
-                if (this.pdfContainer && this.pdfContainer.el) {
-                    const pageEl = this.pdfContainer.el.querySelector(`.pdf-page[data-page-num="${box.page}"]`);
+                const viewportEl = document.querySelector(".o_dms_sign_viewport");
+                if (viewportEl) {
+                    const pageEl = viewportEl.querySelector(`.pdf-page[data-page-num="${box.page}"], .o_dms_pdf_page[data-page-num="${box.page}"]`);
                     if (pageEl) {
                         const rect = pageEl.getBoundingClientRect();
                         newW = Math.min(newW, rect.width - box.x);
@@ -470,7 +678,7 @@ export class DmsSignaturePdfViewer extends Component {
                 }
 
                 if (box.type === 'checkbox' || box.type === 'radio') {
-                    const size = Math.max(16, Math.max(newW, newH));
+                    const size = Math.max(22, Math.max(newW, newH));
                     box.width = size;
                     box.height = size;
                 } else {
@@ -498,69 +706,57 @@ export class DmsSignaturePdfViewer extends Component {
         const type = this.state.dragType;
         this.state.dragType = null;
 
-        // Check if dropped inside canvas
-        if (this.pdfContainer.el) {
-            const pageEls = this.pdfContainer.el.querySelectorAll('.pdf-page');
-            let targetPageNum = null;
-            let targetRect = null;
+        const viewportEl = document.querySelector(".o_dms_sign_viewport");
+        if (!viewportEl) return;
 
-            for (const pageEl of pageEls) {
-                const rect = pageEl.getBoundingClientRect();
-                if (e.clientX >= rect.left && e.clientX <= rect.right &&
-                    e.clientY >= rect.top && e.clientY <= rect.bottom) {
-                    targetPageNum = parseInt(pageEl.getAttribute('data-page-num'));
-                    targetRect = rect;
-                    break;
-                }
+        const pageEls = viewportEl.querySelectorAll('.pdf-page, .o_dms_pdf_page');
+        let targetPageNum = null;
+        let targetRect = null;
+
+        for (const pageEl of pageEls) {
+            const rect = pageEl.getBoundingClientRect();
+            if (e.clientX >= rect.left && e.clientX <= rect.right &&
+                e.clientY >= rect.top && e.clientY <= rect.bottom) {
+                targetPageNum = parseInt(pageEl.getAttribute('data-page-num'), 10);
+                targetRect = rect;
+                break;
+            }
+        }
+
+        if (targetPageNum && targetRect && this.state.currentDocument) {
+            const currentRole = this.currentRole;
+
+            let defaultW = 160;
+            let defaultH = 42;
+            if (type === 'checkbox' || type === 'radio') {
+                defaultW = 32;
+                defaultH = 32;
+            } else if (type === 'signature' || type === 'stamp') {
+                defaultW = 180;
+                defaultH = 50;
+            } else if (type === 'multiline') {
+                defaultW = 200;
+                defaultH = 70;
             }
 
-            if (targetPageNum) {
+            let dropX = e.clientX - targetRect.left;
+            let dropY = e.clientY - targetRect.top;
 
-                const currentRole = this.state.roles[this.state.currentRoleIndex];
+            dropX = Math.min(Math.max(0, dropX), targetRect.width - defaultW);
+            dropY = Math.min(Math.max(0, dropY), targetRect.height - defaultH);
 
-                let defaultW = 180;
-                let defaultH = 45;
-                if (type === 'checkbox' || type === 'radio') {
-                    defaultW = 24;
-                    defaultH = 24;
-                }
+            if (type === 'radio') {
+                const groupId = 'RadioGroup_' + Date.now();
+                for (let i = 1; i <= 2; i++) {
+                    let radioX = dropX + ((i - 1) * 42);
+                    radioX = Math.min(Math.max(0, radioX), targetRect.width - defaultW);
 
-                let dropX = e.clientX - targetRect.left;
-                let dropY = e.clientY - targetRect.top;
-
-                dropX = Math.min(Math.max(0, dropX), targetRect.width - defaultW);
-                dropY = Math.min(Math.max(0, dropY), targetRect.height - defaultH);
-
-                if (type === 'radio') {
-                    const groupId = 'RadioGroup_' + Date.now();
-                    for (let i = 1; i <= 2; i++) {
-                        let radioX = dropX + ((i - 1) * 30);
-                        radioX = Math.min(Math.max(0, radioX), targetRect.width - defaultW);
-
-                        this.state.currentDocument.items.push({
-                            id: Date.now() + i,
-                            type: type,
-                            page: targetPageNum,
-                            roleId: currentRole.id,
-                            x: radioX,
-                            y: dropY,
-                            width: defaultW,
-                            height: defaultH,
-                            mandatory: true,
-                            placeholder: this.getToolLabel(type),
-                            alignment: 'left',
-                            readonly: false,
-                            radioGroupName: groupId,
-                            radioOptionValue: 'Option ' + i
-                        });
-                    }
-                } else {
-                    const newBox = {
-                        id: Date.now(),
+                    this.state.currentDocument.items.push({
+                        id: Date.now() + i,
                         type: type,
                         page: targetPageNum,
                         roleId: currentRole.id,
-                        x: dropX,
+                        x: radioX,
                         y: dropY,
                         width: defaultW,
                         height: defaultH,
@@ -568,17 +764,35 @@ export class DmsSignaturePdfViewer extends Component {
                         placeholder: this.getToolLabel(type),
                         alignment: 'left',
                         readonly: false,
-                        radioGroupName: '',
-                        radioOptionValue: ''
-                    };
-                    this.state.currentDocument.items.push(newBox);
+                        radioGroupName: groupId,
+                        radioOptionValue: 'Option ' + i
+                    });
                 }
+            } else {
+                const newBox = {
+                    id: Date.now(),
+                    type: type,
+                    page: targetPageNum,
+                    roleId: currentRole.id,
+                    x: dropX,
+                    y: dropY,
+                    width: defaultW,
+                    height: defaultH,
+                    mandatory: true,
+                    placeholder: this.getToolLabel(type),
+                    alignment: 'left',
+                    readonly: false,
+                    radioGroupName: '',
+                    radioOptionValue: ''
+                };
+                this.state.currentDocument.items.push(newBox);
             }
         }
     }
 
     startBoxDrag(e, box) {
-        // Only start drag if not clicking a control button
+        // Do not drag if clicking inside properties popover or control buttons
+        if (e.target.closest('.o_dms_box_popover')) return;
         if (e.target.closest('.delete-box-btn') || e.target.closest('.resize-box-handle')) return;
 
         this.state.boxDragId = box.id;
@@ -689,9 +903,38 @@ export class DmsSignaturePdfViewer extends Component {
         }
     }
 
-    getRoleColor(roleId) {
+    get currentRole() {
+        return this.state.roles[this.state.currentRoleIndex] || this.state.roles[0] || {
+            id: "signer1",
+            name: "Signer 1",
+            color: ROLE_PALETTE[0].color,
+            borderColor: ROLE_PALETTE[0].borderColor,
+            textColor: ROLE_PALETTE[0].textColor,
+        };
+    }
+
+    getRole(roleId) {
         const role = this.state.roles.find(r => r.id === roleId);
-        return role ? role.color : "#e6f2eb";
+        if (role) return role;
+        return this.state.roles[0] || {
+            id: roleId,
+            name: roleId,
+            color: ROLE_PALETTE[0].color,
+            borderColor: ROLE_PALETTE[0].borderColor,
+            textColor: ROLE_PALETTE[0].textColor,
+        };
+    }
+
+    getRoleColor(roleId) {
+        return this.getRole(roleId).color;
+    }
+
+    getRoleBorderColor(roleId) {
+        return this.getRole(roleId).borderColor;
+    }
+
+    getRoleTextColor(roleId) {
+        return this.getRole(roleId).textColor;
     }
 
     openSendModal(isSignNow) {
@@ -711,24 +954,24 @@ export class DmsSignaturePdfViewer extends Component {
         // Format payload to pass to the wizard
         const docs = this.state.documents.map(d => ({
             revision_id: d.id,
-            items: d.items.map(i => ({
-                item_type: i.type,
-                page_number: i.page,
-                pos_x: i.x / (this.state.pages.find(p => p.num === i.page)?.width || 800),
-                pos_y: i.y / (this.state.pages.find(p => p.num === i.page)?.height || 1100),
-                width: i.width / (this.state.pages.find(p => p.num === i.page)?.width || 800),
-                height: i.height / (this.state.pages.find(p => p.num === i.page)?.height || 1100),
-                role_id: i.roleId,
-                // assigned_user_id will be mapped by the wizard
-
-                // Extra Properties
-                placeholder: i.placeholder,
-                alignment: i.alignment,
-                mandatory: i.mandatory,
-                readonly: i.readonly,
-                radioGroupName: i.radioGroupName,
-                radioOptionValue: i.radioOptionValue
-            }))
+            items: d.items.map(i => {
+                const pageInfo = this.state.pages.find(p => p.num === i.page) || { width: 800, height: 1100 };
+                return {
+                    item_type: i.type,
+                    page_number: i.page,
+                    pos_x: i.x / (pageInfo.width || 800),
+                    pos_y: i.y / (pageInfo.height || 1100),
+                    width: i.width / (pageInfo.width || 800),
+                    height: i.height / (pageInfo.height || 1100),
+                    role_id: i.roleId,
+                    placeholder: i.placeholder,
+                    alignment: i.alignment,
+                    mandatory: i.mandatory,
+                    readonly: i.readonly,
+                    radioGroupName: i.radioGroupName,
+                    radioOptionValue: i.radioOptionValue
+                };
+            })
         }));
 
         const payload = {

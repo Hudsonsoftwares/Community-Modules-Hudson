@@ -25,7 +25,7 @@
                 <div class="o_ai_panel_header_info">
                     <div class="o_ai_panel_header_title">Hudson AI</div>
                     <div class="o_ai_panel_header_subtitle"
-                         t-esc="state.modelName ? ('Model: ' + state.modelName) : 'Powered by LM Studio'"/>
+                         t-out="state.modelName ? ('Model: ' + state.modelName) : 'Powered by LM Studio'"/>
                 </div>
                 <div class="o_ai_panel_header_actions">
                     <button class="o_ai_panel_header_btn"
@@ -50,7 +50,7 @@
             <div class="o_ai_chips">
                 <t t-foreach="quickActions" t-as="action" t-key="action.label">
                     <button class="o_ai_chip"
-                            t-esc="action.label"
+                            t-out="action.label"
                             t-on-click="() => this.sendQuickAction(action.prompt)"/>
                 </t>
             </div>
@@ -81,7 +81,7 @@
                         </t>
 
                         <!-- Bubble -->
-                        <div class="o_ai_msg_bubble" t-esc="msg.content"/>
+                        <div class="o_ai_msg_bubble" t-out="msg.content"/>
                     </div>
                 </t>
 

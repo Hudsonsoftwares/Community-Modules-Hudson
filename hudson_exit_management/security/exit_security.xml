@@ -1,0 +1,42 @@
+<?xml version='1.0' encoding='utf-8'?>
+<odoo>
+    <data>
+        
+        <record id="hr_resignation_multi_company_rule" model="ir.access">
+            <field name="name">Employee Resignation Multi-Company</field>
+            <field name="model_id" ref="model_hr_resignation" />
+            <field name="domain">['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]</field>
+        <field name="operation">crud</field></record>
+
+        
+        <record id="hr_resignation_employee_rule" model="ir.access">
+            <field name="name">Employee Resignation: Own Requests</field>
+            <field name="model_id" ref="model_hr_resignation" />
+            <field name="domain">[('employee_id.user_id', '=', user.id)]</field>
+            <field name="group_id" ref="base.group_user" />
+        <field name="operation">crud</field></record>
+
+        
+        <record id="hr_resignation_manager_rule" model="ir.access">
+            <field name="name">Employee Resignation: All Requests for HR Officers</field>
+            <field name="model_id" ref="model_hr_resignation" />
+            <field name="domain">[(1, '=', 1)]</field>
+            <field name="group_id" ref="hr.group_hr_user" />
+        <field name="operation">crud</field></record>
+
+        
+        <record id="hudson_exit_clearance_multi_company_rule" model="ir.access">
+            <field name="name">Exit Clearance Multi-Company</field>
+            <field name="model_id" ref="model_hudson_exit_clearance" />
+            <field name="domain">['|', ('resignation_id.company_id', '=', False), ('resignation_id.company_id', 'in', company_ids)]</field>
+        <field name="operation">crud</field></record>
+    <record id="hr_resignation_manager_rule_hr_group_hr_manager" model="ir.access">
+            <field name="name">Employee Resignation: All Requests for HR Officers</field>
+            <field name="model_id" ref="model_hr_resignation" />
+            <field name="domain">[(1, '=', 1)]</field>
+            <field name="group_id" ref="hr.group_hr_manager" />
+        <field name="operation">crud</field></record>
+
+        
+        </data>
+</odoo>

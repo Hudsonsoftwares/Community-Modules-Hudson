@@ -1,0 +1,19 @@
+id,name,model_id,group_id/id,operation,domain
+access_eh_hr_access_zone_user,eh.hr.access.zone user,eh.hr.access.zone,eh_hr_attendance_base.group_eh_hr_user,r,
+access_eh_hr_access_zone_manager,eh.hr.access.zone manager,eh.hr.access.zone,eh_hr_attendance_base.group_eh_hr_manager,cru,
+access_eh_hr_access_zone_admin,eh.hr.access.zone admin,eh.hr.access.zone,eh_hr_attendance_base.group_eh_hr_admin,crud,
+access_eh_hr_access_zone_auditor,eh.hr.access.zone auditor,eh.hr.access.zone,eh_hr_attendance_base.group_eh_hr_auditor,r,
+rule_eh_hr_access_zone_company,EH Access Zone: per company,eh.hr.access.zone,,crud,"[('company_id', 'in', company_ids)]"
+access_eh_hr_access_reader_manager,eh.hr.access.reader manager,eh.hr.access.reader,eh_hr_attendance_base.group_eh_hr_manager,r,
+access_eh_hr_access_reader_admin,eh.hr.access.reader admin,eh.hr.access.reader,eh_hr_attendance_base.group_eh_hr_admin,crud,
+access_eh_hr_access_reader_auditor,eh.hr.access.reader auditor,eh.hr.access.reader,eh_hr_attendance_base.group_eh_hr_auditor,r,
+rule_eh_hr_access_reader_company,EH Access Reader: per company,eh.hr.access.reader,,crud,"[('company_id', 'in', company_ids)]"
+access_eh_hr_access_permission_user,eh.hr.access.permission user: own permissions,eh.hr.access.permission,eh_hr_attendance_base.group_eh_hr_user,r,"[('employee_id.user_id', '=', user.id)]"
+access_eh_hr_access_permission_manager,eh.hr.access.permission manager,eh.hr.access.permission,eh_hr_attendance_base.group_eh_hr_manager,cru,
+access_eh_hr_access_permission_admin,eh.hr.access.permission admin,eh.hr.access.permission,eh_hr_attendance_base.group_eh_hr_admin,crud,
+access_eh_hr_access_permission_auditor,eh.hr.access.permission auditor,eh.hr.access.permission,eh_hr_attendance_base.group_eh_hr_auditor,r,
+rule_eh_hr_access_permission_company,EH Access Permission: per company,eh.hr.access.permission,,crud,"[('company_id', 'in', company_ids)]"
+access_eh_hr_access_event_manager,eh.hr.access.event manager,eh.hr.access.event,eh_hr_attendance_base.group_eh_hr_manager,r,
+access_eh_hr_access_event_admin,eh.hr.access.event admin,eh.hr.access.event,eh_hr_attendance_base.group_eh_hr_admin,rd,
+access_eh_hr_access_event_auditor,eh.hr.access.event auditor,eh.hr.access.event,eh_hr_attendance_base.group_eh_hr_auditor,r,
+rule_eh_hr_access_event_company,EH Access Event: per company,eh.hr.access.event,,crud,"[('company_id', 'in', company_ids)]"

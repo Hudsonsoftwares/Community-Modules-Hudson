@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<odoo>
+    <data>
+
+        <record id="view_eh_hr_access_reader_list" model="ir.ui.view">
+            <field name="name">eh.hr.access.reader.list</field>
+            <field name="model">eh.hr.access.reader</field>
+            <field name="arch" type="xml">
+                <list string="Access readers" sample="1" decoration-muted="not active" decoration-danger="last_status == 'error'">
+                    <field name="name"/>
+                    <field name="zone_id"/>
+                    <field name="webhook_url"/>
+                    <field name="last_unlock_at"/>
+                    <field name="last_status"/>
+                    <field name="active"/>
+                    <field name="company_id" optional="hide" groups="base.group_multi_company"/>
+                </list>
+            </field>
+        </record>
+
+        <record id="view_eh_hr_access_reader_form" model="ir.ui.view">
+            <field name="name">eh.hr.access.reader.form</field>
+            <field name="model">eh.hr.access.reader</field>
+            <field name="arch" type="xml">
+                <form string="Access reader">
+                    <header>
+                        <button name="action_test_unlock" type="object" string="Test unlock" class="oe_highlight" groups="eh_hr_attendance_base.group_eh_hr_admin" confirm="This will fire an unlock command at the configured webhook URL. Continue?"/>
+                    </header>
+                    <sheet>
+                        <widget name="web_ribbon" title="Archived" bg_color="bg-danger" invisible="active"/>
+                        <div class="oe_title">
+                            <label for="name"/>
+                            <h1>
+                                <field name="name" placeholder="Front door relay, Server room reader..."/>
+                            </h1>
+                        </div>
+                        <group>
+                            <group>
+                                <field name="zone_id"/>
+                                <field name="webhook_url" widget="url"/>
+                                <field name="bearer_token" password="True" groups="eh_hr_attendance_base.group_eh_hr_admin"/>
+                                <field name="active" invisible="1"/>
+                            </group>
+                            <group>
+                                <field name="auto_relock_seconds"/>
+                                <field name="timeout_seconds"/>
+                                <field name="company_id" groups="base.group_multi_company"/>
+                            </group>
+                        </group>
+                        <separator string="Last call"/>
+                        <group>
+                            <group>
+                                <field name="last_unlock_at"/>
+                                <field name="last_status"/>
+                            </group>
+                        </group>
+                        <field name="last_response" readonly="1"/>
+                    </sheet>
+                    <chatter/>
+                </form>
+            </field>
+        </record>
+
+        <record id="action_eh_hr_access_reader" model="ir.actions.act_window">
+            <field name="name">Access readers</field>
+            <field name="res_model">eh.hr.access.reader</field>
+            <field name="view_mode">list,form</field>
+            <field name="help" type="html">
+                <p class="o_view_nocontent_smiling_face">No readers configured yet.</p>
+                <p>A reader is the bridge service in front of the door hardware. Set its webhook URL and (optionally) a bearer token, link it to a zone, and the kiosk will call it when an authorised employee matches.</p>
+            </field>
+        </record>
+
+    </data>
+</odoo>

@@ -1,195 +1,133 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <templates xml:space="preserve">
+
+    <!-- 1. Inject folder cards into the Kanban renderer -->
     <t t-inherit="dms.KanbanRenderer" t-inherit-mode="extension">
-        <xpath expr="//div[hasclass('o_kanban_renderer')]//t[@t-foreach='getGroupsOrRecords()']" position="before">
+        <xpath expr="//div[hasclass('o_kanban_renderer')]//t[@t-foreach='this.getGroupsOrRecords()']" position="before">
             <style>
-                .o_view_nocontent {
+                .mk_file_kanban_view .o_kanban_renderer:has(.o_dms_directories_container) .o_view_nocontent {
                     display: none !important;
-                }
-                .o_kanban_renderer.o_kanban_ungrouped,
-                .mk_file_kanban_view .o_kanban_renderer.o_kanban_ungrouped,
-                .o_kanban_view .o_kanban_renderer.o_kanban_ungrouped {
-                    display: grid !important;
-                    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)) !important;
-                    gap: 1rem !important;
-                    padding: 1rem !important;
-                    width: 100% !important;
-                    box-sizing: border-box !important;
-                    align-content: start !important;
-                }
-                @media (min-width: 1200px) {
-                    .o_kanban_renderer.o_kanban_ungrouped,
-                    .mk_file_kanban_view .o_kanban_renderer.o_kanban_ungrouped,
-                    .o_kanban_view .o_kanban_renderer.o_kanban_ungrouped {
-                        grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
-                    }
-                }
-                .o_kanban_renderer.o_kanban_ungrouped > .o_dms_directories_container,
-                .mk_file_kanban_view .o_kanban_renderer.o_kanban_ungrouped > .o_dms_directories_container {
-                    grid-column: 1 / -1 !important;
-                    width: 100% !important;
-                    padding: 0 !important;
-                    margin: 0 0 1rem 0 !important;
-                    box-sizing: border-box !important;
-                }
-                .o_dms_folders_grid {
-                    display: grid !important;
-                    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)) !important;
-                    gap: 1rem !important;
-                    width: 100% !important;
-                    padding: 0 !important;
-                    margin: 0 !important;
-                    box-sizing: border-box !important;
-                }
-                @media (min-width: 1200px) {
-                    .o_dms_folders_grid {
-                        grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
-                    }
-                }
-                .o_kanban_renderer.o_kanban_ungrouped .o_kanban_record,
-                .mk_file_kanban_view .o_kanban_renderer.o_kanban_ungrouped .o_kanban_record {
-                    width: 100% !important;
-                    min-width: 0 !important;
-                    max-width: 100% !important;
-                    flex: none !important;
-                    margin: 0 !important;
-                    box-sizing: border-box !important;
-                }
-                .o_kanban_renderer.o_kanban_ungrouped .o_kanban_ghost {
-                    display: none !important;
-                }
-                .o_dms_folder_card {
-                    width: 100% !important;
-                    min-width: 0 !important;
-                    max-width: 100% !important;
-                    min-height: 90px;
-                    position: relative;
-                    margin: 0 !important;
-                    box-sizing: border-box !important;
                 }
             </style>
-            <!-- Inject directories at the top of the Kanban renderer -->
-            <div t-if="dmsDirectoriesState.data.length or dmsDirectoriesState.currentDir" class="o_dms_directories_container w-100 mb-3">
-                <div class="d-flex align-items-center mb-3 mt-2">
-                    <!-- Back / Up Button -->
-                    <button t-if="dmsDirectoriesState.currentDir" class="btn btn-light border shadow-sm me-3" t-on-click="() => this.navigateUp()" title="Go Up">
-                        <i class="fa fa-level-up fa-lg text-secondary"/>
-                    </button>
-                    <h5 class="text-muted m-0">Folders</h5>
+
+            <!-- Folder cards grid — only rendered when sub-directories exist -->
+            <div t-if="!this.props.list.isGrouped and this.dmsDirectoriesState.data.length" class="o_dms_directories_container w-100 mb-3">
+                <div class="o_dms_section_title">
+                    <i class="fa fa-folder-open-o text-muted"/>
+                    <span>Folders</span>
                 </div>
-                
+
                 <div class="o_dms_folders_grid">
-                    <t t-foreach="dmsDirectoriesState.data" t-as="dir" t-key="dir.id">
-                        <div t-attf-class="o_kanban_record o_dms_folder_card oe_kanban_color_#{dir.color} d-block p-0 cursor-pointer border rounded bg-white shadow-sm"
+                    <t t-foreach="this.dmsDirectoriesState.data" t-as="dir" t-key="dir.id">
+                        <div t-attf-class="o_kanban_record o_dms_folder_card oe_kanban_color_#{dir.color} d-block p-0 cursor-pointer #{this.folderDropdown.openId === dir.id ? 'dms_folder_menu_open' : ''}"
                              t-on-click="() => this.openDirectory(dir.id)"
                              role="button">
-                             
-                            <!-- 3 dots dropdown menu -->
+
                             <t t-if="dir.permission_download || dir.permission_move || dir.permission_write || dir.permission_unlink">
-                                <div class="position-absolute top-0 end-0 dropdown">
-                                    <a href="#" class="text-muted text-decoration-none d-block p-3" data-bs-toggle="dropdown" t-on-click.stop="">
-                                        <i class="fa fa-ellipsis-v fa-lg" />
-                                    </a>
-                                    <div class="dropdown-menu dropdown-menu-end shadow">
-                                        <a t-if="dir.permission_download" class="dropdown-item py-2" href="#" t-on-click.prevent.stop="() => this.downloadDirectory(dir.id)">
-                                            <i class="fa fa-download fa-fw me-2"/>Download
-                                        </a>
-                                        <a t-if="dir.permission_move" class="dropdown-item py-2" href="#" t-on-click.prevent.stop="() => this.moveDirectory(dir.id)">
-                                            <i class="fa fa-arrows fa-fw me-2"/>Move
-                                        </a>
-                                        <a t-if="dir.permission_write" class="dropdown-item py-2" href="#" t-on-click.prevent.stop="() => this.editDirectory(dir.id)">
-                                            <i class="fa fa-pencil fa-fw me-2"/>Edit
-                                        </a>
-                                        <a t-if="dir.permission_unlink" class="dropdown-item py-2 text-danger" href="#" t-on-click.prevent.stop="() => this.trashDirectory(dir.id)">
-                                            <i class="fa fa-trash-o fa-fw me-2"/>Send to Trash
-                                        </a>
+                                <div class="o_dms_folder_dropdown_wrap position-absolute top-0 end-0"
+                                     t-on-click.stop="">
+                                    <div role="button"
+                                         class="o_dms_dots_btn"
+                                         t-on-click="(ev) => this.toggleFolderDropdown(ev, dir.id)"
+                                         title="Folder actions"
+                                         t-att-aria-expanded="this.folderDropdown.openId === dir.id ? 'true' : 'false'">
+                                        <span class="o_dms_dot"></span>
+                                        <span class="o_dms_dot"></span>
+                                        <span class="o_dms_dot"></span>
+                                    </div>
+                                    <div t-if="this.folderDropdown.openId === dir.id"
+                                         class="o_dms_folder_dropdown_menu">
+                                        <t t-if="dir.is_trashed">
+                                            <a class="o_dms_folder_dropdown_item text-success" href="#"
+                                               t-on-click.prevent="() => { this.restoreDirectory(dir.id); }">
+                                                <i class="fa fa-undo fa-fw text-success"/>Restore
+                                            </a>
+                                            <div class="o_dms_folder_dropdown_divider"/>
+                                            <a class="o_dms_folder_dropdown_item o_dms_folder_dropdown_item_danger" href="#"
+                                               t-on-click.prevent="() => { this.deleteDirectoryPermanently(dir.id); }">
+                                                <i class="fa fa-trash-o fa-fw"/>Delete permanently
+                                            </a>
+                                        </t>
+                                        <t t-else="">
+                                            <a t-if="dir.permission_download" class="o_dms_folder_dropdown_item" href="#"
+                                               t-on-click.prevent="() => { this.downloadDirectory(dir.id); }">
+                                                <i class="fa fa-download fa-fw"/>Download
+                                            </a>
+                                            <a t-if="dir.permission_move" class="o_dms_folder_dropdown_item" href="#"
+                                               t-on-click.prevent="() => { this.moveDirectory(dir.id); }">
+                                                <i class="fa fa-arrows fa-fw"/>Move
+                                            </a>
+                                            <a t-if="dir.permission_edit" class="o_dms_folder_dropdown_item" href="#"
+                                               t-on-click.prevent="() => { this.editDirectory(dir.id); }">
+                                                <i class="fa fa-pencil fa-fw"/>Edit
+                                            </a>
+                                            <div t-if="dir.permission_unlink" class="o_dms_folder_dropdown_divider"/>
+                                            <a t-if="dir.permission_unlink"
+                                               class="o_dms_folder_dropdown_item o_dms_folder_dropdown_item_danger" href="#"
+                                               t-on-click.prevent="() => { this.trashDirectory(dir.id); }">
+                                                <i class="fa fa-trash-o fa-fw"/>Send to Trash
+                                            </a>
+                                        </t>
                                     </div>
                                 </div>
                             </t>
 
-                            <div class="row g-0 h-100 w-100">
-                                <div class="col-4 pt-3 d-flex justify-content-center align-items-start">
-                                    <img t-if="dir.icon_url" t-att-src="dir.icon_url" style="width: 45px; height: 45px; object-fit: contain;"/>
-                                    <i t-else="" class="fa fa-folder text-warning fa-3x" />
-                                </div>
-                                <div class="col-8 py-2 px-2 d-flex flex-column justify-content-center">
-                                    <strong class="text-truncate d-block mb-1" t-esc="dir.name" style="padding-right: 25px;" />
-                                    <div class="text-muted small">
-                                        <div t-if="dir.count_directories"><t t-esc="dir.count_directories"/> Folders</div>
-                                        <div><t t-esc="dir.count_files"/> Files</div>
+                            <div class="o_dms_folder_inner">
+                                <div class="row g-0 h-100 w-100 p-2">
+                                    <div class="col-4 d-flex justify-content-center align-items-center">
+                                        <img t-if="dir.icon_url" t-att-src="dir.icon_url" class="o_dms_folder_icon"/>
+                                        <img t-else="" src="/dms/static/description/open-folder.png" class="o_dms_folder_icon" />
+                                    </div>
+                                    <div class="col-8 py-1 px-2 d-flex flex-column justify-content-center">
+                                        <strong class="o_dms_folder_name text-truncate d-block mb-1 pe-3" t-esc="dir.name" />
+                                        <div class="d-flex flex-wrap gap-1">
+                                            <span t-if="dir.count_directories" class="o_dms_folder_badge"><t t-esc="dir.count_directories"/> Folders</span>
+                                            <span class="o_dms_folder_badge"><t t-esc="dir.count_files"/> Files</span>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </t>
                 </div>
-                <hr class="my-4"/>
-                <h5 class="text-muted mb-3" t-if="props.list.records.length">Files</h5>
+                <div class="o_dms_section_divider" t-if="this.props.list.records.length"/>
+                <div class="o_dms_section_title" t-if="this.props.list.records.length">
+                    <i class="fa fa-file-text-o text-muted"/>
+                    <span>Files</span>
+                </div>
             </div>
 
         </xpath>
     </t>
 
-    <t t-inherit="dms.FileKanbanView" t-inherit-mode="extension">
-        <xpath expr="//t[@t-set-slot='control-panel-create-button']" position="replace">
-            <t t-set-slot="control-panel-create-button">
-                <t t-if="canCreate and props.showButtons">
-                    <div class="btn-group o_dms_new_dropdown mx-1">
-                        <button type="button" class="btn btn-primary dropdown-toggle o-kanban-button-new" data-bs-toggle="dropdown">
-                            New
-                        </button>
-                        <ul class="dropdown-menu">
-                            <li>
-                                <a class="dropdown-item cursor-pointer" t-on-click.prevent="uploadDocument">
-                                    <i class="fa fa-file-o me-2"/> File Upload
-                                </a>
-                            </li>
-                            <li>
-                                <a class="dropdown-item cursor-pointer" t-on-click.prevent="createDirectory">
-                                    <i class="fa fa-folder-o me-2"/> Folder
-                                </a>
-                            </li>
-                        </ul>
-                    </div>
-                    
-                    <input
-                        type="file"
-                        name="ufile"
-                        class="d-none"
-                        t-ref="fileInput"
-                        multiple="1"
-                        accept="*"
-                        t-on-change="onChangeFileInput"
-                    />
-                </t>
-            </t>
-        </xpath>
-    </t>
-
-    <!-- Hide the redundant Scan/Upload buttons that muk_dms adds to KanbanButtons -->
-    <t t-inherit="dms.KanbanButtons" t-inherit-mode="extension">
-        <xpath expr="//t[@t-if='props.archInfo.activeActions.create']" position="replace"/>
-    </t>
-
+    <!-- 2. Sidebar folder icons and action dots -->
     <t t-inherit="web.SearchPanel.Category" t-inherit-mode="extension">
+        <xpath expr="//span[hasclass('o_search_panel_label_title')]" position="before">
+            <img t-if="section.fieldName === 'directory_id' || section.fieldName === 'parent_id'"
+                 src="/dms/static/description/open-folder.png"
+                 class="me-2 flex-shrink-0"
+                 style="width: 16px; height: 16px; object-fit: contain; vertical-align: middle;"/>
+        </xpath>
         <xpath expr="//header" position="inside">
             <t t-if="section.fieldName === 'directory_id'">
                 <t t-if="value.permission_download || value.permission_move || value.permission_write || value.permission_unlink">
-                    <div class="dropdown o_dms_sidebar_dots ms-auto me-2" t-on-click.stop="">
-                        <a href="#" class="text-muted text-decoration-none px-2" data-bs-toggle="dropdown" t-on-click.stop="">
-                            <i class="fa fa-ellipsis-v" />
+                    <div class="dropdown o_dms_sidebar_dots ms-auto me-1" t-on-click.stop="">
+                        <a href="#" class="o_dms_dots_btn" data-bs-toggle="dropdown" t-on-click.stop="" title="Folder actions">
+                            <span class="o_dms_dot"></span>
+                            <span class="o_dms_dot"></span>
+                            <span class="o_dms_dot"></span>
                         </a>
-                        <div class="dropdown-menu shadow">
-                            <a t-if="value.permission_download" class="dropdown-item py-2" href="#" t-on-click.prevent.stop="() => this.downloadSidebarDirectory(valueId)">
+                        <div class="dropdown-menu dropdown-menu-end shadow">
+                            <a t-if="value.permission_download" class="dropdown-item" href="#" t-on-click.prevent.stop="() => this.downloadSidebarDirectory(valueId)">
                                 <i class="fa fa-download fa-fw me-2"/>Download
                             </a>
-                            <a t-if="value.permission_move" class="dropdown-item py-2" href="#" t-on-click.prevent.stop="() => this.moveSidebarDirectory(valueId)">
+                            <a t-if="value.permission_move" class="dropdown-item" href="#" t-on-click.prevent.stop="() => this.moveSidebarDirectory(valueId)">
                                 <i class="fa fa-arrows fa-fw me-2"/>Move
                             </a>
-                            <a t-if="value.permission_write" class="dropdown-item py-2" href="#" t-on-click.prevent.stop="() => this.editSidebarDirectory(valueId)">
+                            <a t-if="value.permission_write" class="dropdown-item" href="#" t-on-click.prevent.stop="() => this.editSidebarDirectory(valueId)">
                                 <i class="fa fa-pencil fa-fw me-2"/>Edit
                             </a>
-                            <a t-if="value.permission_unlink" class="dropdown-item py-2 text-danger" href="#" t-on-click.prevent.stop="() => this.trashSidebarDirectory(valueId)">
+                            <a t-if="value.permission_unlink" class="dropdown-item text-danger" href="#" t-on-click.prevent.stop="() => this.trashSidebarDirectory(valueId)">
                                 <i class="fa fa-trash-o fa-fw me-2"/>Send to Trash
                             </a>
                         </div>
@@ -198,4 +136,5 @@
             </t>
         </xpath>
     </t>
+
 </templates>

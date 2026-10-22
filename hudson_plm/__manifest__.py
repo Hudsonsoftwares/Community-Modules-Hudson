@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     'name': 'Hudson PLM',
-    'version': '19.0.1.0.0',
+    'version': '20.0.1.0.0',
     'category': 'Manufacturing/Product Lifecycle Management',
     'summary': 'Manage Engineering Change Orders and Product Versions',
     'description': """
@@ -12,7 +12,7 @@ Integrates with the Manufacturing module so that product versions can be managed
     'depends': ['mrp', 'mail'],
     'data': [
         'security/plm_security.xml',
-        'security/ir.model.access.csv',
+        'security/ir.access.csv',
         'data/mrp_eco_data.xml',
         'views/mrp_eco_bom_change_views.xml',
         'views/plm_menus.xml',

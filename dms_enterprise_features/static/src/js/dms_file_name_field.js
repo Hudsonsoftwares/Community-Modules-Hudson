@@ -6,12 +6,9 @@ import { CharField, charField } from "@web/views/fields/char/char_field";
 import { useFileViewer } from "@web/core/file_viewer/file_viewer_hook";
 import { useService } from "@web/core/utils/hooks";
 
-export class DmsFileNameField extends Component {
+export class DmsFileNameField extends CharField {
     static template = "dms_enterprise_features.DmsFileNameField";
-    static components = { CharField };
-    static props = {
-        ...CharField.props,
-    };
+    
 
     setup() {
         super.setup();

@@ -1,0 +1,14 @@
+id,name,model_id,group_id/id,operation,domain
+access_approval_category_user,approval.category.user,approval.category,approvals.group_approval_user,r,
+access_approval_category_manager,approval.category.manager,approval.category,approvals.group_approval_manager,crud,
+access_approval_request_user,approval.request.user,approval.request,approvals.group_approval_user,crud,"['|', '|', ('request_owner_id', '=', user.id), ('approver_ids.user_id', '=', user.id), ('create_uid', '=', user.id)]"
+access_approval_request_manager,approval.request.manager,approval.request,approvals.group_approval_manager,crud,
+access_approval_approver_user,approval.approver.user,approval.approver,approvals.group_approval_user,cru,
+access_approval_approver_manager,approval.approver.manager,approval.approver,approvals.group_approval_manager,crud,
+access_approval_product_line_user,approval.product.line.user,approval.product.line,approvals.group_approval_user,crud,
+access_approval_product_line_manager,approval.product.line.manager,approval.product.line,approvals.group_approval_manager,crud,
+access_approval_refuse_wizard_user,approval.refuse.wizard.user,approval.refuse.wizard,approvals.group_approval_user,crud,
+access_approval_category_approver_user,approval.category.approver.user,approval.category.approver,approvals.group_approval_user,r,
+access_approval_category_approver_manager,approval.category.approver.manager,approval.category.approver,approvals.group_approval_manager,crud,
+approval_category_comp_rule,Approval Category multi-company,approval.category,,crud,"['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]"
+approval_request_comp_rule,Approval Request multi-company,approval.request,,crud,"['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]"

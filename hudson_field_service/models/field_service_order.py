@@ -78,6 +78,7 @@ class FieldServiceOrder(models.Model):
         string='Customer',
         tracking=True,
         index=True,
+        required=True,
     )
     partner_phone = fields.Char(
         string='Phone',
@@ -96,6 +97,7 @@ class FieldServiceOrder(models.Model):
         compute='_compute_partner_info',
         store=True,
         readonly=False,
+        required=True,
         help='Location where the service will be performed.',
     )
 
@@ -166,6 +168,11 @@ class FieldServiceOrder(models.Model):
         copy=False,
         help='Timestamp when the current timer session was started.',
     )
+    active_timer_ids = fields.One2many(
+        'field.service.active.timer',
+        'order_id',
+        string='Active Timers'
+    )
     is_timer_running = fields.Boolean(
         string='Timer Running',
         compute='_compute_is_timer_running',
@@ -234,6 +241,21 @@ class FieldServiceOrder(models.Model):
         'order_id',
         string='Products Used',
     )
+    
+    picking_ids = fields.One2many(
+        'stock.picking',
+        'fs_order_id',
+        string='Delivery Orders'
+    )
+    picking_count = fields.Integer(
+        string='Delivery Orders Count',
+        compute='_compute_picking_count'
+    )
+
+    @api.depends('picking_ids')
+    def _compute_picking_count(self):
+        for order in self:
+            order.picking_count = len(order.picking_ids)
     image_ids = fields.Many2many(
         'ir.attachment',
         string="Images",
@@ -384,10 +406,10 @@ class FieldServiceOrder(models.Model):
         for order in self:
             order.access_url = f'/my/field_service/{order.id}'
 
-    @api.depends('timer_start')
+    @api.depends('active_timer_ids.user_id')
     def _compute_is_timer_running(self):
         for order in self:
-            order.is_timer_running = bool(order.timer_start)
+            order.is_timer_running = any(t.user_id == self.env.user for t in order.active_timer_ids)
 
     @api.model_create_multi
     def create(self, vals_list):
@@ -654,44 +676,31 @@ class FieldServiceOrder(models.Model):
             f'</div>'
         )
 
-    def action_start_timer(self):
-        """Fallback start without location (called from header button)."""
-        self.ensure_one()
-        if self.state not in ('new', 'scheduled'):
-            raise UserError(_("You can only start a new or scheduled order."))
-        if self.is_timer_running:
-            raise UserError(_("Timer is already running."))
-        self.write({
-            'state': 'in_progress',
-            'timer_start': fields.Datetime.now(),
-            'date_start': fields.Datetime.now() if not self.date_start else self.date_start,
-        })
-        return True
 
     def action_start_timer_with_location(self, latitude=0.0, longitude=0.0):
-        """Start timer with geolocation — called by the OWL widget."""
         self.ensure_one()
-        if self.state not in ('new', 'scheduled'):
-            raise UserError(_("You can only start a new or scheduled order."))
+        if self.state not in ('new', 'scheduled', 'in_progress', 'paused'):
+            raise UserError(_("You can only start an active order."))
         if self.is_timer_running:
-            raise UserError(_("Timer is already running."))
+            raise UserError(_("Timer is already running for you."))
+            
+        if latitude and longitude:
+            pass
+            
         now = fields.Datetime.now()
-        vals = {
+        
+        self.env['field.service.active.timer'].create({
+            'order_id': self.id,
+            'user_id': self.env.user.id,
+            'start_time': now,
+            'current_latitude': latitude,
+            'current_longitude': longitude,
+        })
+        
+        self.write({
             'state': 'in_progress',
-            'timer_start': now,
             'date_start': now if not self.date_start else self.date_start,
-        }
-        if latitude and longitude:
-            vals['start_latitude'] = latitude
-            vals['start_longitude'] = longitude
-            vals['current_latitude'] = latitude
-            vals['current_longitude'] = longitude
-            vals['last_location_update'] = now
-        self.write(vals)
-        if latitude and longitude:
-            self.message_post(body=self._format_location_message(
-                "Timer Started", latitude, longitude
-            ))
+        })
         return True
 
     def action_update_current_location(self, latitude=0.0, longitude=0.0):
@@ -729,17 +738,88 @@ class FieldServiceOrder(models.Model):
         return True
 
     def action_pause_timer(self):
-        """Pause the timer — opens the stop wizard to log time."""
         self.ensure_one()
-        if not self.timer_start:
-            raise UserError(_('Timer is not running!'))
+        if not self.is_timer_running:
+            raise UserError(_("Timer is not running for you."))
         return self._open_stop_wizard(action='pause')
 
-    def action_stop_timer(self):
-        """Stop the timer and complete — opens the stop wizard."""
+    def action_view_rating(self):
+        return True
+
+    def action_mark_done(self):
         self.ensure_one()
-        if not self.timer_start:
-            raise UserError(_('Timer is not running!'))
+        if self.is_timer_running:
+            raise UserError(_("You must stop your timer before completing the job."))
+        remaining_timers = self.env['field.service.active.timer'].search_count([('order_id', '=', self.id)])
+        if remaining_timers > 0:
+            raise UserError(_("Other technicians are still working. All timers must be stopped before completing the job."))
+            
+        self.write({
+            'state': 'done',
+            'date_end': fields.Datetime.now(),
+        })
+        close_stage = self.env['field.service.stage'].search(
+            [('is_close', '=', True)], limit=1
+        )
+        if close_stage:
+            self.stage_id = close_stage
+            
+        self._create_stock_deduction()
+        return True
+
+    def _create_stock_deduction(self):
+        """Create and validate a stock.picking for materials used if enabled."""
+        self.ensure_one()
+        IrConfigParam = self.env['ir.config_parameter'].sudo()
+        if IrConfigParam.get_param('hudson_field_service.fs_stock_deduction') != 'True':
+            return
+            
+        picking_type_id = int(IrConfigParam.get_param('hudson_field_service.fs_default_picking_type_id', 0))
+        if not picking_type_id:
+            return
+            
+        picking_type = self.env['stock.picking.type'].browse(picking_type_id)
+        if not picking_type.exists():
+            return
+            
+        # Get storable or consumable products
+        valid_lines = self.product_line_ids.filtered(lambda l: l.product_id.type in ['product', 'consu'] and l.quantity > 0)
+        if not valid_lines:
+            return
+            
+        picking = self.env['stock.picking'].create({
+            'partner_id': self.partner_id.id,
+            'picking_type_id': picking_type.id,
+            'location_id': picking_type.default_location_src_id.id,
+            'location_dest_id': picking_type.default_location_dest_id.id or self.partner_id.property_stock_customer.id,
+            'fs_order_id': self.id,
+            'origin': self.name,
+        })
+        
+        move_vals = []
+        for line in valid_lines:
+            move_vals.append({
+                'name': line.description or line.product_id.name,
+                'product_id': line.product_id.id,
+                'product_uom_qty': line.quantity,
+                'product_uom': line.uom_id.id or line.product_id.uom_id.id,
+                'picking_id': picking.id,
+                'location_id': picking.location_id.id,
+                'location_dest_id': picking.location_dest_id.id,
+            })
+            
+        self.env['stock.move'].create(move_vals)
+        picking.action_confirm()
+        picking.action_assign()
+        # Automatically validate the transfer
+        for move in picking.move_ids:
+            move.quantity_done = move.product_uom_qty
+        picking.button_validate()
+
+    def action_stop_timer(self):
+        self.ensure_one()
+        if not self.is_timer_running:
+            raise UserError(_("Timer is not running for you."))
         return self._open_stop_wizard(action='stop')
 
     def action_resume_timer(self):
@@ -753,7 +833,6 @@ class FieldServiceOrder(models.Model):
         now = fields.Datetime.now()
         vals = {
             'state': 'in_progress',
-            'timer_start': now,
         }
         if self.last_paused_time:
             elapsed_rest = (now - self.last_paused_time).total_seconds() / 3600.0
@@ -764,37 +843,16 @@ class FieldServiceOrder(models.Model):
         return True
 
     def action_resume_timer_with_location(self, latitude=0.0, longitude=0.0):
-        """Resume timer with geolocation — called by the OWL widget."""
-        self.ensure_one()
-        if self.state != 'paused':
-            raise UserError(_("You can only resume a paused order."))
-        if self.is_timer_running:
-            raise UserError(_("Timer is already running."))
-        now = fields.Datetime.now()
-        vals = {
-            'state': 'in_progress',
-            'timer_start': now,
-        }
-        if self.last_paused_time:
-            elapsed_rest = (now - self.last_paused_time).total_seconds() / 3600.0
-            vals['rest_time_actual'] = self.rest_time_actual + elapsed_rest
-            vals['last_paused_time'] = False
-            
-        if latitude and longitude:
-            vals['current_latitude'] = latitude
-            vals['current_longitude'] = longitude
-            vals['last_location_update'] = now
-        self.write(vals)
-        if latitude and longitude:
-            self.message_post(body=self._format_location_message(
-                "Timer Resumed", latitude, longitude
-            ))
-        return True
+        return self.action_start_timer_with_location(latitude, longitude)
 
     def _open_stop_wizard(self, action='pause'):
-        """Open the stop timer wizard."""
+        active_timer = self.env['field.service.active.timer'].search([
+            ('order_id', '=', self.id),
+            ('user_id', '=', self.env.user.id)
+        ], limit=1)
+        
         now = fields.Datetime.now()
-        elapsed = (now - self.timer_start).total_seconds() / 3600.0 if self.timer_start else 0.0
+        elapsed = (now - active_timer.start_time).total_seconds() / 3600.0 if active_timer else 0.0
         return {
             'name': _('Stop Timer'),
             'type': 'ir.actions.act_window',
@@ -805,15 +863,18 @@ class FieldServiceOrder(models.Model):
             'context': {
                 'default_order_id': self.id,
                 'default_duration': round(elapsed, 2),
-                'default_start_time': self.timer_start,
+                'default_start_time': active_timer.start_time if active_timer else False,
                 'default_end_time': now,
                 'default_action_type': action,
-            },
+            }
         }
 
     # -------------------------------------------------------------------------
     # ACTION METHODS — WORKFLOW
     # -------------------------------------------------------------------------
+
+    def action_view_rating(self):
+        return True
 
     def action_mark_done(self):
         """Mark the field service order as done."""
@@ -891,7 +952,7 @@ class FieldServiceOrder(models.Model):
         """Cancel the field service order."""
         self.ensure_one()
         if self.is_timer_running:
-            self.write({'timer_start': False})
+            raise UserError(_("You must stop the timer before cancelling."))
         self.write({'state': 'cancelled'})
 
     def action_reset_to_new(self):
@@ -901,7 +962,6 @@ class FieldServiceOrder(models.Model):
             'state': 'new',
             'date_start': False,
             'date_end': False,
-            'timer_start': False,
             'is_published': False,
         })
         new_stage = self.env['field.service.stage'].search([], order='sequence, id', limit=1)
@@ -1108,6 +1168,39 @@ class FieldServiceOrder(models.Model):
         h = int(hours)
         m = int((hours - h) * 60)
         return f'{h:02d}:{m:02d}'
+
+    def action_view_pickings(self):
+        self.ensure_one()
+        return {
+            'name': 'Delivery Orders',
+            'view_mode': 'tree,form',
+            'res_model': 'stock.picking',
+            'domain': [('fs_order_id', '=', self.id)],
+            'context': {'default_fs_order_id': self.id},
+            'type': 'ir.actions.act_window',
+        }
+
+    def action_get_directions(self):
+        self.ensure_one()
+        if not self.partner_id:
+            return
+        # Create Google Maps URL
+        import urllib.parse
+        address = []
+        if self.partner_id.street: address.append(self.partner_id.street)
+        if self.partner_id.city: address.append(self.partner_id.city)
+        if self.partner_id.zip: address.append(self.partner_id.zip)
+        if self.partner_id.country_id: address.append(self.partner_id.country_id.name)
+        address_str = ', '.join(address)
+        if not address_str:
+            address_str = self.partner_id.name
+            
+        url = 'https://www.google.com/maps/dir/?api=1&destination=' + urllib.parse.quote(address_str)
+        return {
+            'type': 'ir.actions.act_url',
+            'url': url,
+            'target': 'new',
+        }
 
 
 class FieldServiceImage(models.Model):

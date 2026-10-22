@@ -1,6 +1,7 @@
 # Copyright 2024 Hudson Community
 # License LGPL-3.0 or later (http://www.gnu.org/licenses/lgpl).
 
+from . import http_patch
 from . import models
 from . import wizard
 from . import controllers
@@ -45,7 +46,8 @@ def _create_default_rules(env):
 
         # Look up folder from param first, then by name
         folder = None
-        folder_id_str = IcpParam.get_param(folder_param, "")
+        get_param_fn = getattr(IcpParam, "get_str", getattr(IcpParam, "get_param", lambda k, d="": d))
+        folder_id_str = get_param_fn(folder_param, "")
         if folder_id_str:
             try:
                 folder = Directory.browse(int(folder_id_str))

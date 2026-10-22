@@ -477,7 +477,7 @@
                             <div class="o_kanban_card_content">
                                 <div class="o_kanban_primary_left pb-2 border-bottom border-dark">
                                     <div class="o_primary mb-2 font-weight-bold">
-                                        <span><t t-esc="record.name.value"/></span>
+                                        <span><t t-out="record.name.value"/></span>
                                     </div>
                                 </div>
                                 <div class="kanban-middle-row d-flex justify-content-between align-items-center mt-3 mb-3">
@@ -489,11 +489,11 @@
                                     <div class="right-stats text-end">
                                         <div class="stat-line d-flex justify-content-between">
                                             <span class="stat-label text-success me-4">Tickets Closed</span>
-                                            <span class="stat-value text-success"><t t-esc="record.closed_ticket_count.value"/></span>
+                                            <span class="stat-value text-success"><t t-out="record.closed_ticket_count.value"/></span>
                                         </div>
                                         <div class="stat-line d-flex justify-content-between">
                                             <span class="stat-label text-success me-4">SLA Success Rate</span>
-                                            <span class="stat-value text-success"><t t-esc="record.sla_success_rate.value"/> %</span>
+                                            <span class="stat-value text-success"><t t-out="record.sla_success_rate.value"/> %</span>
                                         </div>
                                         <div class="stat-line d-flex justify-content-between">
                                             <span class="stat-label text-success me-4">Average Rating</span>
@@ -504,7 +504,7 @@
                                                 <t t-else="">
                                                     <i class="fa fa-smile-o text-success me-1"></i>
                                                 </t>
-                                                <t t-esc="Math.round(record.average_rating.raw_value)"/> / 5
+                                                <t t-out="Math.round(record.average_rating.raw_value)"/> / 5
                                             </span>
                                         </div>
                                     </div>
@@ -514,19 +514,19 @@
                             <div class="o_kanban_record_bottom">
                                 <div class="kanban-stats-row w-100">
                                     <div class="stat-col">
-                                        <div class="count"><t t-esc="record.open_ticket_count.value"/></div>
+                                        <div class="count"><t t-out="record.open_ticket_count.value"/></div>
                                         <div class="label">Open</div>
                                     </div>
                                     <div class="stat-col">
-                                        <div class="count"><t t-esc="record.unassigned_count.value"/></div>
+                                        <div class="count"><t t-out="record.unassigned_count.value"/></div>
                                         <div class="label">Unassigned</div>
                                     </div>
                                     <div class="stat-col">
-                                        <div class="count"><t t-esc="record.urgent_ticket_count.value"/></div>
+                                        <div class="count"><t t-out="record.urgent_ticket_count.value"/></div>
                                         <div class="label">Urgent</div>
                                     </div>
                                     <div class="stat-col">
-                                        <div class="count"><t t-esc="record.failed_ticket_count.value"/></div>
+                                        <div class="count"><t t-out="record.failed_ticket_count.value"/></div>
                                         <div class="label">Failed</div>
                                     </div>
                                 </div>

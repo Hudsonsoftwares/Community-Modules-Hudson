@@ -1,7 +1,7 @@
 /** @odoo-module **/
 
 import { registry } from "@web/core/registry";
-import { Component, useState, onWillStart, onWillDestroy } from "@odoo/owl";
+import { Component, proxy, onWillStart, onWillDestroy } from "@odoo/owl";
 import { useService } from "@web/core/utils/hooks";
 
 export class ShopFloorApp extends Component {
@@ -12,7 +12,7 @@ export class ShopFloorApp extends Component {
         this.action = useService("action");
         this.notification = useService("notification");
 
-        this.state = useState({
+        this.state = proxy({
             workcenters: [],
             selectedWorkcenter: null,
             mos: [],
@@ -89,6 +89,24 @@ export class ShopFloorApp extends Component {
     }
 
     // =========================================================
+    // Helpers
+    // =========================================================
+
+    isMoActive(mo) {
+        if (!this.state.activeWoId || !mo || !mo.workorders) {
+            return false;
+        }
+        return mo.workorders.some(w => w.id === this.state.activeWoId);
+    }
+
+    isMoInProgress(mo) {
+        if (!mo || !mo.workorders) {
+            return false;
+        }
+        return mo.workorders.some(w => w.state === "progress");
+    }
+
+    // =========================================================
     // Core data loading
     // =========================================================
 
@@ -100,17 +118,36 @@ export class ShopFloorApp extends Component {
 
     async loadWorkcenters() {
         const workcenters = await this.orm.searchRead("mrp.workcenter", [], ["name", "code"]);
-        const counts = await this.orm.call("mrp.workorder", "read_group", [
-            [["state", "in", ["ready", "progress", "pending"]]],
-            ["workcenter_id"],
-            ["workcenter_id"],
-        ]);
         const countMap = {};
         let totalCount = 0;
-        for (let c of counts) {
-            countMap[c.workcenter_id[0]] = c.workcenter_id_count;
-            totalCount += c.workcenter_id_count;
+        try {
+            // Odoo 20 read_group takes (domain, groupby, aggregates)
+            const counts = await this.orm.call("mrp.workorder", "read_group", [
+                [["state", "in", ["ready", "progress", "pending"]]],
+                ["workcenter_id"],
+                ["__count"],
+            ]);
+            for (const c of counts) {
+                if (Array.isArray(c)) {
+                    const wcId = c[0];
+                    const cnt = c[1] || 0;
+                    if (wcId) {
+                        countMap[wcId] = cnt;
+                        totalCount += cnt;
+                    }
+                } else if (c && typeof c === "object") {
+                    const wcId = Array.isArray(c.workcenter_id) ? c.workcenter_id[0] : c.workcenter_id;
+                    const cnt = c.workcenter_id_count || c.__count || 0;
+                    if (wcId) {
+                        countMap[wcId] = cnt;
+                        totalCount += cnt;
+                    }
+                }
+            }
+        } catch (e) {
+            console.error("Failed to read workorder groups:", e);
         }
+
         this.state.workcenters = [
             { id: "overview", name: "Overview", count: totalCount },
             ...workcenters.map(wc => ({ ...wc, count: countMap[wc.id] || 0 })),
@@ -259,8 +296,15 @@ export class ShopFloorApp extends Component {
 
     async actionScrap(woId) {
         this.closeOptionsModal();
-        const action = await this.orm.call("mrp.workorder", "button_scrap", [[woId]]);
-        if (action) this.action.doAction(action);
+        try {
+            const action = await this.orm.call("mrp.workorder", "action_scrap", [[woId]]);
+            if (action) {
+                await this.action.doAction(action);
+            }
+        } catch (e) {
+            console.error("Failed to scrap:", e);
+            this.notification.add("Failed to scrap: " + (e.message || e), { type: "danger" });
+        }
     }
 
     // =========================================================
@@ -291,10 +335,11 @@ export class ShopFloorApp extends Component {
         this.state.registerLotName = "";
         this.state.registerSelectedMoveId = null;
         try {
+            // In Odoo 20 stock.move uses 'quantity' instead of 'quantity_done'
             const moves = await this.orm.searchRead(
                 "stock.move",
                 [["raw_material_production_id", "=", moId], ["state", "not in", ["done", "cancel"]]],
-                ["id", "product_id", "product_uom_qty", "quantity_done"]
+                ["id", "product_id", "product_uom_qty", "quantity"]
             );
             this.state.registerProducts = moves;
             if (moves.length > 0) {
@@ -322,7 +367,7 @@ export class ShopFloorApp extends Component {
             const moveId = this.state.registerSelectedMoveId;
 
             if (moveId && qty > 0) {
-                await this.orm.write("stock.move", [moveId], { quantity_done: qty });
+                await this.orm.write("stock.move", [moveId], { quantity: qty });
             }
             await this.orm.write("mrp.production", [moId], { qty_producing: qty });
 
@@ -336,7 +381,8 @@ export class ShopFloorApp extends Component {
                 const lotId = existing.length > 0
                     ? existing[0].id
                     : await this.orm.create("stock.lot", [{ name: lotName, product_id: productId, company_id: companyId }]);
-                await this.orm.write("mrp.production", [moId], { lot_producing_id: lotId });
+                // In Odoo 20, mrp.production uses lot_producing_ids (Many2many)
+                await this.orm.write("mrp.production", [moId], { lot_producing_ids: [[4, lotId]] });
             }
             this.notification.add("Quantity registered successfully", { type: "success" });
             this.closeRegisterQtyModal();
@@ -465,6 +511,10 @@ export class ShopFloorApp extends Component {
         }
     }
 
+    get catalogCartCount() {
+        return Object.keys(this.state.catalogCart).length;
+    }
+
     get catalogPageStart() {
         return (this.state.catalogPage - 1) * 40 + 1;
     }
@@ -508,7 +558,6 @@ export class ShopFloorApp extends Component {
         if (this.state.catalogCart[productId].qty > 1) {
             this.state.catalogCart[productId].qty -= 1;
         } else {
-            // Remove from cart by reassigning the object without this key
             const newCart = {};
             for (const [k, v] of Object.entries(this.state.catalogCart)) {
                 if (parseInt(k) !== productId) newCart[k] = v;
@@ -550,7 +599,7 @@ export class ShopFloorApp extends Component {
                     name: item.name,
                     product_id: item.productId,
                     product_uom_qty: item.qty,
-                    quantity_done: item.qty,
+                    quantity: item.qty,
                     product_uom: item.uomId,
                     raw_material_production_id: moId,
                     location_id: mo.location_src_id[0],
@@ -587,7 +636,6 @@ export class ShopFloorApp extends Component {
         this.state.addWorkOrderDateStart = "";
         this.state.addWorkOrderEmployeeId = null;
         this.state.addWorkOrderOperations = mo ? mo.workorders : [];
-        // Default: insert after the last workorder
         this.state.addWorkOrderInsertAfterId = (mo && mo.workorders.length > 0)
             ? mo.workorders[mo.workorders.length - 1].id
             : null;
@@ -638,8 +686,9 @@ export class ShopFloorApp extends Component {
         }
         try {
             const moId = this.state.addWorkOrderMoId;
+            // In Odoo 20, mrp.production quantity field is 'product_qty'
             const moData = await this.orm.read("mrp.production", [moId],
-                ["product_id", "company_id", "qty_production"]);
+                ["product_id", "company_id", "product_qty"]);
             const mo = moData[0];
 
             const vals = {
@@ -647,7 +696,7 @@ export class ShopFloorApp extends Component {
                 production_id: moId,
                 workcenter_id: this.state.addWorkOrderWorkcenterId,
                 product_id: mo.product_id[0],
-                qty_production: mo.qty_production,
+                qty_production: mo.product_qty,
                 company_id: mo.company_id[0],
                 state: "ready",
                 duration_expected: parseInt(this.state.addWorkOrderDurationMin) || 0,

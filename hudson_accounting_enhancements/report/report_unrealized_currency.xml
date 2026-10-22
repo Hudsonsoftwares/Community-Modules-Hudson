@@ -9,9 +9,9 @@
                             <h2 style="font-weight:bold; color:#2c3e50;">
                                 Unrealized Foreign Currency Gains / Losses
                             </h2>
-                            <h4 t-esc="company.name" style="color:#7f8c8d;"/>
+                            <h4 t-out="company.name" style="color:#7f8c8d;"/>
                             <p class="text-muted">
-                                As of <strong><t t-esc="data.get('as_of_date')"/></strong>
+                                As of <strong><t t-out="data.get('as_of_date')"/></strong>
                             </p>
                         </div>
                     </div>
@@ -26,8 +26,8 @@
 
                     <t t-foreach="data.get('results', [])" t-as="group">
                         <h5 style="color:#2c3e50; font-weight:bold; margin-top:20px;">
-                            Currency: <t t-esc="group.get('currency_name')"/>
-                            (<t t-esc="group.get('currency_symbol')"/>)
+                            Currency: <t t-out="group.get('currency_name')"/>
+                            (<t t-out="group.get('currency_symbol')"/>)
                         </h5>
                         <table class="table table-sm table-reports" style="font-size:12px;">
                             <thead>
@@ -37,55 +37,55 @@
                                     <th>Reference</th>
                                     <th>Account</th>
                                     <th class="text-end">Foreign Amount</th>
-                                    <th class="text-end">Book Value (<t t-esc="currency.name"/>)</th>
+                                    <th class="text-end">Book Value (<t t-out="currency.name"/>)</th>
                                     <th class="text-end">Rate</th>
-                                    <th class="text-end">Current Value (<t t-esc="currency.name"/>)</th>
+                                    <th class="text-end">Current Value (<t t-out="currency.name"/>)</th>
                                     <th class="text-end">Unrealized Gain/(Loss)</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <t t-foreach="group.get('items', [])" t-as="item">
                                     <tr>
-                                        <td><t t-esc="item.get('partner')"/></td>
-                                        <td><t t-esc="item.get('date')"/></td>
-                                        <td><t t-esc="item.get('ref')"/></td>
-                                        <td><t t-esc="item.get('account')"/></td>
+                                        <td><t t-out="item.get('partner')"/></td>
+                                        <td><t t-out="item.get('date')"/></td>
+                                        <td><t t-out="item.get('ref')"/></td>
+                                        <td><t t-out="item.get('account')"/></td>
                                         <td class="text-end">
-                                            <t t-esc="item.get('amount_foreign')"/>
+                                            <t t-out="item.get('amount_foreign')"/>
                                         </td>
                                         <td class="text-end">
-                                            <span t-esc="item.get('original_company', 0)"
+                                            <span t-out="item.get('original_company', 0)"
                                                   t-options="{'widget': 'monetary', 'display_currency': currency}"/>
                                         </td>
                                         <td class="text-end">
-                                            <t t-esc="item.get('current_rate')"/>
+                                            <t t-out="item.get('current_rate')"/>
                                         </td>
                                         <td class="text-end">
-                                            <span t-esc="item.get('current_company', 0)"
+                                            <span t-out="item.get('current_company', 0)"
                                                   t-options="{'widget': 'monetary', 'display_currency': currency}"/>
                                         </td>
                                         <td class="text-end"
                                             t-attf-style="color: {{ 'green' if item.get('unrealized', 0) >= 0 else 'red' }}; font-weight:bold;">
-                                            <span t-esc="item.get('unrealized', 0)"
+                                            <span t-out="item.get('unrealized', 0)"
                                                   t-options="{'widget': 'monetary', 'display_currency': currency}"/>
                                         </td>
                                     </tr>
                                 </t>
                                 <!-- Currency subtotal -->
                                 <tr style="background:#f0f0f0; font-weight:bold;">
-                                    <td colspan="5">Subtotal — <t t-esc="group.get('currency_name')"/></td>
+                                    <td colspan="5">Subtotal — <t t-out="group.get('currency_name')"/></td>
                                     <td class="text-end">
-                                        <span t-esc="group.get('total_original', 0)"
+                                        <span t-out="group.get('total_original', 0)"
                                               t-options="{'widget': 'monetary', 'display_currency': currency}"/>
                                     </td>
                                     <td></td>
                                     <td class="text-end">
-                                        <span t-esc="group.get('total_current', 0)"
+                                        <span t-out="group.get('total_current', 0)"
                                               t-options="{'widget': 'monetary', 'display_currency': currency}"/>
                                     </td>
                                     <td class="text-end"
                                         t-attf-style="color: {{ 'green' if group.get('total_gain_loss', 0) >= 0 else 'red' }}; font-weight:bold;">
-                                        <span t-esc="group.get('total_gain_loss', 0)"
+                                        <span t-out="group.get('total_gain_loss', 0)"
                                               t-options="{'widget': 'monetary', 'display_currency': currency}"/>
                                     </td>
                                 </tr>
@@ -102,7 +102,7 @@
                                         <td style="padding:10px;">Total Unrealized Gain / (Loss)</td>
                                         <td class="text-end" style="padding:10px;"
                                             t-attf-style="color: {{ 'lightgreen' if data.get('total_unrealized', 0) >= 0 else '#ff6b6b' }}; background:#2c3e50;">
-                                            <span t-esc="data.get('total_unrealized', 0)"
+                                            <span t-out="data.get('total_unrealized', 0)"
                                                   t-options="{'widget': 'monetary', 'display_currency': currency}"/>
                                         </td>
                                     </tr>

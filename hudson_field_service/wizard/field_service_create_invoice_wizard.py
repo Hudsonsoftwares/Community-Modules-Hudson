@@ -53,7 +53,11 @@ class FieldServiceCreateInvoiceWizard(models.TransientModel):
     def _compute_time_amount(self):
         for wizard in self:
             if wizard.include_time and wizard.order_id:
-                wizard.time_amount = wizard.order_id.total_time_spent * wizard.hourly_rate
+                amount = 0.0
+                for line in wizard.order_id.timesheet_ids:
+                    cost = line.employee_id.hourly_cost if hasattr(line.employee_id, 'hourly_cost') and line.employee_id.hourly_cost else wizard.hourly_rate
+                    amount += line.duration * cost
+                wizard.time_amount = amount
             else:
                 wizard.time_amount = 0.0
 
@@ -90,8 +94,8 @@ class FieldServiceCreateInvoiceWizard(models.TransientModel):
 
         invoice_lines = []
 
-        # Add time charge line
-        if self.include_time and order.total_time_spent > 0:
+        # Add time charge lines per employee
+        if self.include_time and order.timesheet_ids:
             time_product = False
             time_template = self.env.ref(
                 'hudson_field_service.product_field_service_time',
@@ -99,14 +103,26 @@ class FieldServiceCreateInvoiceWizard(models.TransientModel):
             )
             if time_template:
                 time_product = time_template.product_variant_id
-            invoice_lines.append((0, 0, {
-                'name': _('Field Service Time - %s [%s hours]') % (
-                    order.title, round(order.total_time_spent, 2)
-                ),
-                'quantity': order.total_time_spent,
-                'price_unit': self.hourly_rate,
-                'product_id': time_product.id if time_product else False,
-            }))
+                
+            time_by_emp = {}
+            for line in order.timesheet_ids:
+                emp = line.employee_id
+                if emp not in time_by_emp:
+                    cost = emp.hourly_cost if hasattr(emp, 'hourly_cost') and emp.hourly_cost else self.hourly_rate
+                    time_by_emp[emp] = {'duration': 0.0, 'cost': cost}
+                time_by_emp[emp]['duration'] += line.duration
+                
+            for emp, data in time_by_emp.items():
+                if data['duration'] > 0:
+                    emp_name = emp.name if emp else _('Unknown Technician')
+                    invoice_lines.append((0, 0, {
+                        'name': _('Field Service Time - %s - %s [%s hours]') % (
+                            order.title, emp_name, round(data['duration'], 2)
+                        ),
+                        'quantity': data['duration'],
+                        'price_unit': data['cost'],
+                        'product_id': time_product.id if time_product else False,
+                    }))
 
         # Add product lines
         if self.include_products:

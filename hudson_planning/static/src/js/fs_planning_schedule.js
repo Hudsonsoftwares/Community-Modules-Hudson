@@ -2,7 +2,7 @@
 
 import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
-import { Component, useState, onMounted, onWillUnmount } from "@odoo/owl";
+import { Component, useState, onMounted, onWillUnmount, useProps, proxy } from "@odoo/owl";
 
 // Helpers
 function startOfDay(d) {
@@ -36,12 +36,7 @@ const MONTH_NAMES = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct"
 
 export class FsPlanningSchedule extends Component {
     static template = "hudson_planning.FsPlanningSchedule";
-    static props = {
-        action: { type: Object, optional: true },
-        actionId: { type: [Number, String], optional: true },
-        updateActionState: { type: Function, optional: true },
-        className: { type: String, optional: true },
-    };
+    props = useProps();
 
     setup() {
         this.orm = useService("orm");
@@ -50,7 +45,7 @@ export class FsPlanningSchedule extends Component {
         
         const myPlanningContext = this.props.action && this.props.action.context && this.props.action.context.default_my_planning;
 
-        this.state = useState({
+        this.state = proxy({
             mode: "week",
             anchorDate: startOfDay(new Date()),
             customStartDate: new Date().toISOString().split('T')[0],
@@ -278,7 +273,7 @@ export class FsPlanningSchedule extends Component {
             const slotRecords = await this.orm.searchRead(
                 "fs.planning.slot",
                 slotDomain,
-                ["id", "name", "resource_id", "role_id", "date_start", "date_end", "state", "partner_id", "attendance_status", "allocated_hours"]
+                ["id", "name", "resource_id", "role_id", "date_start", "date_end", "state", "partner_id", "allocated_hours"]
             );
 
             this.state.slots = slotRecords.map(s => ({

@@ -7,7 +7,7 @@
         routing to folders for HR, Recruitment, Accounting, Products,
         Projects, Approvals and Sign modules.
     """,
-    "version": "19.0.1.0.0",
+    "version": "20.0.1.0.0",
     "category": "Document Management",
     "license": "LGPL-3",
     "author": "Hudson Community",
@@ -23,8 +23,9 @@
     "data": [
         # Security
         "security/security.xml",
-        "security/ir.model.access.csv",
-        "security/ir_rule.xml",
+        "security/ir.access.csv",
+        # Override base DMS ir.access rules to enforce per-user visibility
+        "security/dms_access_overrides.xml",
         # Data (must be before views so default folders exist)
         "data/res_groups_privilege.xml",
         "data/dms_sequence.xml",
@@ -59,6 +60,7 @@
             "dms_enterprise_features/static/src/xml/signature_client_action.xml",
             "dms_enterprise_features/static/src/js/search_panel_trash.js",
             "dms_enterprise_features/static/src/xml/search_panel_trash.xml",
+            "dms_enterprise_features/static/src/js/dms_history.js",
             "dms_enterprise_features/static/src/js/unified_kanban_renderer.js",
             "dms_enterprise_features/static/src/xml/unified_kanban_renderer.xml",
             "dms_enterprise_features/static/src/js/unified_list_renderer.js",

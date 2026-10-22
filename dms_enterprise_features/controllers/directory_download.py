@@ -2,7 +2,8 @@ import io
 import zipfile
 import base64
 from odoo import http, _
-from odoo.http import request, content_disposition
+from odoo.http import request
+from odoo.http.stream import content_disposition
 from odoo.exceptions import AccessError
 
 class DmsDirectoryDownloadController(http.Controller):

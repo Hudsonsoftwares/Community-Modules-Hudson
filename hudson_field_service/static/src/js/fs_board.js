@@ -2,7 +2,7 @@
 
 import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
-import { Component, useState, onMounted, onWillUnmount } from "@odoo/owl";
+import { Component, proxy, onMounted, onWillUnmount, useProps } from "@odoo/owl";
 
 // Helpers
 function startOfDay(d) {
@@ -36,12 +36,7 @@ const MONTH_NAMES = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct"
 
 export class FsBoard extends Component {
     static template = "hudson_field_service.FsBoard";
-    static props = {
-        action: { type: Object, optional: true },
-        actionId: { type: [Number, String], optional: true },
-        updateActionState: { type: Function, optional: true },
-        className: { type: String, optional: true },
-    };
+    props = useProps();
 
     setup() {
         this.orm = useService("orm");
@@ -50,7 +45,7 @@ export class FsBoard extends Component {
         
         const myPlanningContext = this.props.action && this.props.action.context && this.props.action.context.default_my_planning;
 
-        this.state = useState({
+        this.state = proxy({
             mode: "week",
             anchorDate: startOfDay(new Date()),
             customStartDate: new Date().toISOString().split('T')[0],
@@ -74,6 +69,10 @@ export class FsBoard extends Component {
         onMounted(async () => {
             await this._loadData();
         });
+    }
+
+    get autoPlanEnabled() {
+        return Boolean(this.props?.autoPlanEnabled);
     }
 
     get filteredResources() {

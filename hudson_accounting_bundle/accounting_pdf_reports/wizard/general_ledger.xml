@@ -21,7 +21,6 @@
                     <field name="sortby" widget="radio"/>
                     <field name="display_account" widget="radio"/>
                     <field name="initial_balance"/>
-                    <newline/>
                 </xpath>
             </data>
         </field>
@@ -33,7 +32,7 @@
         <field name="res_model">account.report.general.ledger</field>
         <field name="view_mode">form</field>
         <field name="view_id" ref="account_report_general_ledger_view"/>
-        <field name="target">current</field>
+        <field name="target">new</field>
         <field name="binding_model_id" ref="account.model_account_account" />
         <field name="binding_type">report</field>
     </record>
@@ -43,6 +42,6 @@
               sequence="10"
               parent="menu_finance_audit_reports"
               action="action_account_general_ledger_menu"
-              groups="account.group_account_user,account.group_account_manager"/>
+              groups="account.group_account_readonly,account.group_account_manager"/>
 
 </odoo>

@@ -65,6 +65,11 @@
                 <header>
                     <!-- Timer Widget: Start/Resume/Pause/Stop with auto-geolocation -->
                     <widget name="field_service_timer"/>
+                    <button name="action_get_directions"
+                            string="Get Directions"
+                            type="object"
+                            class="btn-info"
+                            icon="fa-map-marker"/>
                     <button name="action_mark_done"
                             string="Mark Done"
                             type="object"
@@ -102,6 +107,14 @@
 
                 <sheet>
                     <div class="oe_button_box" name="button_box">
+                        <!-- Delivery Orders stat button -->
+                        <button name="action_view_pickings"
+                                type="object"
+                                class="oe_stat_button"
+                                icon="fa-truck"
+                                invisible="picking_count == 0">
+                            <field name="picking_count" string="Deliveries" widget="statinfo"/>
+                        </button>
                         <!-- Time Entries stat button -->
                         <button name="action_view_timesheets"
                                 type="object"
@@ -132,7 +145,7 @@
                         </button>
                         <!-- Customer Rating stat button (shown after completion) -->
                         <button type="object"
-                                name="action_mark_done"
+                                name="action_view_rating"
                                 class="oe_stat_button"
                                 icon="fa-star"
                                 invisible="not customer_rating">
@@ -191,7 +204,7 @@
                         <group string="Time Tracking">
                             <field name="date_start"/>
                             <field name="date_end"/>
-                            <field name="timer_start" invisible="1"/>
+
                             <field name="is_timer_running" invisible="1"/>
                             <field name="duration_actual" widget="float_time" string="Total Time Spent"/>
                             <field name="rest_time_actual" widget="float_time"/>
@@ -462,7 +475,7 @@
         <field name="arch" type="xml">
             <calendar string="Field Service Calendar"
                       date_start="date_planned"
-                      date_delay="duration_planned"
+                      date_stop="date_deadline"
                       color="employee_id"
                       mode="week"
                       event_open_popup="true"

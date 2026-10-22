@@ -26,12 +26,23 @@ class HudsonSignTemplate(models.Model):
         if not file_name.lower().endswith('.pdf'):
             raise UserError(_("Only PDF files are supported."))
             
-        attachment = self.env['ir.attachment'].create({
+        decoded_data = file_content
+        if isinstance(file_content, str):
+            try:
+                decoded_data = base64.b64decode(file_content)
+            except Exception:
+                decoded_data = file_content
+
+        attach_vals = {
             'name': file_name,
-            'datas': file_content,
             'type': 'binary',
             'mimetype': 'application/pdf'
-        })
+        }
+        if 'raw' in self.env['ir.attachment']._fields:
+            attach_vals['raw'] = decoded_data
+        else:
+            attach_vals['datas'] = file_content
+        attachment = self.env['ir.attachment'].create(attach_vals)
         
         template = self.env['hudson.sign.template'].create({
             'name': file_name.rsplit('.', 1)[0],
@@ -71,11 +82,11 @@ class HudsonSignTemplate(models.Model):
         unique_suffix = datetime.now().strftime('%Y%m%d%H%M%S')
         file_name = f"{self.name} - Signature Request - {unique_suffix}"
         
-        # Use sudo to bypass DMS permission checks during automated file creation
+        pdf_data = self.attachment_id.raw if hasattr(self.attachment_id, 'raw') and self.attachment_id.raw else getattr(self.attachment_id, 'datas', False)
         new_file = self.env['dms.file'].sudo().create({
             'name': file_name,
             'directory_id': sign_dir.id,
-            'content': self.attachment_id.datas,
+            'content': pdf_data,
             'mimetype': self.attachment_id.mimetype or 'application/pdf',
             'extension': 'pdf'
         })
@@ -314,12 +325,16 @@ class HudsonSignTemplateUploadWizard(models.TransientModel):
         if not self.file_name.lower().endswith('.pdf'):
             raise UserError(_("Only PDF files are supported."))
             
-        attachment = self.env['ir.attachment'].create({
+        attach_vals = {
             'name': self.file_name,
-            'datas': self.file_content,
             'type': 'binary',
             'mimetype': 'application/pdf'
-        })
+        }
+        if 'raw' in self.env['ir.attachment']._fields:
+            attach_vals['raw'] = self.file_content
+        else:
+            attach_vals['datas'] = self.file_content
+        attachment = self.env['ir.attachment'].create(attach_vals)
         
         template = self.env['hudson.sign.template'].create({
             'name': self.file_name.rsplit('.', 1)[0],

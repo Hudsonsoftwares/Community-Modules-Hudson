@@ -1,6 +1,8 @@
+import datetime
 from PIL import Image
 from odoo import api, fields, models, _
 from odoo.exceptions import UserError, AccessError
+from markupsafe import Markup
 
 class DMSFile(models.Model):
     _inherit = "dms.file"
@@ -18,8 +20,6 @@ class DMSFile(models.Model):
             else:
                 one.image_1920 = False
 
-
-
     # Document Controller Fields
     directory_id = fields.Many2one(
         comodel_name="dms.directory",
@@ -32,6 +32,64 @@ class DMSFile(models.Model):
         copy=False,
         default=lambda self: _('New')
     )
+    file_type_display = fields.Char(
+        string="File Type",
+        compute="_compute_file_type_display",
+    )
+
+    @api.depends("extension", "mimetype", "name")
+    def _compute_file_type_display(self):
+        MIME_MAP = {
+            "pdf": _("PDF Document"),
+            "docx": _("Word Document"),
+            "doc": _("Word Document"),
+            "xlsx": _("Excel Spreadsheet"),
+            "xls": _("Excel Spreadsheet"),
+            "pptx": _("PowerPoint Presentation"),
+            "ppt": _("PowerPoint Presentation"),
+            "txt": _("Text Document"),
+            "csv": _("CSV Spreadsheet"),
+            "zip": _("ZIP Archive"),
+            "rar": _("RAR Archive"),
+            "7z": _("7-Zip Archive"),
+            "tar": _("TAR Archive"),
+            "gz": _("GZip Archive"),
+            "png": _("PNG Image"),
+            "jpg": _("JPEG Image"),
+            "jpeg": _("JPEG Image"),
+            "gif": _("GIF Image"),
+            "webp": _("WebP Image"),
+            "svg": _("SVG Vector Graphic"),
+            "mp4": _("MP4 Video"),
+            "mkv": _("MKV Video"),
+            "avi": _("AVI Video"),
+            "mov": _("MOV Video"),
+            "mp3": _("MP3 Audio"),
+            "wav": _("WAV Audio"),
+            "json": _("JSON File"),
+            "xml": _("XML Document"),
+            "html": _("HTML Webpage"),
+        }
+        for rec in self:
+            ext = (rec.extension or '').lower().strip('.')
+            if not ext and rec.name and '.' in rec.name:
+                ext = rec.name.split('.')[-1].lower()
+
+            if ext in MIME_MAP:
+                rec.file_type_display = f"{MIME_MAP[ext]} (.{ext})"
+            elif rec.mimetype and rec.mimetype.startswith("image/"):
+                rec.file_type_display = _("%s Image (.%s)") % (ext.upper() if ext else "Raster", ext or "img")
+            elif rec.mimetype and rec.mimetype.startswith("video/"):
+                rec.file_type_display = _("%s Video (.%s)") % (ext.upper() if ext else "Media", ext or "vid")
+            elif rec.mimetype and rec.mimetype.startswith("audio/"):
+                rec.file_type_display = _("%s Audio (.%s)") % (ext.upper() if ext else "Sound", ext or "aud")
+            elif ext:
+                rec.file_type_display = _("%s File (.%s)") % (ext.upper(), ext)
+            elif rec.mimetype and rec.mimetype != "application/octet-stream":
+                rec.file_type_display = rec.mimetype
+            else:
+                rec.file_type_display = _("Binary File")
+
 
     @api.model
     def search_panel_select_range(self, field_name, **kwargs):
@@ -39,18 +97,26 @@ class DMSFile(models.Model):
         if isinstance(res, dict) and field_name == 'directory_id' and 'values' in res:
             directory_ids = [v['id'] for v in res['values'] if isinstance(v, dict) and 'id' in v]
             directories = self.env['dms.directory'].browse(directory_ids)
+            file_data = self.env['dms.file']._read_group(
+                [('directory_id', 'in', directory_ids), ('is_trashed', '=', False)],
+                groupby=['directory_id'],
+                aggregates=['__count']
+            )
+            file_counts = {dir_rec.id: count for dir_rec, count in file_data}
             dir_permissions = {
                 d.id: {
                     'permission_download': d.permission_download,
                     'permission_write': d.permission_write,
                     'permission_unlink': d.permission_unlink,
                     'permission_move': d.permission_move,
+                    'count_files': file_counts.get(d.id, 0),
                 } for d in directories
             }
             for v in res['values']:
                 if isinstance(v, dict) and 'id' in v:
                     perms = dir_permissions.get(v['id'], {})
                     v.update(perms)
+                    v['__count'] = perms.get('count_files', 0)
         return res
 
     @api.model
@@ -63,6 +129,20 @@ class DMSFile(models.Model):
         elif "values" not in res:
             res["values"] = []
         return res
+
+    @api.model
+    def get_upload_config(self):
+        """Return upload constraints for client-side validation before upload."""
+        max_size_mb = self._get_binary_max_size()
+        forbidden_extensions = [
+            ext.strip().lower().lstrip('.')
+            for ext in self._get_forbidden_extensions()
+            if ext.strip()
+        ]
+        return {
+            'max_size_mb': max_size_mb,
+            'forbidden_extensions': forbidden_extensions,
+        }
 
     @api.model
     def default_get(self, fields_list):
@@ -106,6 +186,20 @@ class DMSFile(models.Model):
         string="Document Owner",
         default=lambda self: self.env.user
     )
+
+    def action_open_owner(self):
+        self.ensure_one()
+        owner = self.document_owner_id or self.create_uid
+        if not owner:
+            return False
+        return {
+            'type': 'ir.actions.act_window',
+            'name': owner.name,
+            'res_model': 'res.users',
+            'res_id': owner.id,
+            'views': [[False, 'form']],
+            'target': 'current',
+        }
     confidentiality = fields.Selection(
         selection=[
             ('public', 'Public'),
@@ -149,6 +243,7 @@ class DMSFile(models.Model):
 
     def _compute_share_link_url(self):
         base_url = self.env['ir.config_parameter'].sudo().get_param('web.base.url', '')
+        dbname = self.env.cr.dbname
         for record in self:
             token = record._portal_ensure_token() if hasattr(record, '_portal_ensure_token') else record.access_token
             if not token:
@@ -158,7 +253,28 @@ class DMSFile(models.Model):
                     import secrets
                     token = secrets.token_urlsafe(20)
                     record.sudo().write({'access_token': token})
-            record.share_link_url = f"{base_url}/dms/share/file/{token}"
+            record.share_link_url = f"{base_url.rstrip('/')}/dms/share/file/{token}?db={dbname}"
+
+    @api.model
+    def _register_hook(self):
+        res = super()._register_hook()
+        try:
+            from ..http_patch import apply_http_patch
+            apply_http_patch()
+        except Exception:
+            pass
+        return res
+
+    @api.model
+    def action_apply_router_patch(self):
+        import importlib
+        import sys
+        if 'dms_enterprise_features.http_patch' in sys.modules:
+            importlib.reload(sys.modules['dms_enterprise_features.http_patch'])
+        from ..http_patch import apply_http_patch
+        apply_http_patch()
+        from odoo.http import router
+        return getattr(router._set_session_and_dbname, '__name__', 'None')
 
     def action_open_share_wizard(self):
         self.ensure_one()
@@ -171,6 +287,7 @@ class DMSFile(models.Model):
             'view_mode': 'form',
             'target': 'new',
             'context': {
+                'dialog_size': 'md',
                 'default_file_id': self.id,
             },
         }
@@ -299,7 +416,8 @@ class DMSFile(models.Model):
             record.is_my_file = bool(is_creator or is_owner or is_approver or has_access)
 
     def _search_is_my_file(self, operator, value):
-        from odoo.osv.expression import OR
+        from odoo.fields import Domain
+        OR = Domain.OR
         uid = self.env.uid
         partner_id = self.env.user.partner_id.id if self.env.user.partner_id else 0
         groups = getattr(self.env.user, 'group_ids', getattr(self.env.user, 'groups_id', self.env['res.groups']))
@@ -412,7 +530,7 @@ class DMSFile(models.Model):
 
             record.sudo().write({'approval_state': 'in_approval'})
             record.sudo().message_post(
-                body=_("Approval requested. Waiting for: <strong>%s</strong> (Mode: %s)") % (
+                body=Markup(_("Approval requested. Waiting for: <strong>%s</strong> (Mode: %s)")) % (
                     approver_names,
                     _("Sequential") if record.is_sequential_approval else _("Parallel")
                 ),
@@ -444,7 +562,7 @@ class DMSFile(models.Model):
                 'res_model_id': self.env['ir.model']._get('dms.file').id,
                 'activity_type_id': self.env.ref('mail.mail_activity_data_todo').id,
                 'summary': _('Document Approval Request: %s') % self.name,
-                'note': _('Please review and approve the document <strong>%s</strong>.') % self.name,
+                'note': Markup(_('Please review and approve the document <strong>%s</strong>.')) % self.name,
                 'user_id': approver_user.id,
             })
         except Exception:
@@ -474,7 +592,7 @@ class DMSFile(models.Model):
             activities.action_feedback(feedback=_("Approved"))
 
             record.sudo().message_post(
-                body=_("Approved step for <strong>%s</strong>.") % pending_step.approver_id.name,
+                body=Markup(_("Approved step for <strong>%s</strong>.")) % pending_step.approver_id.name,
                 subtype_xmlid="mail.mt_note"
             )
 
@@ -485,7 +603,7 @@ class DMSFile(models.Model):
                     next_step.sudo().write({'status': 'pending'})
                     record._notify_approver(next_step.approver_id)
                     record.sudo().message_post(
-                        body=_("Next approval step activated for <strong>%s</strong>.") % next_step.approver_id.name,
+                        body=Markup(_("Next approval step activated for <strong>%s</strong>.")) % next_step.approver_id.name,
                         subtype_xmlid="mail.mt_note"
                     )
                 else:
@@ -498,7 +616,7 @@ class DMSFile(models.Model):
     def _on_fully_approved(self):
         for record in self:
             # Option B: Keep in original folder, set approved state
-            record.sudo().write({'approval_state': 'approved'})
+            record.sudo().with_context(dms_skip_log=True).write({'approval_state': 'approved'})
             self.env['dms.file.log'].sudo().create({
                 'name': record.name,
                 'file_id': record.id,
@@ -514,14 +632,14 @@ class DMSFile(models.Model):
                         'res_model_id': self.env['ir.model']._get('dms.file').id,
                         'activity_type_id': self.env.ref('mail.mail_activity_data_todo').id,
                         'summary': _('Document Approved: %s') % record.name,
-                        'note': _('Your document <strong>%s</strong> has been fully approved.') % record.name,
+                        'note': Markup(_('Your document <strong>%s</strong> has been fully approved.')) % record.name,
                         'user_id': owner.id,
                     })
                 except Exception:
                     pass
 
             record.sudo().message_post(
-                body=_("🎉 <strong>Document Fully Approved!</strong>"),
+                body=Markup(_("🎉 <strong>Document Fully Approved!</strong>")),
                 subtype_xmlid="mail.mt_note"
             )
 
@@ -607,7 +725,7 @@ class DMSFile(models.Model):
                         'res_model_id': self.env['ir.model']._get('dms.file').id,
                         'activity_type_id': self.env.ref('mail.mail_activity_data_todo').id,
                         'summary': _('Document Rejected: %s') % record.name,
-                        'note': _('Your document <strong>%s</strong> was rejected by <strong>%s</strong>.<br/><strong>Reason:</strong> %s') % (record.name, rejector_name, reason),
+                        'note': Markup(_('Your document <strong>%s</strong> was rejected by <strong>%s</strong>.<br/><strong>Reason:</strong> %s')) % (record.name, rejector_name, reason),
                         'user_id': owner.id,
                     })
                 except Exception:
@@ -615,7 +733,7 @@ class DMSFile(models.Model):
 
             # Post in chatter
             record.sudo().message_post(
-                body=_("Document Rejected by %s<br/><strong>Reason:</strong> %s") % (rejector_name, reason),
+                body=Markup(_("Document Rejected by %s<br/><strong>Reason:</strong> %s")) % (rejector_name, reason),
                 subtype_xmlid="mail.mt_note"
             )
 
@@ -640,6 +758,8 @@ class DMSFile(models.Model):
 
     @api.model_create_multi
     def create(self, vals_list):
+        if not self.env.su and not self._is_dms_privileged_user():
+            raise AccessError(_("Only Documents Managers and Administrators are allowed to upload or create files."))
         for vals in vals_list:
             if vals.get('document_number', _('New')) == _('New'):
                 vals['document_number'] = self.env['ir.sequence'].next_by_code('dms.file.document.number') or _('New')
@@ -671,12 +791,16 @@ class DMSFile(models.Model):
                     if 'is_sequential_approval' not in vals:
                         vals['is_sequential_approval'] = owner.default_is_sequential_approval
         
-        records = super().create(vals_list)
+        records = super(DMSFile, self.with_context(dms_creating_file=True)).create(vals_list)
         for record in records:
+            dir_name = record.directory_id.name or _("Root")
             self.env['dms.file.log'].sudo().create({
                 'name': record.name,
                 'file_id': record.id,
                 'action': 'create',
+                'details': _("Document uploaded into folder '%s'") % dir_name,
+                'user_id': self.env.user.id,
+                'date': fields.Datetime.now(),
             })
             if record.content and not record.revision_ids:
                 uploader = self.env.user if not self.env.user._is_public() else (record.document_owner_id or record.create_uid or self.env.ref('base.user_admin'))
@@ -690,7 +814,7 @@ class DMSFile(models.Model):
                     'comments': _('Initial version'),
                     'is_current': True,
                 })
-                record.with_context(from_revert_revision=True).write({'current_revision_id': rev.id})
+                record.with_context(from_revert_revision=True, dms_skip_log=True).write({'current_revision_id': rev.id})
         return records
 
     def write(self, vals):
@@ -717,14 +841,109 @@ class DMSFile(models.Model):
         is_revert = self.env.context.get('from_revert_revision') or self.env.context.get('no_new_revision')
         has_new_content = 'content' in vals and vals.get('content') and not is_revert
 
+        # Track previous values before write to detect meaningful changes
+        records_pre = {}
+        for rec in self:
+            records_pre[rec.id] = {
+                'name': rec.name,
+                'directory_id': rec.directory_id,
+                'category_id': rec.category_id,
+                'department_id': rec.department_id,
+                'document_owner_id': rec.document_owner_id,
+                'approval_state': rec.approval_state,
+                'is_trashed': rec.is_trashed,
+                'active': rec.active,
+                'expiration_date': getattr(rec, 'expiration_date', False),
+            }
+
         res = super().write(vals)
+
+        # Skip logging during file creation, technical contexts, or if explicitly bypassed
+        skip_log = (
+            self.env.context.get('dms_creating_file')
+            or self.env.context.get('dms_skip_log')
+            or self.env.context.get('tracking_disable')
+            or self.env.context.get('install_mode')
+        )
+
         for record in self:
-            self.env['dms.file.log'].sudo().create({
-                'name': record.name,
-                'file_id': record.id,
-                'action': 'edit',
-                'details': str(vals)
-            })
+            if not skip_log:
+                pre = records_pre.get(record.id, {})
+                changes = []
+
+                if has_new_content and record.content:
+                    changes.append(_("File content updated (new version)"))
+                elif ('content' in vals or 'file' in vals) and not is_revert:
+                    changes.append(_("File content updated"))
+
+                if 'name' in vals and vals.get('name') and pre.get('name') and vals.get('name') != pre.get('name'):
+                    changes.append(_("Renamed from '%s' to '%s'") % (pre.get('name'), vals.get('name')))
+
+                if 'directory_id' in vals and pre.get('directory_id') and record.directory_id != pre.get('directory_id'):
+                    old_folder = pre['directory_id'].name or _("Root")
+                    new_folder = record.directory_id.name or _("Root")
+                    changes.append(_("Moved from folder '%s' to '%s'") % (old_folder, new_folder))
+
+                if 'category_id' in vals and record.category_id != pre.get('category_id'):
+                    new_cat = record.category_id.name or _("None")
+                    changes.append(_("Category set to '%s'") % new_cat)
+
+                if 'department_id' in vals and record.department_id != pre.get('department_id'):
+                    new_dept = record.department_id.name or _("None")
+                    changes.append(_("Department set to '%s'") % new_dept)
+
+                if 'document_owner_id' in vals and record.document_owner_id != pre.get('document_owner_id'):
+                    new_owner = record.document_owner_id.name or _("None")
+                    changes.append(_("Owner set to '%s'") % new_owner)
+
+                if 'tag_ids' in vals:
+                    changes.append(_("Tags modified"))
+
+                if 'document_number' in vals and vals.get('document_number'):
+                    changes.append(_("Document number set to '%s'") % vals.get('document_number'))
+
+                if 'expiration_date' in vals and vals.get('expiration_date') != pre.get('expiration_date'):
+                    changes.append(_("Expiration date set to %s") % vals.get('expiration_date'))
+
+                if 'is_trashed' in vals and record.is_trashed != pre.get('is_trashed'):
+                    changes.append(_("Moved to Trash") if record.is_trashed else _("Restored from Trash"))
+
+                if 'approval_state' in vals and record.approval_state != pre.get('approval_state'):
+                    changes.append(_("Approval status: %s") % record.approval_state.replace('_', ' ').title())
+
+                if 'active' in vals and record.active != pre.get('active'):
+                    changes.append(_("Unarchived") if record.active else _("Archived"))
+
+                if changes:
+                    # Debounce / Coalesce: find recent log by same user for this file within the last 60 seconds
+                    recent_cutoff = fields.Datetime.now() - datetime.timedelta(seconds=60)
+                    recent_log = self.env['dms.file.log'].sudo().search([
+                        ('file_id', '=', record.id),
+                        ('user_id', '=', self.env.user.id),
+                        ('action', '=', 'edit'),
+                        ('date', '>=', recent_cutoff),
+                    ], order='date desc', limit=1)
+
+                    if recent_log:
+                        existing_parts = [p.strip() for p in (recent_log.details or '').split('; ') if p.strip()]
+                        for ch in changes:
+                            if ch not in existing_parts:
+                                existing_parts.append(ch)
+                        recent_log.sudo().write({
+                            'name': record.name,
+                            'details': "; ".join(existing_parts),
+                            'date': fields.Datetime.now(),
+                        })
+                    else:
+                        self.env['dms.file.log'].sudo().create({
+                            'name': record.name,
+                            'file_id': record.id,
+                            'action': 'edit',
+                            'details': "; ".join(changes),
+                            'user_id': self.env.user.id,
+                            'date': fields.Datetime.now(),
+                        })
+
             if has_new_content and record.content:
                 if not record.revision_ids:
                     record.env['dms.file.revision'].sudo().create({
@@ -751,7 +970,7 @@ class DMSFile(models.Model):
                     'comments': comment,
                     'is_current': True,
                 })
-                record.with_context(from_revert_revision=True).write({
+                record.with_context(from_revert_revision=True, dms_skip_log=True).write({
                     'current_revision_id': new_rev.id
                 })
         return res
@@ -781,6 +1000,7 @@ class DMSFile(models.Model):
                 'trash_date': fields.Datetime.now(),
                 'active': False
             })
+        self.mapped('directory_id').invalidate_recordset(['count_files'])
         return {
             'type': 'ir.actions.client',
             'tag': 'reload',
@@ -793,6 +1013,7 @@ class DMSFile(models.Model):
                 'trash_date': False,
                 'active': True
             })
+        self.mapped('directory_id').invalidate_recordset(['count_files'])
         return {
             'type': 'ir.actions.client',
             'tag': 'reload',
@@ -802,20 +1023,27 @@ class DMSFile(models.Model):
         for record in self:
             if record.is_locked:
                 raise UserError(_("Cannot delete '%s' because it is locked by %s. Please unlock it first.") % (record.name, record.locked_by.name or 'another user'))
-            self.env['dms.file.log'].sudo().create({
-                'name': record.name,
-                'file_id': False,
-                'action': 'delete',
-            })
-            
+
         # Soft delete logic: if not in trash, send to trash instead.
         to_trash = self.filtered(lambda r: not r.is_trashed)
         if to_trash:
             to_trash.action_send_to_trash()
-            
+
         to_delete = self - to_trash
         if to_delete:
-            return super(DMSFile, to_delete).unlink()
+            dirs = to_delete.mapped('directory_id')
+            for record in to_delete:
+                self.env['dms.file.log'].sudo().create({
+                    'name': record.name,
+                    'file_id': False,
+                    'action': 'delete',
+                    'details': _("Document permanently deleted"),
+                    'user_id': self.env.user.id,
+                    'date': fields.Datetime.now(),
+                })
+            res = super(DMSFile, to_delete).unlink()
+            dirs.invalidate_recordset(['count_files'])
+            return res
         return True
 
     @api.model
@@ -927,4 +1155,29 @@ class DMSFile(models.Model):
                 'default_file_id': self.id,
             }
         }
+
+    def action_open_properties(self):
+        self.ensure_one()
+        return {
+            'name': _("Properties — %s") % (self.name or ''),
+            'type': 'ir.actions.act_window',
+            'res_model': 'dms.file',
+            'res_id': self.id,
+            'view_mode': 'form',
+            'views': [(self.env.ref('dms_enterprise_features.view_dms_file_properties_form').id, 'form')],
+            'target': 'new',
+            'flags': {'mode': 'readonly'},
+        }
+
+    def toggle_active(self):
+        """Toggle active/archived state for selected records."""
+        to_archive = self.filtered(lambda r: r.active)
+        to_unarchive = self.filtered(lambda r: not r.active)
+        if to_archive:
+            to_archive.action_archive()
+        if to_unarchive:
+            to_unarchive.action_unarchive()
+        return True
+
+
 

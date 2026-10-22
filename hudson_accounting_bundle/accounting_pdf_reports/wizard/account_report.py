@@ -33,6 +33,9 @@ class AccountingReport(models.TransientModel):
         result = {}
         result['journal_ids'] = 'journal_ids' in data['form'] and data['form']['journal_ids'] or False
         result['state'] = 'target_move' in data['form'] and data['form']['target_move'] or ''
+        # the comparison context replaces the main one, so it must carry the company
+        # too, otherwise the comparison column spans every company of the switcher
+        result['company_id'] = self.company_id.id or False
         if data['form']['filter_cmp'] == 'filter_date':
             result['date_from'] = data['form']['date_from_cmp']
             result['date_to'] = data['form']['date_to_cmp']
@@ -40,9 +43,10 @@ class AccountingReport(models.TransientModel):
         return result
 
     def check_report(self):
-        res = super(AccountingReport, self).check_report()
+        res = super().check_report()
         data = {}
-        data['form'] = self.read(['account_report_id', 'date_from_cmp', 'date_to_cmp', 'journal_ids', 'filter_cmp', 'target_move'])[0]
+        data['form'] = self.read(['account_report_id', 'date_from_cmp', 'date_to_cmp', 'journal_ids',
+                                  'filter_cmp', 'target_move'])[0]
         for field in ['account_report_id']:
             if isinstance(data['form'][field], tuple):
                 data['form'][field] = data['form'][field][0]
@@ -51,5 +55,7 @@ class AccountingReport(models.TransientModel):
         return res
 
     def _print_report(self, data):
-        data['form'].update(self.read(['date_from_cmp', 'debit_credit', 'date_to_cmp', 'filter_cmp', 'account_report_id', 'enable_filter', 'label_filter', 'target_move'])[0])
-        return self.env.ref('accounting_pdf_reports.action_report_financial').report_action(self, data=data, config=False)
+        data['form'].update(self.read(['date_from_cmp', 'debit_credit', 'date_to_cmp', 'filter_cmp',
+                                       'account_report_id', 'enable_filter', 'label_filter', 'target_move'])[0])
+        return self.env.ref('accounting_pdf_reports.action_report_financial').report_action(
+            self, data=data, config=False)

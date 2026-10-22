@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-name="hudson_attendance_enhancement.EmployeeHomeMapPickerWidget">
+        <div class="hudson-home-map-picker-container w-100 my-3">
+            <div class="card shadow-sm border bg-white rounded-3">
+                <div class="card-body p-3">
+                    <!-- Control Bar -->
+                    <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
+                        <!-- Search Box -->
+                        <div class="input-group flex-grow-1 position-relative" style="min-width: 250px;">
+                            <span class="input-group-text bg-white border-end-0">
+                                <i class="fa fa-search text-muted"/>
+                            </span>
+                            <input type="text"
+                                   class="form-control border-start-0"
+                                   placeholder="Search home address, building, or area..."
+                                   t-model="state.searchQuery"
+                                   t-on-keydown="onSearchKeyDown"/>
+                            <button class="btn btn-primary"
+                                    type="button"
+                                    t-on-click="onSearchClick"
+                                    t-att-disabled="state.isSearching">
+                                <span t-if="state.isSearching" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"/>
+                                <span t-else="" class="fa fa-search me-1"/>
+                                Search
+                            </button>
+                            
+                            <!-- Search Results Dropdown -->
+                            <div t-if="state.searchResults.length > 0" 
+                                 class="hudson-search-dropdown position-absolute w-100 bg-white border rounded shadow-lg"
+                                 style="top: 100%; left: 0; z-index: 1050; max-height: 250px; overflow-y: auto;">
+                                <div class="list-group list-group-flush">
+                                    <t t-foreach="state.searchResults" t-as="result" t-key="result_index">
+                                        <button type="button" 
+                                                class="list-group-item list-group-item-action py-2 text-start small"
+                                                t-on-click="() => this.selectSearchResult(result)">
+                                            <i class="fa fa-map-marker text-success me-2"/>
+                                            <span class="fw-semibold text-truncate" t-out="result.display_name"/>
+                                        </button>
+                                    </t>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Fetch from Private Address Button -->
+                        <button class="btn btn-outline-success d-flex align-items-center fw-semibold"
+                                type="button"
+                                title="Locate approved home using the address from Personal Information tab"
+                                t-on-click="onFetchPrivateAddress"
+                                t-att-disabled="state.isFetchingAddress">
+                            <i t-if="state.isFetchingAddress" class="spinner-border spinner-border-sm me-1" role="status"/>
+                            <i t-else="" class="fa fa-address-card me-1"/>
+                            <span>Fetch from Private Address</span>
+                        </button>
+
+                        <!-- Device GPS Button -->
+                        <button class="btn btn-outline-secondary d-flex align-items-center"
+                                type="button"
+                                title="Locate current browser GPS position"
+                                t-on-click="onUseCurrentLocation"
+                                t-att-disabled="state.isLocating">
+                            <i t-if="state.isLocating" class="spinner-border spinner-border-sm me-1" role="status"/>
+                            <i t-else="" class="fa fa-crosshairs text-primary me-1"/>
+                            <span>Use Current GPS</span>
+                        </button>
+                    </div>
+
+                    <!-- Map container -->
+                    <div class="position-relative">
+                        <div class="hudson-leaflet-map rounded border" t-ref="mapContainer" style="height: 340px; min-height: 300px; width: 100%;"/>
+                        <div class="position-absolute bottom-0 start-0 m-2 bg-white bg-opacity-75 p-2 rounded shadow-sm small text-muted" style="z-index: 1000;">
+                            <span><i class="fa fa-info-circle text-success me-1"/>Click anywhere or drag marker to set exact home location.</span>
+                        </div>
+                    </div>
+
+                    <!-- Coordinates and Status Footer -->
+                    <div class="d-flex flex-wrap justify-content-between align-items-center mt-2 text-muted small gap-2">
+                        <div class="d-flex flex-wrap align-items-center gap-2">
+                            <strong>Approved Home GPS:</strong>
+                            <span class="badge bg-success-subtle text-success border border-success-subtle">
+                                Lat: <t t-out="currentLat ? currentLat.toFixed(6) : '0.000000'"/>
+                            </span>
+                            <span class="badge bg-success-subtle text-success border border-success-subtle">
+                                Lon: <t t-out="currentLon ? currentLon.toFixed(6) : '0.000000'"/>
+                            </span>
+                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle">
+                                Geofence Radius: <t t-out="currentRadius"/> m
+                            </span>
+                            <span t-if="homeAddressName" class="badge bg-light text-dark border text-truncate" style="max-width: 280px;" t-att-title="homeAddressName">
+                                <i class="fa fa-home me-1 text-secondary"/>
+                                <t t-out="homeAddressName"/>
+                            </span>
+                        </div>
+                        <div class="fst-italic text-secondary small">
+                            Powered by OpenStreetMap &amp; Leaflet
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </t>
+</templates>

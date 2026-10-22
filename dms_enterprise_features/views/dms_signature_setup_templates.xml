@@ -156,11 +156,11 @@
                 <script>
                     const odooUsers = [
                         <t t-foreach="users" t-as="user">
-                            { id: <t t-esc="user.id"/>, name: "<t t-esc="user.name"/>" },
+                            { id: <t t-out="user.id"/>, name: "<t t-out="user.name"/>" },
                         </t>
                     ];
                     
-                    const revisionsData = JSON.parse('<t t-esc="revisions_json" />'.replace(/&amp;quot;/g, '"').replace(/&quot;/g, '"'));
+                    const revisionsData = JSON.parse('<t t-out="revisions_json" />'.replace(/&amp;quot;/g, '"').replace(/&quot;/g, '"'));
                     
                     let roles = [
                         { id: 'role_1', name: 'Signer 1', color: '#e0e0ff' },

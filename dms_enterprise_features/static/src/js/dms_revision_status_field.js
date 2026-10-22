@@ -1,18 +1,22 @@
 /** @odoo-module **/
 
-import { Component, xml } from "@odoo/owl";
+import { Component, xml, useProps } from "@odoo/owl";
 import { registry } from "@web/core/registry";
 import { standardFieldProps } from "@web/views/fields/standard_field_props";
 
 export class DmsRevisionStatusField extends Component {
     static template = xml`
-        <span t-if="props.record.data[props.name]" class="badge rounded-pill text-bg-success">
+        <span t-if="this.isActive" class="badge rounded-pill text-bg-success">
             Active
         </span>
     `;
-    static props = {
+    props = useProps({
         ...standardFieldProps,
-    };
+    });
+
+    get isActive() {
+        return !!(this.props.record && this.props.record.data && this.props.record.data[this.props.name]);
+    }
 }
 
 export const dmsRevisionStatusField = {

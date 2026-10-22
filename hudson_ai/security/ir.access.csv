@@ -1,0 +1,3 @@
+id,name,model_id,group_id/id,operation
+access_hudson_ai_config_user,hudson.ai.config user,hudson.ai.config,base.group_user,r
+access_hudson_ai_config_admin,hudson.ai.config admin,hudson.ai.config,base.group_system,crud

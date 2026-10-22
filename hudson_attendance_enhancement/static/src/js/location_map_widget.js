@@ -2,6 +2,7 @@
 
 import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
+import { rpc } from "@web/core/network/rpc";
 import { standardWidgetProps } from "@web/views/widgets/standard_widget_props";
 import { Component, useState, useRef, onMounted, onWillUnmount, useEffect } from "@odoo/owl";
 
@@ -12,7 +13,6 @@ export class LocationMapPickerWidget extends Component {
     };
 
     setup() {
-        this.rpc = useService("rpc");
         this.notification = useService("notification");
         this.mapContainerRef = useRef("mapContainer");
 
@@ -80,8 +80,14 @@ export class LocationMapPickerWidget extends Component {
         });
     }
 
-    initMap() {
-        if (!window.L || !this.mapContainerRef.el) {
+    initMap(retries = 5) {
+        if (!this.mapContainerRef.el) {
+            return;
+        }
+        if (!window.L) {
+            if (retries > 0) {
+                setTimeout(() => this.initMap(retries - 1), 200);
+            }
             return;
         }
 
@@ -186,7 +192,7 @@ export class LocationMapPickerWidget extends Component {
         this.state.searchResults = [];
 
         try {
-            const results = await this.rpc('/hudson_attendance/search_location', { query });
+            const results = await rpc('/hudson_attendance/search_location', { query });
             if (results && results.length > 0) {
                 this.state.searchResults = results;
             } else {
