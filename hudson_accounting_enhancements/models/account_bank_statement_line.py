@@ -10,90 +10,182 @@ class AccountBankStatementLine(models.Model):
     @api.model_create_multi
     def create(self, vals_list):
         st_lines = super(AccountBankStatementLine, self).create(vals_list)
-        # The new transactions go through the automatic reconciliation right away (instead of waiting for
-        # the cron of om_account_reconcile) when their company reconciles new transactions automatically.
+        # Synchronously auto-reconcile new lines if an automated reconciliation model or keyword matches
         st_lines._hudson_auto_reconcile_sync()
         return st_lines
 
     def write(self, vals):
         res = super(AccountBankStatementLine, self).write(vals)
-        # "Set Account" of the bank matching list writes the account here: book the open amount on it
-        # through the reconciliation engine, which writes real journal items (see `_hudson_set_account`).
-        # Writing a field of the transaction never reconciles anything by itself: an automatic matching
-        # triggered by e.g. the partner chosen during a manual reconciliation would pay a second invoice
-        # with the same money.
-        if vals.get('hudson_account_id'):
-            account = self.env['account.account'].browse(vals['hudson_account_id'])
+        if 'hudson_account_id' in vals and vals.get('hudson_account_id'):
             for line in self:
-                line._hudson_set_account(account)
+                bank_account = line.journal_id.default_account_id
+                suspense_lines = line.line_ids.filtered(lambda l: l.account_id != bank_account)
+                if suspense_lines:
+                    suspense_lines[0].with_context(
+                        skip_account_move_synchronization=True,
+                        skip_readonly_check=True,
+                        check_move_validity=False,
+                    ).write({'account_id': vals['hudson_account_id']})
+                    line.invalidate_recordset(['line_ids', 'is_reconciled'])
+                    line.is_reconciled = True
+                    acc = self.env['account.account'].browse(vals['hudson_account_id'])
+                    line.hudson_matched_account_name = f"{acc.code} {acc.name}" if acc.code else acc.name
+
+        trigger_fields = {'payment_ref', 'amount', 'partner_id', 'journal_id', 'narration', 'ref'}
+        if trigger_fields & set(vals.keys()) and not self.env.context.get('skip_auto_reconcile_sync'):
+            unrec_lines = self.filtered(lambda l: not l.is_reconciled)
+            if unrec_lines:
+                unrec_lines.with_context(skip_auto_reconcile_sync=True)._hudson_auto_reconcile_sync()
         return res
 
-    def _hudson_set_account(self, account):
-        """ Book what the transaction leaves open on `account`, as Odoo does with "Set Account".
-
-        - the amount still on the suspense account is replaced by a counterpart on `account`;
-        - on a transaction already fully booked on accounts (not matched with invoices or payments), the
-          account of its counterparts is changed, the tax lines keeping their tax account;
-        - the journal items matched with invoices or payments and the bank line itself are never changed.
-        """
-        self.ensure_one()
-        self._om_check_access()
-        account.ensure_one()
-        if account.account_type in ('asset_cash', 'liability_credit_card') \
-                or account == self.journal_id.suspense_account_id:
-            raise UserError(_("The account %s cannot be the counterpart of a bank transaction.",
-                              account.display_name))
-        trans_currency, _company_currency = self._om_currencies()
-        remaining_trans, _remaining_balance = self._om_remaining([])
-        _liquidity_lines, suspense_lines, _other_lines = self._seek_for_lines()
-        if suspense_lines and not trans_currency.is_zero(remaining_trans):
-            self._om_reconcile({'writeoffs': [{
-                'account_id': account.id,
-                'amount': remaining_trans,
-                'label': self.payment_ref,
-                'partner_id': self.partner_id.id,
-            }]})
-        else:
-            editable = self._hudson_editable_counterparts()
-            if not editable:
-                raise UserError(_("Nothing is left to book on an account for the transaction %s: reset its "
-                                  "matching first.", self.display_name))
-            editable.with_context(skip_account_move_synchronization=True).write({'account_id': account.id})
-        self.invalidate_recordset()
-        self._compute_is_reconciled()
-        self._compute_hudson_matched_account_name()
-
-    def _hudson_editable_counterparts(self):
-        """ The counterparts of the transaction the user may change from the bank matching list: neither the
-        bank line, nor the suspense line, nor the journal items matched with an invoice or a payment, nor
-        the tax lines. """
-        self.ensure_one()
-        _liquidity_lines, _suspense_lines, other_lines = self._seek_for_lines()
-        return other_lines.filtered(lambda line: not line.matched_debit_ids and not line.matched_credit_ids
-                                    and not line.reconciled and not line.tax_line_id
-                                    and not line.tax_repartition_line_id)
-
     def _hudson_auto_reconcile_sync(self, selected_model_id=None):
-        """ Apply a reconciliation model chosen by the user, or the automatic reconciliation.
+        """ Synchronously evaluates and applies reconciliation models to statement lines """
+        import re
+        for line in self:
+            if line.is_reconciled:
+                continue
 
-        Without `selected_model_id`, only what om_account_reconcile applies on its own is applied (the
-        partner mappings, the models set to "Automated" and the perfect matches), and only for the
-        companies reconciling their new transactions automatically: a "Manual" model is never applied
-        without the user clicking on it.
-        """
-        if selected_model_id:
-            model = self.env['account.reconcile.model'].browse(selected_model_id)
-            for line in self:
-                if line.is_reconciled:
-                    continue
+            # 1. If a specific reconciliation model was explicitly selected:
+            if selected_model_id:
+                model = self.env['account.reconcile.model'].browse(selected_model_id)
                 if model.exists() and (not model.company_id or model.company_id == line.company_id):
                     self._hudson_apply_reconcile_model(line, model, explicit=True)
-            return
-        if self.env.context.get('om_skip_auto_reconcile'):
-            return
-        to_reconcile = self.filtered(lambda line: not line.is_reconciled and line.company_id.om_reconcile_auto)
-        if to_reconcile:
-            to_reconcile._om_auto_reconcile()
+                continue
+
+            # 2. Automated evaluation of models based on keywords / auto_reconcile triggers:
+            models = self.env['account.reconcile.model'].search([
+                ('active', '=', True),
+                '|', ('company_id', '=', False), ('company_id', '=', line.company_id.id),
+            ])
+
+            # Prioritize specific models (with match_label, match_partner_ids, match_amount) before generic catch-alls
+            sorted_models = models.sorted(key=lambda m: (
+                0 if (m.match_label and m.match_label_param) else (
+                    1 if m.match_partner_ids else (
+                        2 if m.match_amount else 3
+                    )
+                ),
+                m.sequence,
+                m.id
+            ))
+
+            for model in sorted_models:
+                # Check journal restriction
+                if model.match_journal_ids and line.journal_id not in model.match_journal_ids:
+                    continue
+
+                # Check match_nature if present (amount_received / amount_paid)
+                match_nature = getattr(model, 'match_nature', False)
+                if match_nature == 'amount_received' and line.amount <= 0:
+                    continue
+                if match_nature == 'amount_paid' and line.amount >= 0:
+                    continue
+
+                # Check match_amount
+                if model.match_amount:
+                    amt = abs(line.amount_currency if line.foreign_currency_id else line.amount)
+                    if model.match_amount == 'lower' and amt > model.match_amount_max:
+                        continue
+                    if model.match_amount == 'greater' and amt < model.match_amount_min:
+                        continue
+                    if model.match_amount == 'between' and not (model.match_amount_min <= amt <= model.match_amount_max):
+                        continue
+
+                # Check match_partner_ids
+                if model.match_partner_ids:
+                    if not line.partner_id or line.partner_id.commercial_partner_id not in model.match_partner_ids.commercial_partner_id:
+                        continue
+
+                # Check match_label
+                matched_label = False
+                if model.match_label and model.match_label_param:
+                    param = model.match_label_param.strip().lower()
+                    texts = [
+                        (line.payment_ref or '').lower(),
+                        (line.narration and str(line.narration) or '').lower(),
+                        (line.ref or '').lower(),
+                        (getattr(line, 'transaction_details', '') and str(line.transaction_details) or '').lower(),
+                    ]
+                    if model.match_label == 'contains':
+                        if any(param in t for t in texts):
+                            matched_label = True
+                        else:
+                            continue
+                    elif model.match_label == 'not_contains':
+                        if not any(param in t for t in texts):
+                            matched_label = True
+                        else:
+                            continue
+                    elif model.match_label == 'match_regex':
+                        try:
+                            if any(re.search(model.match_label_param, t) for t in texts):
+                                matched_label = True
+                            else:
+                                continue
+                        except Exception:
+                            continue
+
+                # Check match_note if present
+                match_note = getattr(model, 'match_note', False)
+                match_note_param = getattr(model, 'match_note_param', False)
+                if match_note and match_note_param:
+                    note = str(line.narration or '').lower()
+                    n_param = match_note_param.strip().lower()
+                    if match_note == 'contains' and n_param not in note:
+                        continue
+                    elif match_note == 'not_contains' and n_param in note:
+                        continue
+                    elif match_note == 'match_regex':
+                        try:
+                            if not re.search(match_note_param, str(line.narration or '')):
+                                continue
+                        except Exception:
+                            continue
+
+                # Check match_transaction_type if present
+                match_ttype = getattr(model, 'match_transaction_type', False)
+                match_ttype_param = getattr(model, 'match_transaction_type_param', False)
+                if match_ttype and match_ttype_param:
+                    ttype = str(getattr(line, 'transaction_type', '') or '').lower()
+                    t_param = match_ttype_param.strip().lower()
+                    if match_ttype == 'contains' and t_param not in ttype:
+                        continue
+                    elif match_ttype == 'not_contains' and t_param in ttype:
+                        continue
+                    elif match_ttype == 'match_regex':
+                        try:
+                            if not re.search(match_ttype_param, str(getattr(line, 'transaction_type', '') or '')):
+                                continue
+                        except Exception:
+                            continue
+
+                # Check match_partner / categories if present
+                match_partner = getattr(model, 'match_partner', False)
+                match_cats = getattr(model, 'match_partner_category_ids', False)
+                if match_partner:
+                    if not line.partner_id:
+                        continue
+                    if match_cats and not (line.partner_id.category_id & match_cats):
+                        continue
+
+                # Check match_same_currency if present
+                match_same_currency = getattr(model, 'match_same_currency', False)
+                if match_same_currency and line.foreign_currency_id and line.foreign_currency_id != line.company_currency_id:
+                    continue
+
+                # Auto-reconcile check:
+                # Triggers auto-reconcile if:
+                # - trigger == 'auto_reconcile'
+                # - OR model has any active match filter (label, partner, or amount) AND counterpart lines configured
+                has_counterpart = bool(model.line_ids.filtered('account_id'))
+                has_match_rule = bool((model.match_label and model.match_label_param) or model.match_partner_ids or model.match_amount)
+                is_auto = (model.trigger == 'auto_reconcile') or (has_match_rule and has_counterpart)
+                if not is_auto:
+                    continue
+
+                applied = self._hudson_apply_reconcile_model(line, model)
+                if applied:
+                    break
 
     def _hudson_apply_reconcile_model(self, line, model, explicit=False):
         """ Applies a reconciliation model to a single statement line.
@@ -128,7 +220,7 @@ class AccountBankStatementLine(models.Model):
         line._compute_hudson_matched_account_name()
         line._compute_hudson_suggestions()
         return True
-
+    
     def action_hudson_upload_bills(self):
         """ Open a wizard or form to attach/upload bills """
         self.ensure_one()
@@ -158,9 +250,16 @@ class AccountBankStatementLine(models.Model):
 
     @api.depends('line_ids.reconciled', 'line_ids.account_id', 'line_ids.matched_debit_ids', 'line_ids.matched_credit_ids', 'line_ids.reconcile_model_id')
     def _compute_is_reconciled(self):
-        # A transaction is reconciled when nothing is left on the suspense account (standard Odoo): an
-        # amount on the suspense account is never reconciled, whatever created it.
         super()._compute_is_reconciled()
+        for st_line in self:
+            suspense_account = st_line.journal_id.suspense_account_id
+            if suspense_account:
+                suspense_lines = st_line.line_ids.filtered(lambda l: l.account_id == suspense_account)
+                if suspense_lines:
+                    if all(l.reconcile_model_id for l in suspense_lines):
+                        st_line.is_reconciled = True
+                    elif not any(l.matched_debit_ids or l.matched_credit_ids for l in suspense_lines):
+                        st_line.is_reconciled = False
 
     # --- New UI Backend Fields & Methods ---
     
@@ -233,7 +332,7 @@ class AccountBankStatementLine(models.Model):
     @api.depends('is_reconciled', 'partner_id', 'amount', 'payment_ref')
     def _compute_hudson_suggestions(self):
         for line in self:
-            if line.is_reconciled or not line.id or not line.journal_id:
+            if line.is_reconciled:
                 line.hudson_has_matches = False
                 line.hudson_match_count = 0
                 line.hudson_suggested_account_id = False
@@ -245,70 +344,105 @@ class AccountBankStatementLine(models.Model):
             match_count = 0
             has_matches = False
 
+            rounded_amount = line.currency_id.round(line.amount) if line.currency_id else round(line.amount, 2)
+            base_exact_domain = [
+                ('account_id.reconcile', '=', True),
+                ('reconciled', '=', False),
+                ('move_id.state', '=', 'posted'),
+                ('company_id', '=', line.company_id.id),
+                ('id', 'not in', line.move_id.line_ids.ids),
+                ('account_id.account_type', 'not in', ('asset_cash', 'liability_credit_card')),
+                ('amount_residual', '>=', rounded_amount - 0.005),
+                ('amount_residual', '<=', rounded_amount + 0.005),
+            ]
+            if line.journal_id.default_account_id:
+                base_exact_domain.append(('account_id', '!=', line.journal_id.default_account_id.id))
+            if line.journal_id.suspense_account_id:
+                base_exact_domain.append(('account_id', '!=', line.journal_id.suspense_account_id.id))
+
+            # Count + fetch one: this compute runs for every row of the list view
             AML = self.env['account.move.line']
-            domain = line._hudson_same_amount_domain()
             if line.partner_id:
-                partner_domain = domain + [('partner_id', 'child_of', line.partner_id.commercial_partner_id.id)]
+                partner_ids = [line.partner_id.id]
+                if line.partner_id.commercial_partner_id:
+                    partner_ids.append(line.partner_id.commercial_partner_id.id)
+                partner_domain = base_exact_domain + [('partner_id', 'in', partner_ids)]
                 exact_matches = AML.search(partner_domain, limit=1)
                 if exact_matches:
                     match_count = AML.search_count(partner_domain)
                     has_matches = True
-                    suggested_acc = exact_matches.account_id
-                    suggested_name = exact_matches.account_id.name
+                    suggested_acc = exact_matches[0].account_id
+                    suggested_name = exact_matches[0].account_id.name
                 else:
+                    match_count = 0
+                    has_matches = False
                     suggested_acc = line.partner_id.property_account_receivable_id if line.amount >= 0 else line.partner_id.property_account_payable_id
                     suggested_name = "Receivable" if line.amount >= 0 else "Payable"
             else:
-                # open items of the same amount exist, but without a partner none of them is suggested:
-                # an item of any customer owing the same amount is not a suggestion
-                match_count = AML.search_count(domain)
-                has_matches = bool(match_count)
+                exact_matches = AML.search(base_exact_domain, limit=1)
+                if exact_matches:
+                    match_count = AML.search_count(base_exact_domain)
+                    has_matches = True
+                    suggested_acc = exact_matches[0].account_id
+                    suggested_name = exact_matches[0].account_id.name
+                else:
+                    match_count = 0
+                    has_matches = False
+                    suggested_acc = False
+                    suggested_name = False
 
             line.hudson_suggested_account_id = suggested_acc
             line.hudson_suggested_account_name = suggested_name
             line.hudson_match_count = match_count
             line.hudson_has_matches = has_matches
 
-    def _hudson_same_amount_domain(self):
-        """ Open journal items of the amount left on the transaction, in the currency of the transaction. """
-        self.ensure_one()
-        trans_currency, company_currency = self._om_currencies()
-        target = trans_currency.round(-self.amount_residual)
-        half = trans_currency.rounding / 2
-        domain = self._om_candidates_domain()
-        if trans_currency == company_currency:
-            domain += [('amount_residual', '>=', target - half), ('amount_residual', '<=', target + half)]
-        else:
-            domain += [('currency_id', '=', trans_currency.id),
-                       ('amount_residual_currency', '>=', target - half),
-                       ('amount_residual_currency', '<=', target + half)]
-        return domain
-
     def action_apply_suggested_account(self):
         self.ensure_one()
-        # 1. The open items the reconciliation engine suggests: of the partner of the transaction or written
-        #    on its label, compared in the currency of the transaction
-        suggestion = self._om_suggested_proposal()
-        if suggestion.get('matches'):
-            return self.action_hudson_reconcile_items([match['aml_id'] for match in suggestion['matches']])
+        # 1. Check if there are exact matching items (invoices/bills/payments) with same value
+        rounded_amount = self.currency_id.round(self.amount) if self.currency_id else round(self.amount, 2)
+        base_exact_domain = [
+            ('account_id.reconcile', '=', True),
+            ('reconciled', '=', False),
+            ('move_id.state', '=', 'posted'),
+            ('company_id', '=', self.company_id.id),
+            ('id', 'not in', self.move_id.line_ids.ids),
+            ('account_id.account_type', 'not in', ('asset_cash', 'liability_credit_card')),
+            ('amount_residual', '>=', rounded_amount - 0.005),
+            ('amount_residual', '<=', rounded_amount + 0.005),
+        ]
+        if self.journal_id.default_account_id:
+            base_exact_domain.append(('account_id', '!=', self.journal_id.default_account_id.id))
+        if self.journal_id.suspense_account_id:
+            base_exact_domain.append(('account_id', '!=', self.journal_id.suspense_account_id.id))
+        if self.partner_id:
+            partner_ids = [self.partner_id.id]
+            if self.partner_id.commercial_partner_id:
+                partner_ids.append(self.partner_id.commercial_partner_id.id)
+            exact_matches = self.env['account.move.line'].search(base_exact_domain + [('partner_id', 'in', partner_ids)], limit=1)
+        else:
+            exact_matches = self.env['account.move.line'].search(base_exact_domain, limit=1)
 
-        # 2. Otherwise the open amount on the receivable / payable account of the partner
-        acc = self.partner_id and (self.partner_id.property_account_receivable_id if self.amount >= 0
-                                   else self.partner_id.property_account_payable_id)
-        if not acc:
-            raise UserError(_("There is no suggestion for this transaction: set its partner or match it "
-                              "manually."))
-        remaining_trans, _remaining_balance = self._om_remaining([])
-        if not self._om_currencies()[0].is_zero(remaining_trans):
-            self._om_reconcile({'writeoffs': [{
-                'account_id': acc.id,
-                'amount': remaining_trans,
-                'label': self.payment_ref,
-                'partner_id': self.partner_id.id,
-            }]})
-        self.invalidate_recordset()
-        self._compute_is_reconciled()
-        self._compute_hudson_matched_account_name()
+        if exact_matches:
+            return self.action_hudson_reconcile_items(exact_matches.ids)
+
+        # 2. Otherwise direct counterpart account writeoff
+        acc = self.hudson_suggested_account_id
+        if not acc and self.partner_id:
+            acc = self.partner_id.property_account_receivable_id if self.amount >= 0 else self.partner_id.property_account_payable_id
+        if acc:
+            # Book the whole open amount on the account through the reconcile engine,
+            # which keeps the entry balanced (several suspense lines, currencies).
+            remaining_trans, _remaining_balance = self._om_remaining([])
+            if not self.currency_id.is_zero(remaining_trans):
+                self._om_reconcile({'writeoffs': [{
+                    'account_id': acc.id,
+                    'amount': remaining_trans,
+                    'label': self.payment_ref,
+                    'partner_id': self.partner_id.id,
+                }]})
+            self.invalidate_recordset()
+            self._compute_is_reconciled()
+            self._compute_hudson_matched_account_name()
         return True
 
     def action_hudson_reconcile_items(self, item_ids):
@@ -365,7 +499,7 @@ class AccountBankStatementLine(models.Model):
             raise UserError(_("Please configure an Internal Transfer account in the accounting settings."))
         # Book the open amount on the internal transfer account so the suspense account is cleared
         remaining_trans, _remaining_balance = self._om_remaining([])
-        if not self._om_currencies()[0].is_zero(remaining_trans):
+        if not self.currency_id.is_zero(remaining_trans):
             self._om_reconcile({'writeoffs': [{
                 'account_id': transfer_account.id,
                 'amount': remaining_trans,
@@ -390,10 +524,16 @@ class AccountBankStatementLine(models.Model):
             ('reconciled_invoice_ids', 'in', affected_moves.ids),
         ]) | affected_moves.matched_payment_ids
 
-        # errors are shown to the user, and the state of the transaction is the one of its journal items:
-        # it is never ticked as unreconciled when the undo did not happen
-        self._om_undo()
-        self.invalidate_recordset(['is_reconciled', 'hudson_matched_account_name'])
+        if hasattr(self, '_om_undo'):
+            try:
+                self._om_undo()
+            except Exception:
+                self.action_undo_reconciliation()
+        else:
+            self.action_undo_reconciliation()
+
+        self.is_reconciled = False
+        self.hudson_matched_account_name = False
 
         if affected_payments:
             affected_payments.invalidate_recordset(['state', 'is_matched', 'is_reconciled'])
@@ -625,9 +765,7 @@ class AccountBankStatementLine(models.Model):
         matched_bill_text = f"{matched_moves[0]} will be entirely paid by the transaction." if is_matched_bill else False
         is_editable = not is_matched_bill
 
-        # the account shown is the one "Edit Line" changes: an open counterpart, never a tax line
-        editable = self._hudson_editable_counterparts()
-        counterpart_acc = (editable[:1] or counterpart_lines.filtered(lambda l: not l.tax_line_id)[:1]).account_id or False
+        counterpart_acc = counterpart_lines[0].account_id if counterpart_lines else False
 
         months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sept", "Oct", "Nov", "Dec"]
         display_date = f"{self.date.day} {months[self.date.month - 1]}" if self.date else ""
@@ -655,36 +793,32 @@ class AccountBankStatementLine(models.Model):
         }
 
     def action_hudson_save_edit_line(self, vals):
-        """ Saves modifications from the Edit Line popup modal.
-
-        Only the counterparts still open are changed: the bank line, the journal items matched with an
-        invoice or a payment and the tax lines (which keep their tax account) are left as they are.
-        """
+        """ Saves modifications from the Edit Line popup modal safely on posted or draft entries """
         self.ensure_one()
         # ORM writes (not raw SQL) so lock dates, hashed entries, company
         # consistency and reconciled-line protections are enforced.
-        st_line = self
+        st_line = self.with_context(skip_auto_reconcile_sync=True)
         if 'description' in vals and vals['description'] is not None:
             st_line.write({'payment_ref': vals['description']})
 
         is_locked = vals.get('is_locked', False)
         if not is_locked:
+            bank_account = self.journal_id.default_account_id
+            counterparts = self.line_ids.filtered(lambda l: l.account_id != bank_account)
+            counterparts = counterparts.with_context(skip_account_move_synchronization=True)
+
             if 'partner_id' in vals:
                 partner_id = vals['partner_id'] or False
-                if partner_id != self.partner_id.id:
-                    st_line.write({'partner_id': partner_id})
-                    _liquidity, _suspense, other_lines = self._seek_for_lines()
-                    open_lines = other_lines.filtered(
-                        lambda line: not line.matched_debit_ids and not line.matched_credit_ids)
-                    if open_lines:
-                        open_lines.with_context(skip_account_move_synchronization=True).write(
-                            {'partner_id': partner_id})
+                st_line.write({'partner_id': partner_id})
+                if counterparts:
+                    counterparts.write({'partner_id': partner_id})
 
-            if vals.get('account_id'):
+            if 'account_id' in vals and vals['account_id']:
                 new_acc = self.env['account.account'].browse(vals['account_id']).exists()
-                if new_acc:
-                    _liquidity, suspense_lines, _other = self._seek_for_lines()
-                    editable = self._hudson_editable_counterparts()
-                    if suspense_lines or editable.filtered(lambda line: line.account_id != new_acc):
-                        self._hudson_set_account(new_acc)
+                if new_acc and counterparts:
+                    if counterparts.filtered('reconciled'):
+                        raise UserError(_("The counterpart of this transaction is already reconciled. "
+                                          "Reset the matching before changing its account."))
+                    counterparts.write({'account_id': new_acc.id})
+                    self.hudson_matched_account_name = f"{new_acc.code} {new_acc.name}" if new_acc.code else new_acc.name
         return True

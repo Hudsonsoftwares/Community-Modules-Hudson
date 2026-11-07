@@ -36,6 +36,8 @@ class FsScheduleReport(models.AbstractModel):
         for row in schedule['rows']:
             slots = sorted((s for s in schedule['slots'] if s['row_key'] == row['key']), key=lambda s: s['date_start'])
             rows.append({
+                # With two group bys: the header of a group (e.g. a role)
+                'is_group': row.get('type') == 'group',
                 'name': row['name'],
                 'job_title': row.get('job_title'),
                 'planned_hours': row.get('planned_hours') or 0.0,

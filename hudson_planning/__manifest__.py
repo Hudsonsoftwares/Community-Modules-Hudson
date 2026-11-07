@@ -2,7 +2,7 @@
 
 {
     'name': 'Planning',
-    'version': '20.0.1.6.0',
+    'version': '20.0.1.13.0',
     'category': 'Human Resources/Planning',
     'sequence': 56,
     'summary': 'Manage shifts, planning roles, and assignments',
@@ -14,7 +14,7 @@ A planning management module for Odoo 19 that provides:
 * **Shift Management** - Plan and assign shifts to employees.
 * **Planning Roles** - Define roles for shift assignments.
 * **Attendance Integration** - Link shifts to attendance records.
-* **Plan Services** - Services sold generate shifts to plan for a role when the Sales Order is confirmed.
+* **Plan Services** - Services sold generate open shifts for a role when the Sales Order is confirmed.
 * **Field Service** - With Field Service installed, a shift with a customer is a field service job.
     """,
     'website': 'https://github.com/nandusaji2001/hudson-community',
@@ -50,6 +50,8 @@ A planning management module for Odoo 19 that provides:
             'hudson_planning/static/src/xml/fs_planning_board.xml',
             'hudson_planning/static/src/css/fs_planning_schedule.css',
             'hudson_planning/static/src/js/shift_template_badges.js',
+            'hudson_planning/static/src/js/shift_conflict_suggestions.js',
+            'hudson_planning/static/src/xml/shift_conflict_suggestions.xml',
             'hudson_planning/static/src/js/form_chatter_thread.js',
             'hudson_planning/static/src/views/fs_schedule/fs_schedule_view.js',
             'hudson_planning/static/src/views/fs_schedule/fs_schedule_view.xml',

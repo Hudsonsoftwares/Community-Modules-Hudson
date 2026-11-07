@@ -1,7 +1,7 @@
 # Part of Hudson Community. See LICENSE file for full copyright and licensing details.
 
 from collections import defaultdict
-from datetime import UTC, datetime, time, timedelta
+from datetime import UTC, timedelta
 from zoneinfo import ZoneInfo
 
 import pytz
@@ -9,7 +9,6 @@ import pytz
 from odoo import api, fields, models, _
 from odoo.fields import Domain
 from odoo.exceptions import AccessError, UserError, ValidationError
-from odoo.tools import format_date
 from odoo.tools.intervals import Intervals
 
 
@@ -21,8 +20,9 @@ class FsPlanningSlot(models.Model):
     # Employee, project, sales order, template... of the shift's company
     _check_company_auto = True
 
-    # Dates are required, except on the shifts of a sales order still to plan.
-    _dates_set_or_to_plan = models.Constraint(
+    # Dates are required, except on the open shifts of a sales order still to
+    # schedule (side panel of the schedule).
+    _dates_set_or_to_schedule = models.Constraint(
         'CHECK((date_start IS NOT NULL AND date_end IS NOT NULL) OR sale_line_id IS NOT NULL)',
         "Set the start and end dates of the shift.",
     )
@@ -52,8 +52,8 @@ class FsPlanningSlot(models.Model):
         string='Color',
         readonly=True,
     )
-    # Required, except on the shifts of a sales order still to plan (see
-    # sale.order.line._planning_slot_generation and _check_dates_set).
+    # Required, except on the shifts of a sales order to schedule (see
+    # _dates_set_or_to_schedule).
     date_start = fields.Datetime(
         string='Start Date',
         index=True,
@@ -68,7 +68,7 @@ class FsPlanningSlot(models.Model):
         store=True,
         readonly=False,
         help='Working time of the shift: its duration minus the break. '
-             'On a shift to plan, the hours left to schedule.',
+             'On a shift to schedule (no dates), the hours to plan.',
     )
     break_hours = fields.Float(
         string='Break',
@@ -116,7 +116,7 @@ class FsPlanningSlot(models.Model):
         string='To Plan',
         compute='_compute_is_to_plan',
         search='_search_is_to_plan',
-        help='Shift of a sales order whose dates are not scheduled yet.',
+        help='Open shift of a sales order: hours sold not assigned to an employee yet.',
     )
     partner_id = fields.Many2one(
         'res.partner',
@@ -134,14 +134,26 @@ class FsPlanningSlot(models.Model):
     available_template_ids = fields.Many2many(
         'fs.shift.template',
         compute='_compute_available_template_ids',
-        help='Templates offered on the shift: those of the roles of its resource, '
-             'and the templates without role (offered to everyone).',
+        help='Templates offered on the shift: those of its role (without role: of the '
+             'roles of its resource), and the templates without role (offered to everyone).',
     )
     request_to_switch = fields.Boolean(
         string='Replacement Requested',
         copy=False,
         tracking=True,
         help='The resource asked to be replaced on this shift: other employees can take it.',
+    )
+    # Shifts of the same employee at the same time (alert on the form, with
+    # suggestions of other employees / nearest free days)
+    conflict_count = fields.Integer(string='Conflicts', compute='_compute_conflicts')
+    conflict_warning = fields.Char(string='Conflicting Shifts', compute='_compute_conflicts')
+    conflict_suggestions = fields.Json(
+        string='Suggestions', compute='_compute_conflict_suggestions',
+        help='Where the shift could go instead (see _get_reassign_suggestions)')
+    # Replacement requested: employees of the role who could take the shift
+    replacement_suggestions = fields.Json(
+        string='Replacements', compute='_compute_replacement_suggestions',
+        help='Employees with the role of the shift free at that time, or on the nearest free day.',
     )
     is_planning_manager = fields.Boolean(compute='_compute_is_planning_manager')
     is_own_shift = fields.Boolean(compute='_compute_shift_changes')
@@ -170,14 +182,25 @@ class FsPlanningSlot(models.Model):
         for slot in self:
             slot.company_id = slot.resource_id.company_id or slot.company_id or self.env.company
 
-    @api.depends('resource_id', 'company_id')
+    @api.depends('resource_id', 'role_id', 'company_id')
     def _compute_available_template_ids(self):
         templates = self.env['fs.shift.template'].search([])
         for slot in self:
-            slot.available_template_ids = templates.filtered(
-                lambda t: (not t.company_id or t.company_id == slot.company_id)
-                and (not t.role_id or not slot.resource_id or slot.resource_id in t.role_id.resource_ids)
-            )
+            role = slot.role_id._origin
+            resource = slot.resource_id._origin
+
+            def offered(template):
+                if template.company_id and template.company_id != slot.company_id:
+                    return False
+                if not template.role_id:
+                    return True  # templates without role: for every shift
+                if role:
+                    return template.role_id == role
+                if resource:
+                    return resource in template.role_id.resource_ids
+                return True  # shift without role nor resource: all templates
+
+            slot.available_template_ids = templates.filtered(offered)
 
     @api.depends('date_start', 'date_end', 'break_hours')
     def _compute_allocated_hours(self):
@@ -187,12 +210,12 @@ class FsPlanningSlot(models.Model):
                 slot.allocated_hours = max(delta.total_seconds() / 3600.0 - slot.break_hours, 0.0)
             elif not slot.sale_line_id:
                 slot.allocated_hours = 0.0
-            # else: a shift to plan keeps the hours left to schedule
+            # else: a shift to schedule keeps its hours
 
-    @api.depends('date_start', 'sale_line_id')
+    @api.depends('resource_id', 'sale_line_id')
     def _compute_is_to_plan(self):
         for slot in self:
-            slot.is_to_plan = bool(slot.sale_line_id) and not slot.date_start
+            slot.is_to_plan = bool(slot.sale_line_id) and not slot.resource_id
 
     def _search_is_to_plan(self, operator, value):
         if operator in ('=', '!='):
@@ -201,7 +224,7 @@ class FsPlanningSlot(models.Model):
             positive = (True in value) == (operator == 'in')
         else:
             return NotImplemented
-        to_plan = Domain('sale_line_id', '!=', False) & Domain('date_start', '=', False)
+        to_plan = Domain('sale_line_id', '!=', False) & Domain('resource_id', '=', False)
         return to_plan if positive else ~to_plan
 
     @api.depends('state')
@@ -241,29 +264,154 @@ class FsPlanningSlot(models.Model):
     @api.constrains('date_start', 'date_end', 'sale_line_id')
     def _check_dates(self):
         for slot in self:
-            if not (slot.date_start and slot.date_end) and not (slot.sale_line_id and not slot.date_start and not slot.date_end):
+            if bool(slot.date_start) != bool(slot.date_end) or (not slot.date_start and not slot.sale_line_id):
                 raise ValidationError(_('Set the start and end dates of the shift.'))
             if slot.date_start and slot.date_end and slot.date_start > slot.date_end:
                 raise ValidationError(_('Start date must be before end date.'))
 
-    @api.constrains('date_start', 'date_end', 'resource_id')
-    def _check_overlap(self):
-        if self.env.context.get('force_generate'):
-            return
+    # Conflicts (an employee with two shifts at the same time) are not blocked,
+    # like Odoo: the shift form shows them with suggestions, the schedule
+    # flags them, and the user decides. Automatic planning (Auto Plan, Copy
+    # previous) avoids them (_is_free_for).
+
+    @api.model
+    def _is_free_for(self, employee, date_start, date_end, exclude=None):
+        """Whether ``employee`` has no shift between the two datetimes."""
+        domain = [
+            ('resource_id', '=', employee.id),
+            ('date_start', '<', date_end),
+            ('date_end', '>', date_start),
+        ]
+        if exclude:
+            domain.append(('id', 'not in', exclude.ids))
+        # sudo: shifts hidden by the record rules still make the employee busy.
+        return not self.sudo().search_count(domain, limit=1)
+
+    def _get_conflicting_slots(self):
+        """Shifts of the employee of this shift at the same time: an employee
+        cannot do two things at once. Also for a shift being edited (form)."""
+        self.ensure_one()
+        employee = self.resource_id._origin or self.resource_id
+        if not employee or not self.date_start or not self.date_end:
+            return self.env['fs.planning.slot']
+        domain = [
+            ('resource_id', '=', employee.id),
+            ('date_start', '<', self.date_end),
+            ('date_end', '>', self.date_start),
+        ]
+        if self._origin.id:
+            domain.append(('id', '!=', self._origin.id))
+        # sudo: a conflict must be detected even when the other slot is
+        # hidden from the current user by record rules.
+        return self.env['fs.planning.slot'].sudo().search(domain, order='date_start').filtered(self._conflicts_with)
+
+    def _get_conflict_label(self):
+        """e.g. "Maintenance Technician (4 Nov 08:00 - 16:00)" """
+        self.ensure_one()
+        start = fields.Datetime.context_timestamp(self, self.date_start)
+        end = fields.Datetime.context_timestamp(self, self.date_end)
+        when = '%s - %s' % (start.strftime('%d %b %H:%M'),
+                            end.strftime('%H:%M') if start.date() == end.date() else end.strftime('%d %b %H:%M'))
+        return '%s (%s)' % (self.role_id.display_name or self.name or _("Shift"), when)
+
+    @api.depends('resource_id', 'date_start', 'date_end')
+    def _compute_conflicts(self):
         for slot in self:
-            if not slot.resource_id or not slot.date_start or not slot.date_end:
-                continue
-            domain = [
-                ('resource_id', '=', slot.resource_id.id),
-                ('id', '!=', slot.id),
-                ('date_start', '<', slot.date_end),
-                ('date_end', '>', slot.date_start),
-            ]
-            # sudo: a conflict must be detected even when the other slot is
-            # hidden from the current user by record rules.
-            overlapping = self.env['fs.planning.slot'].sudo().search(domain).filtered(slot._conflicts_with)[:1]
-            if overlapping:
-                raise ValidationError(slot._get_overlap_message(overlapping))
+            conflicts = slot._get_conflicting_slots()
+            slot.conflict_count = len(conflicts)
+            labels = [c._get_conflict_label() for c in conflicts[:3]]
+            if len(conflicts) > 3:
+                labels.append(_("and %s more", len(conflicts) - 3))
+            slot.conflict_warning = ', '.join(labels) or False
+
+    @api.depends('resource_id', 'role_id', 'date_start', 'date_end', 'break_hours', 'conflict_count')
+    def _compute_conflict_suggestions(self):
+        for slot in self:
+            slot.conflict_suggestions = slot._get_reassign_suggestions() if slot.conflict_count else []
+
+    @api.depends('resource_id', 'role_id', 'date_start', 'date_end', 'break_hours', 'request_to_switch')
+    @api.depends_context('uid')
+    def _compute_replacement_suggestions(self):
+        is_manager = self.env.user.has_group('hudson_planning.group_planning_manager')
+        for slot in self:
+            requested = slot.request_to_switch and slot.resource_id and is_manager
+            slot.replacement_suggestions = slot._get_reassign_suggestions(include_current=False) if requested else []
+
+    def _get_reassign_suggestions(self, limit=6, days=30, include_current=True):
+        """Where the shift could go instead: employees having the role of the
+        shift, free at the same time (working that day, no time off, no other
+        shift), else on the nearest free day; and its employee on their nearest
+        free day (unless ``include_current`` is False: replacements).
+
+        :return: list of ``{'employee_id', 'employee_name', 'date_start',
+            'date_end', 'days', 'same_employee'}`` (UTC datetimes as strings)
+        """
+        self.ensure_one()
+        if not self.date_start or not self.date_end:
+            return []
+        Employee = self.env['hr.employee'].sudo()
+        current = (self.resource_id._origin or self.resource_id).sudo()
+        role = (self.role_id._origin or self.role_id).sudo()
+        if not role and current:
+            role = current._get_default_planning_role()
+        company = self.company_id._origin or self.company_id or self.env.company
+        candidates = role.resource_ids if role else Employee.search([('company_id', 'in', [company.id, False])])
+        candidates = candidates.filtered(lambda e: e.active and e.company_id in (company, self.env['res.company']))
+        if include_current:
+            employees = (candidates | current) if current else candidates
+        else:
+            employees = candidates - current
+        if not employees:
+            return []
+
+        duration = self.date_end - self.date_start
+        # Working time needed: the shift without its break (at least half, as Auto Plan)
+        needed = max(duration.total_seconds() - (self.break_hours or 0.0) * 3600, 0) / 2
+        window_start = self.date_start
+        window_end = self.date_start + timedelta(days=days) + duration
+        others = self.env['fs.planning.slot'].sudo().search([
+            ('resource_id', 'in', employees.ids),
+            ('date_start', '<', window_end),
+            ('date_end', '>', window_start),
+        ] + ([('id', '!=', self._origin.id)] if self._origin.id else []))
+        busy = defaultdict(list)
+        for other in others:
+            busy[other.resource_id.id].append((other.date_start, other.date_end))
+
+        suggestions = []
+        for employee in employees:
+            same = employee == current
+            calendar = employee.resource_calendar_id
+            work, leaves = None, []
+            if calendar:
+                tz = ZoneInfo(employee.tz or self.env.user.tz or 'UTC')
+                begin, stop = window_start.replace(tzinfo=UTC), window_end.replace(tzinfo=UTC)
+                per_tz = {tz: employee.resource_id}
+                work = [(b.astimezone(UTC).replace(tzinfo=None), e.astimezone(UTC).replace(tzinfo=None))
+                        for b, e, _r in calendar._work_intervals_batch(begin, stop, resources_per_tz=per_tz)[employee.resource_id.id]]
+                leaves = [(b.astimezone(UTC).replace(tzinfo=None), e.astimezone(UTC).replace(tzinfo=None))
+                          for b, e, _r in calendar._leave_intervals_batch(begin, stop, resources_per_tz=per_tz)[employee.resource_id.id]]
+            for offset in range(1 if same else 0, days + 1):
+                start = self.date_start + timedelta(days=offset)
+                end = start + duration
+                if any(b < end and e > start for b, e in busy[employee.id] + leaves):
+                    continue
+                if work is not None:
+                    worked = sum(max((min(e, end) - max(b, start)).total_seconds(), 0) for b, e in work)
+                    if worked < needed or not worked:
+                        continue
+                suggestions.append({
+                    'employee_id': employee.id,
+                    'employee_name': employee.name,
+                    'date_start': fields.Datetime.to_string(start),
+                    'date_end': fields.Datetime.to_string(end),
+                    'days': offset,
+                    'same_employee': same,
+                })
+                break
+        # The same time first, then the nearest days; other employees first.
+        suggestions.sort(key=lambda s: (s['days'], s['same_employee'], s['employee_name'] or ''))
+        return suggestions[:limit]
 
     def _conflicts_with(self, other):
         """Whether ``other`` (an overlapping slot of the same resource) blocks ``self``.
@@ -271,13 +419,6 @@ class FsPlanningSlot(models.Model):
         Hook for modules that add slot types which may legitimately overlap.
         """
         return True
-
-    def _get_overlap_message(self, other):
-        return _("Overlap Alert: The employee '%s' is already assigned to a shift from %s to %s that conflicts with this assignment. \n\n(Note: If you assign via the Shift Generation wizard, you will have an option to 'Proceed Anyway' and override this restriction).") % (
-            self.resource_id.name,
-            other.date_start.strftime('%Y-%m-%d %H:%M'),
-            other.date_end.strftime('%Y-%m-%d %H:%M')
-        )
 
     # -------------------------------------------------------------------------
     # MAP VIEW
@@ -387,35 +528,31 @@ class FsPlanningSlot(models.Model):
 
         :param domain: domain of the search view
         :param group_by: group bys of the search view; the rows are the groups
-            of the first one (no group by: a single row)
+            of the first one (no group by: a single row). With two group bys
+            (e.g. Role > Resources), the rows of the second one are shown under
+            a collapsible header per group of the first one.
         :param date_from, date_to: UTC bounds of the period
+        :return: ``rows``: list of rows, each ``{'type': 'row', 'key', 'name',
+            'values': {field: value}, ...}``, preceded with two group bys by
+            their header ``{'type': 'group', 'key', 'name', ...}``
         """
         period = Domain('date_start', '<', date_to) & Domain('date_end', '>', date_from)
         full_domain = Domain(domain or []) & period
         slots = self.search(full_domain)
-        group_field = group_by[0] if group_by else False
+        group_fields = [g for g in (group_by or []) if g.split(':')[0] in self._fields][:2]
         start = fields.Datetime.to_datetime(date_from)
         end = fields.Datetime.to_datetime(date_to)
 
-        rows = {}
-        row_of_slot = {}
-        if group_field:
-            fname = group_field.split(':')[0]
-            field = self._fields[fname]
-            for group in self.formatted_read_group(full_domain, [group_field], ['id:array_agg']):
-                key, label = self._schedule_row_key(field, group[group_field])
-                rows[key] = {'key': key, 'name': label}
-                for slot_id in group['id:array_agg']:
-                    row_of_slot[slot_id] = key
-            if not domain and fname in ('resource_id', 'role_id'):
-                # No filter: every resource (role) is shown, even without shifts.
-                for key, label in self._schedule_all_rows(fname):
-                    rows.setdefault(key, {'key': key, 'name': label})
-            if fname in ('resource_id', 'role_id'):
-                rows.setdefault(False, {'key': False, 'name': self._schedule_row_key(field, False)[1]})
+        if len(group_fields) == 2:
+            rows, row_of_slot = self._schedule_nested_rows(domain, full_domain, group_fields)
         else:
-            rows[False] = {'key': False, 'name': _("Shifts")}
-            row_of_slot = dict.fromkeys(slots.ids, False)
+            rows, row_of_slot = self._schedule_rows(domain, full_domain, group_fields[0] if group_fields else False, slots)
+
+        # Shifts of an employee at the same time as another of their shifts
+        busy = defaultdict(list)
+        for other in self.sudo().search([('resource_id', 'in', slots.resource_id.ids),
+                                         ('date_start', '<', date_to), ('date_end', '>', date_from)]):
+            busy[other.resource_id.id].append(other)
 
         planned = dict.fromkeys(rows, 0.0)
         slot_values = []
@@ -423,23 +560,145 @@ class FsPlanningSlot(models.Model):
             key = row_of_slot.get(slot.id, False)
             values.update(slot._get_schedule_slot_values())
             values['row_key'] = key
+            values['has_conflict'] = any(
+                other.id != slot.id and other.date_start < slot.date_end and other.date_end > slot.date_start
+                and slot._conflicts_with(other)
+                for other in busy.get(slot.resource_id.id, [])
+            )
             slot_values.append(values)
             duration = (slot.date_end - slot.date_start).total_seconds()
             overlap = (min(slot.date_end, end) - max(slot.date_start, start)).total_seconds()
             if duration > 0:
                 planned[key] = planned.get(key, 0.0) + slot.allocated_hours * max(overlap, 0) / duration
 
-        if group_field and group_field.split(':')[0] == 'resource_id':
-            self._add_schedule_resource_info(rows, start, end)
-        ordered = sorted(rows.values(), key=lambda r: (r['key'] is not False, (r['name'] or '').lower()))
-        for row in ordered:
-            row['planned_hours'] = planned.get(row['key'], 0.0)
+        # Avatar, capacity... of the rows of employees
+        resource_field = next((g for g in group_fields if g.split(':')[0] == 'resource_id'), False)
+        if resource_field:
+            employee_rows = {}
+            for row in rows.values():
+                employee_id = row.get('values', {}).get('resource_id')
+                if employee_id:
+                    employee_rows.setdefault(employee_id, []).append(row)
+            info = {employee_id: {} for employee_id in employee_rows}
+            self._add_schedule_resource_info(info, start, end)
+            for employee_id, employee_info in info.items():
+                for row in employee_rows[employee_id]:
+                    row.update(employee_info)
+
+        for key, row in rows.items():
+            row['planned_hours'] = planned.get(key, 0.0)
         return {
-            'rows': ordered,
+            'rows': self._schedule_ordered_rows(rows, nested=len(group_fields) == 2),
             'slots': slot_values,
             'to_plan': self._get_schedule_to_plan(date_from, date_to),
-            'group_field': group_field,
+            'group_field': group_fields[0] if group_fields else False,
+            'group_fields': group_fields,
         }
+
+    @api.model
+    def _schedule_rows(self, domain, full_domain, group_field, slots):
+        """Rows of the schedule grouped by one field (or not grouped)."""
+        rows = {}
+        row_of_slot = {}
+        if not group_field:
+            rows[False] = {'type': 'row', 'key': False, 'name': _("Shifts"), 'values': {}}
+            return rows, dict.fromkeys(slots.ids, False)
+        fname = group_field.split(':')[0]
+        field = self._fields[fname]
+        for group in self.formatted_read_group(full_domain, [group_field], ['id:array_agg']):
+            key, label = self._schedule_row_key(field, group[group_field])
+            rows[key] = {'type': 'row', 'key': key, 'name': label, 'values': {fname: key}}
+            for slot_id in group['id:array_agg']:
+                row_of_slot[slot_id] = key
+        if not domain and fname in ('resource_id', 'role_id'):
+            # No filter: every resource (role) is shown, even without shifts.
+            for key, label in self._schedule_all_rows(fname):
+                rows.setdefault(key, {'type': 'row', 'key': key, 'name': label, 'values': {fname: key}})
+        if fname in ('resource_id', 'role_id'):
+            rows.setdefault(False, {'type': 'row', 'key': False, 'name': self._schedule_row_key(field, False)[1],
+                                    'values': {fname: False}})
+        return rows, row_of_slot
+
+    @api.model
+    def _schedule_nested_rows(self, domain, full_domain, group_fields):
+        """Rows of the schedule grouped by two fields: a header per group of
+        the first field, the groups of the second one under it.
+
+        ... > Resources (e.g. Role, Project): under each group, its open
+        shifts and its employees. Role > Resources: the employees having the
+        role, also without shifts (when there is no filter).
+        """
+        (group1, group2) = group_fields
+        name1, name2 = group1.split(':')[0], group2.split(':')[0]
+        field1, field2 = self._fields[name1], self._fields[name2]
+
+        def leaf_key(key1, key2):
+            return f'{key1}|{key2}'
+
+        rows = {}
+        row_of_slot = {}
+
+        def add_header(key1, label1):
+            header_key = f'group|{key1}'
+            if header_key not in rows:
+                rows[header_key] = {'type': 'group', 'key': header_key, 'name': label1,
+                                    'group_value': key1, 'has_slots': False}
+            return rows[header_key]
+
+        def add_leaf(key1, label1, key2, label2):
+            header = add_header(key1, label1)
+            key = leaf_key(key1, key2)
+            if key not in rows:
+                rows[key] = {'type': 'row', 'key': key, 'name': label2, 'group_key': header['key'],
+                             'values': {name1: key1, name2: key2}}
+            return rows[key]
+
+        for group in self.formatted_read_group(full_domain, [group1, group2], ['id:array_agg']):
+            key1, label1 = self._schedule_row_key(field1, group[group1])
+            key2, label2 = self._schedule_row_key(field2, group[group2])
+            leaf = add_leaf(key1, label1, key2, label2)
+            rows[leaf['group_key']]['has_slots'] = True
+            for slot_id in group['id:array_agg']:
+                row_of_slot[slot_id] = leaf['key']
+
+        if name2 == 'resource_id':
+            open_label = self._schedule_row_key(field2, False)[1]
+            if name1 == 'role_id' and not domain:
+                # No filter: every role, with its employees.
+                visible = dict(self._schedule_all_rows('resource_id'))
+                for role in self.env['fs.planning.role'].search([]):
+                    add_header(role.id, role.display_name)
+                    for employee in role.resource_ids.filtered(lambda e: e.id in visible):
+                        add_leaf(role.id, role.display_name, employee.id, employee.name)
+            for header in [r for r in rows.values() if r['type'] == 'group']:
+                # Open shifts of each role / project... (also "Undefined Role",
+                # "None", once they have shifts)
+                add_leaf(header['group_value'], header['name'], False, open_label)
+        return rows, row_of_slot
+
+    @api.model
+    def _schedule_ordered_rows(self, rows, nested=False):
+        """Rows in display order: "None" first, then by name (with two
+        group bys: each header followed by its rows), with the header totals."""
+        def order(row):
+            value = row['group_value'] if row['type'] == 'group' else row['key']
+            if nested and row['type'] == 'row':
+                value = row['values'][list(row['values'])[1]]
+            return (value is not False, (row['name'] or '').lower())
+
+        if not nested:
+            return sorted(rows.values(), key=order)
+        ordered = []
+        for header in sorted((r for r in rows.values() if r['type'] == 'group'), key=order):
+            children = sorted((r for r in rows.values() if r.get('group_key') == header['key']), key=order)
+            header['planned_hours'] = sum(child['planned_hours'] for child in children)
+            capacities = [child['capacity_hours'] for child in children if child.get('capacity_hours') is not None]
+            if capacities:
+                header['capacity_hours'] = sum(capacities)
+            header['child_count'] = len(children)
+            ordered.append(header)
+            ordered.extend(children)
+        return ordered
 
     @api.model
     def _schedule_row_key(self, field, value):
@@ -449,6 +708,10 @@ class FsPlanningSlot(models.Model):
         if value is False or value is None:
             if field.name == 'resource_id':
                 return False, _("Open Shifts")
+            if field.name == 'role_id':
+                return False, _("Undefined Role")
+            if field.name == 'project_id':
+                return False, _("No Project")
             return False, _("None")
         if field.type == 'selection':
             return value, dict(field._description_selection(self.env)).get(value, value)
@@ -510,25 +773,26 @@ class FsPlanningSlot(models.Model):
         """Side panel of the schedule: work still to be planned, dragged onto
         the schedule to plan it (see ``action_plan_from_schedule``).
 
-        Base: the shifts of the confirmed sales orders not scheduled yet
-        (Plan Services on the product).
+        Base: the open shifts of the sales orders without dates (an open shift
+        of the same role was already waiting when they were generated).
 
         :return: list of ``{'ref': 'model,id', 'name', 'hours'}``
         """
-        slots = self.search([('is_to_plan', '=', True), ('company_id', 'in', self.env.companies.ids)],
-                            order='sale_order_id, id')
+        slots = self.search([
+            ('sale_line_id', '!=', False), ('date_start', '=', False),
+            ('company_id', 'in', self.env.companies.ids),
+        ], order='sale_order_id, id')
         return [{
             'ref': f'fs.planning.slot,{slot.id}',
-            'name': slot._get_to_plan_label(),
+            'name': slot._get_to_schedule_label(),
             'hours': slot.allocated_hours,
         } for slot in slots]
 
-    def _get_to_plan_label(self):
+    def _get_to_schedule_label(self):
         self.ensure_one()
         # sudo: planners without sales rights plan the orders too.
         order = self.sudo().sale_order_id
-        hours = self.allocated_hours
-        minutes = round(hours * 60)
+        minutes = round(self.allocated_hours * 60)
         duration = '%d:%02d' % divmod(minutes, 60) if minutes % 60 else '%d' % (minutes // 60)
         return _(
             "%(order)s - %(name)s (%(role)s, %(hours)sh)",
@@ -540,39 +804,60 @@ class FsPlanningSlot(models.Model):
 
     @api.model
     def action_plan_from_schedule(self, ref, group_field, row_key, date_start, date_end):
-        """Plan a shift of a sales order dropped on the schedule: its hours
-        are scheduled in the working time of the day it was dropped on (from
-        the dropped time), for the resource of the row; what does not fit stays
-        to plan."""
+        """Schedule a shift of a sales order dropped from the side panel: it
+        covers its hours of working time from where it is dropped, as an open
+        shift (Open Shifts row) or the shift of the employee of the row."""
         model, _sep, res_id = ref.partition(',')
         if model != 'fs.planning.slot':
             raise UserError(_("This cannot be planned from the schedule."))
         self._check_planning_manager()
         slot = self.browse(int(res_id)).exists()
-        if not slot or not slot.is_to_plan:
-            raise UserError(_("This shift has already been planned."))
-        employee = self.env['hr.employee']
-        extra_vals = {}
-        if group_field == 'resource_id' and row_key:
-            employee = employee.browse(row_key)
+        if not slot or slot.date_start:
+            raise UserError(_("This shift has already been scheduled."))
+        start, end, breaks = self._get_work_span(fields.Datetime.to_datetime(date_start), slot.allocated_hours, slot.company_id)
+        vals = {'date_start': start, 'date_end': end, 'break_hours': breaks}
+        if group_field == 'resource_id':
+            vals['resource_id'] = row_key or False
         elif group_field in ('role_id', 'project_id', 'task_id') and row_key:
-            extra_vals[group_field] = row_key
-        start = fields.Datetime.to_datetime(date_start)
-        tz = ZoneInfo(employee.tz or self.env.user.tz or 'UTC')
-        local_start = start.replace(tzinfo=UTC).astimezone(tz)
-        day_end = datetime.combine(local_start.date() + timedelta(days=1), time.min, tzinfo=tz)
-        planned = slot._plan_hours(employee, start, day_end.astimezone(UTC).replace(tzinfo=None), extra_vals=extra_vals)
-        if not planned:
-            raise UserError(_(
-                "%(who)s has no working time left on %(day)s to plan this shift.",
-                who=employee.name or _("The company"),
-                day=format_date(self.env, local_start.date()),
-            ))
+            vals[group_field] = row_key
+        slot.write(vals)
         return True
 
     # -------------------------------------------------------------------------
-    # SALES ORDERS: shifts to plan
+    # SALES ORDERS: open shifts of the services sold (Plan Services)
     # -------------------------------------------------------------------------
+
+    @api.model
+    def _get_work_span(self, start, hours, company):
+        """Interval covering ``hours`` of the company's working time from
+        ``start`` (naive UTC): ``(start, end, break_hours)``, the start moved to
+        the first working moment and the time off work counted as break."""
+        calendar = company.resource_calendar_id
+        if calendar and hours > 0:
+            tz = ZoneInfo(self.env.user.tz or 'UTC')
+            begin = start.replace(tzinfo=UTC)
+            horizon = begin + timedelta(days=int(hours // 4) + 14)
+            work = calendar._work_intervals_batch(begin, horizon, resources_per_tz={tz: self.env['resource.resource']})[False]
+            first, left = None, hours
+            for b, e, _records in work:
+                b, e = b.astimezone(UTC).replace(tzinfo=None), e.astimezone(UTC).replace(tzinfo=None)
+                first = first or b
+                duration = (e - b).total_seconds() / 3600
+                if duration >= left - 1e-6:
+                    end = b + timedelta(minutes=round(left * 60))
+                    return first, end, max(round((end - first).total_seconds() / 3600 - hours, 4), 0.0)
+                left -= duration
+        return start, start + timedelta(minutes=round(max(hours, 0.0) * 60)), 0.0
+
+    def _set_open_shift_hours(self, hours):
+        """Make the open shift cover ``hours`` of working time from its start."""
+        self.ensure_one()
+        if not self.date_start:
+            # To schedule: no dates yet.
+            self.allocated_hours = hours
+            return
+        start, end, breaks = self._get_work_span(self.date_start, hours, self.company_id)
+        self.write({'date_start': start, 'date_end': end, 'break_hours': breaks})
 
     def _blocks_sale_planning(self, other):
         """Whether the shift ``other`` makes its resource unavailable to plan
@@ -644,10 +929,10 @@ class FsPlanningSlot(models.Model):
         }
 
     def _plan_hours(self, employee, date_from, date_to, extra_vals=None):
-        """Schedule the hours of this shift to plan in the free working time of
-        ``employee`` (none: an open shift, in the company's working hours)
-        between two naive UTC datetimes: one shift per day. The hours that do
-        not fit stay to plan (this shift, deleted once all is planned).
+        """Assign the hours of this open shift of a sales order to ``employee``,
+        in their free working time between two naive UTC datetimes: one shift
+        per day. The hours that do not fit stay in this open shift (deleted
+        once all is planned).
 
         :return: the created shifts
         """
@@ -675,16 +960,14 @@ class FsPlanningSlot(models.Model):
             remaining -= worked
         if not vals_list:
             return self.browse()
-        # Creating them updates (or deletes) this shift to plan.
-        return self.create(vals_list)
-
-    def _update_sale_hours_to_plan(self, lines=None):
-        """Hours to plan of the sales order lines follow their planned shifts."""
-        if self.env.context.get('planning_slot_generation'):
-            return
-        lines = ((lines or self.env['sale.order.line']) | self.sale_line_id).exists()
-        if lines:
-            lines.sudo().with_context(planning_slot_generation=True)._planning_slot_generation()
+        shifts = self.create(vals_list)
+        # What was planned is not open anymore.
+        left = self.allocated_hours - sum(shifts.mapped('allocated_hours'))
+        if left < 1 / 60:
+            self.unlink()
+        else:
+            self._set_open_shift_hours(left)
+        return shifts
 
     @api.model
     def _auto_plan_sale_shifts(self, domain, date_from, date_to):
@@ -696,7 +979,10 @@ class FsPlanningSlot(models.Model):
         """
         date_from = max(fields.Datetime.to_datetime(date_from), fields.Datetime.now().replace(second=0, microsecond=0))
         date_to = fields.Datetime.to_datetime(date_to)
-        to_plan = self.search(Domain(domain or []) & Domain('is_to_plan', '=', True), order='sale_order_id, id')
+        # Open shifts of the period and before, and those to schedule (no dates).
+        to_plan = self.search(Domain(domain or []) & Domain('is_to_plan', '=', True)
+                              & (Domain('date_start', '<', date_to) | Domain('date_start', '=', False)),
+                              order='date_start, id')
         if date_from >= date_to:
             return len(to_plan), 0.0
         planned = defaultdict(float)
@@ -769,11 +1055,10 @@ class FsPlanningSlot(models.Model):
                 ('date_end', '=', vals['date_end']),
             ]):
                 continue  # already copied
-            try:
-                with self.env.cr.savepoint():
-                    copied |= slot.copy(vals)
-            except ValidationError:
-                copied |= slot.copy(dict(vals, resource_id=False))
+            if slot.resource_id and not self._is_free_for(slot.resource_id, vals['date_start'], vals['date_end']):
+                # The employee is busy then: an open shift instead.
+                vals['resource_id'] = False
+            copied |= slot.copy(vals)
         return len(copied)
 
     @api.model
@@ -781,8 +1066,11 @@ class FsPlanningSlot(models.Model):
         """Assign the open shifts of the period to available resources: having
         the shift's role, working that day and not booked, the least planned first."""
         self._check_planning_manager()
+        # The open shifts of the sales orders are split on the employees
+        # (see _auto_plan_sale_shifts).
         open_slots = self.search(Domain(domain or []) & Domain([
-            ('resource_id', '=', False), ('date_start', '<', date_to), ('date_end', '>', date_from),
+            ('resource_id', '=', False), ('sale_line_id', '=', False),
+            ('date_start', '<', date_to), ('date_end', '>', date_from),
         ]))
         all_employees = self.env['hr.employee'].search([('company_id', 'in', self.env.companies.ids + [False])])
         planned = defaultdict(float)
@@ -793,7 +1081,7 @@ class FsPlanningSlot(models.Model):
             candidates = (slot.role_id.resource_ids or all_employees).filtered(
                 lambda e: not slot.company_id or e.company_id in (slot.company_id, self.env['res.company']))
             for employee in candidates.sorted(lambda e: planned[e.id]):
-                if not employee._is_available_for_slot(slot):
+                if not employee._is_available_for_slot(slot) or not self._is_free_for(employee, slot.date_start, slot.date_end):
                     continue
                 try:
                     with self.env.cr.savepoint():
@@ -837,6 +1125,7 @@ class FsPlanningSlot(models.Model):
             'resource_name': self.resource_id.name or '',
             'lines': lines,
             'priority': False,
+            'conflict_count': self.conflict_count,
             'actions': self._get_popover_actions(),
             'can_delete': self.env.user.has_group('hudson_planning.group_planning_manager'),
         }
@@ -872,9 +1161,10 @@ class FsPlanningSlot(models.Model):
 
     @api.model_create_multi
     def create(self, vals_list):
+        vals_list = [self._add_default_role(vals) if 'role_id' not in vals or not vals['role_id'] else vals
+                     for vals in vals_list]
         slots = super().create(vals_list)
         slots.filtered('template_creation')._create_shift_template()
-        slots.filtered('sale_line_id')._update_sale_hours_to_plan()
         return slots
 
     def _get_employee_writable_fields(self):
@@ -890,24 +1180,43 @@ class FsPlanningSlot(models.Model):
             fields_desc = ', '.join(sorted(self._fields[f].string for f in forbidden if f in self._fields))
             raise AccessError(_("Only Planning administrators can change the planning (%s).", fields_desc))
 
-    # Changing them changes the hours left to plan of the sales order line.
-    _SALE_PLANNING_FIELDS = {'date_start', 'date_end', 'break_hours', 'allocated_hours', 'sale_line_id', 'active'}
-
     def write(self, vals):
         self._check_employee_write(vals)
-        old_lines = self.sale_line_id
+        if vals.get('resource_id') and 'role_id' not in vals:
+            # Shifts without role assigned (e.g. dropped on an employee): the
+            # employee's default role.
+            no_role = self.filtered(lambda s: not s.role_id)
+            role_vals = self._add_default_role(vals)
+            if no_role and role_vals is not vals:
+                if no_role != self:
+                    (self - no_role).write(vals)
+                    return no_role.write(role_vals)
+                vals = role_vals
+        # A shift with a replacement request given to someone else (by a planning
+        # administrator): the request is settled.
+        replaced = {}
+        if 'resource_id' in vals and 'request_to_switch' not in vals:
+            replaced = {slot: slot.resource_id for slot in self
+                        if slot.request_to_switch and slot.resource_id.id != (vals['resource_id'] or False)}
         res = super().write(vals)
+        for slot, previous in replaced.items():
+            if not slot.exists():
+                # e.g. the shift of an extra technician of a job: removed with them
+                continue
+            # sudo: employees may no longer read the shift once replaced
+            slot.sudo().request_to_switch = False
+            if slot.resource_id:
+                body = _("%(user)s gave this shift to %(new)s, replacing %(old)s.",
+                         user=self.env.user.name, new=slot.resource_id.name, old=previous.name)
+            else:
+                body = _("%(user)s moved this shift to the open shifts, replacing %(old)s.",
+                         user=self.env.user.name, old=previous.name)
+            slot.sudo().message_post(body=body)
         if vals.get('template_creation'):
             self.filtered('template_creation')._create_shift_template()
-        if self._SALE_PLANNING_FIELDS & vals.keys():
-            self._update_sale_hours_to_plan(old_lines)
-        return res
-
-    def unlink(self):
-        lines = self.sale_line_id
-        res = super().unlink()
-        # The hours of a deleted shift are to plan again.
-        self.browse()._update_sale_hours_to_plan(lines)
+        # The open shifts of a sales order are not regenerated when its shifts
+        # are moved, resized or deleted (like Odoo): only when the order is
+        # confirmed or its quantities change (sale.order.line).
         return res
 
     def _create_shift_template(self):
@@ -962,6 +1271,26 @@ class FsPlanningSlot(models.Model):
         # sale_project: task sold through a sales order line
         if 'sale_line_id' in task._fields and task.sale_line_id:
             self.sale_order_id = task.sale_line_id.order_id
+
+    @api.onchange('resource_id')
+    def _onchange_resource_id_role(self):
+        """The role of the shift is the default role of its employee, unless
+        it is already one of their roles."""
+        employee = self.resource_id._origin.sudo()
+        if not employee or (self.role_id and self.role_id._origin in employee.planning_role_ids):
+            return
+        role = employee._get_default_planning_role()
+        if role:
+            self.role_id = role
+
+    @api.model
+    def _add_default_role(self, vals):
+        """Values of a shift assigned without role: the employee's default role."""
+        if vals.get('resource_id') and not vals.get('role_id'):
+            role = self.env['hr.employee'].sudo().browse(vals['resource_id'])._get_default_planning_role()
+            if role:
+                return dict(vals, role_id=role.id)
+        return vals
 
     @api.onchange('role_id')
     def _onchange_role_id(self):

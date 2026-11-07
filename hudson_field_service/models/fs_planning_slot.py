@@ -86,6 +86,11 @@ class FsPlanningSlot(models.Model):
     fs_partner_address = fields.Char(related='field_service_order_id.partner_address', string='Service Address', readonly=False)
     fs_extra_employee_ids = fields.Many2many(related='field_service_order_id.extra_employee_ids', string='Extra Technicians', readonly=False)
     fs_material_ids = fields.Many2many(related='field_service_order_id.material_ids', string='Materials', readonly=False)
+    fs_primary_employee_id = fields.Many2one(related='field_service_order_id.employee_id', string='Primary Technician')
+    fs_is_extra_shift = fields.Boolean(
+        compute='_compute_fs_is_extra_shift',
+        help='Shift of an extra technician of the job (not of its primary technician).',
+    )
     fs_priority = fields.Selection(related='field_service_order_id.priority', string='Priority', readonly=False, store=True)
     fs_tag_ids = fields.Many2many(related='field_service_order_id.tag_ids', string='Tags', readonly=False)
     fs_description = fields.Html(related='field_service_order_id.description', string='Job Description', readonly=False)
@@ -145,6 +150,24 @@ class FsPlanningSlot(models.Model):
         for slot in self.filtered('field_service_order_id'):
             slot.shift_status = job_status.get(slot.field_service_state, slot.shift_status)
 
+    @api.depends('resource_id', 'field_service_order_id.employee_id', 'field_service_order_id.extra_employee_ids')
+    def _compute_fs_is_extra_shift(self):
+        for slot in self:
+            order = slot.sudo().field_service_order_id
+            slot.fs_is_extra_shift = bool(order) and bool(slot.resource_id) \
+                and slot.resource_id != order.employee_id and slot.resource_id in order.extra_employee_ids
+
+    @api.onchange('resource_id', 'fs_extra_employee_ids')
+    def _onchange_resource_id_extra_technicians(self):
+        """The (primary) technician of the job is not also one of its extra
+        technicians. Shifts of the extra technicians list them all."""
+        if self._origin.fs_is_extra_shift:
+            return
+        resource = self.resource_id._origin
+        if resource and resource in self.fs_extra_employee_ids._origin:
+            # Onchange records: compare the real employees.
+            self.fs_extra_employee_ids = self.fs_extra_employee_ids.filtered(lambda e: e._origin != resource)
+
     @api.onchange('partner_id')
     def _onchange_partner_id_field_service(self):
         """Fetch the customer's phone number; a new job gets the default worksheet."""
@@ -188,14 +211,17 @@ class FsPlanningSlot(models.Model):
     def _blocks_field_service_job(self):
         return self._is_open_job() or self._is_booked_shift()
 
-    def _conflicts_with(self, other):
-        if not (self.field_service_order_id or other.field_service_order_id):
-            return super()._conflicts_with(other)
-        # A job planned inside a plain shift is the technician working that shift.
-        job, other_slot = (self, other) if self.field_service_order_id else (other, self)
-        if not job._is_open_job():
-            return False
-        return other_slot._blocks_field_service_job()
+    # An employee cannot do two things at once: a job conflicts with any other
+    # shift or job of the technician at the same time (no _conflicts_with
+    # exception for jobs inside plain shifts anymore).
+
+    def _get_conflict_label(self):
+        if not self.field_service_order_id:
+            return super()._get_conflict_label()
+        order = self.sudo().field_service_order_id
+        label = super()._get_conflict_label()
+        # "FS-00012 - Title (4 Nov 08:00 - 16:00)"
+        return ' - '.join(filter(None, [order.name, order.title])) + label[label.rfind(' ('):]
 
     def _get_booking_label(self):
         """Human readable label of what the slot is booked for."""
@@ -206,17 +232,6 @@ class FsPlanningSlot(models.Model):
         if work:
             return _("a shift for %s", work.display_name)
         return self.name or _("another shift")
-
-    def _get_overlap_message(self, other):
-        if not (self.field_service_order_id or other.field_service_order_id):
-            return super()._get_overlap_message(other)
-        return _(
-            "Planning Collision! %(employee)s is already booked on %(booking)s from %(start)s to %(end)s.",
-            employee=self.resource_id.name,
-            booking=other._get_booking_label(),
-            start=fields.Datetime.context_timestamp(self, other.date_start).strftime('%Y-%m-%d %H:%M'),
-            end=fields.Datetime.context_timestamp(self, other.date_end).strftime('%Y-%m-%d %H:%M'),
-        )
 
     # -------------------------------------------------------------------------
     # CRUD
@@ -251,6 +266,8 @@ class FsPlanningSlot(models.Model):
 
     @api.model_create_multi
     def create(self, vals_list):
+        # The role of a job comes from its order: set it before creating it.
+        vals_list = [self._add_default_role(vals) for vals in vals_list]
         if not self._fs_enabled():
             for vals in vals_list:
                 self._pop_job_values(vals)
@@ -280,6 +297,41 @@ class FsPlanningSlot(models.Model):
 
     def write(self, vals):
         self._check_employee_write(vals)
+        if vals.get('resource_id') and 'role_id' not in vals:
+            # The role of a job comes from its order: set it before the job
+            # values are pushed to the order.
+            no_role = self.filtered(lambda s: not s.role_id)
+            role_vals = self._add_default_role(vals)
+            if no_role and role_vals is not vals:
+                if no_role != self:
+                    (self - no_role).write(vals)
+                    return no_role.write(role_vals)
+                vals = role_vals
+        if 'resource_id' in vals and not vals['resource_id'] and 'partner_id' not in vals and self._fs_enabled():
+            # A job has no shift without technician (see
+            # field.service.order._sync_planning_slots): unassigning the only
+            # technician of the job of a service sold (e.g. moved to Open
+            # Shifts) makes it an open shift of the sales order again, at the
+            # same time, removing the job (refused once work is recorded).
+            back_to_open = self.filtered(
+                lambda s: s.sale_line_id and s.field_service_order_id and s.resource_id
+                and s.field_service_order_id._get_assignees() == s.resource_id)
+            if back_to_open:
+                for slot in back_to_open:
+                    line = slot.sudo().sale_line_id
+                    slot.write({**vals, 'partner_id': False,
+                                'name': (line.name or '').split('\n')[0] or line.product_id.display_name})
+                rest = self - back_to_open
+                return rest.write(vals) if rest else True
+        if vals.get('resource_id') and not vals.get('partner_id') and self._fs_enabled():
+            # Assigning an open shift of a service with a worksheet (e.g.
+            # dropped on a technician): it becomes a job for the customer.
+            sale_jobs = self.filtered(lambda s: not s.resource_id and not s.partner_id and s._is_field_service_sale_shift())
+            if sale_jobs:
+                for slot in sale_jobs:
+                    slot.write({**vals, **slot._get_sale_job_values()})
+                rest = self - sale_jobs
+                return rest.write(vals) if rest else True
         if not self._fs_enabled():
             self._pop_job_values(vals)
             return super().write(vals)
@@ -462,8 +514,19 @@ class FsPlanningSlot(models.Model):
         return super().action_request_switch()
 
     def action_self_unassign(self):
+        """On a job, the technician leaves the job: their shift is removed (an
+        extra technician), or becomes the open shift of the job (the only one),
+        so the message goes on the job."""
         self._check_job_not_started(_("Unassigning yourself"))
-        return super().action_self_unassign()
+        jobs = self.filtered('field_service_order_id')
+        for slot in jobs:
+            if not slot.can_self_unassign:
+                raise UserError(_("You can only remove yourself from your own upcoming published shifts."))
+            order = slot.sudo().field_service_order_id
+            # sudo: employees may not write on the shift anymore once unassigned.
+            slot.sudo().write({'resource_id': False, 'request_to_switch': False})
+            order.message_post(body=_("%s removed themselves from this job.", self.env.user.name))
+        return super(FsPlanningSlot, self - jobs).action_self_unassign()
 
     # -------------------------------------------------------------------------
     # SCHEDULE VIEW
@@ -528,33 +591,27 @@ class FsPlanningSlot(models.Model):
     # -------------------------------------------------------------------------
 
     def _is_field_service_sale_shift(self):
-        """Shift to plan of a service with a worksheet: planned as jobs."""
+        """Shift of a service with a worksheet: assigned, it is a job."""
         self.ensure_one()
         return self._fs_enabled() and bool(self.sudo().sale_line_id.product_id.worksheet_template_id)
 
-    def _blocks_sale_planning(self, other):
-        if self._is_field_service_sale_shift():
-            # A job is planned inside the technician's plain shifts.
-            return other._blocks_field_service_job()
-        return super()._blocks_sale_planning(other)
+    def _get_sale_job_values(self):
+        """Values making a shift of a service with a worksheet a job for the
+        customer of its sales order (see create / write)."""
+        self.ensure_one()
+        line = self.sudo().sale_line_id
+        order = line.order_id
+        return {
+            'partner_id': (order.partner_shipping_id or order.partner_id).id,
+            'fs_title': self.name or line.product_id.display_name,
+            'fs_worksheet_template_id': line.product_id.worksheet_template_id.id,
+        }
 
     def _prepare_planned_shift_values(self, employee, date_start, date_end, break_hours):
         vals = super()._prepare_planned_shift_values(employee, date_start, date_end, break_hours)
         if self._is_field_service_sale_shift():
-            line = self.sudo().sale_line_id
-            order = line.order_id
-            # The customer makes the shift a job (see create).
-            vals.update({
-                'partner_id': (order.partner_shipping_id or order.partner_id).id,
-                'fs_title': self.name or line.product_id.display_name,
-                'fs_worksheet_template_id': line.product_id.worksheet_template_id.id,
-            })
+            vals.update(self._get_sale_job_values())
         return vals
-
-    def _plan_hours(self, employee, date_from, date_to, extra_vals=None):
-        if not employee and self._is_field_service_sale_shift():
-            raise UserError(_("Group the schedule by resource and drop the job on a technician to plan it."))
-        return super()._plan_hours(employee, date_from, date_to, extra_vals=extra_vals)
 
     def get_popover_data(self):
         data = super().get_popover_data()
@@ -580,6 +637,14 @@ class FsPlanningSlot(models.Model):
         if order.state in ('new', 'scheduled') and not order.is_timer_running and order.can_start_work:
             actions.append({'method': 'action_start_timer_with_location', 'string': _("Start"),
                             'geolocate': self._fs_feature('fs_geolocation')})
+        # The technician's timer, like Odoo: pause / stop it, or resume it.
+        if order.state in ('in_progress', 'paused') and order.can_start_work:
+            if order.is_timer_running:
+                actions.append({'method': 'action_pause_timer', 'string': _("Pause")})
+                actions.append({'method': 'action_stop_timer', 'string': _("Stop")})
+            else:
+                actions.append({'method': 'action_resume_timer_with_location', 'string': _("Resume"),
+                                'geolocate': self._fs_feature('fs_geolocation')})
         if order.state in ('new', 'scheduled') and self.env.user.has_group('hudson_field_service.group_field_service_manager'):
             actions.append({'method': 'action_unschedule', 'string': _("Unschedule")})
         return actions

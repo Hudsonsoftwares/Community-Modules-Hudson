@@ -151,13 +151,20 @@
 
             <!-- Resources: technicians and materials of the job -->
             <xpath expr="//div[@name='resources']" position="inside">
+                <field name="fs_is_extra_shift" invisible="1"/>
+                <!-- The technician of the shift is not also an extra technician -->
                 <field name="fs_extra_employee_ids"
                        widget="many2many_avatar_employee"
                        readonly="not is_planning_manager"
                        options="{'no_create': True}"
+                       domain="[('id', '!=', resource_id)]"
                        placeholder="Extra technicians"
-                       invisible="not is_field_service"
+                       invisible="not is_field_service or fs_is_extra_shift"
                        groups="hudson_field_service.group_field_service_user"/>
+                <div class="text-muted small" invisible="not fs_is_extra_shift" groups="hudson_field_service.group_field_service_user">
+                    Extra technician of the job of
+                    <field name="fs_primary_employee_id" class="oe_inline" widget="many2one_avatar_employee" readonly="1"/>
+                </div>
                 <field name="fs_material_ids"
                        widget="many2many_tags"
                        options="{'color_field': 'color', 'no_create': True}"

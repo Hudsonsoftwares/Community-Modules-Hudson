@@ -73,9 +73,37 @@
                                             </div>
                                         </div>
                                     </div>
-                                    <t t-foreach="this.state.rows" t-as="row" t-key="row.key === false ? 'none' : row.key">
+                                    <t t-foreach="this.visibleRows" t-as="row" t-key="row.key === false ? 'none' : row.key">
+                                        <!-- Two group bys: header of a group (e.g. a role), click to fold -->
+                                        <div t-if="row.type === 'group'" class="o_fs_row o_fs_group_row" t-on-click="() => this.toggleGroup(row)">
+                                            <div class="o_fs_row_header">
+                                                <div class="d-flex align-items-center gap-1 w-100">
+                                                    <i class="oi" t-att-data-icon="this.isCollapsed(row) ? 'arrow_right' : 'arrow_drop_down'"/>
+                                                    <span class="text-truncate flex-grow-1 fw-bold" t-att-title="row.name" t-out="row.name"/>
+                                                    <span class="text-muted small" t-out="this.formatHours(row.planned_hours)"/>
+                                                </div>
+                                                <div t-if="row.capacity_hours" class="progress o_fs_progress mt-1"
+                                                     t-att-title="this.formatHours(row.planned_hours) + ' / ' + this.formatHours(row.capacity_hours)">
+                                                    <div class="progress-bar" t-att-class="row.planned_hours > row.capacity_hours ? 'bg-danger' : 'bg-success'"
+                                                         t-att-style="'width: ' + this.progress(row) + '%'"/>
+                                                </div>
+                                            </div>
+                                            <div class="o_fs_track">
+                                                <div class="o_fs_cells">
+                                                    <t t-foreach="this.groupColumnHours(row)" t-as="cell" t-key="cell.key">
+                                                        <div class="o_fs_group_cell">
+                                                            <t t-if="cell.hours > 0.01">
+                                                                <span class="o_fs_group_hours" t-out="this.formatSummaryHours(cell.hours)"/>
+                                                                <span class="o_fs_group_line"/>
+                                                            </t>
+                                                        </div>
+                                                    </t>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <t t-else="">
                                         <t t-set="rowData" t-value="this.rowPills(row)"/>
-                                        <div class="o_fs_row" t-att-style="'min-height: ' + rowData.height + 'px'">
+                                        <div class="o_fs_row" t-att-class="row.group_key ? 'o_fs_child_row' : ''" t-att-style="'min-height: ' + rowData.height + 'px'">
                                             <div class="o_fs_row_header">
                                                 <div class="d-flex align-items-center gap-2 w-100">
                                                     <img t-if="row.avatar" class="o_fs_avatar rounded" t-att-src="row.avatar" alt=""/>
@@ -117,6 +145,7 @@
                                                 </t>
                                             </div>
                                         </div>
+                                        </t>
                                     </t>
                                 </div>
                             </div>
@@ -149,6 +178,10 @@
                 <div class="d-flex align-items-start gap-2 mb-2">
                     <i class="oi oi-fw" data-icon="calendar_today"/>
                     <span class="fw-bold" t-out="this.dateLabel"/>
+                    <span t-if="this.props.data.conflict_count" class="badge rounded-pill text-bg-danger ms-auto"
+                          title="Other shifts of the employee at the same time">
+                        <t t-out="this.props.data.conflict_count"/> conflicts
+                    </span>
                 </div>
                 <div t-if="this.props.data.name" class="fw-bold mb-2" t-out="this.props.data.name"/>
                 <t t-foreach="this.props.data.lines" t-as="line" t-key="line_index">

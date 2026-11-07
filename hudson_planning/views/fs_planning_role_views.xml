@@ -69,4 +69,20 @@
         </field>
     </record>
 
+    <!-- Employee: roles and default role (Work tab) -->
+    <record id="hr_employee_view_form_planning_roles" model="ir.ui.view">
+        <field name="name">hr.employee.form.planning.roles</field>
+        <field name="model">hr.employee</field>
+        <field name="inherit_id" ref="hr.view_employee_form"/>
+        <field name="arch" type="xml">
+            <group name="work_location" position="after">
+                <group name="planning" string="Planning" groups="hudson_planning.group_planning_manager">
+                    <field name="planning_role_ids" widget="many2many_tags" options="{'color_field': 'color', 'no_create_edit': True}"/>
+                    <field name="default_planning_role_id" options="{'no_create': True}"
+                           placeholder="First of the roles"/>
+                </group>
+            </group>
+        </field>
+    </record>
+
 </odoo>

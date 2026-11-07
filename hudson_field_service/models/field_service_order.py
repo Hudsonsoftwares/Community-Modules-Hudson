@@ -820,6 +820,8 @@ class FieldServiceOrder(models.Model):
                 company = self.env['res.company'].browse(vals.get('company_id')) or self.env.company
                 vals['name'] = self.env['ir.sequence'].with_company(company).next_by_code('field.service.order') or _('New')
         orders = super().create(vals_list)
+        orders.with_context(fs_skip_slot_sync=True)._remove_primary_from_extra_technicians()
+        orders._grant_technician_access()
         if not self.env.context.get('fs_skip_slot_sync'):
             orders._sync_planning_slots()
         return orders
@@ -831,6 +833,51 @@ class FieldServiceOrder(models.Model):
         'employee_id', 'extra_employee_ids', 'date_planned', 'date_deadline', 'duration_planned',
         'rest_time_planned', 'is_published', 'active', 'role_id', 'partner_id', 'company_id',
     }
+
+    @api.onchange('employee_id')
+    def _onchange_employee_id_planning(self):
+        """The primary technician is not also an extra one; the role of the
+        job is the default role of its technician."""
+        employee = self.employee_id._origin
+        if not employee:
+            return
+        if employee in self.extra_employee_ids._origin:
+            self.extra_employee_ids = self.extra_employee_ids.filtered(lambda e: e._origin != employee)
+        if not self.role_id or self.role_id._origin not in employee.sudo().planning_role_ids:
+            role = employee.sudo()._get_default_planning_role()
+            if role:
+                self.role_id = role
+
+    @api.onchange('extra_employee_ids')
+    def _onchange_extra_employee_ids(self):
+        employee = self.employee_id._origin
+        if employee and employee in self.extra_employee_ids._origin:
+            self.extra_employee_ids = self.extra_employee_ids.filtered(lambda e: e._origin != employee)
+
+    def _grant_technician_access(self):
+        """Technicians assigned to a job get Field Service / User rights, to
+        start it (timer, location), fill the worksheet... from their shift:
+        like Odoo, field service work is done by Field Service users. The
+        rights cover only their own published jobs."""
+        group = self.env.ref('hudson_field_service.group_field_service_user', raise_if_not_found=False)
+        if not group:
+            return
+        for order in self:
+            users = (order.employee_id | order.extra_employee_ids).sudo().user_id.filtered(
+                lambda u: not u.share and group not in u.all_group_ids)
+            if not users:
+                continue
+            # sudo: planners assign technicians without managing user rights.
+            users.sudo().write({'group_ids': [(4, group.id)]})
+            order.sudo().message_post(body=_(
+                "Field Service access given to %s to work on their jobs.", ', '.join(users.mapped('name'))))
+
+    def _remove_primary_from_extra_technicians(self):
+        """The primary technician is never also an extra technician (e.g. the
+        shift of an extra technician moved to the primary one)."""
+        for order in self:
+            if order.employee_id and order.employee_id in order.extra_employee_ids:
+                order.write({'extra_employee_ids': [Command.unlink(order.employee_id.id)]})
 
     def write(self, vals):
         if not self.env.context.get('fs_customer_signing') and any(f in vals for f in self._CUSTOMER_SIGNATURE_FIELDS):
@@ -844,6 +891,9 @@ class FieldServiceOrder(models.Model):
             for order in self:
                 if order.state == 'new' and order.employee_id and order.date_planned:
                     order.state = 'scheduled'
+        if 'employee_id' in vals or 'extra_employee_ids' in vals:
+            self._remove_primary_from_extra_technicians()
+            self._grant_technician_access()
         # fs_skip_slot_sync: the job is being created from its shift, which
         # syncs once created (e.g. the quotation of products set at creation).
         if self._PLANNING_SYNC_FIELDS & vals.keys() and not self.env.context.get('fs_skip_slot_sync'):
@@ -898,22 +948,26 @@ class FieldServiceOrder(models.Model):
         }
 
     def _sync_planning_slots(self):
-        """Mirror each order as one planning slot per assigned technician."""
+        """Mirror each order as one planning slot per assigned technician; a
+        planned order without technician is one open shift (an open job, e.g.
+        after its technician unassigned themselves), to assign from the schedule."""
         if not self._is_planning_sync_enabled():
             return
         Slot = self.env['fs.planning.slot'].sudo().with_context(fs_slot_sync=True, active_test=False)
+        no_one = self.env['hr.employee']
         for order in self:
             existing = Slot.search([('field_service_order_id', '=', order.id)])
             start, end = order._get_planning_interval()
-            if start and order.active and order.state != 'cancelled':
-                assignees = order._get_assignees()
-            else:
-                assignees = self.env['hr.employee']
+            planned = bool(start and order.active and order.state != 'cancelled')
+            assignees = order._get_assignees() if planned else no_one
+            # The resources of the shifts: the technicians, or no one (open shift)
+            targets = list(assignees) or ([no_one] if planned else [])
 
             slot_by_employee = {}
             to_remove = Slot
             for slot in existing:
-                if slot.resource_id in assignees and slot.resource_id.id not in slot_by_employee:
+                wanted = slot.resource_id in assignees if slot.resource_id else (planned and not assignees)
+                if wanted and slot.resource_id.id not in slot_by_employee:
                     slot_by_employee[slot.resource_id.id] = slot
                 else:
                     to_remove |= slot
@@ -921,7 +975,7 @@ class FieldServiceOrder(models.Model):
             to_remove.unlink()
 
             vals = order._prepare_planning_slot_values()
-            for employee in assignees:
+            for employee in targets:
                 slot = slot_by_employee.get(employee.id)
                 if not slot:
                     Slot.create(dict(vals, resource_id=employee.id, field_service_order_id=order.id))
@@ -967,13 +1021,12 @@ class FieldServiceOrder(models.Model):
             ])
             assignees = order._get_assignees()
             employees = candidates | assignees
-            # Shifts within a week around the job tell us whether the
-            # technician is scheduled with shifts at all.
-            window = timedelta(days=7)
+            # Any other shift or job of a technician at that time is a conflict:
+            # a technician cannot do two things at once.
             slots = Slot.search([
                 ('resource_id', 'in', employees.ids),
-                ('date_start', '<', end + window),
-                ('date_end', '>', start - window),
+                ('date_start', '<', end),
+                ('date_end', '>', start),
             ])
             if order._origin:
                 slots = slots.filtered(lambda s: s.field_service_order_id != order._origin)
@@ -985,14 +1038,10 @@ class FieldServiceOrder(models.Model):
             available = Employee
             for employee in employees:
                 emp_slots = slots.filtered(lambda s: s.resource_id == employee)
-                conflicts = emp_slots.filtered(
-                    lambda s: s.date_start < end and s.date_end > start and s._blocks_field_service_job()
-                )
-                shifts = emp_slots.filtered(lambda s: not s.field_service_order_id)
-                on_shift = not shifts or any(s.date_start <= start and s.date_end >= end for s in shifts)
+                conflicts = emp_slots
                 has_role = not order.role_id.resource_ids or employee in order.role_id.resource_ids
 
-                if employee in candidates and not conflicts and on_shift:
+                if employee in candidates and not conflicts:
                     available |= employee
                 if employee not in assignees:
                     continue
@@ -1004,8 +1053,6 @@ class FieldServiceOrder(models.Model):
                         start=fmt(conflict.date_start),
                         end=fmt(conflict.date_end),
                     ))
-                if not on_shift:
-                    warnings.append(_("%s has no planned shift covering this time.", employee.name))
                 if not has_role:
                     warnings.append(_("%(employee)s does not have the role %(role)s.", employee=employee.name, role=order.role_id.name))
             order.planning_warning = '\n'.join(warnings) or False

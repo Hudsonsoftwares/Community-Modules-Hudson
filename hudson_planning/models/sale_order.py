@@ -1,5 +1,7 @@
 # Part of Hudson Community. See LICENSE file for full copyright and licensing details.
 
+from datetime import timedelta
+
 from odoo import api, fields, models
 from odoo.tools import float_compare
 
@@ -30,22 +32,22 @@ class SaleOrder(models.Model):
         res = super()._action_cancel()
         # Shifts not planned yet are not needed anymore; planned ones are
         # kept, the planner decides what to do with them.
-        self.order_line.sudo()._get_slots_to_plan().unlink()
+        self.order_line.sudo().with_context(planning_slot_generation=True)._get_slots_to_plan().unlink()
         return res
 
     def action_view_planning(self):
         self.ensure_one()
         action = self.env['ir.actions.act_window']._for_xml_id('hudson_planning.action_fs_schedule_by_sale_order')
+        slots = self.sudo().planning_slot_ids
         action['context'] = {'search_default_group_resource': 1}
-        planned = self.sudo().planning_slot_ids.filtered('date_start')
-        if planned:
-            # The shifts of the order, from the first one.
-            action['context'].update(
-                search_default_sale_order_id=self.id,
-                initial_date=fields.Datetime.to_string(min(planned.mapped('date_start'))),
-            )
-        # Nothing planned yet: all the resources, to drop the shifts to plan
-        # of the side panel on them.
+        dated = slots.filtered('date_start')
+        if dated:
+            # Open on the first shift of the order.
+            action['context']['initial_date'] = fields.Datetime.to_string(min(dated.mapped('date_start')))
+        if slots.filtered('resource_id'):
+            # The shifts of the order; while all are open shifts, all the
+            # resources are shown to assign them.
+            action['context']['search_default_sale_order_id'] = self.id
         return action
 
 
@@ -55,19 +57,19 @@ class SaleOrderLine(models.Model):
     planning_slot_ids = fields.One2many('fs.planning.slot', 'sale_line_id', string='Shifts')
     planning_hours_planned = fields.Float(
         compute='_compute_planning_hours', string='Planned Hours',
-        help='Hours of the shifts of this line that are scheduled.',
+        help='Hours of the shifts of this line assigned to employees.',
     )
     planning_hours_to_plan = fields.Float(
         compute='_compute_planning_hours', string='Hours to Plan',
-        help='Hours of this line still to schedule.',
+        help='Hours of the open shifts of this line, still to assign.',
     )
 
-    @api.depends('planning_slot_ids.allocated_hours', 'planning_slot_ids.date_start')
+    @api.depends('planning_slot_ids.allocated_hours', 'planning_slot_ids.resource_id')
     def _compute_planning_hours(self):
         for line in self:
             slots = line.sudo().planning_slot_ids
-            line.planning_hours_planned = sum(slots.filtered('date_start').mapped('allocated_hours'))
-            line.planning_hours_to_plan = sum(slots.filtered(lambda s: not s.date_start).mapped('allocated_hours'))
+            line.planning_hours_planned = sum(slots.filtered('resource_id').mapped('allocated_hours'))
+            line.planning_hours_to_plan = sum(slots.filtered(lambda s: not s.resource_id).mapped('allocated_hours'))
 
     def _is_planned_service(self):
         self.ensure_one()
@@ -84,44 +86,95 @@ class SaleOrderLine(models.Model):
         return uom._compute_quantity(self.product_uom_qty, uom_hour, raise_if_failure=False)
 
     def _get_slots_to_plan(self):
-        return self.planning_slot_ids.filtered(lambda s: not s.date_start)
+        """Open shifts of the line: its hours not assigned to anyone yet."""
+        return self.planning_slot_ids.filtered(lambda s: not s.resource_id)
 
-    def _prepare_slot_to_plan_values(self, hours):
+    def _prepare_open_shift_values(self, date_start, date_end, break_hours, hours=0.0):
+        """Values of an open shift of the line; without dates, a shift "to
+        schedule" of ``hours``."""
         self.ensure_one()
         order = self.order_id
-        return {
+        vals = {
             'name': self.name.split('\n')[0] if self.name else self.product_id.display_name,
             'sale_line_id': self.id,
             'sale_order_id': order.id,
             'role_id': self.product_id.planning_role_id.id,
-            'allocated_hours': hours,
             'company_id': order.company_id.id,
             'project_id': self.project_id.id if 'project_id' in self._fields else False,
-            'date_start': False,
-            'date_end': False,
+            'date_start': date_start,
+            'date_end': date_end,
+            'break_hours': break_hours,
             'resource_id': False,
         }
+        if not date_start:
+            vals['allocated_hours'] = hours
+        return vals
+
+    def _get_open_shift_start(self):
+        """Start of a new open shift: the order's delivery date, at the
+        earliest now (next half hour)."""
+        self.ensure_one()
+        now = fields.Datetime.now().replace(second=0, microsecond=0)
+        start = now + timedelta(minutes=(30 - now.minute % 30) % 30)
+        commitment = self.order_id.commitment_date
+        if commitment and commitment > start:
+            start = commitment
+        return start
+
+    def _prepare_new_open_shift_values(self, hours):
+        """A new open shift for the role of the service, at the next working
+        time. When an open shift of the same role is already waiting then, it
+        has no dates: it is listed in the side panel of the schedule ("to
+        schedule"), to drag on the schedule or to plan with Auto Plan."""
+        self.ensure_one()
+        Slot = self.env['fs.planning.slot'].sudo()
+        start, end, breaks = Slot._get_work_span(self._get_open_shift_start(), hours, self.order_id.company_id)
+        busy = Slot.search_count([
+            ('resource_id', '=', False),
+            ('sale_line_id', '!=', False),
+            ('role_id', '=', self.product_id.planning_role_id.id),
+            ('date_start', '<', end),
+            ('date_end', '>', start),
+        ], limit=1)
+        if busy:
+            return self._prepare_open_shift_values(False, False, 0.0, hours=hours)
+        return self._prepare_open_shift_values(start, end, breaks)
 
     def _planning_slot_generation(self):
-        """Keep one open shift "to plan" per planned service with the hours sold
-        that are not scheduled yet (generated when the order is confirmed)."""
-        Slot = self.env['fs.planning.slot'].sudo().with_context(mail_create_nolog=True, tracking_disable=True)
+        """Keep the open shifts of each planned service at the hours sold that
+        are not assigned to an employee yet: generated when the order is
+        confirmed, as one open shift for the role of the service, spread over
+        the working hours of the company."""
+        Slot = self.env['fs.planning.slot'].sudo().with_context(
+            planning_slot_generation=True, mail_create_nolog=True, tracking_disable=True)
         for line in self:
             if not line._is_planned_service():
                 continue
-            rounding = 2
-            slots = line.sudo().planning_slot_ids
-            to_plan_slots = slots.filtered(lambda s: not s.date_start)
-            planned = sum((slots - to_plan_slots).mapped('allocated_hours'))
-            remaining = line._planning_hours_sold() - planned
-            if float_compare(remaining, 0.0, precision_digits=rounding) <= 0:
-                to_plan_slots.unlink()
-            elif to_plan_slots:
-                to_plan_slots[1:].unlink()
-                if float_compare(to_plan_slots[0].allocated_hours, remaining, precision_digits=rounding):
-                    to_plan_slots[0].allocated_hours = remaining
-            else:
-                Slot.create(line._prepare_slot_to_plan_values(remaining))
+            slots = line.sudo().planning_slot_ids.with_context(planning_slot_generation=True)
+            open_slots = slots.filtered(lambda s: not s.resource_id)
+            assigned = sum((slots - open_slots).mapped('allocated_hours'))
+            remaining = max(line._planning_hours_sold() - assigned, 0.0)
+            diff = remaining - sum(open_slots.mapped('allocated_hours'))
+            # Last: the latest open shift, those to schedule (no dates) after.
+            by_date = open_slots.sorted(lambda s: (not s.date_start, s.date_start or fields.Datetime.now(), s.id))
+            if float_compare(diff, 0.0, precision_digits=2) > 0 and open_slots:
+                # More hours to plan: on the last open shift.
+                last = by_date[-1]
+                last._set_open_shift_hours(last.allocated_hours + diff)
+            elif float_compare(diff, 0.0, precision_digits=2) > 0:
+                Slot.create(line._prepare_new_open_shift_values(diff))
+            elif float_compare(diff, 0.0, precision_digits=2) < 0:
+                # Fewer hours to plan: remove them from the last open shifts.
+                excess = -diff
+                for slot in reversed(by_date):
+                    if float_compare(slot.allocated_hours, excess, precision_digits=2) <= 0:
+                        excess -= slot.allocated_hours
+                        slot.unlink()
+                    else:
+                        slot._set_open_shift_hours(slot.allocated_hours - excess)
+                        break
+                    if float_compare(excess, 0.0, precision_digits=2) <= 0:
+                        break
 
     def write(self, vals):
         res = super().write(vals)

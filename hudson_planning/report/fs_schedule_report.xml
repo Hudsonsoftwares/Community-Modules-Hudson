@@ -49,8 +49,8 @@
                             </tr>
                         </thead>
                         <tbody>
-                            <tr t-foreach="rows" t-as="row">
-                                <td class="o_fs_row_name">
+                            <tr t-foreach="rows" t-as="row" t-att-style="row['is_group'] and 'background-color: #eef0f3;' or None">
+                                <td class="o_fs_row_name" t-att-style="not row['is_group'] and 'padding-left: 16px;' or None">
                                     <strong t-out="row['name']"/>
                                     <div t-if="row['job_title']" class="text-muted" t-out="row['job_title']"/>
                                     <div class="text-muted">

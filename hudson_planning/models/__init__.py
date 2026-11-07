@@ -8,4 +8,5 @@ from . import product_template
 from . import sale_order
 
 from . import hr_employee
+from . import hr_employee_public
 from . import ir_ui_view

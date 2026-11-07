@@ -91,6 +91,9 @@ export class FsScheduleController extends Component {
             slots: [],
             toPlan: [],
             groupField: false,
+            groupFields: [],
+            // Two group bys (e.g. Role > Resources): {headerKey: collapsed}
+            collapsed: localState.collapsed || {},
             loading: true,
             dragOver: null,
             // Cells selected by dragging: {startRow, startCol, endRow, endCol, active}
@@ -103,6 +106,7 @@ export class FsScheduleController extends Component {
                 scale: this.state.scale,
                 anchor: this.state.anchor.toISODate(),
                 showSidePanel: this.state.showSidePanel,
+                collapsed: this.state.collapsed,
             }),
         });
 
@@ -222,6 +226,7 @@ export class FsScheduleController extends Component {
             serializeDateTime(this.periodEnd),
         ], { context: props.context });
         this.state.groupField = data.group_field;
+        this.state.groupFields = data.group_fields || [];
         this.state.toPlan = data.to_plan;
         this.state.slots = data.slots;
         this.state.rows = data.rows;
@@ -233,12 +238,83 @@ export class FsScheduleController extends Component {
     }
 
     get canDropOnRows() {
-        const fname = this.groupFieldName;
-        if (!fname || this.state.groupField.includes(":")) {
+        const groupFields = this.state.groupFields;
+        if (!groupFields.length) {
             return false;
         }
-        const field = this.props.fields[fname];
-        return field && DRAGGABLE_GROUP_TYPES.includes(field.type) && !field.readonly;
+        return groupFields.every((groupField) => {
+            if (groupField.includes(":")) {
+                return false;
+            }
+            const field = this.props.fields[groupField];
+            return field && DRAGGABLE_GROUP_TYPES.includes(field.type) && !field.readonly;
+        });
+    }
+
+    // -------------------------------------------------------------------------
+    // Two group bys: collapsible groups (e.g. Role > Resources)
+    // -------------------------------------------------------------------------
+
+    get isNested() {
+        return this.state.groupFields.length === 2;
+    }
+
+    /** Collapsed by default: the groups without shifts in the period. */
+    isCollapsed(header) {
+        const collapsed = this.state.collapsed[header.key];
+        return collapsed === undefined ? !header.has_slots : collapsed;
+    }
+
+    toggleGroup(header) {
+        this.state.collapsed = { ...this.state.collapsed, [header.key]: !this.isCollapsed(header) };
+    }
+
+    /** Rows shown: the rows of the collapsed groups are hidden. */
+    get visibleRows() {
+        if (!this.isNested) {
+            return this.state.rows;
+        }
+        const collapsedKeys = new Set(
+            this.state.rows.filter((row) => row.type === "group" && this.isCollapsed(row)).map((row) => row.key)
+        );
+        return this.state.rows.filter((row) => row.type === "group" || !collapsedKeys.has(row.group_key));
+    }
+
+    /** Hours planned per column in the rows of a group (header summary). */
+    groupColumnHours(header) {
+        const rowKeys = new Set(this.state.rows.filter((row) => row.group_key === header.key).map((row) => row.key));
+        const columns = this.columns;
+        const hours = columns.map(() => 0);
+        for (const slot of this.state.slots) {
+            if (!rowKeys.has(slot.row_key)) {
+                continue;
+            }
+            const start = deserializeDateTime(slot.date_start);
+            const end = deserializeDateTime(slot.date_end);
+            const duration = end - start;
+            if (duration <= 0) {
+                continue;
+            }
+            columns.forEach((col, index) => {
+                const overlap = Math.min(end, col.end) - Math.max(start, col.start);
+                if (overlap > 0) {
+                    hours[index] += (slot.allocated_hours || 0) * overlap / duration;
+                }
+            });
+        }
+        return columns.map((col, index) => ({ key: col.key, hours: hours[index] }));
+    }
+
+    formatSummaryHours(hours) {
+        const minutes = Math.round(hours * 60);
+        const h = Math.floor(minutes / 60);
+        const m = minutes % 60;
+        return m ? `${h}h ${m}m` : `${h}h`;
+    }
+
+    /** Field values of a row (fields of the group bys -> value). */
+    rowValues(row) {
+        return row.values || (this.groupFieldName ? { [this.groupFieldName]: row.key } : {});
     }
 
     /** Pills of a row: position in the period and lane (to avoid overlaps). */
@@ -317,6 +393,9 @@ export class FsScheduleController extends Component {
         if (slot.request_to_switch) {
             classes.push("o_fs_pill_switch");
         }
+        if (slot.has_conflict) {
+            classes.push("o_fs_pill_conflict");
+        }
         return classes.join(" ");
     }
 
@@ -392,8 +471,12 @@ export class FsScheduleController extends Component {
 
     _rowDefaults(row) {
         const context = {};
-        if (this.canDropOnRows && row.key !== false) {
-            context[`default_${this.groupFieldName}`] = row.key;
+        if (this.canDropOnRows) {
+            for (const [fname, value] of Object.entries(this.rowValues(row))) {
+                if (value !== false) {
+                    context[`default_${fname}`] = value;
+                }
+            }
         }
         return context;
     }
@@ -459,7 +542,11 @@ export class FsScheduleController extends Component {
         }
         sel.active = false;
         const { r0, r1, c0, c1 } = this.selectionBounds;
-        const rows = this.state.rows.slice(r0, r1 + 1);
+        const rows = this.visibleRows.slice(r0, r1 + 1).filter((row) => row.type !== "group");
+        if (!rows.length) {
+            this.state.selection = null;
+            return;
+        }
         const columns = this.columns.slice(c0, c1 + 1);
         if ((rows.length === 1 && columns.length === 1) || this.state.scale === "year") {
             this.state.selection = null;
@@ -498,7 +585,7 @@ export class FsScheduleController extends Component {
         for (const row of rows) {
             try {
                 await this.orm.call(this.props.resModel, "copy", [[slotId]], {
-                    default: { [this.groupFieldName]: row.key },
+                    default: this.rowValues(row),
                 });
             } catch (error) {
                 errors.push(error.data?.message || error.message);
@@ -640,10 +727,13 @@ export class FsScheduleController extends Component {
         } else if (payload.type === "to_plan") {
             const [start] = this._columnInterval(col);
             const end = start.plus({ hours: payload.hours || 1 });
+            // With two group bys, the employee of the row (else the first field)
+            const values = this.rowValues(row);
+            const dropField = "resource_id" in values ? "resource_id" : this.groupFieldName;
             await this.orm.call("fs.planning.slot", "action_plan_from_schedule", [
                 payload.ref,
-                this.canDropOnRows ? this.groupFieldName : false,
-                this.canDropOnRows ? row.key : false,
+                this.canDropOnRows ? dropField : false,
+                this.canDropOnRows ? values[dropField] : false,
                 serializeDateTime(start),
                 serializeDateTime(end),
             ]);
@@ -663,7 +753,7 @@ export class FsScheduleController extends Component {
             values.date_end = serializeDateTime(deserializeDateTime(slot.date_end).plus(delta));
         }
         if (this.canDropOnRows && row.key !== payload.rowKey) {
-            values[this.groupFieldName] = row.key;
+            Object.assign(values, this.rowValues(row));
         }
         if (Object.keys(values).length) {
             await this.orm.write("fs.planning.slot", [slot.id], values);
