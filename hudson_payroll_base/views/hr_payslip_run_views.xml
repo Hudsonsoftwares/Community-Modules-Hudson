@@ -150,7 +150,7 @@
                         <field name="slips_all_done" invisible="1"/>
                         <field name="advice_count" invisible="1"/>
                         <div class="oe_button_box" name="button_box">
-                            <button class="oe_stat_button" type="object" name="action_open_eligible_employees" icon="fa-users">
+                            <button class="oe_stat_button" type="object" name="action_open_eligible_employees" icon="group">
                                 <div class="o_field_widget o_stat_info">
                                     <span class="o_stat_value">
                                         <field name="employee_count"/>
@@ -158,7 +158,7 @@
                                     <span class="o_stat_text">Eligible Emps</span>
                                 </div>
                             </button>
-                            <button class="oe_stat_button" type="object" name="action_open_departments" icon="fa-building">
+                            <button class="oe_stat_button" type="object" name="action_open_departments" icon="work">
                                 <div class="o_field_widget o_stat_info">
                                     <span class="o_stat_value">
                                         <field name="department_count"/>
@@ -166,13 +166,13 @@
                                     <span class="o_stat_text">Departments</span>
                                 </div>
                             </button>
-                            <button name="action_open_payslips" type="object" class="oe_stat_button" icon="fa-money">
+                            <button name="action_open_payslips" type="object" class="oe_stat_button" icon="payments">
                                 <field name="payslip_count" widget="statinfo" string="Payslips"/>
                             </button>
                             <button name="action_view_payment_advice"
                                     type="object"
                                     class="oe_stat_button"
-                                    icon="fa-university"
+                                    icon="account_balance"
                                     invisible="advice_count == 0">
                                 <field name="advice_count" widget="statinfo" string="Payment Advice"/>
                             </button>
@@ -279,7 +279,7 @@
                                                     string="Add Employees"
                                                     class="btn btn-sm o_payrun_btn_add"
                                                     style="color: #ffffff !important; -webkit-text-fill-color: #ffffff !important; background-color: #334155 !important; border: 1px solid rgba(255,255,255,0.45) !important; font-weight: 600 !important;"
-                                                    icon="fa-user-plus"/>
+                                                    icon="person_add"/>
                                             <button class="btn btn-sm px-2 rounded-0 rounded-end dropdown-toggle o_payrun_btn_dots"
                                                     type="button"
                                                     data-bs-toggle="dropdown"
@@ -316,7 +316,7 @@
                                                     confirm="Are you sure you want to proceed?"
                                                     class="btn btn-sm text-white"
                                                     style="background-color: #7c3aed !important; border: 1px solid #a855f7 !important; font-weight: 600 !important;"
-                                                    icon="fa-check-circle"/>
+                                                    icon="check"/>
                                             <button class="btn btn-sm px-2 rounded-0 rounded-end dropdown-toggle o_payrun_btn_dots"
                                                     type="button"
                                                     data-bs-toggle="dropdown"
@@ -367,7 +367,7 @@
                                                     string="Generate Payment Advice"
                                                     class="btn btn-sm text-white"
                                                     style="background-color: #7c3aed !important; border: 1px solid #a855f7 !important; font-weight: 600 !important;"
-                                                    icon="fa-university"/>
+                                                    icon="account_balance"/>
                                             <button class="btn btn-sm px-2 rounded-0 rounded-end dropdown-toggle o_payrun_btn_dots"
                                                     type="button"
                                                     data-bs-toggle="dropdown"
@@ -523,7 +523,7 @@
                                         <field name="contract_review" string="Review"/>
                                         <button name="action_remove_from_run"
                                                 type="object"
-                                                icon="fa-trash text-danger"
+                                                icon="delete text-danger"
                                                 title="Remove from Pay Run"
                                                 confirm="Are you sure you want to remove this employee from this pay run?"/>
                                     </list>
@@ -578,7 +578,7 @@
                                                 title="Off-Cycle&#10;Detach the payslip from the pay run to send it to the Off-Cycle"/>
                                         <button name="action_remove_from_run"
                                                 type="object"
-                                                icon="fa-trash text-danger"
+                                                icon="delete text-danger"
                                                 title="Remove from Pay Run"
                                                 confirm="Are you sure you want to remove this employee from this pay run?"/>
                                     </list>

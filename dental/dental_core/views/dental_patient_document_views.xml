@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- List View for Patient Records & X-Rays -->
+    <record id="view_dental_patient_document_tree" model="ir.ui.view">
+        <field name="name">dental.patient.document.tree</field>
+        <field name="model">dental.patient.document</field>
+        <field name="arch" type="xml">
+            <list string="Patient Medical Documents &amp; X-Rays"
+                  decoration-info="document_type == 'xray'"
+                  decoration-warning="document_type == 'prescription'"
+                  decoration-success="document_type == 'lab_report'"
+                  default_order="document_date desc, id desc">
+                <field name="document_date"/>
+                <field name="patient_id"/>
+                <field name="name" string="Document Title"/>
+                <field name="document_type" widget="badge"/>
+                <field name="file_name" column_invisible="1"/>
+                <field name="file" filename="file_name" widget="binary"/>
+                <field name="uploaded_by" optional="show"/>
+                <field name="upload_date" optional="hide"/>
+                <field name="company_id" optional="hide"/>
+                <field name="notes" optional="show"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- Form View for Patient Records & X-Rays -->
+    <record id="view_dental_patient_document_form" model="ir.ui.view">
+        <field name="name">dental.patient.document.form</field>
+        <field name="model">dental.patient.document</field>
+        <field name="arch" type="xml">
+            <form string="Patient Medical Document &amp; X-Ray">
+                <sheet>
+                    <div class="oe_title">
+                        <label for="name" string="Document Description"/>
+                        <h1>
+                            <field name="name" placeholder="e.g. Previous OPG Panoramic X-Ray, Referral Letter from Dr. Sharma..."/>
+                        </h1>
+                    </div>
+                    <group>
+                        <group string="Patient &amp; Document Classification">
+                            <field name="patient_id" options="{'no_create': True}"/>
+                            <field name="document_type" widget="badge"/>
+                            <field name="document_date"/>
+                            <field name="company_id" groups="base.group_multi_company"/>
+                        </group>
+                        <group string="File Attachment &amp; Audit">
+                            <field name="file_name" invisible="1"/>
+                            <field name="file" filename="file_name" widget="binary" required="1"/>
+                            <field name="uploaded_by"/>
+                            <field name="upload_date"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Clinical Notes &amp; Findings" name="notes">
+                            <field name="notes" placeholder="Enter findings, radiology remarks, previous doctor's diagnosis, or special instructions..."/>
+                        </page>
+                        <page string="Document Preview" name="preview" invisible="not file">
+                            <field name="file" filename="file_name" widget="pdf_viewer" class="w-100" style="min-height: 600px;" invisible="not file or not file_name or not file_name.endswith('.pdf')"/>
+                            <field name="file" filename="file_name" widget="image" class="oe_avatar" style="max-width: 600px; max-height: 500px;" invisible="not file or not file_name or not (file_name.endswith('.png') or file_name.endswith('.jpg') or file_name.endswith('.jpeg'))"/>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Search View -->
+    <record id="view_dental_patient_document_search" model="ir.ui.view">
+        <field name="name">dental.patient.document.search</field>
+        <field name="model">dental.patient.document</field>
+        <field name="arch" type="xml">
+            <search string="Search Patient Documents &amp; X-Rays">
+                <field name="name" string="Document Title"/>
+                <field name="patient_id" string="Patient"/>
+                <field name="file_name"/>
+                <separator/>
+                <filter string="X-Rays &amp; Radiology" name="filter_xray" domain="[('document_type', '=', 'xray')]"/>
+                <filter string="Past Prescriptions" name="filter_prescription" domain="[('document_type', '=', 'prescription')]"/>
+                <filter string="Lab / Pathology Reports" name="filter_lab" domain="[('document_type', '=', 'lab_report')]"/>
+                <filter string="Doctor Referral Letters" name="filter_referral" domain="[('document_type', '=', 'referral')]"/>
+                <filter string="Insurance Documents" name="filter_insurance" domain="[('document_type', '=', 'insurance')]"/>
+                <group>
+                    <filter string="Patient" name="group_by_patient" context="{'group_by': 'patient_id'}"/>
+                    <filter string="Document Type" name="group_by_type" context="{'group_by': 'document_type'}"/>
+                    <filter string="Scan / Document Date" name="group_by_date" context="{'group_by': 'document_date'}"/>
+                    <filter string="Clinic Branch" name="group_by_company" context="{'group_by': 'company_id'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <!-- Window Action -->
+    <record id="action_dental_patient_documents" model="ir.actions.act_window">
+        <field name="name">Previous Records &amp; X-Rays</field>
+        <field name="res_model">dental.patient.document</field>
+        <field name="view_mode">list,form</field>
+        <field name="view_id" ref="view_dental_patient_document_tree"/>
+        <field name="search_view_id" ref="view_dental_patient_document_search"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Upload patient's previous dental X-Rays (PDF/images), referral letters, prescriptions, and medical reports!
+            </p>
+        </field>
+    </record>
+
+    <!-- Menu Item under Clinical -->
+    <menuitem
+        id="menu_dental_patient_documents_clinical"
+        name="Previous Records &amp; X-Rays"
+        parent="menu_dental_clinical"
+        action="action_dental_patient_documents"
+        sequence="22"
+        groups="dental_base.group_dental_dentist,dental_base.group_dental_receptionist,dental_base.group_dental_manager,dental_base.group_dental_admin"/>
+
+    <!-- Menu Item under Reception -->
+    <menuitem
+        id="menu_dental_patient_documents_reception"
+        name="Patient Records &amp; X-Rays"
+        parent="dental_appointment.menu_dental_appointment_root"
+        action="action_dental_patient_documents"
+        sequence="35"
+        groups="dental_base.group_dental_receptionist,dental_base.group_dental_dentist,dental_base.group_dental_manager,dental_base.group_dental_admin"/>
+</odoo>

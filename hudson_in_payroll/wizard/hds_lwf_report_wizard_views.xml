@@ -26,12 +26,12 @@
                             string="Print PDF"
                             type="object"
                             class="btn-primary"
-                            icon="fa-print"/>
+                            icon="print"/>
                     <button name="action_export_xlsx"
                             string="Export XLSX"
                             type="object"
                             class="btn-success"
-                            icon="fa-file-excel-o"/>
+                            icon="table_chart"/>
                     <button string="Close"
                             class="btn-secondary"
                             special="cancel"/>

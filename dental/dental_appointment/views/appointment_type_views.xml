@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_dental_appointment_type_tree" model="ir.ui.view">
+        <field name="name">dental.appointment.type.tree</field>
+        <field name="model">dental.appointment.type</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="name"/>
+                <field name="duration" widget="float_time"/>
+                <field name="required_equipment_category_ids" widget="many2many_tags"/>
+                <field name="required_equipment_ids" widget="many2many_tags" optional="show"/>
+                <field name="color" widget="color_picker"/>
+                <field name="active" widget="boolean_toggle"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_dental_appointment_type_form" model="ir.ui.view">
+        <field name="name">dental.appointment.type.form</field>
+        <field name="model">dental.appointment.type</field>
+        <field name="arch" type="xml">
+            <form string="Appointment Type">
+                <sheet>
+                    <div class="oe_title">
+                        <label for="name" class="oe_edit_only"/>
+                        <h1>
+                            <field name="name" placeholder="e.g. Root Canal Treatment, Dental X-Ray Scan..."/>
+                        </h1>
+                    </div>
+                    <group>
+                        <group string="Basic Configuration">
+                            <field name="duration" widget="float_time"/>
+                            <field name="price"/>
+                            <field name="color" widget="color_picker"/>
+                            <field name="icon"/>
+                            <field name="active" widget="boolean_toggle"/>
+                        </group>
+                        <group string="Required Equipment &amp; Resources">
+                            <field name="required_equipment_category_ids" widget="many2many_tags"
+                                   placeholder="Select required categories (e.g. Dental Chairs, X-ray Machines)..."/>
+                            <field name="required_equipment_ids" widget="many2many_tags"
+                                   placeholder="Select specific equipment items (if mandatory)..."/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Description">
+                            <field name="description" placeholder="Internal or patient-facing description of this appointment type..."/>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_dental_appointment_type" model="ir.actions.act_window">
+        <field name="name">Appointment Types</field>
+        <field name="res_model">dental.appointment.type</field>
+        <field name="view_mode">list,form</field>
+    </record>
+</odoo>

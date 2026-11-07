@@ -6,6 +6,8 @@ import { Dropdown } from "@web/core/dropdown/dropdown";
 import { DropdownItem } from "@web/core/dropdown/dropdown_item";
 import { useService } from "@web/core/utils/hooks";
 import { SelectCreateDialog } from "@web/views/view_dialogs/select_create_dialog";
+import { session } from "@web/session";
+import { HudsonMatchJournalItemsDialog } from "./bank_matching_list_renderer";
 
 export class BankRecActionDropdown extends Component {
     setup() {
@@ -139,26 +141,36 @@ export class BankRecActionDropdown extends Component {
         const resId = this.record?.resId;
         if (!resId) return;
 
-        this.dialog.add(SelectCreateDialog, {
-            resModel: "account.move.line",
-            title: "Select Journal Items to Match",
-            domain: domain,
-            context: {
-                hudson_match_amount: roundedAmount !== 0 ? roundedAmount : false,
-                hudson_match_partner_id: partnerId || false,
-            },
-            multiSelect: true,
-            noCreate: true,
-            onSelected: async (resIds) => {
-                if (resIds.length > 0) {
-                    await this.orm.call(
-                        "account.bank.statement.line",
-                        "action_hudson_reconcile_items",
-                        [[resId], resIds]
-                    );
-                    await this.reloadView();
-                }
+        let dateStr = "";
+        if (this.recordData.date) {
+            try {
+                const d = new Date(this.recordData.date);
+                const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sept", "Oct", "Nov", "Dec"];
+                dateStr = `${d.getDate()} ${months[d.getMonth()]}`;
+            } catch {
+                dateStr = this.recordData.date;
             }
+        }
+
+        let sym = "$";
+        let pos = "before";
+        const curr = this.recordData.currency_id;
+        const currId = curr ? (Array.isArray(curr) ? curr[0] : curr.id || curr) : null;
+        if (currId && session.currencies && session.currencies[currId]) {
+            sym = session.currencies[currId].symbol || "$";
+            pos = session.currencies[currId].position || "before";
+        }
+
+        this.dialog.add(HudsonMatchJournalItemsDialog, {
+            statementLineId: resId,
+            statementLineDate: dateStr,
+            statementLineLabel: this.recordData.payment_ref || "(No description)",
+            statementLineAmount: roundedAmount,
+            currencySymbol: sym,
+            currencyPosition: pos,
+            onReconciled: async () => {
+                await this.reloadView();
+            },
         });
     }
 

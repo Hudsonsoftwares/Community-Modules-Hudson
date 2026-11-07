@@ -39,7 +39,7 @@
                     <sheet>
                         <field name="settlement_count" invisible="1"/>
                         <div class="oe_button_box" name="button_box">
-                            <button name="action_open_final_settlement" type="object" class="oe_stat_button" icon="fa-calculator" invisible="settlement_count == 0">
+                            <button name="action_open_final_settlement" type="object" class="oe_stat_button" icon="calculate" invisible="settlement_count == 0">
                                 <field name="settlement_count" widget="statinfo" string="Settlements"/>
                             </button>
                         </div>
@@ -85,9 +85,9 @@
                                         <field name="clearance_date"/>
                                         <field name="state" widget="badge" decoration-success="state == 'cleared'" decoration-warning="state == 'pending'" decoration-danger="state == 'rejected'"/>
                                         <field name="remarks"/>
-                                        <button name="action_mark_cleared" type="object" string="Clear" icon="fa-check" invisible="state == 'cleared'" class="btn-link"/>
-                                        <button name="action_mark_rejected" type="object" string="Hold" icon="fa-times" invisible="state == 'rejected'" class="btn-link text-danger"/>
-                                        <button name="action_reset_pending" type="object" string="Reset" icon="fa-undo" invisible="state == 'pending'" class="btn-link text-muted"/>
+                                        <button name="action_mark_cleared" type="object" string="Clear" icon="check" invisible="state == 'cleared'" class="btn-link"/>
+                                        <button name="action_mark_rejected" type="object" string="Hold" icon="close" invisible="state == 'rejected'" class="btn-link text-danger"/>
+                                        <button name="action_reset_pending" type="object" string="Reset" icon="undo" invisible="state == 'pending'" class="btn-link text-muted"/>
                                     </list>
                                 </field>
                             </page>

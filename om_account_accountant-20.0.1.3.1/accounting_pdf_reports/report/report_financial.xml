@@ -10,7 +10,11 @@
                         <h2 t-out="data['account_report_id'][1]"/>
 
                         <div id="informations" class="row mb-4">
-                            <div class="col" t-if="data['date_from'] or data['date_to']">
+                            <div class="col" t-if="is_balance_sheet and data['date_to']">
+                                <strong>As of:</strong>
+                                <div><span t-out="data['date_to']" t-options="{'widget': 'date'}"/></div>
+                            </div>
+                            <div class="col" t-if="not is_balance_sheet and (data['date_from'] or data['date_to'])">
                                 <strong>Period:</strong>
                                 <div>
                                     <t t-if="data['date_from'] and data['date_to']"><span t-out="data['date_from']" t-options="{'widget': 'date'}"/> - <span t-out="data['date_to']" t-options="{'widget': 'date'}"/></t>

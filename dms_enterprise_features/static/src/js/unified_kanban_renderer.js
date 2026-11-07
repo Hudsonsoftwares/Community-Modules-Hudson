@@ -7,7 +7,14 @@ import { useService } from "@web/core/utils/hooks";
 import { user } from "@web/core/user";
 import { FileKanbanRenderer } from "@dms/js/views/file_kanban_renderer.esm";
 import { FileKanbanController } from "@dms/js/views/file_kanban_controller.esm";
+import { KanbanController } from "@web/views/kanban/kanban_controller";
 import { SearchPanel } from "@web/search/search_panel/search_panel";
+import { Dropdown } from "@web/core/dropdown/dropdown";
+import { DropdownItem } from "@web/core/dropdown/dropdown_item";
+import { dmsCanUploadHere } from "@dms_enterprise_features/js/dms_upload_permission";
+import { confirmSendToTrash } from "@dms_enterprise_features/js/dms_trash_confirm";
+import { openDirectoryEditDialog } from "@dms_enterprise_features/js/dms_directory_dialog";
+import { publishDmsTrail, takeDmsPendingNav } from "@dms_enterprise_features/js/dms_breadcrumbs";
 
 const reactiveState = owl.proxy || owl.useState || ((obj) => obj);
 
@@ -42,18 +49,28 @@ patch(FileKanbanRenderer.prototype, {
             }
         };
 
-        this._onSmUpdateDir = () => { this.fetchDirectories(this.props); };
+        this._onSmUpdateDir = async () => {
+            await this.fetchDirectories(this.props);
+            this.render?.();
+        };
+
+        this._reloadDirectories = async () => {
+            await this.fetchDirectories(this.props);
+            this.render?.();
+        };
 
         onMounted(() => {
             window.addEventListener("pointerdown", this._dmsOutsideClickHandler, true);
             window.addEventListener("click", this._dmsOutsideClickHandler, true);
             this.env.searchModel?.addEventListener("update", this._onSmUpdateDir);
+            this.env.bus?.addEventListener("dms-reload-directories", this._reloadDirectories);
         });
 
         onWillUnmount(() => {
             window.removeEventListener("pointerdown", this._dmsOutsideClickHandler, true);
             window.removeEventListener("click", this._dmsOutsideClickHandler, true);
             this.env.searchModel?.removeEventListener("update", this._onSmUpdateDir);
+            this.env.bus?.removeEventListener("dms-reload-directories", this._reloadDirectories);
         });
     },
 
@@ -101,7 +118,7 @@ patch(FileKanbanRenderer.prototype, {
         // Detect directoryId and isTrashAction first
         for (const d of domain) {
             if (Array.isArray(d) && d.length >= 3) {
-                if (d[0] === 'directory_id' && (d[1] === '=' || d[1] === 'child_of')) {
+                if (!category?.activeValueId && d[0] === 'directory_id' && (d[1] === '=' || d[1] === 'child_of')) {
                     directoryId = d[2];
                 }
                 if (d[0] === 'is_trashed' && d[2] === true) {
@@ -110,6 +127,9 @@ patch(FileKanbanRenderer.prototype, {
             }
         }
         
+        if (this.env.searchModel?.dmsTrash) {
+            isTrashAction = true;
+        }
         this.dmsDirectoriesState.isTrash = isTrashAction;
 
         // Fields strictly specific to files that directories can NEVER have or match
@@ -143,6 +163,12 @@ patch(FileKanbanRenderer.prototype, {
             "write_date",
             "create_uid",
             "storage_id",
+            "activity_state",
+            "activity_ids",
+            "activity_type_id",
+            "activity_user_id",
+            "activity_date_deadline",
+            "activity_summary",
         ]);
 
         let canApplyToDirectories = true;
@@ -155,7 +181,7 @@ patch(FileKanbanRenderer.prototype, {
                 const val = d[2];
 
                 // Skip navigation/system leaves
-                if (field === 'directory_id' || field === 'is_hidden' || field === 'is_trashed') {
+                if (field === 'directory_id' || field === 'is_hidden' || field === 'is_trashed' || field === 'directory_is_trashed') {
                     continue;
                 }
 
@@ -250,7 +276,7 @@ patch(FileKanbanRenderer.prototype, {
         const dirs = await this.orm.searchRead(
             "dms.directory",
             dirDomain,
-            ["name", "display_name", "color", "starred", "count_files", "count_directories", "icon_url", "write_date", "permission_download", "permission_write", "permission_edit", "permission_unlink", "permission_move", "is_trashed"]
+            ["name", "display_name", "company_id", "color", "starred", "count_files", "count_directories", "icon_url", "write_date", "permission_download", "permission_write", "permission_edit", "permission_unlink", "permission_move", "is_trashed", "activity_ids", "activity_state", "activity_summary", "activity_type_id"]
         );
 
         const isStarredFilterActive = extraDirDomain.some(d => d[0] === 'starred' && (d[1] === '=' || d[1] === 'in') && Boolean(d[2]));
@@ -258,6 +284,26 @@ patch(FileKanbanRenderer.prototype, {
             this.dmsDirectoriesState.data = dirs.filter(d => Boolean(d.starred));
         } else {
             this.dmsDirectoriesState.data = dirs;
+        }
+        this.render?.();
+    },
+
+    async _syncSearchPanelAndDirs() {
+        const sm = this.env?.searchModel;
+        if (sm) {
+            if (sm.categories && typeof sm._fetchCategories === "function") {
+                try {
+                    await sm._fetchCategories(sm.categories);
+                } catch (err) {}
+            }
+            sm._reset?.();
+            sm.trigger("update");
+        }
+        this.env.bus?.trigger("dms-reload-directories");
+        await this.fetchDirectories(this.props);
+        this.render?.();
+        if (this.props.list) {
+            await this.props.list.load();
         }
     },
 
@@ -281,13 +327,34 @@ patch(FileKanbanRenderer.prototype, {
 
     navigateUp() {
         if (this.dmsDirectoriesState.currentDir) {
-            const parentId = this.dmsDirectoriesState.currentDir.parent_id ? this.dmsDirectoriesState.currentDir.parent_id[0] : false;
+            const cur = this.dmsDirectoriesState.currentDir;
+            const leavesTrash = this.env.searchModel?.dmsTrash && !cur.parent_is_trashed;
+            const parentId = cur.parent_id && !leavesTrash ? cur.parent_id[0] : false;
             this.openDirectory(parentId);
         }
     },
 
     navigateToBreadcrumb(dirId) {
         this.openDirectory(dirId || false);
+    },
+
+    createSubdirectory(dirId) {
+        this.folderDropdown.openId = null;
+        this.action.doAction({
+            name: "New Subfolder",
+            type: "ir.actions.act_window",
+            res_model: "dms.directory",
+            views: [[false, "form"]],
+            target: "new",
+            context: {
+                default_parent_id: dirId,
+                default_is_root_directory: false,
+            },
+        }, {
+            onClose: () => {
+                this._syncSearchPanelAndDirs();
+            }
+        });
     },
 
     moveDirectory(dirId) {
@@ -304,19 +371,31 @@ patch(FileKanbanRenderer.prototype, {
             },
         }, {
             onClose: () => {
-                this.fetchDirectories(this.props);
+                this._syncSearchPanelAndDirs();
             }
         });
     },
 
     editDirectory(dirId) {
         this.folderDropdown.openId = null;
+        openDirectoryEditDialog(this.env, dirId, () => this._syncSearchPanelAndDirs());
+    },
+
+    scheduleActivityDirectory(dirId) {
+        this.folderDropdown.openId = null;
+        if (!dirId) return;
         this.action.doAction({
             type: "ir.actions.act_window",
-            res_model: "dms.directory",
-            res_id: dirId,
+            name: "Schedule Activity",
+            res_model: "mail.activity.schedule",
+            view_mode: "form",
             views: [[false, "form"]],
             target: "new",
+            context: {
+                active_model: "dms.directory",
+                active_ids: [dirId],
+                active_id: dirId,
+            },
         }, {
             onClose: () => {
                 this.fetchDirectories(this.props);
@@ -326,38 +405,23 @@ patch(FileKanbanRenderer.prototype, {
 
     async trashDirectory(dirId) {
         this.folderDropdown.openId = null;
+        if (!(await confirmSendToTrash(this.env.services.dialog, { resModel: "dms.directory" }))) {
+            return;
+        }
         await this.orm.call("dms.directory", "action_send_to_trash", [[dirId]]);
-        await this.fetchDirectories(this.props);
-        if (this.props.list) {
-            await this.props.list.load();
-        }
-        if (this.env.searchModel) {
-            this.env.searchModel.trigger("update");
-        }
+        await this._syncSearchPanelAndDirs();
     },
 
     async restoreDirectory(dirId) {
         this.folderDropdown.openId = null;
         await this.orm.call("dms.directory", "action_restore", [[dirId]]);
-        await this.fetchDirectories(this.props);
-        if (this.props.list) {
-            await this.props.list.load();
-        }
-        if (this.env.searchModel) {
-            this.env.searchModel.trigger("update");
-        }
+        await this._syncSearchPanelAndDirs();
     },
 
     async deleteDirectoryPermanently(dirId) {
         this.folderDropdown.openId = null;
         await this.orm.call("dms.directory", "unlink", [[dirId]]);
-        await this.fetchDirectories(this.props);
-        if (this.props.list) {
-            await this.props.list.load();
-        }
-        if (this.env.searchModel) {
-            this.env.searchModel.trigger("update");
-        }
+        await this._syncSearchPanelAndDirs();
     },
 
     async downloadDirectory(dirId) {
@@ -388,7 +452,11 @@ patch(FileKanbanController.prototype, {
             onSelected: () => this.navigateToBreadcrumb(false),
         };
 
-        this._onSmUpdate = () => { this._buildBreadcrumbs(); };
+        this.dmsUpload = reactiveState({ allowed: false });
+        this._onSmUpdate = () => {
+            this._buildBreadcrumbs();
+            this._refreshDmsUpload();
+        };
 
         onWillStart(async () => {
             this.isDmsManagerOrAdmin = (
@@ -397,10 +465,16 @@ patch(FileKanbanController.prototype, {
                 await user.hasGroup("dms_enterprise_features.group_dms_administrator")
             );
             await this._buildBreadcrumbs();
+            await this._refreshDmsUpload();
         });
 
         onMounted(() => {
             this.env.searchModel?.addEventListener("update", this._onSmUpdate);
+            // back here from a folder breadcrumb of a screen opened on top
+            const nav = takeDmsPendingNav(this);
+            if (nav) {
+                this.env.searchModel?.dmsNavigate?.(nav.dirId, nav.trash);
+            }
         });
 
         onWillUnmount(() => {
@@ -413,12 +487,20 @@ patch(FileKanbanController.prototype, {
         });
     },
 
+    async _refreshDmsUpload() {
+        const allowed = await dmsCanUploadHere(this._bcOrmService, this.env.searchModel, this.isDmsManagerOrAdmin);
+        if (this.dmsUpload.allowed !== allowed) {
+            this.dmsUpload.allowed = allowed;
+            this.render?.();
+        }
+    },
+
     get canCreate() {
-        return Boolean(super.canCreate && this.isDmsManagerOrAdmin);
+        return Boolean(super.canCreate && !this.env.searchModel?.dmsTrash && (this.isDmsManagerOrAdmin || this.dmsUpload?.allowed));
     },
 
     uploadDocument() {
-        if (!this.isDmsManagerOrAdmin) {
+        if (!this.isDmsManagerOrAdmin && !this.dmsUpload?.allowed) {
             return;
         }
         super.uploadDocument(...arguments);
@@ -446,27 +528,49 @@ patch(FileKanbanController.prototype, {
             }
         }
 
+        const trash = Boolean(sm.dmsTrash);
         const rootCrumb = {
             jsId: this._rootCrumb?.jsId || "dms_root",
             name: this._rootCrumb?.name || this.env.config?.getDisplayName?.() || "My Documents",
             isFormView: false,
             url: "#",
-            onSelected: () => this.navigateToBreadcrumb(false),
+            onSelected: () => (trash ? sm.dmsNavigate(false, false) : this.navigateToBreadcrumb(false)),
+            dmsNav: { dirId: false, trash: false },
         };
+        const hideRoot = Boolean(
+            this.props.context?.dms_hide_root_crumb && this._ancestorCrumbs.length && !trash
+        );
+        const baseCrumbs = [...this._ancestorCrumbs];
+        if (!hideRoot) {
+            baseCrumbs.push(rootCrumb);
+        }
+        if (trash) {
+            baseCrumbs.push({
+                jsId: "dms_trash",
+                name: "Trash",
+                isFormView: false,
+                url: "#",
+                onSelected: () => sm.dmsNavigate(false, true),
+                dmsNav: { dirId: false, trash: true },
+            });
+        }
 
         if (!directoryId) {
-            const resetCrumbs = [...this._ancestorCrumbs, rootCrumb];
+            const resetCrumbs = hideRoot ? [...baseCrumbs, rootCrumb] : baseCrumbs;
             this.env.config.breadcrumbs.splice(0, this.env.config.breadcrumbs.length, ...resetCrumbs);
             this.env.config.breadcrumbs.push(undefined);
             this.env.config.breadcrumbs.pop();
+            publishDmsTrail(this, resetCrumbs);
             return;
         }
 
         const crumbs = [];
         let currentId = directoryId;
         for (let i = 0; i < 20 && currentId; i++) {
-            const res = await this._bcOrmService.read("dms.directory", [currentId], ["name", "parent_id"]);
+            const res = await this._bcOrmService.read("dms.directory", [currentId], ["name", "parent_id", "is_trashed"]);
             if (!res?.length) break;
+            // inside the Trash the path starts at the top-level trashed folder
+            if (trash && !res[0].is_trashed) break;
             crumbs.unshift({ id: res[0].id, name: res[0].name });
             currentId = res[0].parent_id ? res[0].parent_id[0] : false;
         }
@@ -481,17 +585,15 @@ patch(FileKanbanController.prototype, {
             isFormView: false,
             url: "#",
             onSelected: () => this.navigateToBreadcrumb(crumb.id),
+            dmsNav: { dirId: crumb.id, trash },
         }));
 
-        const newBreadcrumbs = [
-            ...this._ancestorCrumbs,
-            rootCrumb,
-            ...folderCrumbs,
-        ];
+        const newBreadcrumbs = [...baseCrumbs, ...folderCrumbs];
 
         this.env.config.breadcrumbs.splice(0, this.env.config.breadcrumbs.length, ...newBreadcrumbs);
         this.env.config.breadcrumbs.push(undefined);
         this.env.config.breadcrumbs.pop();
+        publishDmsTrail(this, newBreadcrumbs);
     },
 
     navigateToBreadcrumb(dirId) {
@@ -521,43 +623,121 @@ patch(FileKanbanController.prototype, {
         });
     },
 
-    createDirectory() {
+    async createDirectory(targetParentId = false) {
         if (!this.isDmsManagerOrAdmin) {
             return;
         }
-        const domain = (typeof this.env.searchModel?.getGlobalDomain === 'function' ? this.env.searchModel.getGlobalDomain() : this.env.searchModel?.domain) || [];
-        let directoryId = false;
 
-        for (const d of domain) {
-            if (Array.isArray(d)) {
-                if (d[0] === 'directory_id' && (d[1] === '=' || d[1] === 'child_of')) {
-                    directoryId = d[2];
+        let directoryId = (typeof targetParentId === 'number' || (typeof targetParentId === 'string' && targetParentId)) ? targetParentId : false;
+        if (!directoryId) {
+            const category = this.env.searchModel?.getSections?.()?.find(s => s.fieldName === 'directory_id');
+            if (category && category.activeValueId) {
+                directoryId = category.activeValueId;
+            }
+        }
+        if (!directoryId) {
+            const domain = [
+                ...(this.env.searchModel?.domain || []),
+                ...(typeof this.env.searchModel?.getGlobalDomain === 'function' ? this.env.searchModel.getGlobalDomain() : []),
+            ];
+            for (const d of domain) {
+                if (Array.isArray(d) && d.length >= 3) {
+                    if (d[0] === 'directory_id' && (d[1] === '=' || d[1] === 'child_of')) {
+                        directoryId = d[2];
+                        break;
+                    }
                 }
             }
+        }
+        if (!directoryId && this.env.searchModel?.context?.default_directory_id) {
+            directoryId = this.env.searchModel.context.default_directory_id;
         }
 
         const context = {};
         if (directoryId) {
             context.default_parent_id = directoryId;
+            context.default_is_root_directory = false;
         }
 
         this.actionService.doAction({
+            name: "New Folder",
             type: "ir.actions.act_window",
             res_model: "dms.directory",
             views: [[false, "form"]],
             target: "new",
             context: context,
         }, {
-            onClose: () => {
+            onClose: async () => {
+                // 1. Force SearchModel to re-fetch category hierarchy for directories
+                const sm = this.env?.searchModel;
+                if (sm) {
+                    if (sm.categories && typeof sm._fetchCategories === "function") {
+                        try {
+                            await sm._fetchCategories(sm.categories);
+                        } catch (err) {
+                            console.warn("Could not reload searchModel categories:", err);
+                        }
+                    }
+                    sm._reset?.();
+                    sm.trigger("update");
+                }
+
+                // 2. Notify renderer bus to fetch directories immediately
+                this.env.bus?.trigger("dms-reload-directories");
+
+                // 3. Reload files in model root
                 if (this.model && this.model.root) {
-                    this.model.root.load();
+                    try {
+                        await this.model.root.load();
+                    } catch (err) {
+                        console.warn("Could not reload model root:", err);
+                    }
                 }
             }
         });
     }
 });
 
+// Folder actions menu in the DMS sidebar uses Odoo's overlay Dropdown so it is
+// positioned next to its trigger and never clipped by the scrolling panel.
+SearchPanel.components = { ...SearchPanel.components, Dropdown, DropdownItem };
+
 patch(SearchPanel.prototype, {
+    createSidebarSubdirectory(dirId) {
+        const actionService = this.action || this.env.services.action;
+        actionService.doAction({
+            name: "New Subfolder",
+            type: "ir.actions.act_window",
+            res_model: "dms.directory",
+            views: [[false, "form"]],
+            target: "new",
+            context: {
+                default_parent_id: dirId,
+                default_is_root_directory: false,
+            },
+        }, {
+            onClose: async () => {
+                const sm = this.env?.searchModel;
+                if (sm) {
+                    if (sm.categories && typeof sm._fetchCategories === "function") {
+                        try {
+                            await sm._fetchCategories(sm.categories);
+                        } catch (err) {}
+                    }
+                    sm._reset?.();
+                    sm.trigger("update");
+                }
+                this.env.bus?.trigger("dms-reload-directories");
+                const controller = actionService.currentController;
+                if (controller?.model?.root) {
+                    try {
+                        await controller.model.root.load();
+                    } catch (err) {}
+                }
+            }
+        });
+    },
+
     moveSidebarDirectory(dirId) {
         const actionService = this.action || this.env.services.action;
         actionService.doAction({
@@ -571,10 +751,23 @@ patch(SearchPanel.prototype, {
                 active_ids: [dirId],
             },
         }, {
-            onClose: () => {
+            onClose: async () => {
+                const sm = this.env?.searchModel;
+                if (sm) {
+                    if (sm.categories && typeof sm._fetchCategories === "function") {
+                        try {
+                            await sm._fetchCategories(sm.categories);
+                        } catch (err) {}
+                    }
+                    sm._reset?.();
+                    sm.trigger("update");
+                }
+                this.env.bus?.trigger("dms-reload-directories");
                 const controller = actionService.currentController;
-                if (controller) {
-                    actionService.restore(controller.jsId);
+                if (controller?.model?.root) {
+                    try {
+                        await controller.model.root.load();
+                    } catch (err) {}
                 }
             }
         });
@@ -582,18 +775,23 @@ patch(SearchPanel.prototype, {
 
     async editSidebarDirectory(dirId) {
         const actionService = this.action || this.env.services.action;
-        actionService.doAction({
-            type: "ir.actions.act_window",
-            res_model: "dms.directory",
-            res_id: dirId,
-            views: [[false, "form"]],
-            target: "new",
-        }, {
-            onClose: () => {
-                const controller = actionService.currentController;
-                if (controller) {
-                    actionService.restore(controller.jsId);
+        openDirectoryEditDialog(this.env, dirId, async () => {
+            const sm = this.env?.searchModel;
+            if (sm) {
+                if (sm.categories && typeof sm._fetchCategories === "function") {
+                    try {
+                        await sm._fetchCategories(sm.categories);
+                    } catch (err) {}
                 }
+                sm._reset?.();
+                sm.trigger("update");
+            }
+            this.env.bus?.trigger("dms-reload-directories");
+            const controller = actionService.currentController;
+            if (controller?.model?.root) {
+                try {
+                    await controller.model.root.load();
+                } catch (err) {}
             }
         });
     },
@@ -601,10 +799,26 @@ patch(SearchPanel.prototype, {
     async trashSidebarDirectory(dirId) {
         const actionService = this.action || this.env.services.action;
         const ormService = this.orm || this.env.services.orm;
+        if (!(await confirmSendToTrash(this.env.services.dialog, { resModel: "dms.directory" }))) {
+            return;
+        }
         await ormService.call("dms.directory", "action_send_to_trash", [[dirId]]);
+        const sm = this.env?.searchModel;
+        if (sm) {
+            if (sm.categories && typeof sm._fetchCategories === "function") {
+                try {
+                    await sm._fetchCategories(sm.categories);
+                } catch (err) {}
+            }
+            sm._reset?.();
+            sm.trigger("update");
+        }
+        this.env.bus?.trigger("dms-reload-directories");
         const controller = actionService.currentController;
-        if (controller) {
-            actionService.restore(controller.jsId);
+        if (controller?.model?.root) {
+            try {
+                await controller.model.root.load();
+            } catch (err) {}
         }
     },
 
@@ -616,4 +830,26 @@ patch(SearchPanel.prototype, {
             actionService.doAction(action);
         }
     }
+});
+
+// Configuration > Directories: a folder card opens that folder in the
+// shared sidebar tree (its subfolders are listed), like on the home screen.
+patch(KanbanController.prototype, {
+    /**
+     * Configuration > Directories: a folder card opens that folder in the
+     * documents browser, which lists its subfolders *and* its files, with the
+     * breadcrumb trail "Directories / Folder / Subfolder". (Filtering this
+     * dms.directory view in place only ever showed the subfolders.)
+     */
+    async openRecord(record) {
+        if (this.props.resModel === "dms.directory" && !this.env.inDialog && record.resId) {
+            const action = await this.env.services.orm.call(
+                "dms.directory",
+                "action_dms_open_in_documents",
+                [[record.resId]]
+            );
+            return this.actionService.doAction(action);
+        }
+        return super.openRecord(...arguments);
+    },
 });

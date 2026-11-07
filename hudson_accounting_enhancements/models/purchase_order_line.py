@@ -85,18 +85,3 @@ class PurchaseOrderLine(models.Model):
                 'default_date': fields.Date.context_today(self),
             }
         }
-
-    def _prepare_account_move_line(self, move=False):
-        res = super(PurchaseOrderLine, self)._prepare_account_move_line(move=move)
-        # Override to always default the auto-complete quantity to the remaining ordered quantity,
-        # instead of the received quantity (which is 0 for Billed Not Received cases).
-        qty = self.product_qty - self.qty_invoiced
-        if qty < 0:
-            qty = 0
-        
-        if move and move.move_type == 'in_refund':
-            res['quantity'] = -qty
-        else:
-            res['quantity'] = qty
-            
-        return res

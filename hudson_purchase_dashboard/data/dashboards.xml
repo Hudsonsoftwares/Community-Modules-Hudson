@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="spreadsheet_dashboard_purchase" model="spreadsheet.dashboard">
+        <field name="name">Purchase</field>
+        <field name="spreadsheet_binary_data" type="bytes" file="hudson_purchase_dashboard/data/files/purchase_dashboard.json"/>
+        <field name="main_data_model_ids" eval="[Command.set([ref('purchase.model_purchase_order')])]"/>
+        <field name="dashboard_group_id" ref="spreadsheet_dashboard.spreadsheet_dashboard_group_logistics"/>
+        <field name="group_ids" eval="[Command.set([ref('purchase.group_purchase_manager')])]"/>
+        <field name="sequence">100</field>
+        <field name="is_published">True</field>
+    </record>
+
+</odoo>

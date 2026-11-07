@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<odoo>
-    <data noupdate="1">
-        
-        <!-- This file can be used for default status configurations if needed -->
-        <!-- Currently status is handled via selection fields in models -->
-
-    </data>
-</odoo>

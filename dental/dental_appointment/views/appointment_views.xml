@@ -1,0 +1,195 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_dental_appointment_form" model="ir.ui.view">
+        <field name="name">dental.appointment.form</field>
+        <field name="model">dental.appointment</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button name="action_open_booking_flow" string="Guided Booking Flow" type="object" class="btn btn-secondary"/>
+                    <button name="action_confirm" string="Confirm" type="object" class="oe_highlight" invisible="state != 'pending'"/>
+                    <button name="action_check_in" string="Check In" type="object" class="oe_highlight" invisible="state != 'confirmed'"/>
+                    <button name="action_start_consultation" string="Start Consultation" type="object" class="oe_highlight" invisible="state != 'checked_in'"/>
+                    <button name="action_complete" string="Complete" type="object" class="oe_highlight" invisible="state != 'in_consultation'"/>
+                    <button name="action_cancel" string="Cancel" type="object" invisible="state in ('completed', 'cancelled')"/>
+                    <button name="action_no_show" string="No Show" type="object" invisible="state not in ('confirmed', 'checked_in')"/>
+                    <button name="action_reschedule" string="Reschedule" type="object" class="btn btn-warning" invisible="not has_leave_conflict and state not in ('cancelled', 'no_show')"/>
+                    <field name="state" widget="statusbar" statusbar_visible="pending,confirmed,checked_in,in_consultation,completed"/>
+                </header>
+                <sheet>
+                    <div class="alert alert-warning d-flex align-items-center justify-content-between p-3 mb-3 border-0 rounded-3 shadow-sm"
+                         role="alert"
+                         invisible="not has_leave_conflict">
+                        <div>
+                            <i class="fa fa-exclamation-triangle fa-lg me-2 text-warning"/>
+                            <strong>Doctor Availability Alert:</strong> Dr. <field name="doctor_id" readonly="1" class="fw-bold"/> is on approved leave during this appointment time. Please reschedule.
+                        </div>
+                        <button name="action_reschedule"
+                                string="Reschedule Appointment"
+                                type="object"
+                                class="btn btn-sm btn-warning text-dark fw-bold"/>
+                    </div>
+                    <div class="alert alert-danger d-flex align-items-center justify-content-between p-3 mb-3 border-0 rounded-3 shadow-sm"
+                         role="alert"
+                         invisible="not has_equipment_conflict">
+                        <div>
+                            <i class="fa fa-wrench fa-lg me-2 text-danger"/>
+                            <strong>Equipment Notice:</strong> <field name="equipment_conflict_reason" readonly="1" class="fw-bold text-danger"/>
+                        </div>
+                        <span class="badge bg-danger text-white px-2 py-1">Equipment Unavailable</span>
+                    </div>
+                    <div name="button_box" class="oe_button_box"/>
+                    <div class="oe_title">
+                        <field name="has_leave_conflict" invisible="1"/>
+                        <field name="has_equipment_conflict" invisible="1"/>
+                        <h1>
+                            <field name="name"/>
+                        </h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="patient_id"/>
+                            <field name="doctor_id"/>
+                            <field name="treatment_id"/>
+                            <field name="appointment_type_id"/>
+                            <field name="is_emergency"/>
+                        </group>
+                        <group>
+                            <field name="date_start"/>
+                            <field name="date_end"/>
+                            <field name="duration" widget="float_time"/>
+                            <field name="branch_id"/>
+                            <field name="priority" widget="priority"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Reason &amp; Notes">
+                            <group>
+                                <field name="reason"/>
+                                <field name="notes"/>
+                            </group>
+                        </page>
+                        <page string="Queue Information" invisible="state in ('pending', 'confirmed')">
+                            <group>
+                                <field name="token_number"/>
+                                <field name="queue_priority"/>
+                                <field name="check_in_time"/>
+                                <field name="called_time"/>
+                                <field name="waiting_time"/>
+                            </group>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_dental_appointment_tree" model="ir.ui.view">
+        <field name="name">dental.appointment.tree</field>
+        <field name="model">dental.appointment</field>
+        <field name="priority" eval="10"/>
+        <field name="arch" type="xml">
+            <list decoration-info="state == 'pending'" decoration-success="state == 'completed'" decoration-warning="has_leave_conflict or has_equipment_conflict or state == 'checked_in'" decoration-danger="state == 'cancelled'">
+                <field name="name"/>
+                <field name="date_start"/>
+                <field name="patient_id"/>
+                <field name="doctor_id"/>
+                <field name="treatment_id"/>
+                <field name="state"/>
+                <field name="has_leave_conflict" string="Leave Conflict" widget="boolean_toggle" readonly="1" optional="show"/>
+                <field name="has_equipment_conflict" string="Equipment Conflict" widget="boolean_toggle" readonly="1" optional="show"/>
+                <field name="token_number" optional="show"/>
+                <field name="is_emergency" optional="show"/>
+                <button name="action_check_in" string="Check In" type="object" class="oe_highlight" invisible="state != 'confirmed'"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_dental_appointment_calendar" model="ir.ui.view">
+        <field name="name">dental.appointment.calendar</field>
+        <field name="model">dental.appointment</field>
+        <field name="arch" type="xml">
+            <calendar string="Appointments" date_start="date_start" date_stop="date_end" color="doctor_id" event_open_popup="True" mode="week">
+                <field name="patient_id"/>
+                <field name="doctor_id"/>
+                <field name="state"/>
+            </calendar>
+        </field>
+    </record>
+
+    <record id="view_dental_appointment_search" model="ir.ui.view">
+        <field name="name">dental.appointment.search</field>
+        <field name="model">dental.appointment</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name"/>
+                <field name="patient_id"/>
+                <field name="doctor_id"/>
+                <field name="branch_id"/>
+                <field name="treatment_id"/>
+                
+                <filter string="Appointment Date" name="filter_date_start" date="date_start"/>
+                <filter string="Upcoming" name="upcoming" domain="[('state', 'in', ('pending', 'confirmed'))]"/>
+                <filter string="Doctor Leave Conflicts" name="filter_leave_conflicts" domain="[('has_leave_conflict', '=', True)]"/>
+                <filter string="Equipment Conflicts" name="filter_equipment_conflicts" domain="[('has_equipment_conflict', '=', True)]"/>
+                <separator/>
+                <filter string="Completed" name="completed" domain="[('state', '=', 'completed')]"/>
+                <filter string="Cancelled" name="cancelled" domain="[('state', '=', 'cancelled')]"/>
+                <filter string="No Show" name="no_show" domain="[('state', '=', 'no_show')]"/>
+                <separator/>
+                <filter string="My Appointments" name="my_appointments" domain="[('doctor_id.user_id', '=', uid)]"/>
+                
+                <group>
+                    <filter string="Doctor" name="group_doctor" context="{'group_by': 'doctor_id'}"/>
+                    <filter string="Patient" name="group_patient" context="{'group_by': 'patient_id'}"/>
+                    <filter string="Status" name="group_status" context="{'group_by': 'state'}"/>
+                    <filter string="Appointment Type" name="group_type" context="{'group_by': 'appointment_type_id'}"/>
+                    <filter string="Branch" name="group_branch" context="{'group_by': 'branch_id'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="view_dental_appointment_queue_tree" model="ir.ui.view">
+        <field name="name">dental.appointment.queue.tree</field>
+        <field name="model">dental.appointment</field>
+        <field name="priority" eval="30"/>
+        <field name="arch" type="xml">
+            <list create="false" decoration-danger="is_emergency == True" decoration-warning="state == 'checked_in'" default_order="queue_priority desc, check_in_time asc">
+                <field name="token_number"/>
+                <field name="patient_id"/>
+                <field name="doctor_id"/>
+                <field name="check_in_time"/>
+                <field name="waiting_time"/>
+                <field name="is_emergency"/>
+                <field name="state"/>
+                <button name="action_start_consultation" string="Call" type="object" class="oe_highlight" invisible="state != 'checked_in'"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="action_dental_appointment" model="ir.actions.act_window">
+        <field name="name">Appointments</field>
+        <field name="res_model">dental.appointment</field>
+        <field name="view_mode">list,calendar,form</field>
+        <field name="view_id" ref="view_dental_appointment_tree"/>
+        <field name="context">{'search_default_upcoming': 1}</field>
+    </record>
+    
+    <record id="action_dental_appointment_queue" model="ir.actions.act_window">
+        <field name="name">Queue Board</field>
+        <field name="res_model">dental.appointment</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[('state', 'in', ('checked_in', 'in_consultation'))]</field>
+        <field name="view_id" ref="view_dental_appointment_queue_tree"/>
+    </record>
+
+    <record id="action_book_dental_appointment" model="ir.actions.act_window">
+        <field name="name">Book Appointment</field>
+        <field name="res_model">dental.appointment</field>
+        <field name="view_mode">form</field>
+        <field name="view_id" ref="view_dental_appointment_form"/>
+        <field name="target">current</field>
+    </record>
+</odoo>

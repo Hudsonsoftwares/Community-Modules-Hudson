@@ -4,81 +4,80 @@
         <field name="name">dms.file.share.wizard.form</field>
         <field name="model">dms.file.share.wizard</field>
         <field name="arch" type="xml">
-            <form string="Share" dialog_size="md">
+            <form string="Share" dialog_size="md" class="o_dms_share">
                 <field name="file_id" invisible="1"/>
                 <field name="file_name" invisible="1"/>
 
-                <div class="w-100 py-1">
-                    <!-- Share Mode Selector: Add People vs Add Groups -->
-                    <div class="mb-3">
-                        <field name="share_mode" widget="radio" options="{'horizontal': True}" class="fw-semibold" nolabel="1"/>
+                <div class="o_dms_share_body">
+                    <!-- Invite: People / Groups tabs + one input group -->
+                    <div class="o_dms_share_section">
+                        <field name="share_mode" widget="radio" options="{'horizontal': True}" nolabel="1"
+                               class="o_dms_share_segmented o_dms_share_tabs"/>
+                        <div class="o_dms_share_invite">
+                            <div class="o_dms_share_invite_input" invisible="share_mode != 'people'">
+                                <field name="partner_ids" widget="many2many_tags" nolabel="1"
+                                       placeholder="Add people or email addresses"
+                                       options="{'no_create_edit': True}"/>
+                            </div>
+                            <div class="o_dms_share_invite_input" invisible="share_mode != 'groups'">
+                                <field name="group_ids" widget="many2many_tags" nolabel="1"
+                                       placeholder="Add groups"
+                                       options="{'no_create': True, 'no_create_edit': True}"/>
+                            </div>
+                            <field name="new_access_role" widget="radio" options="{'horizontal': True}" nolabel="1"
+                                   class="o_dms_share_segmented o_dms_share_levels o_dms_share_levels_sm"/>
+                            <button name="action_add_access" string="Add" type="object" class="btn btn-primary o_dms_share_add"/>
+                        </div>
                     </div>
 
-                    <!-- Input Row with role selector and Add button -->
-                    <div class="d-flex align-items-center gap-2 mb-3 pb-2 border-bottom">
-                        <i class="fa fa-user-plus text-muted fs-5 me-1" invisible="share_mode != 'people'"/>
-                        <i class="fa fa-users text-muted fs-5 me-1" invisible="share_mode != 'groups'"/>
-                        <div class="flex-grow-1" invisible="share_mode != 'people'">
-                            <field name="partner_ids" widget="many2many_tags" placeholder="Add people or email addresses" options="{'no_create_edit': True}" nolabel="1" class="w-100 border-0 shadow-none"/>
+                    <!-- People with access -->
+                    <div class="o_dms_share_section" invisible="not people_with_access_html">
+                        <div class="o_dms_share_heading">People with access</div>
+                        <div class="o_dms_share_card">
+                            <field name="people_with_access_html" nolabel="1" class="w-100"/>
                         </div>
-                        <div class="flex-grow-1" invisible="share_mode != 'groups'">
-                            <field name="group_ids" widget="many2many_tags" placeholder="Add groups" options="{'no_create': True, 'no_create_edit': True}" nolabel="1" class="w-100 border-0 shadow-none"/>
-                        </div>
-                        <div style="width: 110px;">
-                            <field name="new_access_role" nolabel="1" class="form-select form-select-sm fw-semibold"/>
-                        </div>
-                        <button name="action_add_access" string="Add" type="object" class="btn btn-sm btn-outline-primary px-3"/>
                     </div>
 
-                    <!-- People with access section -->
-                    <div class="mb-4" invisible="not people_with_access_html">
-                        <h6 class="fw-bold text-dark mb-2" style="font-size: 0.95rem;">People with access</h6>
-                        <field name="people_with_access_html" nolabel="1"/>
-                    </div>
-
-                    <!-- General Access Section -->
-                    <div class="mb-3">
-                        <h5 class="fw-bold text-dark mb-3" style="font-size: 1.15rem;">General Access</h5>
-                        
-                        <!-- Internal Users -->
-                        <div class="d-flex align-items-center justify-content-between py-2 border-bottom">
-                            <div>
-                                <div class="fw-semibold text-dark">Internal users</div>
-                                <div class="text-muted small" invisible="share_internal_access != 'editor'">Can modify, delete, and rename.</div>
-                                <div class="text-muted small" invisible="share_internal_access != 'viewer'">Can view and download.</div>
-                                <div class="text-muted small" invisible="share_internal_access != 'none'">Only people with access can open with the link</div>
+                    <!-- General access -->
+                    <div class="o_dms_share_section">
+                        <div class="o_dms_share_heading">General access</div>
+                        <div class="o_dms_share_card">
+                            <div class="o_dms_share_row o_dms_share_access_row">
+                                <span class="o_dms_share_icon">
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/><path d="M9 9h1"/><path d="M14 9h1"/><path d="M9 13h1"/><path d="M14 13h1"/><path d="M10 21v-4h4v4"/></svg>
+                                </span>
+                                <div class="o_dms_share_row_text">
+                                    <div class="o_dms_share_row_title">Internal users</div>
+                                    <div class="o_dms_share_row_sub" invisible="share_internal_access != 'editor'">Can view, edit, rename and delete.</div>
+                                    <div class="o_dms_share_row_sub" invisible="share_internal_access != 'viewer'">Can view and download.</div>
+                                    <div class="o_dms_share_row_sub" invisible="share_internal_access != 'none'">Only people listed above can open it.</div>
+                                </div>
+                                <field name="share_internal_access" widget="radio" options="{'horizontal': True}" nolabel="1"
+                                       class="o_dms_share_segmented o_dms_share_levels"/>
                             </div>
-                            <div style="min-width: 120px;" class="text-end">
-                                <field name="share_internal_access" class="border-0 bg-transparent text-end fw-semibold text-secondary" nolabel="1" style="cursor: pointer; width: auto;"/>
-                            </div>
-                        </div>
-
-                        <!-- Access through link -->
-                        <div class="d-flex align-items-center justify-content-between py-2">
-                            <div>
-                                <div class="fw-semibold text-dark">Access through link</div>
-                                <div class="text-muted small" invisible="share_link_access != 'none'">No one on the internet can access</div>
-                                <div class="text-muted small" invisible="share_link_access != 'viewer'">Anyone on the internet with this link can view</div>
-                                <div class="text-muted small" invisible="share_link_access != 'editor'">Anyone on the internet with this link can edit</div>
-                            </div>
-                            <div style="min-width: 120px;" class="text-end">
-                                <field name="share_link_access" class="border-0 bg-transparent text-end fw-semibold text-secondary" nolabel="1" style="cursor: pointer; width: auto;"/>
+                            <div class="o_dms_share_row o_dms_share_access_row">
+                                <span class="o_dms_share_icon">
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg>
+                                </span>
+                                <div class="o_dms_share_row_text">
+                                    <div class="o_dms_share_row_title">Anyone with the link</div>
+                                    <div class="o_dms_share_row_sub" invisible="share_link_access != 'none'">The link does not work outside your company.</div>
+                                    <div class="o_dms_share_row_sub" invisible="share_link_access != 'viewer'">Anyone on the internet with the link can view.</div>
+                                    <div class="o_dms_share_row_sub" invisible="share_link_access != 'editor'">Anyone on the internet with the link can edit.</div>
+                                </div>
+                                <field name="share_link_access" widget="radio" options="{'horizontal': True}" nolabel="1"
+                                       class="o_dms_share_segmented o_dms_share_levels"/>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Footer: Save button shown BEFORE Copy Link button -->
-                <footer class="d-flex align-items-center justify-content-between pt-3 border-top w-100">
-                    <div class="d-flex align-items-center gap-2">
-                        <button name="action_save" string="Save" type="object" class="btn btn-primary px-4 fw-bold" style="background-color: #714B67; border-color: #714B67;"/>
-                        <field name="share_link_url" widget="CopyClipboardButton" string="Copy Link" options="{'btn_class': 'outline-secondary'}" nolabel="1"/>
-                    </div>
-                    <div>
-                        <button string="Close" class="btn btn-outline-secondary px-3" special="cancel"/>
-                    </div>
+                <footer>
+                    <button name="action_save" string="Save" type="object" class="btn btn-primary"/>
+                    <field name="share_link_url" widget="CopyClipboardButton" string="Copy Link"
+                           options="{'btn_class': 'secondary'}" nolabel="1"/>
+                    <button string="Close" class="btn btn-secondary ms-auto" special="cancel"/>
                 </footer>
-
             </form>
         </field>
     </record>

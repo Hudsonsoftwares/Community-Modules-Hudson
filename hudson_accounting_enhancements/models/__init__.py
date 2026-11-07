@@ -8,7 +8,10 @@ from . import account_journal
 from . import account_bank_statement_line
 from . import hudson_loan
 from . import account_account
+from . import account_chart_template
 from . import account_move
+from . import account_payment
+from . import account_partial_reconcile
 from . import purchase_order_line
 from . import sale_order_line
 from . import account_budget
@@ -18,6 +21,7 @@ from . import account_analytic_line
 from . import html_reports
 from . import dynamic_report
 from . import account_multi_ledger
+from . import report_snapshot
 from . import account_review_config_models
 from . import ir_ui_view
 from . import account_invoice_report

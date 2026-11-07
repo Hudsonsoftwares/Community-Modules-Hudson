@@ -1,0 +1,196 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- TOP-LEVEL ROOT DENTAL APPOINTMENT APPLICATION (App Drawer) -->
+    <record id="menu_dental_appointment_root" model="ir.ui.menu">
+        <field name="name">Appointments</field>
+        <field name="sequence" eval="42"/>
+        <field name="web_icon">dental_appointment,static/description/icon.png</field>
+        <field name="group_ids" eval="[(6, 0, [
+            ref('dental_base.group_dental_receptionist'),
+            ref('dental_base.group_dental_assistant'),
+            ref('dental_base.group_dental_manager'),
+            ref('dental_base.group_dental_admin')
+        ])]"/>
+        <field name="active" eval="True"/>
+    </record>
+
+    <!-- Sub-category 1: Appointments -->
+    <menuitem id="menu_dental_appointment_subroot"
+              name="Appointments"
+              parent="menu_dental_appointment_root"
+              sequence="10"/>
+
+    <!-- Interactive Guided Booking Flow Action (Website-style 5-step workflow) -->
+    <record id="action_dental_appointment_book_flow" model="ir.actions.client">
+        <field name="name">Book Appointment</field>
+        <field name="tag">dental_appointment.book_appointment_flow</field>
+        <field name="target">current</field>
+    </record>
+
+    <!-- Book Appointment Guided Flow Menu (Sequence 5, Top of list) -->
+    <menuitem id="menu_dental_appointment_book_action"
+              name="Book Appointment"
+              parent="menu_dental_appointment_subroot"
+              action="action_dental_appointment_book_flow"
+              sequence="5"
+              groups="dental_base.group_dental_receptionist,dental_base.group_dental_assistant,dental_base.group_dental_manager,dental_base.group_dental_admin"/>
+
+    <!-- Today's Appointments -->
+    <record id="action_dental_appointment_today" model="ir.actions.act_window">
+        <field name="name">Today's Appointments</field>
+        <field name="res_model">dental.appointment</field>
+        <field name="view_mode">list,calendar,form</field>
+        <field name="view_id" ref="view_dental_appointment_tree"/>
+        <field name="domain">[('date_start', '&gt;=', context_today().strftime('%Y-%m-%d 00:00:00')), ('date_start', '&lt;=', context_today().strftime('%Y-%m-%d 23:59:59'))]</field>
+    </record>
+    <menuitem id="menu_reception_todays_appointments"
+              name="Today's Appointments"
+              parent="menu_dental_appointment_subroot"
+              action="action_dental_appointment_today"
+              sequence="10"
+              groups="dental_base.group_dental_receptionist,dental_base.group_dental_assistant,dental_base.group_dental_manager,dental_base.group_dental_admin"/>
+
+    <!-- All Appointments -->
+    <menuitem id="menu_dental_appointment"
+              name="All Appointments"
+              parent="menu_dental_appointment_subroot"
+              action="action_dental_appointment"
+              sequence="20"
+              groups="dental_base.group_dental_receptionist,dental_base.group_dental_assistant,dental_base.group_dental_manager,dental_base.group_dental_admin"/>
+    
+    <!-- Unified Calendar -->
+    <record id="action_dental_appointment_calendar" model="ir.actions.act_window">
+        <field name="name">Calendar</field>
+        <field name="res_model">dental.appointment</field>
+        <field name="view_mode">calendar,list,form</field>
+    </record>
+    <menuitem id="menu_dental_appointment_calendar"
+              name="Calendar"
+              parent="menu_dental_appointment_subroot"
+              action="action_dental_appointment_calendar"
+              sequence="30"
+              groups="dental_base.group_dental_receptionist,dental_base.group_dental_assistant,dental_base.group_dental_manager,dental_base.group_dental_admin"/>
+
+    <!-- Waiting Queue (Consolidated clinic-wide waiting list) -->
+    <menuitem id="menu_dentist_queue"
+              name="Waiting Queue"
+              parent="menu_dental_appointment_subroot"
+              action="action_dental_appointment_queue"
+              sequence="40"
+              groups="dental_base.group_dental_receptionist,dental_base.group_dental_assistant,dental_base.group_dental_manager,dental_base.group_dental_admin"/>
+
+    <!-- Sub-category 2: Patient Check-in -->
+    <record id="action_dental_patient_checkin" model="ir.actions.act_window">
+        <field name="name">Patient Check-in</field>
+        <field name="res_model">dental.appointment</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[('state', '=', 'confirmed'), ('date_start', '&gt;=', context_today().strftime('%Y-%m-%d 00:00:00')), ('date_start', '&lt;=', context_today().strftime('%Y-%m-%d 23:59:59'))]</field>
+    </record>
+
+    <menuitem id="menu_dental_appointment_checkin_top"
+              name="Patient Check-in"
+              parent="menu_dental_appointment_root"
+              action="action_dental_patient_checkin"
+              sequence="20"
+              groups="dental_base.group_dental_receptionist,dental_base.group_dental_assistant,dental_base.group_dental_manager,dental_base.group_dental_admin"/>
+
+    <!-- Sub-category 3: Configuration -->
+    <menuitem id="menu_dental_appointment_config_top"
+              name="Configuration"
+              parent="menu_dental_appointment_root"
+              sequence="30"
+              groups="dental_base.group_dental_admin"/>
+
+    <menuitem id="menu_dental_appointment_type_top"
+              name="Appointment Types"
+              parent="menu_dental_appointment_config_top"
+              action="action_dental_appointment_type"
+              sequence="10"
+              groups="dental_base.group_dental_admin"/>
+
+    <menuitem id="menu_dental_recall_rule_top"
+              name="Recall Rules"
+              parent="menu_dental_appointment_config_top"
+              action="action_dental_recall_rule"
+              sequence="20"
+              groups="dental_base.group_dental_admin"/>
+
+    <!-- Also keep Appointments accessible inside Dental Clinic App -->
+    <menuitem id="menu_dental_appointment_clinic_shortcut"
+              name="Appointments"
+              parent="dental_base.menu_dental_root"
+              sequence="30"
+              groups="dental_base.group_dental_manager,dental_base.group_dental_admin"/>
+    <menuitem id="menu_clinic_book_appointment"
+              name="Book Appointment"
+              parent="menu_dental_appointment_clinic_shortcut"
+              action="action_dental_appointment_book_flow"
+              sequence="5"/>
+    <menuitem id="menu_clinic_todays_appointments"
+              name="Today's Appointments"
+              parent="menu_dental_appointment_clinic_shortcut"
+              action="action_dental_appointment_today"
+              sequence="10"/>
+    <menuitem id="menu_clinic_all_appointments"
+              name="All Appointments"
+              parent="menu_dental_appointment_clinic_shortcut"
+              action="action_dental_appointment"
+              sequence="20"/>
+    <menuitem id="menu_clinic_calendar"
+              name="Calendar"
+              parent="menu_dental_appointment_clinic_shortcut"
+              action="action_dental_appointment_calendar"
+              sequence="30"/>
+    <menuitem id="menu_clinic_waiting_queue"
+              name="Waiting Queue"
+              parent="menu_dental_appointment_clinic_shortcut"
+              action="action_dental_appointment_queue"
+              sequence="40"/>
+
+    <!-- RETIRED DUPLICATES: Kept inactive to preserve XML IDs and avoid database orphans -->
+    <!-- 1. Duplicate My Appointments (Already under My Workspace) -->
+    <record id="menu_dentist_my_appointments_main" model="ir.ui.menu">
+        <field name="name">My Appointments</field>
+        <field name="active" eval="False"/>
+    </record>
+
+    <!-- 2. Duplicate Calendar entry -->
+    <record id="menu_dentist_calendar" model="ir.ui.menu">
+        <field name="name">Calendar</field>
+        <field name="active" eval="False"/>
+    </record>
+
+    <!-- 3. Obsolete top-level Check-in & Queue parent (items organized under Reception Desk) -->
+    <record id="menu_dental_queue_root" model="ir.ui.menu">
+        <field name="name">Check-in &amp; Queue</field>
+        <field name="active" eval="False"/>
+    </record>
+
+    <!-- 4. Obsolete top-level Follow-ups & Recalls parent (items organized under Reception Desk) -->
+    <record id="menu_dental_followup_root" model="ir.ui.menu">
+        <field name="name">Follow-ups &amp; Recalls</field>
+        <field name="active" eval="False"/>
+    </record>
+
+    <!-- 5. Obsolete intermediate Appointment Configuration parent -->
+    <record id="menu_dental_appointment_config" model="ir.ui.menu">
+        <field name="name">Appointment Configuration</field>
+        <field name="active" eval="False"/>
+    </record>
+
+
+    <!-- Configuration Menus under Master Configuration -->
+    <menuitem id="menu_dental_appointment_type"
+              name="Appointment Types"
+              parent="dental_base.menu_dental_configuration"
+              action="action_dental_appointment_type"
+              sequence="40"
+              groups="dental_base.group_dental_admin"/>
+
+    <menuitem id="menu_dental_recall_rule"
+              name="Recall Rules"
+              parent="dental_base.menu_dental_configuration"
+              action="action_dental_recall_rule"
+              sequence="50"
+              groups="dental_base.group_dental_admin"/>
+</odoo>

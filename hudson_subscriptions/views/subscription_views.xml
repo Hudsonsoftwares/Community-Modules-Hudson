@@ -29,7 +29,7 @@
                        decoration-info="subscription_state in ('draft', 'sent')"
                        decoration-warning="subscription_state == '5_renew'"
                        decoration-primary="subscription_state == '7_upsell'"
-                       decoration-muted="subscription_state == '4_paused'"/>
+                       decoration-muted="subscription_state in ('4_paused', '5_renewed')"/>
             </list>
         </field>
     </record>
@@ -121,14 +121,15 @@
                 <attribute name="readonly">state in ['cancel', 'sale'] or (is_subscription and subscription_state not in ('draft', 'sent'))</attribute>
             </xpath>
             <xpath expr="//button[@id='create_invoice']" position="before">
-                <!-- For subscriptions: show 'Create Invoice' only if not yet paid and no invoices exist -->
+                <!-- 'Create Invoice' is always available on a running subscription (like Odoo Online):
+                     highlighted while the current period is not invoiced yet, a normal button afterwards. -->
+                <field name="subscription_invoice_due" invisible="1"/>
                 <button name="action_create_recurring_invoice" string="Create Invoice" type="object"
                     class="btn-primary"
-                    invisible="not is_subscription or (subscription_state not in ('3_progress', '7_upsell')) or state != 'sale' or subscription_paid or invoice_count > 0"/>
-                <!-- Dimmed version: show when already paid but invoices might not be linked yet -->
+                    invisible="not is_subscription or subscription_state not in ('3_progress', '5_renew', '7_upsell') or state != 'sale' or not subscription_invoice_due"/>
                 <button name="action_create_recurring_invoice" string="Create Invoice" type="object"
                     class="btn-secondary"
-                    invisible="not is_subscription or (subscription_state not in ('3_progress', '7_upsell')) or state != 'sale' or not subscription_paid or invoice_count > 0"/>
+                    invisible="not is_subscription or subscription_state not in ('3_progress', '5_renew', '7_upsell') or state != 'sale' or subscription_invoice_due"/>
             </xpath>
 
             <xpath expr="//field[@name='state']" position="before">
@@ -138,19 +139,19 @@
                 <button name="action_upsell_subscription" string="Upsell" type="object" class="btn-secondary" invisible="not is_subscription or is_upsell or subscription_state != '3_progress'"/>
                 <button name="action_pause_subscription" string="Pause" type="object" class="btn-secondary" invisible="not is_subscription or is_upsell or subscription_state != '3_progress'"/>
                 <button name="action_resume_subscription" string="Resume" type="object" class="btn-secondary" invisible="not is_subscription or is_upsell or subscription_state != '4_paused'"/>
-                <button name="action_close_subscription" string="Close Subscription" type="object" class="btn-outline-danger" invisible="not is_subscription or is_upsell or subscription_state in ('6_churn', 'draft')"/>
+                <button name="action_close_subscription" string="Close Subscription" type="object" class="btn-outline-danger" invisible="not is_subscription or is_upsell or subscription_state in ('5_renewed', '6_churn', 'draft', 'sent')"/>
             </xpath>
 
             <xpath expr="//div[@name='button_box']" position="inside">
-                <button name="action_view_renewals" type="object" class="oe_stat_button" icon="fa-refresh" invisible="renewal_order_count == 0">
+                <button name="action_view_renewals" type="object" class="oe_stat_button" icon="refresh" invisible="renewal_order_count == 0">
                     <field name="renewal_order_count" widget="statinfo" string="Renewal Quotes"/>
                 </button>
                 <!-- Removed Upsell Quotes smart button per user request. 
                      Invoices of upsells now roll up into the main Invoices smart button. -->
-                <button name="action_view_upsells" type="object" class="oe_stat_button" icon="fa-arrow-up" invisible="1">
+                <button name="action_view_upsells" type="object" class="oe_stat_button" icon="arrow_upward" invisible="1">
                     <field name="upsell_order_count" widget="statinfo" string="Upsell Quotes"/>
                 </button>
-                <button name="action_view_mrr_analysis" type="object" class="oe_stat_button" icon="fa-line-chart" invisible="not is_subscription or state in ('draft', 'sent', 'cancel')">
+                <button name="action_view_mrr_analysis" type="object" class="oe_stat_button" icon="show_chart" invisible="not is_subscription or state in ('draft', 'sent', 'cancel')">
                     <div class="o_stat_info">
                         <span class="o_stat_text">MRR</span>
                         <span class="o_stat_value">
@@ -161,7 +162,7 @@
             </xpath>
             <xpath expr="//div[@name='button_box']" position="after">
                 <div class="float-end mt-2" invisible="not is_subscription or subscription_state in ('draft', 'sent')">
-                    <field name="subscription_state" widget="badge" decoration-success="subscription_state == '3_progress'" decoration-warning="subscription_state in ('4_paused', '5_renew')" decoration-danger="subscription_state == '6_churn'"/>
+                    <field name="subscription_state" widget="badge" decoration-success="subscription_state == '3_progress'" decoration-warning="subscription_state in ('4_paused', '5_renew')" decoration-danger="subscription_state == '6_churn'" decoration-info="subscription_state == '5_renewed'"/>
                 </div>
             </xpath>
             <xpath expr="//sheet" position="before">
@@ -260,6 +261,7 @@
                 <filter string="Quotations" name="filter_quotations" domain="[('subscription_state', 'in', ('draft', 'sent'))]"/>
                 <filter string="In Progress" name="filter_in_progress" domain="[('subscription_state', '=', '3_progress')]"/>
                 <filter string="Paused" name="filter_paused" domain="[('subscription_state', '=', '4_paused')]"/>
+                <filter string="Renewed" name="filter_renewed" domain="[('subscription_state', '=', '5_renewed')]"/>
                 <filter string="Churned" name="filter_churned" domain="[('subscription_state', '=', '6_churn')]"/>
                 <separator/>
 

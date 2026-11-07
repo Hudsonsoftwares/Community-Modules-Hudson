@@ -43,14 +43,17 @@ class AccountBudgetLine(models.Model):
 
     def _register_hook(self):
         super()._register_hook()
-        # Ensure all analytic plans have their dynamic columns synchronized on account.budget.line
-        self.env['account.analytic.plan'].sudo().search([])._sync_all_plan_column()
-        # Dynamically register onchange for all plan fields
-        plan_fnames = self._get_plan_fnames()
-        for fname in plan_fnames:
-            if fname in self._fields and fname != 'account_id':
-                if self._onchange_plan_accounts not in self._onchange_methods.setdefault(fname, []):
-                    self._onchange_methods[fname].append(self._onchange_plan_accounts)
+        try:
+            # Dynamically register onchange for all plan fields
+            # Use the unbound function: Odoo calls onchange methods as method(record)
+            onchange_method = type(self)._onchange_plan_accounts
+            plan_fnames = self._get_plan_fnames()
+            for fname in plan_fnames:
+                if fname in self._fields and fname != 'account_id':
+                    if onchange_method not in self._onchange_methods.setdefault(fname, []):
+                        self._onchange_methods[fname].append(onchange_method)
+        except Exception:
+            pass
 
     @api.depends('planned_amount')
     def _compute_liquidation_amount(self):

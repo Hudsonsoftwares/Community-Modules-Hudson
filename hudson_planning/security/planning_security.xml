@@ -49,14 +49,26 @@
             <field name="group_id" ref="hudson_planning.group_planning_manager" />
         <field name="operation">crud</field></record>
 
-        
-        <record model="ir.access" id="fs_planning_slot_user_rule">
-            <field name="name">Planning Slot: user sees own (published)</field>
-            <field name="model_id" ref="model_fs_planning_slot" />
-            <field name="domain">['&amp;', ('state', '=', 'published'), '|', ('resource_id.user_id', '=', user.id), ('resource_id', '=', False)]</field>
-            <field name="group_id" ref="hudson_planning.group_planning_user" />
-        <field name="operation">crud</field></record>
-
     </data>
+
+    <!-- Employees: own published shifts and open shifts, in ir.access.csv. This
+         former rule also allowed creating and deleting shifts. -->
+    <delete model="ir.access" search="[('name', '=', 'Planning Slot: user sees own (published)')]"/>
+    <!-- Multi-company: the templates of the user's companies, and the shared ones -->
+    <record model="ir.access" id="fs_shift_template_comp_rule">
+        <field name="name">Shift Template: multi-company</field>
+        <field name="model_id" ref="model_fs_shift_template"/>
+        <field name="domain">[('company_id', 'in', company_ids + [False])]</field>
+        <field name="operation">crud</field>
+    </record>
+
+    <!-- Settings > Shift Changes: shifts offered for replacement are visible to all employees -->
+    <record model="ir.access" id="fs_planning_slot_user_switch_rule">
+        <field name="name">Planning Slot: user sees shifts offered for replacement</field>
+        <field name="model_id" ref="model_fs_planning_slot" />
+        <field name="domain">[('state', '=', 'published'), ('request_to_switch', '=', True)]</field>
+        <field name="group_id" ref="hudson_planning.group_planning_user" />
+        <field name="operation">r</field>
+    </record>
 
 </odoo>

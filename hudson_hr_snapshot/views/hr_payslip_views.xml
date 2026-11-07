@@ -9,7 +9,7 @@
                 <button name="action_view_hds_snapshot"
                         type="object"
                         class="oe_stat_button"
-                        icon="fa-camera"
+                        icon="photo_camera"
                         invisible="not hds_snapshot_id">
                     <div class="o_stat_info">
                         <span class="o_stat_text">HR Snapshot</span>

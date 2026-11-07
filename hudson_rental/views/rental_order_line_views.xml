@@ -2,22 +2,6 @@
 <odoo>
     <data>
         
-        <!-- Rental Order Line Tree View -->
-        <record id="rental_order_line_view_tree" model="ir.ui.view">
-            <field name="name">rental.order.line.tree</field>
-            <field name="model">rental.order.line</field>
-            <field name="arch" type="xml">
-                <list string="Rental Order Lines">
-                    <field name="order_id"/>
-                    <field name="product_id"/>
-                    <field name="quantity"/>
-                    <field name="duration_days"/>
-                    <field name="price_total"/>
-                    <field name="rental_status"/>
-                </list>
-            </field>
-        </record>
-
         <!-- Rental Order Line Calendar View -->
         <record id="rental_order_line_view_calendar" model="ir.ui.view">
             <field name="name">sale.order.line.rental.calendar</field>
@@ -36,11 +20,77 @@
             </field>
         </record>
 
+        <!-- Rental schedule (Gantt): one row per product, pills coloured by pickup/return status -->
+        <record id="rental_order_line_view_gantt" model="ir.ui.view">
+            <field name="name">sale.order.line.rental.gantt</field>
+            <field name="model">sale.order.line</field>
+            <field name="arch" type="xml">
+                <gantt js_class="rental_gantt" string="Scheduled Rentals"
+                       date_start="rental_start_date" date_stop="rental_end_date"
+                       default_group_by="product_id" default_scale="week" scales="day,week,month,year">
+                    <field name="order_id"/>
+                    <field name="order_partner_id"/>
+                    <field name="product_id"/>
+                    <field name="rental_gantt_status"/>
+                </gantt>
+            </field>
+        </record>
+
+        <record id="rental_order_line_view_list" model="ir.ui.view">
+            <field name="name">sale.order.line.rental.list</field>
+            <field name="model">sale.order.line</field>
+            <field name="priority">50</field>
+            <field name="arch" type="xml">
+                <list string="Scheduled Rentals" create="0">
+                    <field name="order_id"/>
+                    <field name="order_partner_id"/>
+                    <field name="product_id"/>
+                    <field name="product_uom_qty" string="Quantity"/>
+                    <field name="rental_start_date"/>
+                    <field name="rental_end_date"/>
+                    <field name="rental_pickup_date" optional="hide"/>
+                    <field name="rental_return_date" optional="hide"/>
+                    <field name="rental_gantt_status" widget="badge"
+                           decoration-info="rental_gantt_status in ('reserved', 'early_pickup')"
+                           decoration-success="rental_gantt_status == 'picked_up'"
+                           decoration-warning="rental_gantt_status == 'late_pickup'"
+                           decoration-danger="rental_gantt_status in ('late_return', 'returned_late')"
+                           decoration-muted="rental_gantt_status == 'returned'"/>
+                    <field name="state" optional="hide"/>
+                </list>
+            </field>
+        </record>
+
+        <record id="rental_order_line_view_search" model="ir.ui.view">
+            <field name="name">sale.order.line.rental.search</field>
+            <field name="model">sale.order.line</field>
+            <field name="priority">50</field>
+            <field name="arch" type="xml">
+                <search string="Scheduled Rentals">
+                    <field name="product_id"/>
+                    <field name="order_partner_id"/>
+                    <field name="order_id"/>
+                    <filter string="Quotations" name="quotations" domain="[('state', 'in', ('draft', 'sent'))]"/>
+                    <filter string="Confirmed" name="confirmed" domain="[('state', '=', 'sale')]"/>
+                    <separator/>
+                    <filter string="To Pick Up" name="to_pickup" domain="[('state', '=', 'sale'), ('qty_delivered', '=', 0)]"/>
+                    <filter string="Picked-up" name="picked_up" domain="[('state', '=', 'sale'), ('qty_delivered', '>', 0)]"/>
+                    <group>
+                        <filter string="Product" name="groupby_product" context="{'group_by': 'product_id'}"/>
+                        <filter string="Customer" name="groupby_customer" context="{'group_by': 'order_partner_id'}"/>
+                        <filter string="Order" name="groupby_order" context="{'group_by': 'order_id'}"/>
+                    </group>
+                </search>
+            </field>
+        </record>
+
         <!-- Rental Order Line Action for Schedule -->
         <record id="action_rental_order_line_schedule" model="ir.actions.act_window">
             <field name="name">Scheduled Rentals</field>
             <field name="res_model">sale.order.line</field>
-            <field name="view_mode">calendar,list,form</field>
+            <field name="view_mode">gantt,calendar,list,form</field>
+            <field name="search_view_id" ref="rental_order_line_view_search"/>
+            <field name="context">{'search_default_groupby_product': 1}</field>
             <field name="domain">[('is_rental', '=', True)]</field>
             <field name="help" type="html">
                 <p class="o_view_nocontent_smiling_face">
@@ -50,6 +100,25 @@
                     Confirmed rental orders will appear here on the timeline.
                 </p>
             </field>
+        </record>
+
+        <record id="action_rental_order_line_schedule_view_gantt" model="ir.actions.act_window.view">
+            <field name="sequence" eval="1"/>
+            <field name="view_mode">gantt</field>
+            <field name="view_id" ref="rental_order_line_view_gantt"/>
+            <field name="act_window_id" ref="action_rental_order_line_schedule"/>
+        </record>
+        <record id="action_rental_order_line_schedule_view_calendar" model="ir.actions.act_window.view">
+            <field name="sequence" eval="2"/>
+            <field name="view_mode">calendar</field>
+            <field name="view_id" ref="rental_order_line_view_calendar"/>
+            <field name="act_window_id" ref="action_rental_order_line_schedule"/>
+        </record>
+        <record id="action_rental_order_line_schedule_view_list" model="ir.actions.act_window.view">
+            <field name="sequence" eval="3"/>
+            <field name="view_mode">list</field>
+            <field name="view_id" ref="rental_order_line_view_list"/>
+            <field name="act_window_id" ref="action_rental_order_line_schedule"/>
         </record>
 
     </data>

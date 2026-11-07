@@ -37,7 +37,10 @@ class HrEmployee(models.Model):
             if "name" in vals:
                 # Rename directory and access group
                 if employee.dms_directory_id:
-                    employee.dms_directory_id.sudo().name = employee.name
+                    directory = employee.dms_directory_id.sudo()
+                    directory.name = employee._get_unique_dms_folder_name(
+                        directory.parent_id, exclude=directory
+                    )
                 if employee.dms_access_group_id:
                     employee.dms_access_group_id.sudo().name = f"Access Group - {employee.name}"
             
@@ -57,34 +60,44 @@ class HrEmployee(models.Model):
         return res
 
     def _get_company_root_directory(self, company):
-        """Find or create the 'Employee - {Company}' root directory."""
+        """Find or create the 'Employee - {Company}' (or 'Employees') root directory for this company."""
+        if not company:
+            company = self.company_id or self.env.company
         dir_name = f"Employee - {company.name}"
         root_dir = self.env["dms.directory"].sudo().search([
-            ("name", "=", dir_name),
+            ("name", "in", [dir_name, "Employees"]),
             ("is_root_directory", "=", True),
+            ("company_id", "=", company.id),
         ], limit=1)
 
         if not root_dir:
-            # Look for the default 'Employees' folder
-            default_hr = self.env.ref("dms_enterprise_features.dms_dir_employees", raise_if_not_found=False)
-            if default_hr and default_hr.name == "Employees":
-                # Rename the existing default folder for the first company
-                default_hr.sudo().write({"name": dir_name})
-                root_dir = default_hr
-            else:
-                storage_id = default_hr.storage_id.id if default_hr else False
-                root_dir = self.env["dms.directory"].sudo().create({
-                    "name": dir_name,
-                    "is_root_directory": True,
-                    "storage_id": storage_id,
-                })
-                
-                # Optionally give enterprise full access to it
-                enterprise_group = self.env.ref("dms_enterprise_features.dms_access_group_enterprise", raise_if_not_found=False)
-                if enterprise_group:
-                    root_dir.sudo().write({"group_ids": [(4, enterprise_group.id)]})
+            storage = self.env["dms.directory"]._get_or_create_company_storage(company)
+            enterprise_group = self.env.ref("dms_enterprise_features.dms_access_group_enterprise", raise_if_not_found=False)
+            group_cmd = [(4, enterprise_group.id)] if enterprise_group else []
+            root_dir = self.env["dms.directory"].sudo().create({
+                "name": dir_name,
+                "is_root_directory": True,
+                "storage_id": storage.id,
+                "company_id": company.id,
+                "group_ids": group_cmd,
+            })
                 
         return root_dir
+
+    def _get_unique_dms_folder_name(self, parent, exclude=None):
+        """Return the employee name, suffixed with " (2)", " (3)"... if a
+        sibling folder under `parent` already uses it (dms.directory forbids
+        duplicate names among siblings)."""
+        self.ensure_one()
+        base = (self.name or str(self.id)).replace("/", "-").strip()
+        taken = set(
+            (parent.sudo().child_directory_ids - (exclude or parent.browse())).mapped("name")
+        )
+        name, n = base, 1
+        while name in taken:
+            n += 1
+            name = f"{base} ({n})"
+        return name
 
     def _setup_dms_folder_and_permissions(self):
         """Creates the DMS folder and assigns View & Download permissions."""
@@ -95,12 +108,31 @@ class HrEmployee(models.Model):
         # 1. Get Root Directory
         root_dir = self._get_company_root_directory(self.company_id or self.env.company)
 
-        # 2. Create Employee Subfolder
-        employee_dir = self.env["dms.directory"].sudo().create({
-            "name": self.name,
-            "parent_id": root_dir.id,
-            "storage_id": root_dir.storage_id.id,
-        })
+        # 2. Create Employee Subfolder. A folder with this name may already
+        # exist under the root, e.g. one left by an earlier setup or an
+        # unlinked folder created manually. Reuse it if no other employee
+        # owns it; otherwise pick a unique name so homonyms don't collide.
+        Directory = self.env["dms.directory"].sudo()
+        employee_dir = Directory.search([
+            ("parent_id", "=", root_dir.id),
+            ("name", "=", self.name),
+        ], limit=1)
+        if employee_dir and self.sudo().search_count([
+            ("dms_directory_id", "=", employee_dir.id),
+            ("id", "!=", self.id),
+        ], limit=1):
+            employee_dir = Directory
+        if not employee_dir:
+            employee_dir = Directory.create({
+                "name": self._get_unique_dms_folder_name(root_dir),
+                "parent_id": root_dir.id,
+                "storage_id": root_dir.storage_id.id,
+            })
+        # Link the folder to the employee: dms.file.res_model/res_id are
+        # related to the directory, so this is what ties routed files back
+        # to the employee (rule "Routed Files" counts, smart buttons).
+        if (employee_dir.res_model, employee_dir.res_id) != ("hr.employee", self.id):
+            employee_dir.write({"res_model": "hr.employee", "res_id": self.id})
 
         # 3. Create Access Group
         users = [(4, self.user_id.id)] if self.user_id else []
@@ -128,6 +160,57 @@ class HrEmployee(models.Model):
             "dms_directory_id": employee_dir.id,
             "dms_access_group_id": access_group.id,
         })
+
+    @api.model
+    def _dms_backfill_folders(self):
+        """Give every employee created before DMS was enabled their folder,
+        and file their already-existing documents into it.
+
+        Idempotent: employees that already have a folder are skipped, so it
+        is safe to run on every install/upgrade, rule activation and when
+        the HR documents setting is switched on.
+        """
+        employees = self.sudo().with_context(active_test=False).search([
+            ("dms_directory_id", "=", False),
+        ])
+        done = self.browse()
+        for employee in employees:
+            try:
+                with self.env.cr.savepoint():
+                    employee._setup_dms_folder_and_permissions()
+                done |= employee
+            except Exception as e:
+                _logger.warning(
+                    "DMS: could not create folder for employee %s (%s): %s",
+                    employee.id, employee.name, e,
+                )
+        # Link folders created before folders were tied to their employee
+        for employee in self.sudo().with_context(active_test=False).search([
+            ("dms_directory_id", "!=", False),
+            ("dms_directory_id.res_id", "=", 0),
+        ]):
+            employee.dms_directory_id.write({"res_model": "hr.employee", "res_id": employee.id})
+        if done:
+            _logger.info("DMS: created folders for %d existing employee(s)", len(done))
+            done._dms_route_existing_attachments()
+        return done
+
+    def _dms_route_existing_attachments(self):
+        """Route the employees' existing documents (chatter files etc.)
+        through the active employee folder rule, if there is one."""
+        FolderRule = self.env["dms.folder.rule"].sudo()
+        Attachment = self.env["ir.attachment"].sudo()
+        # search() already hides binary-field storage (avatars): res_field=False
+        attachments = Attachment.search([
+            ("res_model", "=", "hr.employee"),
+            ("res_id", "in", self.ids),
+        ])
+        for employee in self:
+            rule = FolderRule.find_matching_rule("hr.employee", record=employee)
+            if not rule:
+                continue
+            for attachment in attachments.filtered(lambda a, e=employee: a.res_id == e.id):
+                rule.route_attachment(attachment)
 
     def action_setup_dms_folders(self):
         """Server action for existing employees."""

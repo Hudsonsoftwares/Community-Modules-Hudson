@@ -279,16 +279,31 @@ export class FsBoard extends Component {
                 ["date_planned", "<", dateToStr]
             ];
             
-            const orders = await this.orm.searchRead(
-                "field.service.order",
-                orderDomain,
-                ["id", "name", "employee_id", "extra_employee_ids", "material_ids", "date_planned", "date_deadline", "state", "partner_id", "duration_planned"]
-            );
+            const [orders, shifts] = await Promise.all([
+                this.orm.searchRead(
+                    "field.service.order",
+                    orderDomain,
+                    ["id", "name", "employee_id", "extra_employee_ids", "material_ids", "date_planned", "date_deadline", "state", "partner_id", "duration_planned", "is_published"]
+                ),
+                // Planning shifts, shown as availability behind the jobs
+                this.orm.call("field.service.order", "get_board_shifts", [dateFromStr, dateToStr]),
+            ]);
 
             this.state.slots = [];
+            for (const shift of shifts) {
+                this.state.slots.push({
+                    ...shift,
+                    key: "shift_" + shift.id,
+                    is_shift: true,
+                    resource_id: "emp_" + shift.resource_id[0],
+                    role_name: shift.role_id ? shift.role_id[1] : "Shift",
+                    partner_name: shift.partner_id ? shift.partner_id[1] : "",
+                });
+            }
             for (const order of orders) {
                 const baseSlot = {
                     ...order,
+                    key: "order_" + order.id,
                     date_start: order.date_planned,
                     date_end: order.date_deadline,
                     allocated_hours: order.duration_planned,
@@ -311,12 +326,20 @@ export class FsBoard extends Component {
                 }
             }
 
-            // Calculate total allocated hours per resource
+            // Calculate total allocated hours per resource. A job planned
+            // inside one of the technician's shifts is not counted twice.
             const hoursByResource = {};
+            const shiftSlots = this.state.slots.filter(s => s.is_shift);
             for (const slot of this.state.slots) {
-                if (slot.resource_id) {
-                    hoursByResource[slot.resource_id] = (hoursByResource[slot.resource_id] || 0) + (slot.allocated_hours || 0);
+                if (!slot.resource_id) {
+                    continue;
                 }
+                if (!slot.is_shift && shiftSlots.some(sh =>
+                    sh.resource_id === slot.resource_id && sh.date_start <= slot.date_start && sh.date_end >= slot.date_end
+                )) {
+                    continue;
+                }
+                hoursByResource[slot.resource_id] = (hoursByResource[slot.resource_id] || 0) + (slot.allocated_hours || 0);
             }
             
             // Assign to resources
@@ -431,7 +454,11 @@ export class FsBoard extends Component {
         return `${d.getUTCFullYear()}-${pad(d.getUTCMonth()+1)}-${pad(d.getUTCDate())} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())}`;
     }
 
-    async openSlot(slotId) {
+    async openSlot(slot) {
+        if (slot.is_shift) {
+            return; // Shifts are managed in the Planning app
+        }
+        const slotId = slot.id;
         const action = {
             type: "ir.actions.act_window",
             res_model: "field.service.order",
@@ -446,7 +473,7 @@ export class FsBoard extends Component {
 
     async onPublish() {
         // Publish all new/scheduled slots in current view
-        const draftIds = this.state.slots.filter(s => !s.is_published).map(s => s.id);
+        const draftIds = [...new Set(this.state.slots.filter(s => !s.is_shift && !s.is_published).map(s => s.id))];
         if (draftIds.length > 0) {
             await this.orm.call("field.service.order", "action_publish_order", [draftIds]);
             this.notification.add(`Orders published`, { type: "success" });

@@ -3,4 +3,9 @@
 from . import fs_planning_role
 from . import fs_shift_template
 from . import fs_planning_slot
+from . import res_config_settings
+from . import product_template
+from . import sale_order
 
+from . import hr_employee
+from . import ir_ui_view

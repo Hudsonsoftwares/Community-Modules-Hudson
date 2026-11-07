@@ -99,90 +99,18 @@ class DmsMoveWizard(models.TransientModel):
 
     def _get_effective_dir_permissions(self, directory, user):
         """Compute effective permissions granted by a directory to a given user."""
-        if not directory:
-            return {k: False for k in ['view', 'download', 'upload', 'edit', 'move', 'rename', 'delete', 'share']}
         if user.has_group('dms.group_dms_manager') or user.has_group('base.group_system'):
             return {k: True for k in ['view', 'download', 'upload', 'edit', 'move', 'rename', 'delete', 'share']}
-
-        dir_perms = {
-            'view': False, 'download': False, 'upload': False,
-            'edit': False, 'move': False, 'rename': False,
-            'delete': False, 'share': False,
-        }
-        partner_id = user.partner_id.id if user.partner_id else 0
-        for perm in directory.complete_permission_line_ids:
-            applies = False
-            if perm.group_id and user in perm.group_id.users:
-                applies = True
-            elif perm.user_id and perm.user_id.id == user.id:
-                applies = True
-            elif perm.partner_id and perm.partner_id.id == partner_id:
-                applies = True
-
-            if applies:
-                if perm.perm_view:     dir_perms['view'] = True
-                if perm.perm_download: dir_perms['download'] = True
-                if perm.perm_upload:   dir_perms['upload'] = True
-                if perm.perm_edit:     dir_perms['edit'] = True
-                if perm.perm_move:     dir_perms['move'] = True
-                if perm.perm_rename:   dir_perms['rename'] = True
-                if perm.perm_delete:   dir_perms['delete'] = True
-                if perm.perm_share:    dir_perms['share'] = True
-        return dir_perms
+        return self.env["dms.directory"]._dms_directory_perms_for_user(directory, user)
 
     def _get_effective_file_permissions(self, file_rec, target_dir, user):
-        """Compute effective permissions for a file in target_dir for user."""
-        dir_perms = self._get_effective_dir_permissions(target_dir, user)
-        if user.has_group('dms.group_dms_manager') or user.has_group('base.group_system'):
-            return dir_perms, False
+        """Compute effective permissions for a file once moved into target_dir.
 
-        has_explicit = bool(file_rec.access_ids)
-        if not has_explicit:
-            return dir_perms, False
-
-        # Apply file explicit access as ceiling restriction
-        user_dept_ids = []
-        if hasattr(user, "employee_ids"):
-            user_dept_ids = user.employee_ids.mapped("department_id").ids
-
-        file_perms = {
-            'view': False, 'download': False,
-            'edit': False, 'move': False, 'rename': False,
-            'delete': False, 'share': False,
-        }
-        user_matched = False
-        for access in file_rec.access_ids:
-            applies = False
-            if access.user_id and access.user_id.id == user.id:
-                applies = True
-            elif access.group_id and user in access.group_id.user_ids:
-                applies = True
-            elif access.department_id and access.department_id.id in user_dept_ids:
-                applies = True
-
-            if applies:
-                user_matched = True
-                if access.perm_view:     file_perms['view'] = True
-                if access.perm_download: file_perms['download'] = True
-                if access.perm_edit:     file_perms['edit'] = True
-                if access.perm_move:     file_perms['move'] = True
-                if access.perm_rename:   file_perms['rename'] = True
-                if access.perm_delete:   file_perms['delete'] = True
-                if access.perm_share:    file_perms['share'] = True
-
-        effective = {}
-        if user_matched:
-            effective['view'] = dir_perms['view'] and file_perms['view']
-            effective['download'] = dir_perms['download'] and file_perms['download']
-            effective['upload'] = dir_perms['upload']
-            effective['edit'] = dir_perms['edit'] and file_perms['edit']
-            effective['move'] = dir_perms['move'] and file_perms['move']
-            effective['rename'] = dir_perms['rename'] and file_perms['rename']
-            effective['delete'] = dir_perms['delete'] and file_perms['delete']
-            effective['share'] = dir_perms['share'] and file_perms['share']
-        else:
-            effective = {k: False for k in ['view', 'download', 'upload', 'edit', 'move', 'rename', 'delete', 'share']}
-        return effective, True
+        Returns (perms, has_explicit_lines). Folder permissions are inherited
+        (unless the file stopped inheriting) and file lines add to them.
+        """
+        perms = file_rec._dms_effective_permissions(user, directory=target_dir)
+        return perms, bool(file_rec.sudo().access_ids) or not file_rec.inherit_permissions
 
     @api.depends("res_model", "file_ids", "directory_ids", "current_directory_id", "destination_directory_id")
     def _compute_permission_preview(self):
@@ -205,12 +133,12 @@ class DmsMoveWizard(models.TransientModel):
 
             has_explicit = False
             if wizard.res_model == "dms.file" and wizard.file_ids:
-                has_explicit = any(bool(f.access_ids) for f in wizard.file_ids)
+                has_explicit = any(bool(f.sudo().access_ids) or not f.inherit_permissions for f in wizard.file_ids)
             wizard.has_explicit_rules = has_explicit
 
             explicit_text = ""
             if has_explicit:
-                explicit_text = _("<br/><span class='text-muted small'><i class='fa fa-shield me-1'></i>Note: Explicit custom file access rules will continue to apply within the destination folder's permissions.</span>")
+                explicit_text = _("<br/><span class='text-muted small'><i class='fa fa-shield me-1'></i>Note: Files that stopped inheriting folder permissions keep only their own access rules. Other files get the destination folder's permissions plus their own extra access rules.</span>")
 
             html = f"""
             <div class="alert alert-warning d-flex align-items-start mb-0 shadow-sm border-warning" role="alert">

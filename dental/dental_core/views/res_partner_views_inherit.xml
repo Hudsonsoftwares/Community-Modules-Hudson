@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_res_partner_form_inherit_dental_core" model="ir.ui.view">
+        <field name="name">res.partner.form.inherit.dental.core</field>
+        <field name="model">res.partner</field>
+        <field name="inherit_id" ref="dental_patient.view_partner_form_dental"/>
+        <field name="arch" type="xml">
+            <div name="button_box" position="inside">
+                <button name="action_view_dental_cases" type="object" class="oe_stat_button" icon="fa-folder-open" invisible="not is_dental_patient">
+                    <field name="dental_case_count" widget="statinfo" string="Cases"/>
+                </button>
+                <button name="action_view_dental_examinations" type="object" class="oe_stat_button" icon="fa-heartbeat" invisible="not is_dental_patient">
+                    <field name="dental_examination_count" widget="statinfo" string="Examinations"/>
+                </button>
+                <button name="action_view_treatment_plans" type="object" class="oe_stat_button" icon="fa-file-text-o" invisible="not is_dental_patient">
+                    <field name="treatment_plan_count" widget="statinfo" string="Treatment Plans"/>
+                </button>
+                <button name="action_view_treatment_sessions" type="object" class="oe_stat_button" icon="fa-clock-o" invisible="not is_dental_patient">
+                    <field name="treatment_session_count" widget="statinfo" string="Sessions"/>
+                </button>
+                <button name="action_view_crm_leads" type="object" class="oe_stat_button" icon="fa-comments-o" invisible="not is_dental_patient">
+                    <field name="crm_lead_count" widget="statinfo" string="Enquiries"/>
+                </button>
+                <button name="action_view_patient_documents" type="object" class="oe_stat_button" icon="fa-file-pdf-o" invisible="not is_dental_patient">
+                    <field name="patient_document_count" widget="statinfo" string="Records / X-Rays"/>
+                </button>
+            </div>
+            <xpath expr="//notebook" position="inside">
+                <page string="Previous Records &amp; X-Rays" name="patient_documents" invisible="not is_dental_patient">
+                    <div class="alert alert-info d-flex align-items-center mb-3 p-3 border-0 rounded-3 shadow-sm" role="alert">
+                        <i class="fa fa-file-pdf-o fa-lg me-2 text-info"/>
+                        <div>
+                            <strong>Patient Medical Records &amp; Diagnostic Files:</strong> Upload patient's previous dental records, past X-Rays (PDF/images), referral letters, prescriptions, or lab reports brought during registration.
+                        </div>
+                    </div>
+                    <field name="patient_document_ids">
+                        <list editable="bottom" string="Previous Records &amp; X-Rays" decoration-info="document_type == 'xray'" decoration-warning="document_type == 'prescription'">
+                            <field name="document_date"/>
+                            <field name="document_type" widget="badge"/>
+                            <field name="name" placeholder="e.g. Past OPG X-Ray 2025, Referral Letter..."/>
+                            <field name="file_name" column_invisible="1"/>
+                            <field name="file" filename="file_name" widget="binary"/>
+                            <field name="uploaded_by" optional="show"/>
+                            <field name="notes" placeholder="Findings / Remarks..." optional="show"/>
+                        </list>
+                    </field>
+                </page>
+            </xpath>
+        </field>
+    </record>
+</odoo>

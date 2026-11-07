@@ -20,9 +20,15 @@ export class FileKanbanController extends KanbanController {
         return this.ui.isSmall;
     }
 
+    /** Signing is provided by the Sign app, which enables this. */
+    get hasSignFeature() {
+        return false;
+    }
+
     get isSignVisible() {
+        if (!this.hasSignFeature) return false;
         const selected = this.model.root.selection;
-        if (!selected || !selected.length) return false;
+        if (!selected || selected.length !== 1) return false;
         return selected.every((r) => {
             const isLocked = r.data.is_locked && !r.data.is_lock_editor;
             const hasWrite = r.data.permission_write;

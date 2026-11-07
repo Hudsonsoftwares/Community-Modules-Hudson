@@ -35,7 +35,7 @@
                             <button name="action_open_payment_advice"
                                     type="object"
                                     class="oe_stat_button"
-                                    icon="fa-university"
+                                    icon="account_balance"
                                     invisible="not effective_advice_id">
                                 <div class="o_stat_info">
                                     <span class="o_stat_text">Payment</span>

@@ -1,0 +1,410 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-name="dental_core.MaintenanceDashboard">
+        <div class="o_action o_dental_maintenance_dashboard w-100 h-100 overflow-auto">
+            
+            <!-- Top Header Bar -->
+            <div class="maintenance-header-bar">
+                <div class="header-left">
+                    <div class="header-icon-box">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#0284c7" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <h2 class="dashboard-title">Dental Equipment &amp; Maintenance Hub</h2>
+                        <div class="dashboard-subtitle">
+                            Clinic Asset Registry • Preventive Care Schedules • Breakdowns &amp; Repair History
+                        </div>
+                    </div>
+                </div>
+
+                <div class="header-controls">
+                    <!-- Branch Selector -->
+                    <div class="branch-selector-pill">
+                        <span class="branch-icon">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="3" y="4" width="18" height="18" rx="2"/>
+                                <path d="M9 14l2 2 4-4"/>
+                            </svg>
+                        </span>
+                        <select class="branch-select" t-on-change="(ev) => this.onBranchChange(ev)">
+                            <t t-foreach="this.state.branches" t-as="b" t-key="b.id">
+                                <option t-att-value="b.id" t-att-selected="b.id == this.state.selectedBranchId">
+                                    <t t-out="b.name"/>
+                                </option>
+                            </t>
+                        </select>
+                    </div>
+
+                    <button class="btn-maintenance-refresh" t-on-click="() => this.loadData()" title="Refresh Data">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3">
+                            <path d="M23 4v6h-6"/>
+                            <path d="M1 20v-6h6"/>
+                            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+                        </svg>
+                    </button>
+
+                    <button class="btn-action-primary btn-report-issue" t-on-click="() => this.openNewIssueModal()">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" class="me-1">
+                            <line x1="12" y1="5" x2="12" y2="19"/>
+                            <line x1="5" y1="12" x2="19" y2="12"/>
+                        </svg>
+                        <span>Report Issue</span>
+                    </button>
+
+                    <button class="btn-action-secondary" t-on-click="() => this.openNewEquipmentModal()">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" class="me-1">
+                            <circle cx="12" cy="12" r="10"/>
+                            <line x1="12" y1="8" x2="12" y2="16"/>
+                            <line x1="8" y1="12" x2="16" y2="12"/>
+                        </svg>
+                        <span>New Equipment</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 7 KPI Metric Cards Grid -->
+            <div class="kpi-cards-container">
+                
+                <!-- 1. Total Registered Equipment -->
+                <div class="kpi-card card-blue" t-on-click="() => this.openEquipmentRegistry()">
+                    <div class="kpi-top">
+                        <div class="kpi-icon-wrapper blue">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                                <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+                                <line x1="8" y1="21" x2="16" y2="21"/>
+                                <line x1="12" y1="17" x2="12" y2="21"/>
+                            </svg>
+                        </div>
+                        <span class="kpi-badge">Total Assets</span>
+                    </div>
+                    <div class="kpi-value"><t t-out="this.state.kpis.total_equipment || 0"/></div>
+                    <div class="kpi-label">Registered Equipment</div>
+                    <div class="kpi-footer">Across all operatory suites &gt;</div>
+                </div>
+
+                <!-- 2. Out of Service / Under Maintenance -->
+                <div class="kpi-card card-rose" t-on-click="() => this.openUnderMaintenance()">
+                    <div class="kpi-top">
+                        <div class="kpi-icon-wrapper rose">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3">
+                                <circle cx="12" cy="12" r="10"/>
+                                <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>
+                            </svg>
+                        </div>
+                        <span class="kpi-badge alert-red">Unavailable</span>
+                    </div>
+                    <div class="kpi-value text-danger"><t t-out="this.state.kpis.under_maintenance || 0"/></div>
+                    <div class="kpi-label">Under Maintenance</div>
+                    <div class="kpi-footer">Out of service for procedures &gt;</div>
+                </div>
+
+                <!-- 3. Open Repair Requests -->
+                <div class="kpi-card card-amber" t-on-click="() => this.openRepairRequests()">
+                    <div class="kpi-top">
+                        <div class="kpi-icon-wrapper amber">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                                <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+                            </svg>
+                        </div>
+                        <span class="kpi-badge">Breakdowns</span>
+                    </div>
+                    <div class="kpi-value"><t t-out="this.state.kpis.open_repairs || 0"/></div>
+                    <div class="kpi-label">Active Repair Tasks</div>
+                    <div class="kpi-footer">Pending technician action &gt;</div>
+                </div>
+
+                <!-- 4. Overdue Preventive Maintenance -->
+                <div class="kpi-card card-purple" t-on-click="() => this.openOverduePreventive()">
+                    <div class="kpi-top">
+                        <div class="kpi-icon-wrapper purple">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                                <circle cx="12" cy="12" r="10"/>
+                                <polyline points="12 6 12 12 16 14"/>
+                            </svg>
+                        </div>
+                        <span class="kpi-badge alert-orange">Action Needed</span>
+                    </div>
+                    <div class="kpi-value text-purple"><t t-out="this.state.kpis.overdue_preventive || 0"/></div>
+                    <div class="kpi-label">Overdue Maintenance</div>
+                    <div class="kpi-footer">Past scheduled service date &gt;</div>
+                </div>
+
+                <!-- 5. Preventive Due Soon -->
+                <div class="kpi-card card-green" t-on-click="() => this.openPreventiveDueSoon()">
+                    <div class="kpi-top">
+                        <div class="kpi-icon-wrapper green">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                                <polyline points="22 4 12 14.01 9 11.01"/>
+                            </svg>
+                        </div>
+                        <span class="kpi-badge">Next 30 Days</span>
+                    </div>
+                    <div class="kpi-value"><t t-out="this.state.kpis.preventive_due_soon || 0"/></div>
+                    <div class="kpi-label">Preventive Due Soon</div>
+                    <div class="kpi-footer">Upcoming scheduled service &gt;</div>
+                </div>
+
+                <!-- 6. Warranty Expiring Soon -->
+                <div class="kpi-card card-indigo" t-on-click="() => this.openWarrantyExpiring()">
+                    <div class="kpi-top">
+                        <div class="kpi-icon-wrapper indigo">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                            </svg>
+                        </div>
+                        <span class="kpi-badge">Warranty</span>
+                    </div>
+                    <div class="kpi-value"><t t-out="this.state.kpis.warranty_expiring_soon || 0"/></div>
+                    <div class="kpi-label">Warranty Expirations</div>
+                    <div class="kpi-footer">Within next 60 days &gt;</div>
+                </div>
+
+                <!-- 7. Total Maintenance Costs -->
+                <div class="kpi-card card-teal" t-on-click="() => this.openRepairRequests()">
+                    <div class="kpi-top">
+                        <div class="kpi-icon-wrapper teal">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                                <line x1="12" y1="1" x2="12" y2="23"/>
+                                <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+                            </svg>
+                        </div>
+                        <span class="kpi-badge">Total Expense</span>
+                    </div>
+                    <div class="kpi-value">₹<t t-out="(this.state.kpis.total_maintenance_cost || 0).toLocaleString()"/></div>
+                    <div class="kpi-label">Maintenance Spend</div>
+                    <div class="kpi-footer">Parts &amp; service charges &gt;</div>
+                </div>
+
+            </div>
+
+            <!-- Middle Section: Recent Requests (60%) + Upcoming Preventive Schedule (40%) -->
+            <div class="maintenance-middle-grid">
+                
+                <!-- Left: Recent Repair & Breakdown Requests -->
+                <div class="dashboard-panel">
+                    <div class="panel-header">
+                        <div class="d-flex align-items-center gap-2">
+                            <div class="panel-icon-pill red">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                                    <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+                                </svg>
+                            </div>
+                            <h3 class="panel-title mb-0">Active Maintenance &amp; Repair Requests</h3>
+                        </div>
+                        <a href="#" class="panel-link" t-on-click.prevent="() => this.openRepairRequests()">
+                            <span>View All Requests</span>
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                                <polyline points="9 18 15 12 9 6"/>
+                            </svg>
+                        </a>
+                    </div>
+
+                    <div class="table-responsive flex-grow-1">
+                        <table class="maintenance-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 28%;">Issue &amp; Equipment</th>
+                                    <th style="width: 14%;">Category</th>
+                                    <th style="width: 12%;">Type</th>
+                                    <th style="width: 14%;">Availability</th>
+                                    <th style="width: 12%;">Stage</th>
+                                    <th style="width: 10%;">Cost</th>
+                                    <th style="width: 10%; text-align: center;">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr t-if="!this.state.recent_requests or this.state.recent_requests.length == 0">
+                                    <td colspan="7" class="text-center py-5 text-muted">
+                                        <p class="mb-1 fw-bold fs-6 text-dark">No open maintenance requests!</p>
+                                        <p class="small text-muted mb-0">All clinic equipment is fully operational.</p>
+                                    </td>
+                                </tr>
+                                <tr t-foreach="this.state.recent_requests" t-as="req" t-key="req.id">
+                                    <td>
+                                        <div class="issue-title-cell cursor-pointer" t-on-click="() => this.openRequestRecord(req.id)">
+                                            <span class="issue-name"><t t-out="req.name"/></span>
+                                            <span class="equip-sub"><t t-out="req.equipment_name"/></span>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span class="category-pill"><t t-out="req.category_name"/></span>
+                                    </td>
+                                    <td>
+                                        <span t-attf-class="type-pill {{req.maintenance_type}}">
+                                            <t t-out="req.maintenance_type == 'corrective' ? 'Breakdown' : 'Preventive'"/>
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span t-if="req.impact == 'unavailable'" class="impact-pill unavailable">
+                                            Unavailable
+                                        </span>
+                                        <span t-elif="req.impact == 'reduced_capacity'" class="impact-pill limited">
+                                            Reduced Cap.
+                                        </span>
+                                        <span t-else="" class="impact-pill ok">
+                                            Usable
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span t-attf-class="stage-badge {{req.stage_done ? 'done' : 'active'}}">
+                                            <t t-out="req.stage_name"/>
+                                        </span>
+                                    </td>
+                                    <td class="fw-bold text-dark">
+                                        ₹<t t-out="(req.total_cost || 0).toLocaleString()"/>
+                                    </td>
+                                    <td style="text-align: center;">
+                                        <button class="btn-table-action" t-on-click="() => this.openRequestRecord(req.id)">
+                                            View
+                                        </button>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Right: Upcoming Preventive Schedule -->
+                <div class="dashboard-panel">
+                    <div class="panel-header">
+                        <div class="d-flex align-items-center gap-2">
+                            <div class="panel-icon-pill green">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                                    <line x1="16" y1="2" x2="16" y2="6"/>
+                                    <line x1="8" y1="2" x2="8" y2="6"/>
+                                    <line x1="3" y1="10" x2="21" y2="10"/>
+                                </svg>
+                            </div>
+                            <h3 class="panel-title mb-0">Upcoming Preventive Maintenance</h3>
+                        </div>
+                        <a href="#" class="panel-link" t-on-click.prevent="() => this.openPreventiveDueSoon()">
+                            <span>View Calendar</span>
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                                <polyline points="9 18 15 12 9 6"/>
+                            </svg>
+                        </a>
+                    </div>
+
+                    <div class="preventive-schedule-list flex-grow-1">
+                        <div t-if="!this.state.upcoming_preventive or this.state.upcoming_preventive.length == 0" class="text-center py-5 text-muted">
+                            <p class="mb-0">No upcoming preventive schedules found.</p>
+                        </div>
+                        <div t-foreach="this.state.upcoming_preventive" t-as="item" t-key="item.id" class="preventive-item-card">
+                            <div class="preventive-item-left">
+                                <div class="item-date-box" t-att-class="item.is_overdue ? 'overdue' : 'normal'">
+                                    <span class="date-tag"><t t-out="item.next_date"/></span>
+                                    <t t-if="item.is_overdue">
+                                        <span class="overdue-tag">OVERDUE</span>
+                                    </t>
+                                </div>
+                                <div class="item-meta">
+                                    <h5 class="item-name cursor-pointer" t-on-click="() => this.openEquipmentRecord(item.id)">
+                                        <t t-out="item.name"/>
+                                    </h5>
+                                    <div class="item-sub">
+                                        <span><t t-out="item.category_name"/></span>
+                                        <span class="dot-separator">•</span>
+                                        <span>Every <t t-out="item.frequency_days"/> days</span>
+                                        <t t-if="item.serial_no">
+                                            <span class="dot-separator">•</span>
+                                            <span>S/N: <t t-out="item.serial_no"/></span>
+                                        </t>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="preventive-item-right">
+                                <button class="btn-schedule-now" t-on-click="() => this.schedulePreventiveForEquipment(item.id)" title="Generate preventive task now">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="me-1">
+                                        <polyline points="20 6 9 17 4 12"/>
+                                    </svg>
+                                    Service
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+            </div>
+
+            <!-- Bottom Section: Category Breakdown + Operational Condition + Top Costly Equipment -->
+            <div class="maintenance-bottom-grid">
+                
+                <!-- Category Breakdown -->
+                <div class="dashboard-panel">
+                    <div class="panel-header">
+                        <h4 class="panel-title mb-0">Equipment by Category</h4>
+                        <span class="count-pill"><t t-out="Object.keys(this.state.category_counts || {}).length"/> Categories</span>
+                    </div>
+                    <div class="category-bars-list">
+                        <t t-foreach="Object.entries(this.state.category_counts || {})" t-as="entry" t-key="entry[0]">
+                            <div class="category-bar-row">
+                                <div class="bar-meta">
+                                    <span class="category-title"><t t-out="entry[0]"/></span>
+                                    <span class="category-val"><strong><t t-out="entry[1]"/></strong> units</span>
+                                </div>
+                                <div class="progress-track">
+                                    <div class="progress-fill" t-attf-style="width: {{ Math.min(100, (entry[1] / (this.state.kpis.total_equipment || 1)) * 100) }}%;"/>
+                                </div>
+                            </div>
+                        </t>
+                    </div>
+                </div>
+
+                <!-- Operational Condition Health -->
+                <div class="dashboard-panel">
+                    <div class="panel-header">
+                        <h4 class="panel-title mb-0">Equipment Operational Status</h4>
+                    </div>
+                    <div class="condition-stats-grid">
+                        <div class="cond-stat-box green">
+                            <span class="cond-dot green"/>
+                            <span class="cond-label">Operational</span>
+                            <span class="cond-number"><t t-out="this.state.condition_counts.operational || 0"/></span>
+                        </div>
+                        <div class="cond-stat-box amber">
+                            <span class="cond-dot amber"/>
+                            <span class="cond-label">Minor Issue</span>
+                            <span class="cond-number"><t t-out="this.state.condition_counts.needs_maintenance || 0"/></span>
+                        </div>
+                        <div class="cond-stat-box orange">
+                            <span class="cond-dot orange"/>
+                            <span class="cond-label">Under Repair</span>
+                            <span class="cond-number"><t t-out="this.state.condition_counts.under_repair || 0"/></span>
+                        </div>
+                        <div class="cond-stat-box red">
+                            <span class="cond-dot red"/>
+                            <span class="cond-label">Out of Order</span>
+                            <span class="cond-number"><t t-out="this.state.condition_counts.out_of_order || 0"/></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Top High Maintenance Equipment -->
+                <div class="dashboard-panel">
+                    <div class="panel-header">
+                        <h4 class="panel-title mb-0">Maintenance Cost by Asset</h4>
+                    </div>
+                    <div class="costly-equip-list">
+                        <div t-if="!this.state.costly_equipments or this.state.costly_equipments.length == 0" class="text-center py-4 text-muted">
+                            <p class="mb-0">No repair costs recorded yet.</p>
+                        </div>
+                        <div t-foreach="this.state.costly_equipments" t-as="item" t-key="item.id" class="costly-item-row cursor-pointer" t-on-click="() => this.openEquipmentRecord(item.id)">
+                            <div class="d-flex flex-column">
+                                <span class="costly-name"><t t-out="item.name"/></span>
+                                <span class="costly-sub"><t t-out="item.category"/> • <t t-out="item.repair_count"/> breakdown(s)</span>
+                            </div>
+                            <span class="costly-amount">₹<t t-out="(item.total_cost || 0).toLocaleString()"/></span>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+    </t>
+</templates>

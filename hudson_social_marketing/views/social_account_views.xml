@@ -19,7 +19,7 @@
                     <field name="is_media_disconnected" widget="boolean_toggle"/>
                     <field name="last_sync"/>
                     <button name="action_view_posts" type="object"
-                            string="View Posts" icon="fa-newspaper-o"
+                            string="View Posts" icon="newspaper"
                             class="btn-link"/>
                 </list>
             </field>
@@ -36,7 +36,7 @@
                     <sheet>
                         <div class="oe_button_box" name="button_box">
                             <button name="action_view_posts" type="object"
-                                    class="oe_stat_button" icon="fa-newspaper-o">
+                                    class="oe_stat_button" icon="newspaper">
                                 <field name="post_count" widget="statinfo" string="Posts"/>
                             </button>
                         </div>

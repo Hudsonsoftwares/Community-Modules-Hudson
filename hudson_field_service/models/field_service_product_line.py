@@ -6,7 +6,9 @@ from odoo import api, fields, models
 class FieldServiceProductLine(models.Model):
     _name = 'field.service.product.line'
     _description = 'Field Service Product Line'
+    _inherit = ['product.catalog.line.mixin']
     _order = 'sequence, id'
+    _check_company_auto = True
 
     order_id = fields.Many2one(
         'field.service.order',
@@ -20,7 +22,9 @@ class FieldServiceProductLine(models.Model):
         'product.product',
         string='Product',
         required=True,
+        check_company=True,
     )
+    company_id = fields.Many2one(related='order_id.company_id', store=True, index=True)
     description = fields.Char(
         string='Description',
         compute='_compute_description',
@@ -89,12 +93,49 @@ class FieldServiceProductLine(models.Model):
         for line in self:
             line.price_subtotal = line.quantity * line.price_unit
 
+    # Every change of the products is billed on the job's sales order,
+    # whether made on the job or from the product catalog.
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        lines = super().create(vals_list)
+        lines.order_id._sync_sale_orders()
+        return lines
+
+    def write(self, vals):
+        res = super().write(vals)
+        if not self.env.context.get('fs_skip_sale_sync') and vals.keys() & {'product_id', 'quantity', 'price_unit', 'uom_id', 'description'}:
+            self.order_id._sync_sale_orders()
+        return res
+
     def unlink(self):
-        """Remove the linked SO line when the FS product line is deleted."""
-        for line in self:
-            if line.sale_order_line_id and line.sale_order_line_id.exists():
-                # Only remove SO line if it was auto-created (qty_delivered == 0)
-                so_line = line.sale_order_line_id
-                if so_line.qty_delivered == 0 and so_line.qty_invoiced == 0:
-                    so_line.sudo().unlink()
-        return super().unlink()
+        """Remove the linked SO line, or cancel its quantity once delivered or invoiced."""
+        so_lines = self.sale_order_line_id.sudo().exists()
+        orders = self.order_id
+        res = super().unlink()
+        for so_line in so_lines:
+            if so_line.qty_delivered == 0 and so_line.qty_invoiced == 0 and so_line.state != 'sale':
+                so_line.unlink()
+                continue
+            sale_order = so_line.order_id
+            locked = sale_order.locked
+            if locked:
+                sale_order.action_unlock()
+            so_line.product_uom_qty = 0
+            if locked:
+                sale_order.action_lock()
+        orders.exists()._sync_sale_orders()
+        return res
+
+    # Product catalog
+
+    @api.model
+    def _get_quantity_field(self):
+        return 'quantity'
+
+    @api.model
+    def _get_product_uom_field(self):
+        return 'uom_id'
+
+    def _get_catalog_unit_price(self, parent_record, **kwargs):
+        return self[:1].price_unit

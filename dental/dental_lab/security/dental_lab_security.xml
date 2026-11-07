@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        Creates a separate "Dental Lab" dropdown row in Settings > Users.
+
+        FULLY INDEPENDENT DESIGN: Each row must be assigned independently.
+        Setting 'Dental Clinic = Dental Administrator' does NOT auto-grant Lab
+        access. An admin who also manages the lab must be assigned:
+          Dental Clinic = Dental Administrator
+          Dental Lab    = Lab Administrator / Coordinator   (← set separately)
+
+        Result in the user form (under "Dental Clinic" section heading):
+          Dental Clinic   → [Clinic Manager     ▼]   (set by dental_base)
+          Dental Lab      → [Lab Technician     ▼]   ← this file
+          Dental Pharmacy → [Pharmacist          ▼]   (set by dental_pharmacy)
+    -->
+
+    <!-- ===== Privilege: creates the "Dental Lab" dropdown row ===== -->
+    <record model="res.groups.privilege" id="res_groups_privilege_dental_lab">
+        <field name="name">Dental Lab</field>
+        <field name="sequence">20</field>
+        <field name="category_id" ref="dental_base.module_category_dental_clinic"/>
+    </record>
+
+    <!-- ===== Options inside the "Dental Lab" dropdown ===== -->
+
+    <record id="group_dental_lab_technician" model="res.groups">
+        <field name="name">Lab Technician</field>
+        <field name="privilege_id" ref="dental_lab.res_groups_privilege_dental_lab"/>
+        <field name="implied_ids" eval="[(4, ref('base.group_user'))]"/>
+        <field name="comment">Handles dental laboratory orders, prosthetic fabrication, in-house MRP, and delivery tracking.</field>
+    </record>
+
+    <record id="group_dental_lab_user" model="res.groups">
+        <field name="name">Lab Technician / User</field>
+        <field name="privilege_id" ref="dental_lab.res_groups_privilege_dental_lab"/>
+        <field name="implied_ids" eval="[(4, ref('dental_lab.group_dental_lab_technician')), (4, ref('base.group_user'))]"/>
+        <field name="comment">Operational lab technician handling prosthetics fabrication, model casting, milling, and dental restorations.</field>
+    </record>
+
+    <record id="group_dental_lab_manager" model="res.groups">
+        <field name="name">Lab Administrator / Coordinator</field>
+        <field name="privilege_id" ref="dental_lab.res_groups_privilege_dental_lab"/>
+        <field name="implied_ids" eval="[(4, ref('dental_lab.group_dental_lab_user')), (4, ref('Quality.group_quality_user')), (4, ref('mrp.group_mrp_user'))]"/>
+        <field name="user_ids" eval="[(4, ref('base.user_root')), (4, ref('base.user_admin'))]"/>
+        <field name="comment">Lab Coordinator: production scheduling, QC review, technician assignment, and external lab routing.</field>
+    </record>
+
+
+</odoo>

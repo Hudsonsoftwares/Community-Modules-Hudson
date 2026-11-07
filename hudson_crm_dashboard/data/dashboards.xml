@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="spreadsheet_dashboard_group_crm" model="spreadsheet.dashboard.group">
+        <field name="name">CRM</field>
+        <field name="sequence">150</field>
+    </record>
+
+    <!-- CRM Leads Dashboard -->
+    <record id="spreadsheet_dashboard_crm_leads" model="spreadsheet.dashboard">
+        <field name="name">Leads</field>
+        <field name="spreadsheet_binary_data" type="bytes" file="hudson_crm_dashboard/data/files/crm_leads_dashboard.json"/>
+        <field name="main_data_model_ids" eval="[Command.set([ref('crm.model_crm_lead')])]"/>
+        <field name="dashboard_group_id" ref="spreadsheet_dashboard_group_crm"/>
+        <field name="group_ids" eval="[Command.set([ref('sales_team.group_sale_manager')])]"/>
+        <field name="sequence">200</field>
+        <field name="is_published">True</field>
+    </record>
+
+    <!-- CRM Pipeline Dashboard -->
+    <record id="spreadsheet_dashboard_crm_pipeline" model="spreadsheet.dashboard">
+        <field name="name">Pipeline</field>
+        <field name="spreadsheet_binary_data" type="bytes" file="hudson_crm_dashboard/data/files/crm_pipeline_dashboard.json"/>
+        <field name="main_data_model_ids" eval="[Command.set([ref('crm.model_crm_lead')])]"/>
+        <field name="dashboard_group_id" ref="spreadsheet_dashboard_group_crm"/>
+        <field name="group_ids" eval="[Command.set([ref('sales_team.group_sale_manager')])]"/>
+        <field name="sequence">300</field>
+        <field name="is_published">True</field>
+    </record>
+
+</odoo>

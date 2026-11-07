@@ -36,7 +36,7 @@ class CustomerPortal(CustomerPortal):
         return item
 
     def _prepare_home_portal_values(self, counters):
-        values = super()._prepare_home_portal_values(counters)
+        values = super()._prepare_home_portal_values(counters) if hasattr(super(), '_prepare_home_portal_values') else {}
         if "dms_directory_count" in counters:
             ids = request.env["dms.directory"]._get_own_root_directories()
             values["dms_directory_count"] = len(ids)

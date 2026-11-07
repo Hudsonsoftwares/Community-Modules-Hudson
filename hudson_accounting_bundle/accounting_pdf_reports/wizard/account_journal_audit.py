@@ -8,9 +8,12 @@ class AccountPrintJournal(models.TransientModel):
 
     sort_selection = fields.Selection([('date', 'Date'), ('move_name', 'Journal Entry Number')],
                                       'Entries Sorted by', required=True, default='move_name')
+    # Audit every journal of the company (bank, cash, misc... not only
+    # sale/purchase); the report itself only lists journals that have entries.
     journal_ids = fields.Many2many('account.journal', string='Journals', required=True,
                                    default=lambda self: self.env['account.journal'].search(
-                                       [('type', 'in', ['sale', 'purchase'])]))
+                                       [('company_id', '=', self.env.company.id)]),
+                                   domain="[('company_id', '=', company_id)]")
 
     def _get_report_data(self, data):
         data = self.pre_print_report(data)

@@ -155,6 +155,28 @@ class DmsFolderRule(models.Model):
         compute="_compute_file_count",
     )
 
+    @api.model_create_multi
+    def create(self, vals_list):
+        rules = super().create(vals_list)
+        rules._backfill_record_folders()
+        return rules
+
+    def write(self, vals):
+        res = super().write(vals)
+        if vals.get("active") or "model_id" in vals:
+            self._backfill_record_folders()
+        return res
+
+    def _backfill_record_folders(self):
+        """When an employee rule is (re)activated, create the folders of
+        employees that existed before and file their documents."""
+        if any(r.active and r.model_name == "hr.employee" for r in self):
+            Employee = self.env["hr.employee"].sudo()
+            Employee._dms_backfill_folders()
+            # Also file documents of employees that already had a folder
+            # (route_attachment skips files already in the target folder).
+            Employee.search([])._dms_route_existing_attachments()
+
     def _compute_file_count(self):
         for rec in self:
             if rec.model_name and rec.directory_id:
@@ -432,19 +454,32 @@ class DmsFolderRule(models.Model):
             return existing
 
         # Create new subfolder
+        # res_model/res_id link the folder to the record; dms.file's
+        # res_model/res_id are related to its directory.
         return self.env["dms.directory"].sudo().with_context(check_name=False).create({
             "name": subfolder_name,
             "parent_id": parent_directory.id,
             "storage_id": parent_directory.storage_id.id,
+            "res_model": record._name,
+            "res_id": record.id,
         })
 
     @api.model
     def find_matching_rule(self, res_model, record=None):
         """Return the first active rule matching the given model (and record)."""
-        rules = self.sudo().search([
+        domain = [
             ("model_name", "=", res_model),
             ("active", "=", True),
-        ])
+        ]
+        company = False
+        if record and "company_id" in record._fields and record.company_id:
+            company = record.company_id
+            domain.append(("company_id", "in", (False, company.id)))
+        elif self.env.company:
+            company = self.env.company
+            domain.append(("company_id", "in", (False, company.id)))
+
+        rules = self.sudo().search(domain, order="sequence asc, id asc")
         for rule in rules:
             if record is None or rule._evaluate_domain(record):
                 return rule
@@ -453,17 +488,53 @@ class DmsFolderRule(models.Model):
     def route_attachment(self, attachment):
         """Route a single ir.attachment to the DMS directory configured in this rule."""
         self.ensure_one()
-        if not attachment.res_model or not attachment.res_id:
+        if not self.env["ir.attachment"]._dms_is_routable(attachment):
             return False
 
         target_dir = self.directory_id
+
+        # Company-specific target folder resolution if rule directory company differs from record company
+        record = None
+        if attachment.res_model in self.env:
+            try:
+                record = self.env[attachment.res_model].sudo().browse(attachment.res_id)
+                if not record.exists():
+                    record = None
+            except Exception:
+                record = None
+
+        rec_company = False
+        if record and "company_id" in record._fields and record.company_id:
+            rec_company = record.company_id
+        elif hasattr(attachment, "company_id") and attachment.company_id:
+            rec_company = attachment.company_id
+
+        if rec_company and target_dir and target_dir.company_id and target_dir.company_id != rec_company:
+            matching_dir = self.env["dms.directory"].sudo().search([
+                ("name", "=", target_dir.name),
+                ("is_root_directory", "=", True),
+                ("company_id", "=", rec_company.id),
+            ], limit=1)
+            if matching_dir:
+                target_dir = matching_dir
+
 
         # Per-record subfolder
         if self.create_subfolder:
             try:
                 record = self.env[attachment.res_model].sudo().browse(attachment.res_id)
                 if record.exists():
-                    if hasattr(record, "dms_directory_id") and record.dms_directory_id:
+                    # Records that manage their own DMS folder (hr.employee)
+                    # must get it set up first; otherwise the rule creates a
+                    # same-named sibling and the record's own setup then fails
+                    # with "A directory with the same name already exists".
+                    if (
+                        "dms_directory_id" in record._fields
+                        and not record.dms_directory_id
+                        and hasattr(record, "_setup_dms_folder_and_permissions")
+                    ):
+                        record._setup_dms_folder_and_permissions()
+                    if "dms_directory_id" in record._fields and record.dms_directory_id:
                         target_dir = record.dms_directory_id
                     else:
                         target_dir = self._get_or_create_subfolder(record, target_dir)
@@ -492,7 +563,10 @@ class DmsFolderRule(models.Model):
             if self.category_id:
                 vals["category_id"] = self.category_id.id
 
-            dms_file = self.env["dms.file"].sudo().create(vals)
+            # Savepoint: a failure here must not abort the caller's
+            # transaction (e.g. the employee/vehicle being saved).
+            with self.env.cr.savepoint():
+                dms_file = self.env["dms.file"].sudo().create(vals)
             _logger.info(
                 "DMS: Routed attachment '%s' (id=%s) → folder '%s' via rule '%s'",
                 attachment.name, attachment.id, target_dir.complete_name, self.name,

@@ -6,7 +6,7 @@ import { Component, xml, onWillStart, useState } from "@odoo/owl";
 import { SpreadsheetComponent } from "@spreadsheet/actions/spreadsheet_component";
 import { Model } from "@odoo/o-spreadsheet";
 import { ControlPanel } from "@web/search/control_panel/control_panel";
-import { standardActionServiceProps } from "@web/webclient/actions/action_service";
+import { standardActionServiceProps } from "@web/webclient/actions/action_plugin";
 
 class QualitySpreadsheetAction extends Component {
     static template = xml`
@@ -27,7 +27,7 @@ class QualitySpreadsheetAction extends Component {
         this.actionService = useService("action");
         this.notification = useService("notification");
         this.state = useState({ model: null });
-        
+
         this.controlPanelDisplay = {};
 
         onWillStart(async () => {
@@ -37,7 +37,7 @@ class QualitySpreadsheetAction extends Component {
             this.spreadsheetId = spreadsheetId;
             const dataField = resModel === "quality.spreadsheet.template" ? "spreadsheet_data" : "spreadsheet_content";
             const data = await this.orm.read(resModel, [spreadsheetId], [dataField, "name"]);
-            
+
             this.env.config.setDisplayName(data[0].name || "Spreadsheet");
 
             let spreadsheetData = {};
@@ -53,11 +53,11 @@ class QualitySpreadsheetAction extends Component {
                     console.error("Invalid spreadsheet data", e);
                 }
             }
-            
+
             this.state.model = new Model(spreadsheetData, {
                 evalContext: { env: this.env },
             });
-            
+
             this.state.model.on("update", this, this._onModelUpdate.bind(this));
         });
     }
@@ -75,7 +75,7 @@ class QualitySpreadsheetAction extends Component {
         if (!this.state.model) return;
         const data = this.state.model.exportData();
         const jsonStr = JSON.stringify(data);
-        
+
         if (this.resModel === "quality.spreadsheet.template") {
             const base64Data = btoa(unescape(encodeURIComponent(jsonStr)));
             await this.orm.write(this.resModel, [this.spreadsheetId], {

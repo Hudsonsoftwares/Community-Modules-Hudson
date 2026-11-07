@@ -166,6 +166,41 @@ class TestReconcileEngine(AccountTestInvoicingCommon):
         self.assertEqual(abs(sum(exchange_moves.line_ids.filtered(
             lambda line: line.account_id == receivable.account_id).mapped('balance'))), 10.0)
 
+    def _exchange_difference(self, move):
+        open_line = self._open_line(move)
+        exchange_moves = (open_line.matched_debit_ids + open_line.matched_credit_ids).exchange_move_id
+        return sum(exchange_moves.line_ids.filtered(lambda line: line.account_id == open_line.account_id)
+                   .mapped('balance'))
+
+    def test_foreign_currency_invoice_rate_change(self):
+        # 1000 EUR invoiced at rate 0.8 (1250) and received in company currency at rate 0.9 (1111.11):
+        # the invoice is fully paid and the 138.89 lost on the rate is a realized exchange difference,
+        # not an amount left on the suspense account
+        eur = self.setup_other_currency('EUR', rates=[('2026-01-01', 0.8), ('2026-01-15', 0.9)])
+        for move_type, amount, exchange in (('out_invoice', 1111.11, -138.89), ('in_invoice', -1111.11, 138.89)):
+            with self.subTest(move_type=move_type):
+                invoice = self._invoice(1000.0, move_type=move_type, currency=eur)
+                st_line = self._transaction(amount)
+                self.assertEqual(st_line._om_suggested_proposal().get('matches'),
+                                 [{'aml_id': self._open_line(invoice).id}])
+                st_line._om_reconcile({'matches': [{'aml_id': self._open_line(invoice).id}]})
+                self.assertTrue(st_line.is_reconciled)
+                self.assertFalse(st_line.move_id.line_ids.filtered(
+                    lambda line: line.account_id == self.bank_journal.suspense_account_id))
+                self.assertIn(invoice.payment_state, ('paid', 'in_payment'))
+                self.assertAlmostEqual(self._exchange_difference(invoice), exchange, places=2)
+
+    def test_foreign_currency_invoice_rate_change_partial(self):
+        eur = self.setup_other_currency('EUR', rates=[('2026-01-01', 0.8), ('2026-01-15', 0.9)])
+        invoice = self._invoice(1000.0, currency=eur)
+        st_line = self._transaction(555.56)  # 500 EUR at the rate of the transaction
+        st_line._om_reconcile({'matches': [{'aml_id': self._open_line(invoice).id}]})
+        self.assertTrue(st_line.is_reconciled)
+        self.assertEqual(invoice.payment_state, 'partial')
+        self.assertAlmostEqual(invoice.amount_residual, 500.0, places=2)
+        self.assertAlmostEqual(self._open_line(invoice).amount_residual, 625.0, places=2)
+        self.assertAlmostEqual(self._exchange_difference(invoice), -69.44, places=2)
+
     def test_errors(self):
         invoice = self._invoice(100.0)
         st_line = self._transaction(100.0)

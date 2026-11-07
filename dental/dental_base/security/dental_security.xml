@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        dental_base/security/dental_security.xml
+        =========================================
+        Creates the "Dental Clinic" privilege dropdown row in Settings > Users.
+        This row is exclusively for ADMINISTRATIVE roles (Clinic Manager, Dental
+        Administrator). Clinical and front-desk staff roles are managed by their
+        dedicated module privilege rows:
+
+          Dental Clinic     → [Clinic Manager  ▼]  [Dental Administrator ▼]  ← this file
+          Dental Reception  → [Receptionist    ▼]  [Dental Assistant     ▼]  (dental_appointment)
+          Dental Dentist    → [Dentist          ▼]                            (dental_core)
+          Dental Lab        → [Lab Technician   ▼]  [Lab Manager          ▼]  (dental_lab)
+          Dental Pharmacy   → [Pharmacist       ▼]  [Pharmacy Manager     ▼]  (dental_pharmacy)
+
+        This means a system admin can grant each user EXACTLY and ONLY what they need:
+          • A pure front-desk user  → Dental Reception = Receptionist (no clinical access)
+          • A clinical dentist      → Dental Dentist = Dentist (no reception or admin access)
+          • An admin who is a dentist → Dental Clinic = Clinic Manager + Dental Dentist = Dentist
+          • A pure admin (no chair)  → Dental Clinic = Dental Administrator only (no auto sub-roles)
+          • Full-access admin        → Set ALL rows as needed
+
+        NOTE: The group records for Receptionist, Assistant, and Dentist are defined
+        here for cross-module XML-ID stability. Their privilege_id is updated by the
+        relevant specialist modules (dental_appointment, dental_core) to place them
+        in the correct dropdown row.
+    -->
+
+    <!-- ===== Module Category (the bold section heading in Settings > Users) ===== -->
+    <record id="module_category_dental_clinic" model="ir.module.category">
+        <field name="name">Dental Clinic</field>
+        <field name="description">Access rights and roles for Dental Clinic Management System</field>
+        <field name="sequence">50</field>
+    </record>
+
+    <!-- ===== Privilege: creates the "Dental Clinic" dropdown row ===== -->
+    <!--
+        Sequence 10 keeps this at the top. Specialist module privilege rows
+        (Reception=12, Dentist=11, Lab=20, Pharmacy=30) appear below it.
+    -->
+    <record model="res.groups.privilege" id="res_groups_privilege_dental_clinical">
+        <field name="name">Dental Clinic</field>
+        <field name="sequence">10</field>
+        <field name="category_id" ref="dental_base.module_category_dental_clinic"/>
+    </record>
+
+    <!-- ===== Foundational groups (privilege_id set by specialist modules) ===== -->
+    <!--
+        These groups are defined here so all modules can reference them as
+        dental_base.group_dental_*. Their privilege_id is intentionally left
+        pointing to this Dental Clinic row by default and will be overridden
+        by dental_appointment (Reception, Assistant) and dental_core (Dentist)
+        when those modules are installed.
+
+        If dental_appointment / dental_core are NOT installed, these groups will
+        still appear under the "Dental Clinic" row as a safe fallback.
+    -->
+
+    <record id="group_dental_assistant" model="res.groups">
+        <field name="name">Dental Assistant</field>
+        <field name="privilege_id" ref="dental_base.res_groups_privilege_dental_clinical"/>
+        <field name="implied_ids" eval="[(4, ref('base.group_user'))]"/>
+        <field name="comment">Assists dentists, prepares visits, manages non-financial operations. (Moved to Dental Reception row when dental_appointment is installed.)</field>
+    </record>
+
+    <record id="group_dental_receptionist" model="res.groups">
+        <field name="name">Receptionist</field>
+        <field name="privilege_id" ref="dental_base.res_groups_privilege_dental_clinical"/>
+        <field name="implied_ids" eval="[(4, ref('base.group_user')), (4, ref('sales_team.group_sale_salesman_all_leads'))]"/>
+        <field name="comment">Handles patient registration, enquiries (CRM), appointments, front desk check-in, and billing summary. (Moved to Dental Reception row when dental_appointment is installed.)</field>
+    </record>
+
+    <record id="group_dental_dentist" model="res.groups">
+        <field name="name">Dentist</field>
+        <field name="privilege_id" ref="dental_base.res_groups_privilege_dental_clinical"/>
+        <field name="implied_ids" eval="[(4, ref('base.group_user'))]"/>
+        <field name="comment">Doctor: Clinical consultation, odontogram charting, diagnosis, treatment plans, prescriptions, and imaging. (Moved to Dental Dentist row when dental_core is installed.)</field>
+    </record>
+
+    <!-- ===== Administrative groups (always in the "Dental Clinic" row) ===== -->
+    <!--
+        FLEXIBLE DESIGN: Clinic Manager and Dental Administrator do NOT
+        automatically inherit sub-roles (Dentist, Receptionist, Assistant).
+
+        Each specialist row must be set independently per user:
+          Dental Clinic     = Clinic Manager     ← grants management/reporting/oversight
+          Dental Dentist    = Dentist             ← (set separately only if they also do clinical work)
+          Dental Reception  = Receptionist        ← (set separately only if they also do front-desk)
+          Dental Lab        = Lab Manager         ← (set separately only if they manage lab)
+          Dental Pharmacy   = Pharmacy Manager    ← (set separately only if they manage pharmacy)
+
+        WHY Admin still implies Manager:
+        Many ACL rules (ir.access.csv) grant access at the 'manager' level only, with no
+        separate 'admin' ACL row. Keeping Admin→Manager ensures Administrators retain full
+        data access without requiring a duplicate set of ACL rows across every module.
+    -->
+
+    <record id="group_dental_manager" model="res.groups">
+        <field name="name">Clinic Manager</field>
+        <field name="privilege_id" ref="dental_base.res_groups_privilege_dental_clinical"/>
+        <!-- (6, 0, [...]) REPLACES all existing implied_ids — removes old dentist/receptionist/assistant links -->
+        <field name="implied_ids" eval="[(6, 0, [ref('base.group_user')])]"/>
+        <field name="comment">Operational and reporting oversight for the clinic. Does NOT auto-grant Dentist, Receptionist, or Assistant roles — assign those rows separately as needed for each manager.</field>
+    </record>
+
+    <record id="group_dental_admin" model="res.groups">
+        <field name="name">Dental Administrator</field>
+        <field name="privilege_id" ref="dental_base.res_groups_privilege_dental_clinical"/>
+        <!-- (6, 0, [...]) REPLACES all existing implied_ids — removes old lab_manager/pharmacy_manager/dentist/receptionist links -->
+        <field name="implied_ids" eval="[(6, 0, [ref('group_dental_manager')])]"/>
+        <field name="user_ids" eval="[(4, ref('base.user_root')), (4, ref('base.user_admin'))]"/>
+        <field name="comment">Full system administrator. Implies Clinic Manager for data access coverage. Does NOT auto-grant Dentist, Receptionist, Lab, or Pharmacy roles — assign each specialist row independently per user.</field>
+    </record>
+
+</odoo>

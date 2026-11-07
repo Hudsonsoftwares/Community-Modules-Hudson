@@ -5,7 +5,7 @@ import base64
 import io
 import logging
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from odoo import api, fields, models
 from odoo.exceptions import UserError
@@ -54,6 +54,14 @@ class DMSFileSignatureItem(models.Model):
     _description = "Signature Request Item"
 
     request_id = fields.Many2one("dms.file.signature.request", string="Request", required=True, ondelete="cascade")
+    company_id = fields.Many2one(
+        "res.company",
+        string="Company",
+        related="request_id.company_id",
+        store=True,
+        readonly=True,
+        index=True,
+    )
     item_type = fields.Selection([
         ('signature', 'Signature'),
         ('initial', 'Initials'),
@@ -102,6 +110,14 @@ class DMSFileSignatureRequest(models.Model):
         string="Document Revision",
         required=True,
         ondelete="cascade"
+    )
+    company_id = fields.Many2one(
+        "res.company",
+        string="Company",
+        related="revision_id.file_id.company_id",
+        store=True,
+        readonly=True,
+        index=True,
     )
     is_sign_now = fields.Boolean("Is Sign Now", default=False)
     pdf_content = fields.Binary(
@@ -204,17 +220,28 @@ class DMSFileSignatureRequest(models.Model):
         if user:
             return user.id
 
+        # A user may already own this email under another contact (e.g. the admin's
+        # personal contact): reuse it, a second user with the same login cannot be created.
+        email = (partner.email or '').strip()
+        if email:
+            user = self.env['res.users'].sudo().search(
+                ['|', ('login', '=ilike', email), ('email', '=ilike', email)], limit=1)
+            if user:
+                return user.id
+
         # Otherwise create a portal user for this partner
         portal_group = self.env.ref('base.group_portal', raise_if_not_found=False)
         public_group = self.env.ref('base.group_public', raise_if_not_found=False)
-        login = partner.email or f'portal_user_{partner.id}'
+        login = email or f'portal_user_{partner.id}'
         try:
-            user = self.env['res.users'].sudo().with_context(no_reset_password=True)._create_user_from_template({
-                'name': partner.name,
-                'login': login,
-                'partner_id': partner.id,
-                'email': partner.email or False,
-            })
+            # Savepoint: a failed insert must not abort the whole transaction
+            with self.env.cr.savepoint():
+                user = self.env['res.users'].sudo().with_context(no_reset_password=True)._create_user_from_template({
+                    'name': partner.name,
+                    'login': login,
+                    'partner_id': partner.id,
+                    'email': partner.email or False,
+                })
             group_commands = []
             if portal_group:
                 group_commands.append((4, portal_group.id))
@@ -232,8 +259,30 @@ class DMSFileSignatureRequest(models.Model):
             return user.id if user else False
 
 
+    def _get_signature_email_extra_html(self):
+        """Extension hook: HTML added to the signature request email, under the sign button."""
+        return ''
+
+    def _send_mails_batch(self, mails):
+        """Send ``mails`` together (one connection to the mail server instead of one per
+        email); the ones that fail are put back in the queue and retried a minute later."""
+        mails = mails.sudo().exists()
+        if not mails:
+            return
+        try:
+            mails.send(raise_exception=False)
+        except Exception as e:
+            _logger.warning("Sending emails %s failed: %s", mails.ids, e)
+        failed = mails.filtered(lambda m: m.state in ('exception', 'outgoing'))
+        if failed:
+            _logger.warning("Emails %s could not be sent now, retried by the email queue.", failed.ids)
+            failed.write({'state': 'outgoing'})
+            self.env.ref('mail.ir_cron_mail_scheduler_action').sudo()._trigger(
+                fields.Datetime.now() + timedelta(minutes=1))
+
     def send_signature_email(self):
         """Queue signature request emails via mail.mail (non-blocking)."""
+        mails = self.env['mail.mail']
         for req in self:
             recipient = req.recipient_id
             recipient_email = (recipient.email or (recipient.partner_id and recipient.partner_id.email) or '').strip()
@@ -287,6 +336,8 @@ class DMSFileSignatureRequest(models.Model):
 
         {valid_until_text}
 
+        {req._get_signature_email_extra_html()}
+
         <p style="color: #666; font-size: 13px; line-height: 1.5; margin-top: 20px;">
             <strong style="color: #444;">Warning</strong> do not forward this email to other people!<br/>
             They will be able to access this document and sign it as yourself.<br/>
@@ -322,20 +373,12 @@ class DMSFileSignatureRequest(models.Model):
                 'state': 'outgoing',
                 'mail_server_id': mail_server.id if mail_server else False,
             })
-            # Immediately send in a fresh DB cursor so it doesn't block our transaction
-            mail_id = mail.id
-            try:
-                self.env.cr.execute('SELECT 1')  # keep cursor alive
-                mail.send(raise_exception=False)  # non-blocking: log failure, don't crash
-                _logger.info(
-                    "Queued/sent signature email to %s (mail.mail id=%s, request id=%s)",
-                    recipient_email, mail_id, req.id
-                )
-            except Exception as e:
-                _logger.warning(
-                    "send() raised for mail %s to %s: %s — email queued for scheduler retry",
-                    mail_id, recipient_email, e
-                )
+            mails |= mail
+            _logger.info(
+                "Queued signature email to %s (mail.mail id=%s, request id=%s)",
+                recipient_email, mail.id, req.id
+            )
+        self._send_mails_batch(mails)
 
 
     @api.model
@@ -369,7 +412,13 @@ class DMSFileSignatureRequest(models.Model):
                     
                 user_id = self._get_or_create_user(user_string)
                 if not user_id:
-                    continue
+                    # Never drop a signer silently: the request would look sent but no email goes out
+                    partner = str(user_string).isdigit() and self.env['res.partner'].sudo().browse(int(user_string)).exists()
+                    raise UserError(self.env._(
+                        "Could not find or create a user for the signer \"%s\". "
+                        "Check that the contact has a unique email address.",
+                        partner.display_name if partner else user_string,
+                    ))
                     
                 if user_id not in recipients:
                     recipients[user_id] = []
@@ -399,28 +448,19 @@ class DMSFileSignatureRequest(models.Model):
                 requests_created.append(req)
                 seq += 1
                 
-                if state == 'sent' and not is_sign_now:
-                    req.send_signature_email()
-                
-                for item in items:
-                    self.env['dms.file.signature.item'].create({
-                        'request_id': req.id,
-                        'item_type': item.get('item_type', 'signature'),
-                        'page_number': int(item.get('page_number', 1)),
-                        # Store coordinates as pure ratios (0.0–1.0) relative to page dimensions
-                        'pos_x': float(item.get('pos_x', 0.0)),
-                        'pos_y': float(item.get('pos_y', 0.0)),
-                        'width': float(item.get('width', 0.2)),
-                        'height': float(item.get('height', 0.05)),
-                        'placeholder': item.get('placeholder', ''),
-                        'alignment': item.get('alignment', 'left'),
-                        'mandatory': item.get('mandatory', True),
-                        'readonly': item.get('readonly', False),
-                        'radio_group_name': item.get('radioGroupName', ''),
-                        'radio_option_value': item.get('radioOptionValue', ''),
-                    })
-                    
+
+                self.env['dms.file.signature.item'].create([
+                    req._prepare_signature_item_vals(item) for item in items
+                ])
+
+            self._on_requests_created_from_ui(
+                revision, self.browse([r.id for r in requests_created]), payload
+            )
             revision.file_id.status = 'in_approval'
+            # Every signer whose turn it is, notified together (one connection to the mail server)
+            if not is_sign_now:
+                self.browse([r.id for r in requests_created]).filtered(
+                    lambda r: r.state == 'sent').send_signature_email()
             
         if is_sign_now and payload.get('documents'):
             # Find the very first request created for the first document
@@ -433,7 +473,9 @@ class DMSFileSignatureRequest(models.Model):
             if first_req:
                 url = first_req.get_portal_url()
                 # Redirect back to backend document if it's a backend user doing "Sign Now"
-                if first_req.revision_id and first_req.revision_id.file_id:
+                if payload.get('return_url'):
+                    url += f"?return_url={payload['return_url']}"
+                elif first_req.revision_id and first_req.revision_id.file_id:
                     file_id = first_req.revision_id.file_id.id
                     url += f"?return_url=/web#id={file_id}&model=dms.file&view_type=form"
                 return {
@@ -457,6 +499,34 @@ class DMSFileSignatureRequest(models.Model):
                     'target': 'main',
                 }
         return {'type': 'ir.actions.client', 'tag': 'reload'}
+
+    def _prepare_signature_item_vals(self, item):
+        """Map one editor payload item to ``dms.file.signature.item`` values.
+        Extension hook: other modules can add values (e.g. field type links)."""
+        self.ensure_one()
+        return {
+            'request_id': self.id,
+            'item_type': item.get('item_type', 'signature'),
+            'page_number': int(item.get('page_number', 1)),
+            # Store coordinates as pure ratios (0.0–1.0) relative to page dimensions
+            'pos_x': float(item.get('pos_x', 0.0)),
+            'pos_y': float(item.get('pos_y', 0.0)),
+            'width': float(item.get('width', 0.2)),
+            'height': float(item.get('height', 0.05)),
+            'placeholder': item.get('placeholder', ''),
+            'options': item.get('options', ''),
+            'alignment': item.get('alignment', 'left'),
+            'mandatory': item.get('mandatory', True),
+            'readonly': item.get('readonly', False),
+            'radio_group_name': item.get('radioGroupName', ''),
+            'radio_option_value': item.get('radioOptionValue', ''),
+        }
+
+    @api.model
+    def _on_requests_created_from_ui(self, revision, requests, payload):
+        """Extension hook called once per document after its signer requests
+        and items have been created from the signature editor."""
+        return True
 
     def write(self, vals):
         res = super().write(vals)
@@ -552,7 +622,7 @@ class DMSFileSignatureRequest(models.Model):
 
         output_io = io.BytesIO()
         pdf_writer.write(output_io)
-        return base64.b64encode(output_io.getvalue())
+        return base64.b64encode(output_io.getvalue()).decode()
     
     def _compute_access_url(self):
         super()._compute_access_url()
@@ -563,10 +633,36 @@ class DMSFileSignatureRequest(models.Model):
         self.write({'state': 'sent'})
         return True
 
+    def _get_missing_mandatory_items(self):
+        """Mandatory items the signer left empty. A radio group is answered once
+        one of its options is chosen; checkboxes and strikethroughs must be ticked."""
+        self.ensure_one()
+        missing = self.env['dms.file.signature.item']
+        radio_groups = {}
+        for item in self.item_ids.filtered(lambda i: i.mandatory and not i.readonly):
+            if item.item_type == 'radio':
+                group = item.radio_group_name or f'radio_{item.id}'
+                radio_groups[group] = radio_groups.get(group, missing) | item
+            elif item.item_type in ('checkbox', 'strikethrough'):
+                if not item.value_bool:
+                    missing |= item
+            elif item.item_type in ('signature', 'initial', 'initials', 'stamp'):
+                if not item.value_image:
+                    missing |= item
+            elif not (item.value_text or '').strip():
+                missing |= item
+        for options in radio_groups.values():
+            if not any(options.mapped('value_bool')):
+                missing |= options
+        return missing
+
     def action_apply_signature(self):
         self.ensure_one()
-        # Verify all items are completed
-        if any(item.state == 'draft' for item in self.item_ids):
+        # Pre-filled values (e.g. auto-completed fields the signer did not touch) count as answered
+        self.item_ids.filtered(
+            lambda i: i.state == 'draft' and (i.value_text or i.value_bool or i.value_image)
+        ).write({'state': 'completed'})
+        if self._get_missing_mandatory_items():
             raise UserError("Please fill all required fields before applying.")
         
         self.process_signature()
@@ -597,15 +693,17 @@ class DMSFileSignatureRequest(models.Model):
             ('revision_id', '=', self.revision_id.id)
         ])
         
+        completed_mails = self.env['mail.mail']
         doc_name = self.revision_id.file_id.name or 'Document'
-        attachment_name = f"signed_{doc_name}"
-        if not attachment_name.endswith('.pdf'):
+        attachment_name = doc_name if doc_name.startswith('signed_') else f"signed_{doc_name}"
+        if not attachment_name.lower().endswith('.pdf'):
             attachment_name += '.pdf'
-            
+
         attachment = self.env['ir.attachment'].sudo().create({
             'name': attachment_name,
             'type': 'binary',
-            'datas': self.revision_id.content,
+            # Odoo 20 reads binaries as BinaryValue objects: 'datas' would store them empty
+            'raw': _extract_pdf_bytes(self.revision_id.content),
             'res_model': 'dms.file',
             'res_id': self.revision_id.file_id.id,
             'mimetype': 'application/pdf'
@@ -657,11 +755,8 @@ class DMSFileSignatureRequest(models.Model):
                 'attachment_ids': [(4, attachment.id)]
             })
             
-            try:
-                self.env.cr.execute('SELECT 1')
-                mail.send(raise_exception=False)
-            except Exception as e:
-                _logger.warning("Failed to send completed document email to %s: %s", req.recipient_id.email, e)
+            completed_mails |= mail
+        self._send_mails_batch(completed_mails)
 
     def process_signature(self):
         self.ensure_one()
@@ -761,11 +856,17 @@ class DMSFileSignatureRequest(models.Model):
                         if isinstance(img_raw, str):
                             img_data = base64.b64decode(img_raw)
                         elif hasattr(img_raw, '__bytes__') or isinstance(img_raw, (bytes, bytearray)):
+                            # Odoo 20 reads binary fields as raw bytes; older values may be base64.
+                            # b64decode never fails on raw image bytes (it drops invalid characters),
+                            # so recognise the image signature first.
                             raw_b = bytes(img_raw)
-                            try:
-                                img_data = base64.b64decode(raw_b)
-                            except Exception:
+                            if raw_b.startswith((b'\x89PNG', b'\xff\xd8', b'GIF8', b'RIFF', b'BM')):
                                 img_data = raw_b
+                            else:
+                                try:
+                                    img_data = base64.b64decode(raw_b, validate=True)
+                                except Exception:
+                                    img_data = raw_b
                         else:
                             img_data = img_raw
                         img = ImageReader(io.BytesIO(img_data))
@@ -792,14 +893,18 @@ class DMSFileSignatureRequest(models.Model):
                         font_size = 11
                         leading = 14
                         c.setFont("Helvetica", font_size)
-                        textobject = c.beginText()
-                        textobject.setFont("Helvetica", font_size)
-                        textobject.setLeading(leading)
-                        textobject.setTextOrigin(real_x + 4.0, real_y_reportlab + real_h - 13.0)
-                        lines = str(item.value_text).split('\n')
-                        for line in lines:
-                            textobject.textLine(line)
-                        c.drawText(textobject)
+                        # One line at a time, aligned like the field (left / center / right)
+                        line_y = real_y_reportlab + real_h - 13.0
+                        for line in str(item.value_text).split('\n'):
+                            line_width = c.stringWidth(line, "Helvetica", font_size)
+                            if item.alignment == 'center':
+                                line_x = real_x + (real_w - line_width) / 2.0
+                            elif item.alignment == 'right':
+                                line_x = real_x + real_w - line_width - 4.0
+                            else:
+                                line_x = real_x + 4.0
+                            c.drawString(line_x, line_y, line)
+                            line_y -= leading
                 elif item.item_type == 'radio':
                     cx = real_x + (real_w / 2.0)
                     cy = real_y_reportlab + (real_h / 2.0)
@@ -825,7 +930,7 @@ class DMSFileSignatureRequest(models.Model):
                         p.lineTo(bx + 4.5, by + 2.5)
                         p.lineTo(bx + 9.0, by + 9.0)
                         c.drawPath(p, stroke=1, fill=0)
-                elif item.item_type == 'strikethrough':
+                elif item.item_type == 'strikethrough' and item.value_bool:
                     c.setStrokeColor(black)
                     c.setLineWidth(2)
                     c.line(real_x, real_y_reportlab + (real_h / 2.0), real_x + real_w, real_y_reportlab + (real_h / 2.0))
@@ -844,7 +949,7 @@ class DMSFileSignatureRequest(models.Model):
 
             output_io = io.BytesIO()
             pdf_writer.write(output_io)
-            signed_pdf_base64 = base64.b64encode(output_io.getvalue())
+            signed_pdf_base64 = base64.b64encode(output_io.getvalue()).decode()
             
             new_version_num = str(int(self.revision_id.version) + 1) if self.revision_id.version.isdigit() else self.revision_id.version + "_signed"
             new_revision = self.env['dms.file.revision'].create({
@@ -879,14 +984,17 @@ class DMSFileSignatureRequest(models.Model):
         ])
         
         today = fields.Date.today()
+        due = self.browse()
         for req in requests:
             # Determine the baseline date to compare against
             base_date = req.last_reminder_date or req.create_date.date()
             if not req.reminder_days or req.reminder_days <= 0:
                 continue
-                
+
             delta = today - base_date
             if delta.days >= req.reminder_days:
-                # Time to remind
-                req.send_signature_email()
-                req.write({'last_reminder_date': today})
+                due |= req
+        if due:
+            # All reminders together (one connection to the mail server)
+            due.send_signature_email()
+            due.write({'last_reminder_date': today})

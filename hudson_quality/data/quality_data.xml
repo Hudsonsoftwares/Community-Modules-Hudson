@@ -36,7 +36,7 @@
     <record id="quality_spreadsheet_template_default" model="quality.spreadsheet.template">
         <field name="name">Quality Control Spreadsheet</field>
         <field name="success_cell">B17</field>
-        <field name="spreadsheet_binary_data" type="base64" file="Quality/data/files/quality_control_spreadsheet.json" />
+        <field name="spreadsheet_binary_data" type="base64" file="hudson_quality/data/files/quality_control_spreadsheet.json" />
     </record>
     <!-- Quality Alert Sequence -->
     <record id="seq_quality_alert" model="ir.sequence">

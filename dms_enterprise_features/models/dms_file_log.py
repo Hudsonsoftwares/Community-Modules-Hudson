@@ -12,6 +12,12 @@ class DMSFileLog(models.Model):
 
     name = fields.Char(string='Document Name', required=True)
     file_id = fields.Many2one('dms.file', string='Document', ondelete='set null')
+    company_id = fields.Many2one(
+        'res.company',
+        string='Company',
+        default=lambda self: self.env.company,
+        index=True,
+    )
     action = fields.Selection([
         ('create', 'Created'),
         ('edit', 'Edited'),
@@ -89,6 +95,9 @@ class DMSFileLog(models.Model):
     def create(self, vals_list):
         cleaned_vals = []
         for vals in vals_list:
+            if not vals.get('company_id'):
+                file_rec = self.env['dms.file'].browse(vals['file_id']) if vals.get('file_id') else None
+                vals['company_id'] = file_rec.company_id.id if (file_rec and file_rec.exists() and file_rec.company_id) else self.env.company.id
             if vals.get('details'):
                 formatted = self._format_details_string(vals['details'])
                 # If only technical keys were passed (e.g. {'image_1920': False}), skip this log completely

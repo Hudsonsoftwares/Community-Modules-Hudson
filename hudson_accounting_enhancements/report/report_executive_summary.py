@@ -30,6 +30,9 @@ class ReportExecutiveSummary(models.AbstractModel):
         # Odoo's frontend sometimes injects 'used_context' and it causes create() to fail
         clean_form.pop('used_context', None)
         clean_form.pop('id', None)
+        # Keep the Multi Ledger selection so the PDF matches the on-screen report
+        if form.get('gaap_options'):
+            clean_form['gaap_options'] = form['gaap_options']
             
         # Get the standard dynamic report data
         report_data = self.env['hudson.dynamic.report'].get_report_data(

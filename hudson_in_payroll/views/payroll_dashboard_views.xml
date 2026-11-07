@@ -7,10 +7,10 @@
         <field name="arch" type="xml">
             <form string="Payroll Dashboard" class="o_hds_payroll_dashboard_form" create="false" delete="false">
                 <header>
-                    <button name="action_view_missing_pan_employees" string="Missing PAN" type="object" class="btn-secondary" icon="fa-id-card"/>
-                    <button name="action_view_missing_bank_employees" string="Missing Bank Details" type="object" class="btn-secondary" icon="fa-university"/>
-                    <button name="action_view_pending_declarations" string="Pending Declarations" type="object" class="btn-secondary" icon="fa-file-text-o"/>
-                    <button name="action_view_new_joiners" string="View All Joiners →" type="object" class="btn-secondary" icon="fa-user-plus"/>
+                    <button name="action_view_missing_pan_employees" string="Missing PAN" type="object" class="btn-secondary" icon="badge"/>
+                    <button name="action_view_missing_bank_employees" string="Missing Bank Details" type="object" class="btn-secondary" icon="account_balance"/>
+                    <button name="action_view_pending_declarations" string="Pending Declarations" type="object" class="btn-secondary" icon="description"/>
+                    <button name="action_view_new_joiners" string="View All Joiners →" type="object" class="btn-secondary" icon="person_add"/>
                 </header>
                 <sheet class="o_full_width" style="max-width: 100% !important; width: calc(100% - 12px) !important; margin: 4px 6px !important; padding: 0 !important; background: transparent !important; background-color: transparent !important; border: none !important; box-shadow: none !important; border-radius: 0 !important;">
                     <style>

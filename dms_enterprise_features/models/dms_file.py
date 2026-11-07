@@ -1,8 +1,11 @@
 import datetime
 from PIL import Image
 from odoo import api, fields, models, _
-from odoo.exceptions import UserError, AccessError
-from markupsafe import Markup
+from odoo.exceptions import UserError, AccessError, ValidationError
+from markupsafe import Markup, escape
+from odoo.tools.misc import format_datetime
+from .dms_file_extension import SYSTEM_FORBIDDEN_EXTENSIONS
+from .dms_directory import _dms_unlimited_panel
 
 class DMSFile(models.Model):
     _inherit = "dms.file"
@@ -21,6 +24,26 @@ class DMSFile(models.Model):
                 one.image_1920 = False
 
     # Document Controller Fields
+    company_id = fields.Many2one(
+        comodel_name="res.company",
+        string="Company",
+        required=True,
+        default=lambda self: self.env.company,
+        compute="_compute_company_id",
+        store=True,
+        readonly=False,
+        index="btree",
+        related=False,
+    )
+
+    @api.depends("directory_id.company_id")
+    def _compute_company_id(self):
+        for rec in self:
+            if rec.directory_id and rec.directory_id.company_id:
+                rec.company_id = rec.directory_id.company_id
+            elif not rec.company_id:
+                rec.company_id = self.env.company
+
     directory_id = fields.Many2one(
         comodel_name="dms.directory",
         domain="[('permission_upload', '=', True)]",
@@ -36,6 +59,37 @@ class DMSFile(models.Model):
         string="File Type",
         compute="_compute_file_type_display",
     )
+    signature_request_ids = fields.Many2many(
+        comodel_name="dms.file.signature.request",
+        compute="_compute_signature_info",
+        string="Signature Requests",
+    )
+    signature_state = fields.Selection(
+        selection=[
+            ("none", "No Signature"),
+            ("pending", "Pending Signature"),
+            ("signed", "Signed"),
+            ("rejected", "Rejected"),
+        ],
+        compute="_compute_signature_info",
+        string="Signature State",
+    )
+
+    def _compute_signature_info(self):
+        for record in self:
+            sigs = record.revision_ids.mapped("signature_request_ids")
+            record.signature_request_ids = sigs
+            if not sigs:
+                record.signature_state = "none"
+            elif any(s.state == "signed" for s in sigs) and all(s.state == "signed" for s in sigs):
+                record.signature_state = "signed"
+            elif any(s.state == "rejected" for s in sigs):
+                record.signature_state = "rejected"
+            elif any(s.state in ["sent", "draft"] for s in sigs):
+                record.signature_state = "pending"
+            else:
+                record.signature_state = "none"
+
 
     @api.depends("extension", "mimetype", "name")
     def _compute_file_type_display(self):
@@ -93,34 +147,15 @@ class DMSFile(models.Model):
 
     @api.model
     def search_panel_select_range(self, field_name, **kwargs):
+        _dms_unlimited_panel(kwargs)
         res = super().search_panel_select_range(field_name, **kwargs)
         if isinstance(res, dict) and field_name == 'directory_id' and 'values' in res:
-            directory_ids = [v['id'] for v in res['values'] if isinstance(v, dict) and 'id' in v]
-            directories = self.env['dms.directory'].browse(directory_ids)
-            file_data = self.env['dms.file']._read_group(
-                [('directory_id', 'in', directory_ids), ('is_trashed', '=', False)],
-                groupby=['directory_id'],
-                aggregates=['__count']
-            )
-            file_counts = {dir_rec.id: count for dir_rec, count in file_data}
-            dir_permissions = {
-                d.id: {
-                    'permission_download': d.permission_download,
-                    'permission_write': d.permission_write,
-                    'permission_unlink': d.permission_unlink,
-                    'permission_move': d.permission_move,
-                    'count_files': file_counts.get(d.id, 0),
-                } for d in directories
-            }
-            for v in res['values']:
-                if isinstance(v, dict) and 'id' in v:
-                    perms = dir_permissions.get(v['id'], {})
-                    v.update(perms)
-                    v['__count'] = perms.get('count_files', 0)
+            res['values'] = self.env['dms.directory']._dms_folder_tree_values(res['values'])
         return res
 
     @api.model
     def search_panel_select_multi_range(self, field_name, **kwargs):
+        _dms_unlimited_panel(kwargs)
         res = super().search_panel_select_multi_range(field_name, **kwargs)
         if isinstance(res, list):
             res = {"values": res}
@@ -129,6 +164,42 @@ class DMSFile(models.Model):
         elif "values" not in res:
             res["values"] = []
         return res
+
+    @api.model
+    def _get_forbidden_extensions(self):
+        """Combine configured forbidden extensions with permanent system blocked extensions."""
+        configured = super()._get_forbidden_extensions()
+        res = {
+            ext.strip().lower().lstrip(".")
+            for ext in configured
+            if ext and ext.strip()
+        }
+        res.update(SYSTEM_FORBIDDEN_EXTENSIONS)
+        return sorted(res)
+
+    @api.constrains("extension")
+    def _check_extension(self):
+        """Enforce validation on file extensions with specific security feedback."""
+        forbidden_all = set(self._get_forbidden_extensions())
+        for rec in self:
+            if not rec.extension:
+                continue
+            ext = rec.extension.strip().lower().lstrip(".")
+            if ext in SYSTEM_FORBIDDEN_EXTENSIONS:
+                raise ValidationError(
+                    _(
+                        "Uploading executable, script, or system binary files ('.%(ext)s') "
+                        "is permanently blocked in Document Controller for security reasons."
+                    )
+                    % {"ext": ext}
+                )
+            if ext in forbidden_all:
+                raise ValidationError(
+                    _(
+                        "The file extension '.%(ext)s' is forbidden by Document Controller configuration."
+                    )
+                    % {"ext": ext}
+                )
 
     @api.model
     def get_upload_config(self):
@@ -174,9 +245,200 @@ class DMSFile(models.Model):
     partner_access_ids = fields.One2many(
         comodel_name="dms.file.access",
         inverse_name="file_id",
-        domain=[("group_id", "=", False)],
+        domain=[("group_id", "=", False), ("access_group_id", "=", False)],
         string="Contact Access Rights",
     )
+    access_group_access_ids = fields.One2many(
+        comodel_name="dms.file.access",
+        inverse_name="file_id",
+        domain=[("access_group_id", "!=", False)],
+        string="Access Group Rights",
+    )
+
+    # Contacts already covered by an access group on this file: they cannot be
+    # added again in the Contacts tab.
+    access_group_member_user_ids = fields.Many2many(
+        comodel_name="res.users",
+        string="Members via Access Groups",
+        compute="_compute_access_group_member_ids",
+    )
+    access_group_member_partner_ids = fields.Many2many(
+        comodel_name="res.partner",
+        compute="_compute_access_group_member_ids",
+    )
+
+    def _dms_dedupe_access_lines(self):
+        """Remove individual contact lines for people already covered by an
+        access group line on the same document, and log what was removed."""
+        keys = ("perm_view", "perm_download", "perm_edit", "perm_rename",
+                "perm_move", "perm_delete", "perm_share")
+        for record in self.sudo().exists():
+            group_lines = record.access_ids.filtered("access_group_id")
+            if not group_lines:
+                continue
+            members = group_lines.access_group_id.users
+            dupes = record.access_ids.filtered(
+                lambda l: not l.access_group_id and not l.group_id and not l.department_id
+                and (l.user_id | l.partner_id.user_ids) & members
+            )
+            if not dupes:
+                continue
+            notes = []
+            for line in dupes:
+                people = line.user_id | line.partner_id.user_ids
+                covering = group_lines.filtered(lambda g: people & g.access_group_id.users)
+                lost = [line._fields[k].string for k in keys
+                        if line[k] and not any(g[k] for g in covering)]
+                note = _("%s (via %s)") % ((line.partner_id or line.user_id).display_name,
+                                    ", ".join(covering.access_group_id.mapped("name")))
+                if lost:
+                    note += _(" (individual rights no longer granted: %s)") % ", ".join(lost)
+                notes.append(note)
+            dupes.unlink()
+            record.message_post(
+                body=_("Individual access removed because these people are now covered by an access group: %s")
+                % "; ".join(notes),
+                subtype_xmlid="mail.mt_note",
+            )
+
+    @api.depends("access_group_access_ids.access_group_id")
+    def _compute_access_group_member_ids(self):
+        for record in self:
+            users = record.access_group_access_ids.access_group_id.sudo().users
+            record.access_group_member_user_ids = users
+            record.access_group_member_partner_ids = users.partner_id
+
+    # SharePoint-style permission inheritance:
+    #   True  -> effective access = folder permissions + this file's lines (additive)
+    #   False -> "unique permissions": only this file's lines (+ owner) apply
+    inherit_permissions = fields.Boolean(
+        string="Inherit Folder Permissions",
+        default=True,
+        tracking=True,
+        help="When enabled, everyone with access to the folder has the same access to this file, "
+             "and the access rules below grant additional rights on top. When disabled, only the "
+             "access rules below (and the document owner) apply.",
+    )
+    inherited_permission_line_ids = fields.Many2many(
+        comodel_name="dms.directory.permission",
+        string="Inherited Folder Permissions",
+        compute="_compute_inherited_permission_line_ids",
+    )
+
+    @api.depends("directory_id", "inherit_permissions")
+    def _compute_inherited_permission_line_ids(self):
+        for record in self:
+            record.inherited_permission_line_ids = (
+                record.directory_id.sudo().complete_permission_line_ids
+                if record.inherit_permissions else False
+            )
+
+    def action_stop_inheriting_permissions(self):
+        """Break inheritance like SharePoint: copy the folder's current permissions
+        onto the file as explicit lines, then stop following the folder."""
+        Access = self.env["dms.file.access"].sudo()
+        for record in self:
+            if not record.inherit_permissions:
+                continue
+            vals_list = []
+            folder_perms = record.directory_id.sudo().complete_permission_line_ids
+            # People covered by a group being copied are not copied again as
+            # individual lines (same rule as the Contacts tab)
+            group_members = (folder_perms.group_id | record.sudo().access_ids.access_group_id).users
+            for perm in folder_perms:
+                if not perm.group_id and (perm.user_id | perm.partner_id.user_ids) & group_members:
+                    continue  # covered by a group being copied
+                existing = record.access_ids.filtered(
+                    lambda a: (perm.group_id and a.access_group_id == perm.group_id)
+                    or (perm.user_id and a.user_id == perm.user_id)
+                    or (not perm.user_id and perm.partner_id and a.partner_id == perm.partner_id)
+                )
+                perms = {
+                    "perm_view": perm.perm_view,
+                    "perm_download": perm.perm_download,
+                    "perm_edit": perm.perm_edit,
+                    "perm_rename": perm.perm_rename,
+                    "perm_move": perm.perm_move,
+                    "perm_delete": perm.perm_delete,
+                    "perm_share": perm.perm_share,
+                }
+                if not any(perms.values()):
+                    continue  # upload-only lines mean nothing on a file
+                if existing:
+                    # Keep the broader of the two (lines are additive)
+                    line = existing[0]
+                    line.write({k: v or line[k] for k, v in perms.items()})
+                    continue
+                vals = dict(perms, file_id=record.id)
+                if perm.group_id:
+                    vals["access_group_id"] = perm.group_id.id
+                elif perm.user_id:
+                    vals["user_id"] = perm.user_id.id
+                else:
+                    vals["partner_id"] = perm.partner_id.id
+                vals_list.append(vals)
+            if vals_list:
+                Access.create(vals_list)
+            record.inherit_permissions = False
+        return True
+
+    def action_restore_permission_inheritance(self):
+        """Follow the folder again. Explicit lines are kept and stay additive."""
+        self.write({"inherit_permissions": True})
+        return True
+
+    def _dms_effective_permissions(self, user, directory=None):
+        """Effective permissions of ``user`` on this file.
+
+        ``directory`` lets callers preview the result of a move.
+        Returns a dict with keys view, download, upload, edit, move, rename,
+        delete, share.
+        """
+        self.ensure_one()
+        keys = ("view", "download", "upload", "edit", "move", "rename", "delete", "share")
+        if user._is_superuser() or any(
+            user.has_group(g) for g in (
+                "dms.group_dms_manager",
+                "base.group_system",
+                "dms_enterprise_features.group_dms_administrator",
+            )
+        ):
+            return dict.fromkeys(keys, True)
+
+        file_rec = self.sudo()
+        if directory is None:
+            directory = file_rec.directory_id
+        dir_perms = self.env["dms.directory"]._dms_directory_perms_for_user(directory, user)
+
+        perms = dict.fromkeys(keys, False)
+        # Upload is a folder right (adding files to the folder)
+        perms["upload"] = dir_perms["upload"]
+
+        # 1. Inherited folder permissions
+        if file_rec.inherit_permissions:
+            for key in keys:
+                perms[key] = perms[key] or dir_perms[key]
+
+        # 2. Explicit file lines (always additive)
+        for line in file_rec.access_ids._applies_to(user):
+            for key in ("view", "download", "edit", "move", "rename", "delete", "share"):
+                if line[f"perm_{key}"]:
+                    perms[key] = True
+
+        # 3. Owner / uploader: full control of their own document
+        if user in (file_rec.document_owner_id | file_rec.create_uid):
+            for key in ("view", "download", "edit", "move", "rename", "delete", "share"):
+                perms[key] = True
+
+        # 4. Approvers and signers can always read the document they act on
+        partner = user.partner_id
+        if user in file_rec.approval_ids.approver_id or self.env["dms.file.signature.request"].sudo().search_count([
+            ("revision_id.file_id", "=", file_rec.id),
+            "|", ("recipient_id", "=", user.id), ("recipient_id.partner_id", "=", partner.id),
+        ], limit=1):
+            perms["view"] = perms["download"] = True
+
+        return perms
     department_id = fields.Many2one(
         comodel_name="hr.department",
         string="Department"
@@ -392,6 +654,22 @@ class DMSFile(models.Model):
         compute="_compute_approval_info",
         string="Rejected By",
     )
+    approval_requested_by = fields.Many2one(
+        comodel_name="res.users",
+        string="Approval Requested By",
+        readonly=True,
+        copy=False,
+    )
+    approval_requested_date = fields.Datetime(
+        string="Approval Requested On",
+        readonly=True,
+        copy=False,
+    )
+    approval_progress_html = fields.Html(
+        string="Approval Progress",
+        compute="_compute_approval_progress_html",
+        sanitize=False,
+    )
 
     is_my_file = fields.Boolean(
         string="Is My File",
@@ -411,7 +689,8 @@ class DMSFile(models.Model):
             is_approver = uid in record.approval_ids.mapped('approver_id.id')
             has_access = any(
                 a.user_id.id == uid or (a.partner_id and a.partner_id.id == partner_id) or (a.group_id and a.group_id.id in user_group_ids)
-                for a in record.access_ids
+                or (a.access_group_id and user in a.access_group_id.sudo().users)
+                for a in record.sudo().access_ids
             )
             record.is_my_file = bool(is_creator or is_owner or is_approver or has_access)
 
@@ -428,6 +707,7 @@ class DMSFile(models.Model):
             [('approval_ids.approver_id', '=', uid)],
             [('access_ids.user_id', '=', uid)],
             [('access_ids.partner_id', '=', partner_id)],
+            [('access_ids.access_group_id.users', 'in', [uid])],
         ]
         if group_ids:
             domains.append([('access_ids.group_id', 'in', group_ids)])
@@ -481,6 +761,10 @@ class DMSFile(models.Model):
                 record.rejected_by = False
 
     def action_request_approval(self):
+        # Queue the approver e-mails (activity assignment) instead of sending
+        # them over SMTP inside this request: a slow mail server made the
+        # click hang for seconds before the user saw the result.
+        self = self.with_context(mail_notify_force_send=False)
         for record in self:
             if record.is_locked and not record.is_lock_editor and not self.env.user.has_group('dms.group_dms_manager') and not self.env.su:
                 raise UserError(_("Cannot request approval because '%s' is locked by %s.") % (record.name, record.locked_by.name or 'another user'))
@@ -528,7 +812,11 @@ class DMSFile(models.Model):
                     record._notify_approver(step.approver_id)
                 approver_names = ", ".join(record.approval_ids.mapped('approver_id.name'))
 
-            record.sudo().write({'approval_state': 'in_approval'})
+            record.sudo().write({
+                'approval_state': 'in_approval',
+                'approval_requested_by': self.env.uid,
+                'approval_requested_date': fields.Datetime.now(),
+            })
             record.sudo().message_post(
                 body=Markup(_("Approval requested. Waiting for: <strong>%s</strong> (Mode: %s)")) % (
                     approver_names,
@@ -569,6 +857,10 @@ class DMSFile(models.Model):
             pass
 
     def action_approve_step(self, approver_user=False):
+        # Queue the approver e-mails (activity assignment) instead of sending
+        # them over SMTP inside this request: a slow mail server made the
+        # click hang for seconds before the user saw the result.
+        self = self.with_context(mail_notify_force_send=False)
         user = approver_user or self.env.user
         for record in self:
             if record.approval_state != 'in_approval':
@@ -612,6 +904,138 @@ class DMSFile(models.Model):
                 unfinished = record.approval_ids.filtered(lambda s: s.status in ('pending', 'waiting', 'draft'))
                 if not unfinished:
                     record._on_fully_approved()
+
+        return self._approval_feedback_action()
+
+    def _approval_feedback_action(self):
+        """Toast telling the approver right away what their approval did, then
+        reload the current view so the status and progress tracker update."""
+        if len(self) != 1:
+            return {"type": "ir.actions.client", "tag": "soft_reload"}
+        record = self
+        if record.approval_state == 'approved':
+            title = _("Document approved")
+            message = _("“%s” is now fully approved.", record.name)
+        else:
+            waiting = record.current_approver_ids.mapped('name')
+            title = _("Approval recorded")
+            if waiting:
+                message = _(
+                    "You approved “%(name)s”. Now waiting for %(who)s.",
+                    name=record.name, who=", ".join(waiting),
+                )
+            else:
+                message = _("You approved “%s”.", record.name)
+        return {
+            "type": "ir.actions.client",
+            "tag": "display_notification",
+            "params": {
+                "title": title,
+                "message": message,
+                "type": "success",
+                "sticky": False,
+                "next": {"type": "ir.actions.client", "tag": "soft_reload"},
+            },
+        }
+
+    _APPROVAL_ICONS = {
+        "done": '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
+        "current": '<circle cx="12" cy="12" r="8"/><path d="M12 8v4.5l3 2"/>',
+        "rejected": '<path d="M7 7l10 10"/><path d="M17 7L7 17"/>',
+        "flag": '<path d="M5 21V4"/><path d="M5 4h11l-2 4 2 4H5"/>',
+    }
+
+    def _approval_svg(self, key):
+        return Markup(
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" '
+            'fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" '
+            'stroke-linejoin="round" aria-hidden="true">%s</svg>'
+        ) % Markup(self._APPROVAL_ICONS[key])
+
+    @api.depends(
+        'approval_state', 'is_sequential_approval', 'approval_requested_by',
+        'approval_requested_date', 'approval_ids.status', 'approval_ids.date',
+        'approval_ids.approver_id', 'approval_ids.comments', 'approval_ids.sequence',
+    )
+    def _compute_approval_progress_html(self):
+        """Stepper: Requested -> each approver -> Approved, with the state of
+        every stage (done / current / waiting / rejected)."""
+        state_labels = dict(self._fields['approval_state']._description_selection(self.env))
+        for record in self:
+            steps = record.approval_ids.sorted(key=lambda s: (s.sequence, s.id))
+            if record.approval_state == 'draft' or not steps:
+                record.approval_progress_html = False
+                continue
+
+            def when(value, record=record):
+                return format_datetime(record.env, value, dt_format="d MMM, HH:mm") if value else ""
+
+            # (status class, dot icon or number, label, meta line, note)
+            items = []
+            requested_meta = " · ".join(filter(None, [
+                record.approval_requested_by.name or "",
+                when(record.approval_requested_date),
+            ]))
+            items.append(("done", "done", _("Requested"), requested_meta, ""))
+
+            for index, step in enumerate(steps, start=1):
+                name = step.approver_id.name or ""
+                if step.status == 'approved':
+                    meta = _("Approved · %s", when(step.date)) if step.date else _("Approved")
+                    items.append(("done", "done", name, meta, ""))
+                elif step.status == 'rejected':
+                    meta = _("Rejected · %s", when(step.date)) if step.date else _("Rejected")
+                    items.append(("rejected", "rejected", name, meta, step.comments or ""))
+                elif step.status == 'pending':
+                    items.append(("current", "current", name, _("Awaiting approval"), ""))
+                else:
+                    items.append(("waiting", str(index), name, _("Waiting"), ""))
+
+            if record.approval_state == 'approved':
+                items.append(("done", "flag", _("Approved"), _("All approvals complete"), ""))
+            elif record.approval_state == 'rejected':
+                items.append(("rejected", "rejected", _("Rejected"), _("Approval stopped"), ""))
+            else:
+                items.append(("waiting", "flag", _("Approved"), _("Not yet"), ""))
+
+            approved_count = len(steps.filtered(lambda s: s.status == 'approved'))
+            summary = _(
+                "%(done)s of %(total)s approved · %(mode)s",
+                done=approved_count, total=len(steps),
+                mode=_("Sequential") if record.is_sequential_approval else _("Parallel"),
+            )
+
+            rows = []
+            for status, icon, label, meta, note in items:
+                if icon in record._APPROVAL_ICONS:
+                    dot = record._approval_svg(icon)
+                else:
+                    dot = escape(icon)
+                note_html = Markup('<div class="o_dms_appr_note">“%s”</div>') % note if note else ""
+                rows.append(Markup(
+                    '<li class="o_dms_appr_step is-%s">'
+                    '<span class="o_dms_appr_dot">%s</span>'
+                    '<div class="o_dms_appr_label">%s</div>'
+                    '<div class="o_dms_appr_meta">%s</div>%s'
+                    '</li>'
+                ) % (status, dot, label, meta, note_html))
+
+            record.approval_progress_html = Markup(
+                '<div class="o_dms_appr">'
+                '<div class="o_dms_appr_head">'
+                '<span class="o_dms_appr_title">%s</span>'
+                '<span class="o_dms_appr_state o_dms_appr_state_%s">%s</span>'
+                '<span class="o_dms_appr_summary">%s</span>'
+                '</div>'
+                '<ol class="o_dms_appr_steps">%s</ol>'
+                '</div>'
+            ) % (
+                _("Approval progress"),
+                record.approval_state,
+                state_labels.get(record.approval_state, ""),
+                summary,
+                Markup("").join(rows),
+            )
 
     def _on_fully_approved(self):
         for record in self:
@@ -690,6 +1114,10 @@ class DMSFile(models.Model):
         }
 
     def action_process_rejection(self, reason):
+        # Queue the approver e-mails (activity assignment) instead of sending
+        # them over SMTP inside this request: a slow mail server made the
+        # click hang for seconds before the user saw the result.
+        self = self.with_context(mail_notify_force_send=False)
         for record in self:
             user = self.env.user
             pending_step = record.approval_ids.filtered(lambda s: s.status == 'pending' and s.approver_id == user)[:1]
@@ -737,6 +1165,20 @@ class DMSFile(models.Model):
                 subtype_xmlid="mail.mt_note"
             )
 
+        # Confirm right away, then close the reason dialog (which reloads the
+        # document underneath).
+        return {
+            "type": "ir.actions.client",
+            "tag": "display_notification",
+            "params": {
+                "title": _("Approval rejected"),
+                "message": _("You rejected “%s”. The owner has been notified.", self[:1].name or ""),
+                "type": "warning",
+                "sticky": False,
+                "next": {"type": "ir.actions.act_window_close"},
+            },
+        }
+
     def action_reset_approval(self):
         for record in self:
             for step in record.approval_ids:
@@ -758,25 +1200,45 @@ class DMSFile(models.Model):
 
     @api.model_create_multi
     def create(self, vals_list):
-        if not self.env.su and not self._is_dms_privileged_user():
-            raise AccessError(_("Only Documents Managers and Administrators are allowed to upload or create files."))
+        # Regular users may upload into folders that grant them the Upload
+        # permission (directly or inherited from a parent folder), like
+        # SharePoint "Contribute". Managers/administrators may upload anywhere.
+        check_upload = not self.env.su and not self._is_dms_privileged_user()
         for vals in vals_list:
             if vals.get('document_number', _('New')) == _('New'):
                 vals['document_number'] = self.env['ir.sequence'].next_by_code('dms.file.document.number') or _('New')
             
             # Auto-assign to Dashboard if directory is empty (Odoo Enterprise behavior)
             if not vals.get('directory_id'):
-                dashboard = self.env['dms.directory'].search([('name', '=', 'Dashboard')], limit=1)
+                company_id = vals.get('company_id') or self.env.company.id
+                company = self.env['res.company'].browse(company_id)
+                vals['company_id'] = company.id
+                dashboard = self.env['dms.directory'].sudo().search([
+                    ('name', '=', 'Dashboard'),
+                    ('company_id', '=', company.id),
+                ], limit=1)
                 if not dashboard:
-                    storage = self.env['dms.storage'].search([], limit=1)
-                    if not storage:
-                        raise UserError(_("No storage configured. Please create a storage first."))
-                    dashboard = self.env['dms.directory'].create({
+                    storage = self.env['dms.directory']._get_or_create_company_storage(company)
+                    dashboard = self.env['dms.directory'].sudo().create({
                         'name': 'Dashboard',
                         'is_root_directory': True,
                         'storage_id': storage.id,
+                        'company_id': company.id,
                     })
                 vals['directory_id'] = dashboard.id
+            else:
+                directory = self.env['dms.directory'].browse(vals['directory_id'])
+                if directory.company_id:
+                    vals['company_id'] = directory.company_id.id
+                elif not vals.get('company_id'):
+                    vals['company_id'] = self.env.company.id
+
+            if check_upload:
+                target_dir = self.env['dms.directory'].sudo().browse(vals['directory_id'])
+                if not self.env['dms.directory']._dms_directory_perms_for_user(target_dir, self.env.user)['upload']:
+                    raise AccessError(_("You do not have permission to upload files to the folder '%s'.") % (target_dir.display_name or target_dir.name))
+                # The uploader owns what they upload (full control of their own file)
+                vals.setdefault('document_owner_id', self.env.uid)
 
             # Auto-populate default approvers if none supplied
             owner_id = vals.get('document_owner_id') or self.env.uid
@@ -818,6 +1280,11 @@ class DMSFile(models.Model):
         return records
 
     def write(self, vals):
+        if 'directory_id' in vals and vals['directory_id']:
+            directory = self.env['dms.directory'].browse(vals['directory_id'])
+            if directory.company_id:
+                vals['company_id'] = directory.company_id.id
+
         is_lock_op = set(vals.keys()).issubset({'locked_by', 'is_locked', 'is_lock_editor'})
         is_manager = self.env.su or self.env.user.has_group('dms.group_dms_manager') or self.env.user.has_group('base.group_system')
 
@@ -837,6 +1304,8 @@ class DMSFile(models.Model):
                     raise AccessError(_("You do not have permission to move this file."))
                 if ('content' in vals or 'file' in vals or 'attachment_id' in vals) and not record.permission_edit:
                     raise AccessError(_("You do not have permission to edit this file."))
+                if 'is_trashed' in vals and not record.permission_delete:
+                    raise AccessError(_("You do not have permission to delete '%s'.") % record.name)
 
         is_revert = self.env.context.get('from_revert_revision') or self.env.context.get('no_new_revision')
         has_new_content = 'content' in vals and vals.get('content') and not is_revert
@@ -1003,7 +1472,7 @@ class DMSFile(models.Model):
         self.mapped('directory_id').invalidate_recordset(['count_files'])
         return {
             'type': 'ir.actions.client',
-            'tag': 'reload',
+            'tag': 'soft_reload',
         }
 
     def action_restore(self):
@@ -1016,7 +1485,7 @@ class DMSFile(models.Model):
         self.mapped('directory_id').invalidate_recordset(['count_files'])
         return {
             'type': 'ir.actions.client',
-            'tag': 'reload',
+            'tag': 'soft_reload',
         }
 
     def unlink(self):
@@ -1031,6 +1500,10 @@ class DMSFile(models.Model):
 
         to_delete = self - to_trash
         if to_delete:
+            if not (self.env.su or self.env.user.has_group('dms.group_dms_manager') or self.env.user.has_group('base.group_system')):
+                for record in to_delete:
+                    if not record.permission_delete:
+                        raise AccessError(_("You do not have permission to delete '%s'.") % record.name)
             dirs = to_delete.mapped('directory_id')
             for record in to_delete:
                 self.env['dms.file.log'].sudo().create({
@@ -1109,6 +1582,23 @@ class DMSFile(models.Model):
                 })
                 file.write({'expiry_notification_sent': True})
 
+    def action_dms_schedule_activity(self):
+        """Card menu "Schedule Activity" (same wizard as the folder cards)."""
+        self.ensure_one()
+        return {
+            'name': _("Schedule Activity"),
+            'type': 'ir.actions.act_window',
+            'res_model': 'mail.activity.schedule',
+            'view_mode': 'form',
+            'views': [(False, 'form')],
+            'target': 'new',
+            'context': {
+                'active_model': self._name,
+                'active_ids': self.ids,
+                'active_id': self.id,
+            },
+        }
+
     def action_open_form_view(self):
         self.ensure_one()
         return {
@@ -1118,42 +1608,6 @@ class DMSFile(models.Model):
             'view_mode': 'form',
             'views': [(False, 'form')],
             'target': 'current',
-        }
-
-    def action_setup_signatures(self):
-        revision_ids = []
-        for record in self:
-            if record.is_locked and not record.is_lock_editor and not self.env.user.has_group('dms.group_dms_manager') and not self.env.su:
-                raise UserError(_("Cannot setup signatures because '%s' is locked by %s.") % (record.name, record.locked_by.name or 'another user'))
-            if record.mimetype and record.mimetype.startswith('image/'):
-                raise UserError(_("Electronic signature is only supported for PDF documents. '%s' is an image.") % record.name)
-            if record.mimetype and record.mimetype != 'application/pdf' and not record.name.lower().endswith('.pdf'):
-                raise UserError(_("Electronic signature is only supported for PDF documents. '%s' is not a PDF.") % record.name)
-
-            if not record.current_revision_id and record.content:
-                revision = self.env['dms.file.revision'].create({
-                    'file_id': record.id,
-                    'version': '1.0',
-                    'content': record.content,
-                    'file_name': record.name,
-                    'comments': 'Initial revision auto-created for signature setup.'
-                })
-                record.current_revision_id = revision.id
-                
-            if record.current_revision_id and record.current_revision_id.content:
-                revision_ids.append(str(record.current_revision_id.id))
-        
-        if not revision_ids:
-            raise UserError(_("Please upload a PDF document before setting up signatures."))
-        
-        return {
-            'type': 'ir.actions.client',
-            'tag': 'dms_signature_pdf_viewer',
-            'target': 'current',
-            'context': {
-                'default_revision_ids': ','.join(revision_ids),
-                'default_file_id': self.id,
-            }
         }
 
     def action_open_properties(self):

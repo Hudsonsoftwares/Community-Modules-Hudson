@@ -10,7 +10,9 @@ class AccountPartnerLedger(models.TransientModel):
                                      help="It adds the currency column on "
                                           "report if the currency differs from "
                                           "the company currency.")
-    reconciled = fields.Boolean('Reconciled Entries')
+    # as in Odoo Enterprise, the partner ledger shows every entry by default: without the paid
+    # invoices and their payments, its totals would not match the general ledger
+    reconciled = fields.Boolean('Reconciled Entries', default=True)
 
     def _get_report_data(self, data):
         data = self.pre_print_report(data)

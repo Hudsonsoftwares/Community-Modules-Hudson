@@ -1,0 +1,876 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-name="dental_core.ReceptionistDashboard">
+        <div class="o_action o_receptionist_dashboard w-100 h-100 overflow-auto">
+            
+            <!-- Top Header Bar -->
+            <div class="reception-header-bar">
+                <div class="greeting-section">
+                    <div class="greeting-icon-wrapper">
+                        <!-- Sun Icon -->
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="5"/>
+                            <line x1="12" y1="1" x2="12" y2="3"/>
+                            <line x1="12" y1="21" x2="12" y2="23"/>
+                            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+                            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+                            <line x1="1" y1="12" x2="3" y2="12"/>
+                            <line x1="21" y1="12" x2="23" y2="12"/>
+                            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+                            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <div class="greeting-title"><t t-out="this.state.greeting"/></div>
+                        <div class="greeting-subtitle">
+                            Reception Desk • <t t-out="this.state.currentDateStr"/> • <t t-out="this.state.currentTimeStr"/>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="search-section">
+                    <div class="search-pill-box">
+                        <span class="search-icon">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="11" cy="11" r="8"/>
+                                <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                            </svg>
+                        </span>
+                        <input id="reception-search-input" 
+                               type="text" 
+                               class="search-input" 
+                               placeholder="Search patient by name, phone or token..." 
+                               t-att-value="this.state.searchQuery" 
+                               t-on-input="(ev) => this.onSearchChange(ev)"/>
+                        <span class="shortcut-badge">Ctrl + K</span>
+                    </div>
+                </div>
+
+                <div class="header-actions">
+                    <div class="notification-btn" title="Live Queue Alerts">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#475569" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+                        </svg>
+                        <span class="notif-badge"/>
+                    </div>
+                    <div class="user-profile-pill">
+                        <div class="user-avatar-circle">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0284c7" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                                <circle cx="12" cy="7" r="4"/>
+                            </svg>
+                        </div>
+                        <span class="user-name-text"><t t-out="this.userName"/></span>
+                        <span class="user-chevron">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="6 9 12 15 18 9"/>
+                            </svg>
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Equipment Maintenance Alert Strip (Visible if any equipment is out of service) -->
+            <t t-if="this.state.unavailable_equipment and this.state.unavailable_equipment.length > 0">
+                <div class="reception-equipment-alert-strip" t-on-click="() => this.openUnavailableEquipmentList()">
+                    <div class="alert-strip-left">
+                        <div class="alert-icon-circle">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2.3">
+                                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                                <line x1="12" y1="9" x2="12" y2="13"/>
+                                <line x1="12" y1="17" x2="12.01" y2="17"/>
+                            </svg>
+                        </div>
+                        <div class="alert-strip-text">
+                            <span class="alert-title">Equipment Notice:</span>
+                            <span class="alert-desc">
+                                <t t-out="this.state.unavailable_equipment.length"/> equipment unit(s) under maintenance / out of service:
+                                <strong><t t-out="this.state.unavailable_equipment.map(e => e.name).join(', ')"/></strong>
+                            </span>
+                        </div>
+                    </div>
+                    <div class="alert-strip-right">
+                        <span class="alert-link-text">View Out-of-Service List &gt;</span>
+                    </div>
+                </div>
+            </t>
+
+            <!-- Top Grid Layout: Hero Banner (62%) + Right Stats (38%) -->
+            <div class="reception-top-grid">
+                
+                <!-- Left Hero Banner -->
+                <div class="reception-hero-banner">
+                    
+                    <!-- 1. Waiting Queue -->
+                    <div class="floating-hero-pill pos-waiting-queue" t-on-click="() => this.openWaitingQueue()">
+                        <div class="pill-icon-box purple">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                                <circle cx="9" cy="7" r="4"/>
+                                <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                                <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                            </svg>
+                        </div>
+                        <div class="pill-content">
+                            <span class="pill-label">Waiting Queue</span>
+                            <span class="pill-value"><t t-out="this.state.stats.waiting_patients"/></span>
+                        </div>
+                    </div>
+
+                    <!-- 2. Checked In -->
+                    <div class="floating-hero-pill pos-checked-in" t-on-click="() => this.openWaitingQueue()">
+                        <div class="pill-icon-box green">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                                <polyline points="22 4 12 14.01 9 11.01"/>
+                            </svg>
+                        </div>
+                        <div class="pill-content">
+                            <span class="pill-label">Checked In</span>
+                            <span class="pill-value"><t t-out="this.state.stats.checked_in_patients"/></span>
+                        </div>
+                    </div>
+
+                    <!-- 3. Next Token -->
+                    <div class="floating-hero-pill pos-next-token" t-on-click="() => this.openWaitingQueue()">
+                        <div class="pill-icon-box blue">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="2" y="6" width="20" height="12" rx="2"/>
+                                <circle cx="6" cy="12" r="1.5"/>
+                                <circle cx="18" cy="12" r="1.5"/>
+                                <line x1="12" y1="6" x2="12" y2="18" stroke-dasharray="2 2"/>
+                            </svg>
+                        </div>
+                        <div class="pill-content">
+                            <span class="pill-label">Next Token</span>
+                            <span class="pill-value"><t t-out="this.state.stats.next_token"/></span>
+                        </div>
+                    </div>
+
+                    <!-- 4. Arrivals -->
+                    <div class="floating-hero-pill pos-arrivals" t-on-click="() => this.openTodaysAppointments()">
+                        <div class="pill-icon-box blue">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="12" cy="5" r="2.5"/>
+                                <path d="M10 22v-6l-2-2.5 3-4.5 3 2.5v4"/>
+                                <path d="M15 13l2 3.5v5.5"/>
+                            </svg>
+                        </div>
+                        <div class="pill-content">
+                            <span class="pill-label">Arrivals</span>
+                            <span class="pill-value"><t t-out="this.state.stats.arrivals"/></span>
+                        </div>
+                    </div>
+
+                    <!-- 5. Needs Registration -->
+                    <div class="floating-hero-pill pos-needs-reg" t-on-click="() => this.openNewPatient()">
+                        <div class="pill-icon-box orange">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                                <polyline points="14 2 14 8 20 8"/>
+                                <line x1="16" y1="13" x2="8" y2="13"/>
+                                <line x1="16" y1="17" x2="8" y2="17"/>
+                                <line x1="10" y1="9" x2="8" y2="9"/>
+                            </svg>
+                        </div>
+                        <div class="pill-content">
+                            <span class="pill-label">Needs Registration</span>
+                            <span class="pill-value"><t t-out="this.state.stats.needs_registration"/></span>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Right Side: Stats & Action Buttons -->
+                <div class="reception-right-side">
+                    
+                    <!-- 2x2 Metric Cards Grid -->
+                    <div class="metric-cards-grid">
+                        
+                        <!-- Appointments Today -->
+                        <div class="stat-card-item" t-on-click="() => this.openTodaysAppointments()">
+                            <div class="stat-meta">
+                                <div class="stat-icon-wrapper blue">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                                        <line x1="16" y1="2" x2="16" y2="6"/>
+                                        <line x1="8" y1="2" x2="8" y2="6"/>
+                                        <line x1="3" y1="10" x2="21" y2="10"/>
+                                    </svg>
+                                </div>
+                                <span class="stat-title">Appointments Today</span>
+                                <span class="stat-number"><t t-out="this.state.stats.today_appointments"/></span>
+                            </div>
+                            <span class="stat-chevron">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                    <polyline points="9 18 15 12 9 6"/>
+                                </svg>
+                            </span>
+                        </div>
+
+                        <!-- Waiting Patients -->
+                        <div class="stat-card-item" t-on-click="() => this.openWaitingQueue()">
+                            <div class="stat-meta">
+                                <div class="stat-icon-wrapper purple">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                                        <circle cx="9" cy="7" r="4"/>
+                                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                                        <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                                    </svg>
+                                </div>
+                                <span class="stat-title">Waiting Patients</span>
+                                <span class="stat-number"><t t-out="this.state.stats.waiting_patients"/></span>
+                            </div>
+                            <span class="stat-chevron">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                    <polyline points="9 18 15 12 9 6"/>
+                                </svg>
+                            </span>
+                        </div>
+
+                        <!-- New Registrations -->
+                        <div class="stat-card-item" t-on-click="() => this.openAction('dental_core.action_reception_patients')">
+                            <div class="stat-meta">
+                                <div class="stat-icon-wrapper orange">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                                        <polyline points="14 2 14 8 20 8"/>
+                                        <line x1="16" y1="13" x2="8" y2="13"/>
+                                        <line x1="16" y1="17" x2="8" y2="17"/>
+                                    </svg>
+                                </div>
+                                <span class="stat-title">New Registrations</span>
+                                <span class="stat-number"><t t-out="this.state.stats.new_patients_today"/></span>
+                            </div>
+                            <span class="stat-chevron">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                    <polyline points="9 18 15 12 9 6"/>
+                                </svg>
+                            </span>
+                        </div>
+
+                        <!-- Open Enquiries (CRM) -->
+                        <div class="stat-card-item" t-on-click="() => this.openEnquiriesAction()">
+                            <div class="stat-meta">
+                                <div class="stat-icon-wrapper indigo">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                                    </svg>
+                                </div>
+                                <span class="stat-title">Open Enquiries</span>
+                                <span class="stat-number"><t t-out="this.state.stats.crm_open_enquiries"/></span>
+                            </div>
+                            <span class="stat-chevron">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                    <polyline points="9 18 15 12 9 6"/>
+                                </svg>
+                            </span>
+                        </div>
+
+                    </div>
+
+                    <!-- Full Width Card: Follow-ups Due (CRM & Appointments) -->
+                    <div class="stat-card-item full-width-stat" t-on-click="() => this.openEnquiryFollowupsAction()">
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="stat-icon-wrapper rose mb-0">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                    <circle cx="12" cy="12" r="10"/>
+                                    <polyline points="12 6 12 12 16 14"/>
+                                </svg>
+                            </div>
+                            <div class="d-flex flex-column">
+                                <span class="stat-title">Follow-ups Due (CRM &amp; Clinical)</span>
+                                <span class="stat-number"><t t-out="this.state.stats.upcoming_follow_ups"/></span>
+                            </div>
+                        </div>
+                        <span class="stat-chevron">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="9 18 15 12 9 6"/>
+                            </svg>
+                        </span>
+                    </div>
+
+                    <!-- Action Buttons Grid -->
+                    <div class="action-buttons-grid">
+                        
+                        <button class="action-btn-custom btn-enquiry" t-on-click="() => this.openNewEnquiry()">
+                            <div class="btn-left">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+                                    <line x1="12" y1="2" x2="12" y2="6"/>
+                                    <line x1="10" y1="4" x2="14" y2="4"/>
+                                </svg>
+                                <span>New Enquiry</span>
+                            </div>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="9 18 15 12 9 6"/>
+                            </svg>
+                        </button>
+
+                        <button class="action-btn-custom btn-book" t-on-click="() => this.openBookAppointment()">
+                            <div class="btn-left">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                                    <line x1="16" y1="2" x2="16" y2="6"/>
+                                    <line x1="8" y1="2" x2="8" y2="6"/>
+                                    <line x1="3" y1="10" x2="21" y2="10"/>
+                                    <line x1="12" y1="14" x2="12" y2="18"/>
+                                    <line x1="10" y1="16" x2="14" y2="16"/>
+                                </svg>
+                                <span>Book Appt</span>
+                            </div>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="9 18 15 12 9 6"/>
+                            </svg>
+                        </button>
+
+                        <button class="action-btn-custom btn-register" t-on-click="() => this.openNewPatient()">
+                            <div class="btn-left">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                                    <circle cx="8.5" cy="7" r="4"/>
+                                    <line x1="20" y1="8" x2="20" y2="14"/>
+                                    <line x1="23" y1="11" x2="17" y2="11"/>
+                                </svg>
+                                <span>Register Patient</span>
+                            </div>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="9 18 15 12 9 6"/>
+                            </svg>
+                        </button>
+
+                        <button class="action-btn-custom btn-checkin" t-on-click="() => this.openWaitingQueue()">
+                            <div class="btn-left">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                                    <polyline points="22 4 12 14.01 9 11.01"/>
+                                </svg>
+                                <span>Check In</span>
+                            </div>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="9 18 15 12 9 6"/>
+                            </svg>
+                        </button>
+
+                        <button class="action-btn-custom btn-queue" t-on-click="() => this.openWaitingQueue()">
+                            <div class="btn-left">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                                    <circle cx="9" cy="7" r="4"/>
+                                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                                    <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                                </svg>
+                                <span>View Queue</span>
+                            </div>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="9 18 15 12 9 6"/>
+                            </svg>
+                        </button>
+
+                        <button class="action-btn-custom btn-maintenance" t-on-click="() => this.openReportEquipmentIssue()">
+                            <div class="btn-left">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+                                </svg>
+                                <span>Report Issue</span>
+                            </div>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="9 18 15 12 9 6"/>
+                            </svg>
+                        </button>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <!-- Middle Section: Available Doctors & Specialists -->
+            <div class="reception-doctors-section">
+                <div class="section-header-row">
+                    <div class="d-flex align-items-center gap-2">
+                        <div class="section-icon-pill">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0284c7" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M4.8 2.3A.3.3 0 1 0 5 2H4a2 2 0 0 0-2 2v5a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6V4a2 2 0 0 0-2-2h-1a.2.2 0 1 0 .3.3"/>
+                                <path d="M8 15v1a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6v-4"/>
+                                <circle cx="20" cy="10" r="2"/>
+                            </svg>
+                        </div>
+                        <h3 class="section-heading mb-0">Doctors Availability</h3>
+                        <span class="active-count-badge">
+                            <span class="pulse-dot"></span>
+                            <t t-out="this.state.doctors_availability ? this.state.doctors_availability.length : 0"/> Specialists Active
+                        </span>
+                    </div>
+                    <a href="#" class="view-all-link" t-on-click.prevent="() => this.openDoctorsList()">
+                        <span>View All Doctors</span>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="5" y1="12" x2="19" y2="12"/>
+                            <polyline points="12 5 19 12 12 19"/>
+                        </svg>
+                    </a>
+                </div>
+
+                <div class="doctors-cards-scroll">
+                    <t t-if="!this.state.doctors_availability or this.state.doctors_availability.length == 0">
+                        <div class="text-muted p-3">No active doctors loaded.</div>
+                    </t>
+                    <div t-foreach="this.state.doctors_availability" t-as="doc" t-key="doc.id" class="doctor-status-card">
+                        <div class="doc-card-top">
+                            <div class="doc-avatar-box cursor-pointer" t-on-click="() => this.openDoctorRecord(doc.id)">
+                                <img t-att-src="doc.avatar_url" alt="Doctor" class="doc-avatar-img"/>
+                                <span t-attf-class="doc-status-indicator {{doc.status_code}}" t-att-title="doc.status_label"/>
+                            </div>
+                            <div class="doc-details-col">
+                                <h4 class="doc-name cursor-pointer" t-on-click="() => this.openDoctorRecord(doc.id)"><t t-out="doc.name"/></h4>
+                                <span class="doc-spec"><t t-out="doc.specialization"/></span>
+                                <div class="doc-status-row">
+                                    <span t-attf-class="doc-status-pill {{doc.badge_class}}">
+                                        <t t-out="doc.status_label"/>
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="doc-card-bottom">
+                            <span class="doc-appts-badge" title="Appointments Today">
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="me-1">
+                                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                                    <line x1="16" y1="2" x2="16" y2="6"/>
+                                    <line x1="8" y1="2" x2="8" y2="6"/>
+                                </svg>
+                                <strong><t t-out="doc.today_appointments"/></strong> Today
+                            </span>
+                            <button class="btn-doc-book" t-on-click="() => this.bookWithDoctor(doc.id)" title="Book patient with this doctor">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="me-1">
+                                    <line x1="12" y1="5" x2="12" y2="19"/>
+                                    <line x1="5" y1="12" x2="19" y2="12"/>
+                                </svg>
+                                Book
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bottom Grid Layout: Live Queue (62%) + Today's Appointments (38%) -->
+            <div class="reception-bottom-grid">
+                
+                <!-- Left: Live Patient Queue -->
+                <div class="dashboard-panel-card">
+                    <div class="panel-header">
+                        <h3 class="panel-title">
+                            <span class="title-icon">
+                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0284c7" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                                    <circle cx="9" cy="7" r="4"/>
+                                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                                    <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                                </svg>
+                            </span>
+                            <span>Live Patient Queue</span>
+                        </h3>
+                        <select class="panel-filter-select" t-on-change="(ev) => this.onStatusFilterChange(ev)">
+                            <option value="all">All Status</option>
+                            <option value="next">Next</option>
+                            <option value="waiting">Waiting</option>
+                            <option value="checked_in">Checked In</option>
+                            <option value="in_consultation">In Consultation</option>
+                        </select>
+                    </div>
+
+                    <div class="table-responsive flex-grow-1">
+                        <table class="queue-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 5%;">#</th>
+                                    <th style="width: 14%;">Token</th>
+                                    <th style="width: 26%;">Patient</th>
+                                    <th style="width: 30%;">Appointment</th>
+                                    <th style="width: 13%;">Status</th>
+                                    <th style="width: 12%; text-align: center;">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr t-if="!this.filteredQueue or this.filteredQueue.length == 0">
+                                    <td colspan="6" class="text-center py-5 text-muted">
+                                        <p class="mb-1 fw-bold fs-5 text-dark">Queue is currently clear!</p>
+                                        <p class="small text-muted mb-0">No active patients matching this filter.</p>
+                                    </td>
+                                </tr>
+                                <tr t-foreach="this.filteredQueue" t-as="item" t-key="item.id">
+                                    <td class="text-muted fw-bold">
+                                        <t t-out="item.index || item_index + 1"/>
+                                    </td>
+                                    <td>
+                                        <span class="token-badge"><t t-out="item.token"/></span>
+                                    </td>
+                                    <td>
+                                        <span class="patient-name-link" t-on-click="() => this.openRecord('res.partner', item.patient_id)">
+                                            <t t-out="item.patient_name"/>
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="appointment-text"><t t-out="item.appointment_info"/></span>
+                                    </td>
+                                    <td>
+                                        <span t-attf-class="status-pill {{item.badge_class}}">
+                                            <span class="status-dot"/>
+                                            <t t-out="item.status_label"/>
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <div class="action-cell justify-content-center">
+                                            <button t-if="item.action_type == 'call_now'" 
+                                                    class="btn-call-now" 
+                                                    t-on-click="() => this.callPatient(item)">
+                                                Call Now
+                                            </button>
+                                            <button t-elif="item.action_type == 'check_in'" 
+                                                    class="btn-table-outline" 
+                                                    t-on-click="() => this.checkInPatient(item.id)">
+                                                Check In
+                                            </button>
+                                            <button t-else="" 
+                                                    class="btn-table-outline" 
+                                                    t-on-click="() => this.startVisit(item.id)">
+                                                Start Visit
+                                            </button>
+                                            <span class="grip-icon" title="Queue Position">
+                                                <svg width="12" height="16" viewBox="0 0 12 16" fill="#cbd5e1">
+                                                    <circle cx="4" cy="3" r="1.5"/>
+                                                    <circle cx="8" cy="3" r="1.5"/>
+                                                    <circle cx="4" cy="8" r="1.5"/>
+                                                    <circle cx="8" cy="8" r="1.5"/>
+                                                    <circle cx="4" cy="13" r="1.5"/>
+                                                    <circle cx="8" cy="13" r="1.5"/>
+                                                </svg>
+                                            </span>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Right: Today's Appointments Timeline -->
+                <div class="dashboard-panel-card">
+                    <div class="panel-header">
+                        <h3 class="panel-title">
+                            <span class="title-icon">
+                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0284c7" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                                    <line x1="16" y1="2" x2="16" y2="6"/>
+                                    <line x1="8" y1="2" x2="8" y2="6"/>
+                                    <line x1="3" y1="10" x2="21" y2="10"/>
+                                    <polyline points="9 16 12 19 19 12"/>
+                                </svg>
+                            </span>
+                            <span>Today's Appointments</span>
+                        </h3>
+                        <a href="#" class="view-all-link" t-on-click.prevent="() => this.openTodaysAppointments()">
+                            <span>View All</span>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                <line x1="5" y1="12" x2="19" y2="12"/>
+                                <polyline points="12 5 19 12 12 19"/>
+                            </svg>
+                        </a>
+                    </div>
+
+                    <div class="timeline-container flex-grow-1">
+                        <div t-if="!this.filteredTimeline or this.filteredTimeline.length == 0" class="text-center py-4 text-muted">
+                            <p class="mb-0">No appointments scheduled for today.</p>
+                        </div>
+                        <div t-foreach="this.filteredTimeline.slice(0, 7)" t-as="appt" t-key="appt.id" class="timeline-item">
+                            <div class="timeline-left">
+                                <span class="timeline-time"><t t-out="appt.time_display"/></span>
+                                <div class="timeline-marker-box">
+                                    <span t-attf-class="timeline-dot {{appt.dot_class}}"/>
+                                </div>
+                                <div class="timeline-details cursor-pointer" t-on-click="() => this.openRecord('dental.appointment', appt.id)">
+                                    <span class="patient-name"><t t-out="appt.patient_name"/></span>
+                                    <span class="treatment-sub"><t t-out="appt.treatment_name"/></span>
+                                </div>
+                            </div>
+                            <span t-attf-class="timeline-badge {{appt.status_class}}">
+                                <t t-out="appt.status_label"/>
+                            </span>
+                        </div>
+                    </div>
+
+                </div>
+
+            </div>
+
+            <!-- ========================================================================= -->
+            <!-- CRM SECTION: Patient Enquiries & Lead Management                         -->
+            <!-- ========================================================================= -->
+            <div class="reception-crm-section">
+                <div class="crm-panel-card">
+                    <!-- Panel Header -->
+                    <div class="crm-panel-header">
+                        <div class="crm-header-left">
+                            <div class="crm-header-icon-box">
+                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                                    <path d="M8 10h.01"/>
+                                    <path d="M12 10h.01"/>
+                                    <path d="M16 10h.01"/>
+                                </svg>
+                            </div>
+                            <div>
+                                <h3 class="crm-heading">Prospective Patient Enquiries (CRM)</h3>
+                                <div class="crm-subheading">
+                                    Track leads, communicate with prospects, schedule follow-ups, and convert to appointments
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Source Breakdown Badges -->
+                        <div class="crm-sources-strip">
+                            <t t-if="this.state.crm_source_breakdown">
+                                <span class="source-metric-pill" title="Website Enquiries">
+                                    <span class="source-dot web"/> Web: <strong><t t-out="this.state.crm_source_breakdown['Website'] || 0"/></strong>
+                                </span>
+                                <span class="source-metric-pill" title="Phone Call Enquiries">
+                                    <span class="source-dot phone"/> Phone: <strong><t t-out="this.state.crm_source_breakdown['Phone Call'] || 0"/></strong>
+                                </span>
+                                <span class="source-metric-pill" title="Walk-in Enquiries">
+                                    <span class="source-dot walkin"/> Walk-in: <strong><t t-out="this.state.crm_source_breakdown['Walk-in'] || 0"/></strong>
+                                </span>
+                                <span class="source-metric-pill" title="Referrals">
+                                    <span class="source-dot referral"/> Referral: <strong><t t-out="this.state.crm_source_breakdown['Patient Referral'] || 0"/></strong>
+                                </span>
+                                <span class="source-metric-pill" title="Facebook / Instagram Enquiries">
+                                    <span class="source-dot social"/> Social: <strong><t t-out="this.state.crm_source_breakdown['Social Media'] || 0"/></strong>
+                                </span>
+                            </t>
+                        </div>
+
+                        <!-- Quick Action Buttons -->
+                        <div class="crm-header-actions">
+                            <button class="btn-crm-action btn-crm-new" t-on-click="() => this.openNewEnquiry()">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="me-1">
+                                    <line x1="12" y1="5" x2="12" y2="19"/>
+                                    <line x1="5" y1="12" x2="19" y2="12"/>
+                                </svg>
+                                Register Enquiry
+                            </button>
+                            <button class="btn-crm-action btn-crm-secondary" t-on-click="() => this.openEnquiriesAction()">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="me-1">
+                                    <rect x="3" y="3" width="7" height="7"/>
+                                    <rect x="14" y="3" width="7" height="7"/>
+                                    <rect x="14" y="14" width="7" height="7"/>
+                                    <rect x="3" y="14" width="7" height="7"/>
+                                </svg>
+                                CRM Pipeline
+                            </button>
+                            <button class="btn-crm-action btn-crm-secondary" t-on-click="() => this.openEnquiryReportsAction()" title="View Enquiry Analytics">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="me-1">
+                                    <line x1="18" y1="20" x2="18" y2="10"/>
+                                    <line x1="12" y1="20" x2="12" y2="4"/>
+                                    <line x1="6" y1="20" x2="6" y2="14"/>
+                                </svg>
+                                Reports
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Filter Tabs -->
+                    <div class="crm-filter-tabs-bar">
+                        <div class="crm-filter-tabs">
+                            <button t-attf-class="crm-tab-btn {{this.state.enquiryFilter == 'all' ? 'active' : ''}}"
+                                    t-on-click="() => this.setEnquiryFilter('all')">
+                                All Enquiries
+                                <span class="tab-badge"><t t-out="this.state.stats.crm_open_enquiries"/></span>
+                            </button>
+                            <button t-attf-class="crm-tab-btn {{this.state.enquiryFilter == 'new' ? 'active' : ''}}"
+                                    t-on-click="() => this.setEnquiryFilter('new')">
+                                Needs Contact / New
+                                <span class="tab-badge"><t t-out="this.state.stats.crm_new_enquiries"/></span>
+                            </button>
+                            <button t-attf-class="crm-tab-btn {{this.state.enquiryFilter == 'follow_up' ? 'active' : ''}}"
+                                    t-on-click="() => this.setEnquiryFilter('follow_up')">
+                                Follow-ups Due
+                                <span class="tab-badge alert-badge"><t t-out="this.state.stats.crm_pending_followups"/></span>
+                            </button>
+                            <button t-attf-class="crm-tab-btn {{this.state.enquiryFilter == 'converted' ? 'active' : ''}}"
+                                    t-on-click="() => this.setEnquiryFilter('converted')">
+                                Converted to Appointment
+                                <span class="tab-badge success-badge"><t t-out="this.state.stats.crm_converted_appointments"/></span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Interactive Enquiries Table -->
+                    <div class="table-responsive">
+                        <table class="crm-enquiry-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 22%;">Prospect / Contact</th>
+                                    <th style="width: 12%;">Source</th>
+                                    <th style="width: 18%;">Interested Treatment</th>
+                                    <th style="width: 14%;">Follow-up Activity</th>
+                                    <th style="width: 12%;">Status</th>
+                                    <th style="width: 10%;">Patient Link</th>
+                                    <th style="width: 12%; text-align: center;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr t-if="!this.filteredEnquiries or this.filteredEnquiries.length == 0">
+                                    <td colspan="7" class="text-center py-5 text-muted">
+                                        <div class="empty-enquiries-box">
+                                            <p class="mb-1 fw-bold fs-5 text-dark">No enquiries found</p>
+                                            <p class="small text-muted mb-3">No active enquiries match this filter.</p>
+                                            <button class="btn btn-sm btn-outline-primary" t-on-click="() => this.openNewEnquiry()">
+                                                + Register First Enquiry
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr t-foreach="this.filteredEnquiries" t-as="lead" t-key="lead.id" class="crm-lead-row">
+                                    <!-- Contact Info -->
+                                    <td>
+                                        <div class="lead-contact-cell">
+                                            <div class="lead-title-row">
+                                                <span class="lead-name-text cursor-pointer" t-on-click="() => this.openCrmLead(lead.id)">
+                                                    <t t-out="lead.contact_name"/>
+                                                </span>
+                                                <t t-if="lead.name and lead.name != lead.contact_name">
+                                                    <span class="lead-topic-badge" t-att-title="lead.name"><t t-out="lead.name"/></span>
+                                                </t>
+                                            </div>
+                                            <div class="lead-contact-links">
+                                                <t t-if="lead.phone">
+                                                    <a t-attf-href="'tel:' + lead.phone" class="contact-mini-link phone" title="Call patient">
+                                                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="me-1">
+                                                            <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+                                                        </svg>
+                                                        <t t-out="lead.phone"/>
+                                                    </a>
+                                                </t>
+                                                <t t-if="lead.email">
+                                                    <a t-attf-href="'mailto:' + lead.email" class="contact-mini-link email" title="Email patient">
+                                                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="me-1">
+                                                            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                                                            <polyline points="22,6 12,13 2,6"/>
+                                                        </svg>
+                                                        <t t-out="lead.email"/>
+                                                    </a>
+                                                </t>
+                                            </div>
+                                            <div class="lead-rec-date"><t t-out="lead.received_date"/></div>
+                                        </div>
+                                    </td>
+
+                                    <!-- Source -->
+                                    <td>
+                                        <span t-attf-class="source-pill {{lead.source_class}}">
+                                            <t t-out="lead.source_label"/>
+                                        </span>
+                                    </td>
+
+                                    <!-- Treatment -->
+                                    <td>
+                                        <div class="treatment-cell">
+                                            <span class="treatment-title"><t t-out="lead.treatment_name"/></span>
+                                            <span class="doctor-sub">
+                                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" class="me-1">
+                                                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                                                    <circle cx="12" cy="7" r="4"/>
+                                                </svg>
+                                                <t t-out="lead.doctor_name"/>
+                                            </span>
+                                        </div>
+                                    </td>
+
+                                    <!-- Follow-up Activity -->
+                                    <td>
+                                        <div class="activity-cell">
+                                            <t t-if="lead.activity_status == 'none'">
+                                                <button class="btn-schedule-quick" t-on-click="() => this.scheduleLeadFollowup(lead.id)" title="Schedule next call or activity">
+                                                    + Follow-up
+                                                </button>
+                                            </t>
+                                            <t t-else="">
+                                                <span t-attf-class="activity-badge {{lead.activity_status}}" t-on-click="() => this.scheduleLeadFollowup(lead.id)" title="Click to view/reschedule activity">
+                                                    <span class="activity-dot"/>
+                                                    <t t-if="lead.activity_status == 'overdue'">Overdue: </t>
+                                                    <t t-elif="lead.activity_status == 'today'">Today: </t>
+                                                    <t t-out="lead.activity_summary || 'Follow-up'"/>
+                                                    <span class="activity-date ms-1">(<t t-out="lead.activity_date"/>)</span>
+                                                </span>
+                                            </t>
+                                        </div>
+                                    </td>
+
+                                    <!-- Status / Stage -->
+                                    <td>
+                                        <div class="status-cell">
+                                            <span t-attf-class="status-pill {{lead.conversion_class}}">
+                                                <t t-out="lead.conversion_label"/>
+                                            </span>
+                                            <span class="stage-sub"><t t-out="lead.stage_name"/></span>
+                                        </div>
+                                    </td>
+
+                                    <!-- Patient Link -->
+                                    <td>
+                                        <t t-if="lead.patient_id">
+                                            <span class="patient-linked-badge" t-on-click="() => this.openRecord('res.partner', lead.patient_id)" title="Open linked patient profile">
+                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="me-1">
+                                                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                                                    <circle cx="12" cy="7" r="4"/>
+                                                </svg>
+                                                Linked
+                                            </span>
+                                        </t>
+                                        <t t-elif="lead.has_matching_patient">
+                                            <button class="btn-match-link" t-on-click="() => this.matchPatient(lead.id)" title="Existing patient with matching phone/email found. Click to link.">
+                                                Match Found
+                                            </button>
+                                        </t>
+                                        <t t-else="">
+                                            <span class="patient-new-pill">New Prospect</span>
+                                        </t>
+                                    </td>
+
+                                    <!-- Actions -->
+                                    <td>
+                                        <div class="crm-actions-cell">
+                                            <t t-if="lead.appointment_id">
+                                                <button class="btn-crm-booked" t-on-click="() => this.openRecord('dental.appointment', lead.appointment_id)" title="View linked appointment">
+                                                    View Appt
+                                                </button>
+                                            </t>
+                                            <t t-else="">
+                                                <button class="btn-crm-book-now" t-on-click="() => this.bookAppointmentFromLead(lead.id)" title="Book appointment directly from this enquiry">
+                                                    Book Appt
+                                                </button>
+                                            </t>
+                                            <button class="btn-crm-icon" t-on-click="() => this.scheduleLeadFollowup(lead.id)" title="Schedule Follow-up Activity">
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                                                    <circle cx="12" cy="12" r="10"/>
+                                                    <polyline points="12 6 12 12 16 14"/>
+                                                </svg>
+                                            </button>
+                                            <button class="btn-crm-icon" t-on-click="() => this.openCrmLead(lead.id)" title="View Full Enquiry Details">
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                                                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                                                    <circle cx="12" cy="12" r="3"/>
+                                                </svg>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </t>
+</templates>

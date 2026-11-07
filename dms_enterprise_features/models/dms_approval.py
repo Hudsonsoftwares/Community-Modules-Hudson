@@ -15,6 +15,15 @@ class DMSFileApproval(models.Model):
         required=True,
         ondelete="cascade",
     )
+    company_id = fields.Many2one(
+        comodel_name="res.company",
+        string="Company",
+        related="file_id.company_id",
+        store=True,
+        readonly=True,
+        index=True,
+    )
+
     revision_id = fields.Many2one(
         comodel_name="dms.file.revision",
         string="Revision",
@@ -63,8 +72,8 @@ class DMSFileApproval(models.Model):
         for record in self:
             if record.approver_id.id != current_uid:
                 raise UserError(_("Only the assigned approver (%s) can approve this step.") % record.approver_id.name)
-            record.file_id.action_approve_step(approver_user=record.approver_id)
-        return True
+            result = record.file_id.action_approve_step(approver_user=record.approver_id)
+        return result if len(self) == 1 else True
 
     def action_open_reject_wizard(self):
         self.ensure_one()

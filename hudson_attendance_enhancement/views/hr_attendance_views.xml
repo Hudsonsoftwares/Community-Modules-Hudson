@@ -67,7 +67,7 @@
                 <button name="action_view_location_logs" 
                         type="object" 
                         class="oe_stat_button" 
-                        icon="fa-map-marker"
+                        icon="location_on"
                         invisible="not is_wfh_employee"
                         groups="hr_attendance.group_hr_attendance_officer">
                     <field name="location_log_count" widget="statinfo" string="Location Pings"/>
@@ -119,12 +119,12 @@
                                         type="object" 
                                         string="Fetch from Private Address" 
                                         class="btn btn-sm btn-outline-success" 
-                                        icon="fa-address-card"/>
+                                        icon="badge"/>
                                 <button name="action_set_home_from_last_location" 
                                         type="object" 
                                         string="Set from Last GPS Ping" 
                                         class="btn btn-sm btn-outline-primary" 
-                                        icon="fa-crosshairs"/>
+                                        icon="my_location"/>
                             </div>
                         </group>
                         <group string="Real-Time Telemetry &amp; Distance">

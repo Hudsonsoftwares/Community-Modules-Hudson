@@ -6,6 +6,25 @@ import {Attachment} from "@mail/core/common/attachment_model";
 import {patch} from "@web/core/utils/patch";
 
 patch(Attachment.prototype, {
+    /**
+     * DMS previews insert a pseudo ir.attachment whose id is actually a
+     * dms.file id. Mail would then try to generate/store a thumbnail on the
+     * ir.attachment with that id (an unrelated record), which raises
+     * "Only PDF and videos files can have thumbnail." DMS files handle their
+     * own thumbnails (kanban canvas / image_1920), so skip it here.
+     */
+    async setThumbnail() {
+        if (this.model_name === "dms.file") {
+            return;
+        }
+        return super.setThumbnail(...arguments);
+    },
+    get thumbnailUrl() {
+        if (this.model_name === "dms.file") {
+            return `/web/image/dms.file/${this.id}/image_128`;
+        }
+        return super.thumbnailUrl;
+    },
     _handleImage() {
         if (this.model_name && this.model_name === "dms.file") {
             return `/web/content?id=${this.id}&field=content&model=dms.file&filename_field=name&download=false`;

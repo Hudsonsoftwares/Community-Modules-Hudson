@@ -50,6 +50,8 @@ class IrAttachment(models.Model):
             if (
                 not attachment.res_model
                 or not attachment.res_id
+                # Binary-field storage (avatars, etc.) is not a document
+                or attachment.res_field
                 or (
                     attachment.res_model
                     and not self._dms_operations_from_model(attachment.res_model)

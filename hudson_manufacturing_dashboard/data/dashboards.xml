@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- Manufacturing Dashboard -->
+    <record id="spreadsheet_dashboard_manufacturing" model="spreadsheet.dashboard">
+        <field name="name">Manufacturing</field>
+        <field name="spreadsheet_binary_data" type="bytes" file="hudson_manufacturing_dashboard/data/files/manufacturing_dashboard.json"/>
+        <field name="main_data_model_ids" eval="[Command.set([ref('mrp.model_mrp_production')])]"/>
+        <field name="dashboard_group_id" ref="spreadsheet_dashboard.spreadsheet_dashboard_group_logistics"/>
+        <field name="group_ids" eval="[Command.set([ref('mrp.group_mrp_manager')])]"/>
+        <field name="sequence">200</field>
+        <field name="is_published">True</field>
+    </record>
+
+</odoo>
+

@@ -30,7 +30,7 @@
                 <header>
                     <button name="action_close_financial_year" string="Close Financial Year" type="object" class="btn-warning" invisible="is_closed" confirm="Are you sure you want to close this Financial Year? Once closed, tax slabs and surcharge rates will be locked against structural modifications."/>
                     <button name="action_unclose_financial_year" string="Reopen Financial Year" type="object" class="btn-secondary" invisible="not is_closed" confirm="Reopening a closed Financial Year allows administrative modifications. Proceed with caution."/>
-                    <button name="%(action_tds_financial_year_wizard)d" string="Run Roll-Over Wizard for Next FY" type="action" class="btn-primary" icon="fa-forward"/>
+                    <button name="%(action_tds_financial_year_wizard)d" string="Run Roll-Over Wizard for Next FY" type="action" class="btn-primary" icon="fast_forward"/>
                 </header>
                 <sheet>
                     <widget name="web_ribbon" title="Archived" bg_color="text-bg-danger" invisible="active"/>

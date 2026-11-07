@@ -74,17 +74,15 @@
     <!-- Portal Field Service Order Form -->
     <template id="portal_my_field_service_order" name="Field Service Order" inherit_id="portal.portal_sidebar" primary="True">
         <xpath expr="//div[hasclass('o_portal_sidebar')]" position="inside">
-            <t t-set="o_portal_fullwidth_alert" groups="field_service.group_field_service_user">
+            <t t-set="o_portal_fullwidth_alert" groups="hudson_field_service.group_field_service_user">
                 <t t-call="portal.portal_back_in_edit_mode">
-                    <t t-set="backend_url" t-value="'/web#model=field.service.order&amp;id=' + str(order.id) + '&amp;view_type=form'"/>
+                    <t t-set="backend_url" t-value="('/odoo/fs.planning.slot/%s' % order.planning_slot_ids[:1].id) if order.planning_slot_ids else ('/odoo/field.service.order/%s' % order.id)"/>
                 </t>
             </t>
 
-            <div class="row mt16 o_portal_sale_sidebar">
+            <div class="row mt16 o_portal_fs_sidebar">
                 <!-- Sidebar -->
-                <t t-call="portal.portal_record_sidebar">
-                    <t t-set="classes" t-value="'col-lg-auto d-print-none'"/>
-
+                <!-- Odoo 20: the sidebar's values are passed to the t-call as attributes -->
                     <t t-set="title">
                         <h2 class="mb-0"><b><span t-field="order.name"/></b></h2>
                     </t>
@@ -92,8 +90,8 @@
                     <t t-set="entries">
                         <div class="d-flex flex-column gap-4">
                             <div class="d-flex flex-column gap-1">
-                                <div t-if="not order.customer_signature and not is_technician">
-                                    <a role="button" class="btn btn-primary w-100" t-att-href="order.get_portal_url() + '?sign=true'">
+                                <div t-if="not order.customer_signature and can_sign">
+                                    <a role="button" class="btn btn-primary w-100" t-att-href="order.get_portal_url(query_string='sign=true', anchor='signature')">
                                         <i class="fa fa-check"/> Sign Report
                                     </a>
                                 </div>
@@ -161,7 +159,7 @@
                             </div>
                         </div>
                     </t>
-                </t>
+                <t t-call="portal.portal_record_sidebar" classes.f="col-lg-auto d-print-none" title="title" entries="entries"/>
 
                 <!-- Page content -->
                 <div id="field_service_content" class="col-12 col-lg justify-content-end">
@@ -264,7 +262,8 @@
                             </div>
 
                             <!-- Signature Section -->
-                            <div t-if="not is_technician">
+                            <!-- Only the customer signs: internal users (technicians...) never get the signature form -->
+                            <div t-if="can_sign or order.customer_signature">
                                 <div t-if="not order.customer_signature" id="signature" class="mt-4">
                                     <t t-call="portal.signature_form">
                                         <t t-set="call_url" t-value="order.get_portal_url(suffix='/accept')"/>
@@ -326,10 +325,7 @@
 
                              <!-- Communication History -->
                              <div class="mt-5">
-                                 <h3>Communication history</h3>
-                                 <t t-call="portal.message_thread">
-                                     <t t-set="object" t-value="order"/>
-                                 </t>
+                                 <t t-call="portal.message_thread"/>
                              </div>
                         </div>
                     </div>

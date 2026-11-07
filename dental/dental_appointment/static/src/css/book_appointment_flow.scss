@@ -1,0 +1,446 @@
+/* Dental Appointment Modern Guided Booking Flow SCSS */
+
+.o_action.o_dental_booking_flow_wrapper,
+.o_dental_booking_flow_wrapper {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    height: 100% !important;
+    width: 100% !important;
+    max-height: 100% !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    background-color: #f8fafc;
+    padding: 24px 20px 120px 20px;
+    -webkit-overflow-scrolling: touch;
+    box-sizing: border-box;
+
+    /* Custom elegant visible scrollbar */
+    &::-webkit-scrollbar {
+        width: 10px;
+    }
+    &::-webkit-scrollbar-track {
+        background: #f1f5f9;
+        border-radius: 6px;
+    }
+    &::-webkit-scrollbar-thumb {
+        background: #94a3b8;
+        border-radius: 6px;
+        border: 2px solid #f1f5f9;
+        &:hover {
+            background: #64748b;
+        }
+    }
+
+    .flow-main-container {
+        max-width: 860px;
+        margin: 0 auto;
+        background: #ffffff;
+        border-radius: 18px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05), 0 1px 3px rgba(0, 0, 0, 0.03);
+        border: 1px solid #e2e8f0;
+        padding: 36px 32px 50px 32px;
+        position: relative;
+    }
+
+    /* Stepper Header */
+    .flow-stepper-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 1px solid #f1f5f9;
+        padding-bottom: 24px;
+        margin-bottom: 30px;
+
+        .stepper-progress {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+
+            .step-dot {
+                width: 32px;
+                height: 32px;
+                border-radius: 50%;
+                background: #f1f5f9;
+                color: #64748b;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 0.85rem;
+                font-weight: 700;
+                transition: all 0.25s ease;
+
+                &.active {
+                    background: #0284c7;
+                    color: #ffffff;
+                    box-shadow: 0 0 0 4px rgba(2, 132, 199, 0.18);
+                }
+
+                &.completed {
+                    background: #e0f2fe;
+                    color: #0284c7;
+                }
+            }
+
+            .step-line {
+                width: 24px;
+                height: 2px;
+                background: #e2e8f0;
+                border-radius: 2px;
+
+                &.active {
+                    background: #0284c7;
+                }
+            }
+        }
+    }
+
+    /* Step Titles */
+    .flow-title {
+        font-size: 1.75rem;
+        font-weight: 800;
+        color: #1e293b;
+        margin-bottom: 6px;
+    }
+
+    .flow-subtitle {
+        font-size: 0.95rem;
+        color: #64748b;
+        margin-bottom: 24px;
+    }
+
+    /* Step 1 Styles */
+    .choice-card-btn {
+        background: #ffffff;
+        border: 2px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 22px 18px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        height: 100%;
+
+        .choice-icon {
+            font-size: 2rem;
+            color: #0284c7;
+            margin-bottom: 10px;
+        }
+
+        .choice-label {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: #1e293b;
+        }
+
+        .choice-desc {
+            font-size: 0.85rem;
+            color: #64748b;
+            margin-top: 4px;
+        }
+
+        &:hover, &.selected {
+            border-color: #0284c7;
+            background: #f0f9ff;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(2, 132, 199, 0.12);
+        }
+    }
+
+    .returning-patient-box {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 20px;
+        margin-top: 20px;
+    }
+
+    .patient-preview-card {
+        background: #ffffff;
+        border: 1.5px solid #38bdf8;
+        border-radius: 10px;
+        padding: 16px;
+        margin-top: 15px;
+    }
+
+    /* Step 2 Appointment Types */
+    .type-grid-card {
+        background: #ffffff;
+        border: 1.5px solid #e2e8f0;
+        border-radius: 14px;
+        padding: 22px 18px;
+        cursor: pointer;
+        transition: all 0.22s ease;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+
+        &:hover {
+            border-color: #0284c7;
+            box-shadow: 0 8px 20px rgba(2, 132, 199, 0.14);
+            transform: translateY(-3px);
+        }
+
+        &.selected {
+            border-color: #0284c7;
+            background-color: #f0f9ff;
+            box-shadow: 0 0 0 2.5px #0284c7, 0 8px 20px rgba(2, 132, 199, 0.12);
+        }
+
+        .type-icon {
+            width: 50px;
+            height: 50px;
+            border-radius: 12px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 14px;
+            transition: all 0.2s ease;
+
+            svg {
+                width: 30px;
+                height: 30px;
+                display: block;
+            }
+
+            i {
+                font-size: 24px;
+            }
+
+            &.emergency {
+                background: #fef2f2;
+                border: 1px solid #fee2e2;
+            }
+            &.adult {
+                background: #f0f9ff;
+                border: 1px solid #e0f2fe;
+            }
+            &.child {
+                background: #fffbeb;
+                border: 1px solid #fef3c7;
+            }
+            &.cleaning {
+                background: #ecfdf5;
+                border: 1px solid #d1fae5;
+            }
+            &.cosmetic {
+                background: #f5f3ff;
+                border: 1px solid #ede9fe;
+            }
+            &.rootcanal {
+                background: #fff7ed;
+                border: 1px solid #ffedd5;
+            }
+            &.regular {
+                background: #f0f9ff;
+                border: 1px solid #e0f2fe;
+            }
+        }
+
+        .type-name {
+            font-size: 1.08rem;
+            font-weight: 700;
+            color: #0f172a;
+            margin-bottom: 6px;
+        }
+
+        .type-duration-badge {
+            display: inline-block;
+            background: #f1f5f9;
+            color: #475569;
+            font-size: 0.8rem;
+            font-weight: 600;
+            padding: 4px 10px;
+            border-radius: 6px;
+            margin-top: 8px;
+        }
+    }
+
+    /* Step 3 Doctor Selection */
+    .doctor-choice-card {
+        background: #ffffff;
+        border: 1.5px solid #e2e8f0;
+        border-radius: 14px;
+        padding: 24px 18px;
+        cursor: pointer;
+        transition: all 0.22s ease;
+        text-align: center;
+        height: 100%;
+
+        &:hover, &.selected {
+            border-color: #0284c7;
+            background: #f0f9ff;
+            box-shadow: 0 8px 20px rgba(2, 132, 199, 0.12);
+            transform: translateY(-2px);
+        }
+
+        .doctor-avatar-circle {
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            background: #e0f2fe;
+            color: #0284c7;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin-bottom: 14px;
+        }
+
+        .doctor-name {
+            font-size: 1.08rem;
+            font-weight: 700;
+            color: #0f172a;
+            margin-bottom: 4px;
+        }
+
+        .doctor-spec {
+            font-size: 0.85rem;
+            color: #64748b;
+        }
+    }
+
+    /* Step 4 Slots & Calendar */
+    .slots-section-title {
+        font-size: 0.9rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: #64748b;
+        margin-bottom: 12px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .slot-bubble-btn {
+        padding: 10px 16px;
+        border-radius: 8px;
+        border: 1.5px solid #cbd5e1;
+        background: #ffffff;
+        color: #334155;
+        font-size: 0.9rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.15s ease;
+
+        &:hover:not(:disabled) {
+            border-color: #0284c7;
+            color: #0284c7;
+            background: #f0f9ff;
+        }
+
+        &.selected {
+            background: #0284c7 !important;
+            border-color: #0284c7 !important;
+            color: #ffffff !important;
+            box-shadow: 0 4px 10px rgba(2, 132, 199, 0.25);
+        }
+
+        &:disabled {
+            background: #f1f5f9;
+            color: #94a3b8;
+            border-color: #e2e8f0;
+            cursor: not-allowed;
+            text-decoration: line-through;
+        }
+    }
+
+    /* Selected Summary Banner */
+    .summary-pills-bar {
+        background: #f0fdf4;
+        border: 1px solid #bbf7d0;
+        border-radius: 10px;
+        padding: 12px 18px;
+        margin-bottom: 24px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+        align-items: center;
+        font-size: 0.9rem;
+
+        .summary-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            color: #166534;
+            font-weight: 600;
+        }
+    }
+
+    /* Footer Buttons */
+    .flow-footer-nav {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 36px;
+        padding-top: 20px;
+        border-top: 1px solid #f1f5f9;
+
+        .btn-prev {
+            color: #64748b;
+            font-weight: 600;
+            padding: 11px 22px;
+            border-radius: 8px;
+            border: 1px solid #cbd5e1;
+            background: #ffffff;
+            cursor: pointer;
+
+            &:hover {
+                background: #f8fafc;
+                color: #334155;
+            }
+        }
+
+        .btn-next {
+            background: #0284c7;
+            color: #ffffff;
+            font-weight: 700;
+            padding: 12px 30px;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(2, 132, 199, 0.25);
+            transition: all 0.2s ease;
+
+            &:hover:not(:disabled) {
+                background: #0369a1;
+            }
+
+            &:disabled {
+                opacity: 0.6;
+                cursor: not-allowed;
+            }
+        }
+    }
+
+    /* Success Screen */
+    .success-badge-circle {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        background: #dcfce7;
+        color: #16a34a;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2.5rem;
+        margin-bottom: 20px;
+    }
+
+    .success-card-info {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 24px;
+        margin: 24px auto;
+        max-width: 540px;
+        text-align: left;
+    }
+}

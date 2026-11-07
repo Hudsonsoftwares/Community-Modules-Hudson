@@ -23,7 +23,7 @@ class SaleSubscriptionRenewWizard(models.TransientModel):
     def _onchange_subscription_id(self):
         if self.subscription_id:
             self.plan_id = self.subscription_id.plan_id
-            self.start_date = self.subscription_id.end_date or fields.Date.context_today(self)
+            self.start_date = self.subscription_id._get_renewal_start_date()
             if self.plan_id:
                 self.end_date = self.plan_id.get_next_date(self.start_date)
 

@@ -1,6 +1,6 @@
 import time
 
-from odoo import api, models, _
+from odoo import api, fields, models, _
 from odoo.exceptions import UserError
 from odoo.fields import Domain
 
@@ -43,18 +43,36 @@ class ReportBankReconciliation(models.AbstractModel):
 
     @api.model
     def _uncleared(self, accounts, form, journal=None):
-        """ The items sitting on an account that have not been matched off yet.
+        """ The items sitting on an account that had not been matched off yet at the close of the date.
 
-        Read from ``amount_residual`` rather than ``balance``: a part-cleared item has
-        to count for what is left of it, not for what it started as.
+        The report is drawn up "as at" its date: a cheque issued in March and cleared by the bank in April
+        is still outstanding on the report of the 31st of March. An item counts for what was left of it
+        at that date, i.e. its balance less the matchings dated up to then (the date of a matching being
+        the later of the dates of both items).
+
+        :return: (total, items, {item id: amount left at the date})
         """
+        AccountMoveLine = self.env['account.move.line']
         if not accounts:
-            return 0.0, self.env['account.move.line']
-        lines = self.env['account.move.line'].search(
-            self._line_domain(accounts, form, journal=journal) & Domain('reconciled', '=', False),
+            return 0.0, AccountMoveLine, {}
+        date = form['date']
+        lines = AccountMoveLine.search(
+            self._line_domain(accounts, form, journal=journal) & (
+                Domain('reconciled', '=', False)
+                | Domain('matched_debit_ids.max_date', '>', date)
+                | Domain('matched_credit_ids.max_date', '>', date)
+            ),
             order='date, id')
-        lines = lines.filtered(lambda line: not line.company_currency_id.is_zero(line.amount_residual))
-        return sum(lines.mapped('amount_residual')), lines
+        date = fields.Date.to_date(date)
+        residuals = {}
+        for line in lines:
+            matched = sum(partial.amount for partial in line.matched_credit_ids if partial.max_date <= date) \
+                - sum(partial.amount for partial in line.matched_debit_ids if partial.max_date <= date)
+            residual = line.company_currency_id.round(line.balance - matched)
+            if not line.company_currency_id.is_zero(residual):
+                residuals[line.id] = residual
+        lines = lines.filtered(lambda line: line.id in residuals)
+        return sum(residuals.values()), lines, residuals
 
     # ------------------------------------------------------------------
     # a journal
@@ -75,8 +93,8 @@ class ReportBankReconciliation(models.AbstractModel):
         # balance or a correction posted from a miscellaneous journal still belongs to
         # the bank balance
         ledger = self._balance(journal.default_account_id, form)
-        receipts, receipt_lines = self._uncleared(inbound, form, journal=journal)
-        payments, payment_lines = self._uncleared(outbound, form, journal=journal)
+        receipts, receipt_lines, receipt_residuals = self._uncleared(inbound, form, journal=journal)
+        payments, payment_lines, payment_residuals = self._uncleared(outbound, form, journal=journal)
         # the suspense account holds the bank's own items that nothing has been matched
         # to yet; it is not reconcilable in every chart, so its plain balance is used
         unmatched = self._balance(journal.suspense_account_id, form, journal=journal)
@@ -110,6 +128,7 @@ class ReportBankReconciliation(models.AbstractModel):
             'book_balance': ledger + receipts + payments,
             'receipt_lines': receipt_lines,
             'payment_lines': payment_lines,
+            'residuals': {**receipt_residuals, **payment_residuals},
             'unmatched_lines': unmatched_lines,
         }
 

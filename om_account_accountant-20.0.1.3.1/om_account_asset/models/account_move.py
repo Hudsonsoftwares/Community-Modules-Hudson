@@ -46,17 +46,20 @@ class AccountMove(models.Model):
                 asset.sudo().message_post(body=_("Vendor bill cancelled."))
         return res
 
-    def action_post(self):
+    def _post(self, soft=True):
+        # Every posting path goes through _post (form button, list action, auto-post job, imports...),
+        # so the assets of the bills are created here and not in action_post.
         for bill in self.filtered(lambda m: m.move_type == 'in_invoice'):
             bill.invoice_line_ids.filtered(lambda line: not line.asset_category_id)._set_bill_asset_category()
-        result = super().action_post()
+        posted = super()._post(soft=soft)
         context = dict(self.env.context)
         context.pop('default_type', None)
         # credit notes keep the category of the reversed lines but do not create assets
-        for inv in self.filtered(lambda m: m.move_type in ('in_invoice', 'out_invoice')):
-            for mv_line in inv.invoice_line_ids:
-                mv_line.with_context(context).asset_create()
-        return result
+        for inv in posted.filtered(lambda m: m.move_type in ('in_invoice', 'out_invoice') and m.state == 'posted'):
+            if inv.asset_ids.filtered(lambda a: a.state != 'cancelled'):
+                continue  # already created
+            inv.invoice_line_ids.with_context(context).asset_create()
+        return posted
 
 
 class AccountMoveLine(models.Model):
@@ -157,8 +160,8 @@ class AccountMoveLine(models.Model):
             assets = self.env['account.asset.asset'].sudo().create(line._prepare_asset_vals())
             if line.asset_category_id.open_asset:
                 for asset in assets:
-                    if asset.date_first_depreciation == 'manual':
-                        asset.first_depreciation_manual_date = asset.date
+                    if asset.date_first_depreciation == 'manual' and not asset.first_depreciation_manual_date:
+                        asset.first_depreciation_manual_date = asset._get_default_first_depreciation_date()
                 assets.validate()
         return True
 

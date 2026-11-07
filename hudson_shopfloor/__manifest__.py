@@ -22,6 +22,7 @@
             'hudson_shopfloor/static/src/components/**/*.css',
         ],
     },
+    'uninstall_hook': 'uninstall_hook',
     'installable': True,
     'application': True,
     'license': 'LGPL-3',

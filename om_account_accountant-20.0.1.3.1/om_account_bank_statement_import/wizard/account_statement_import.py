@@ -149,22 +149,52 @@ class AccountStatementImport(models.TransientModel):
             return self.env['account.bank.statement'], 0
 
         values = [self._statement_line_values(transaction, journal, statement) for transaction in transactions]
+        # A bank may give the same identifier to two transactions of one file: both are imported (the closing
+        # balance of the file counts both), the next ones under the identifier numbered by their occurrence,
+        # which stays the same when the file is imported again.
+        seen = {}
+        for line in values:
+            import_id = line['unique_import_id']
+            if not import_id:
+                continue
+            seen[import_id] = seen.get(import_id, 0) + 1
+            if seen[import_id] > 1:
+                line['unique_import_id'] = f'{import_id}-{seen[import_id]}'
+        # a parser whose identifiers changed also gives the former one of each transaction, so that the files
+        # imported before are still recognised
+        legacy_ids = [
+            f"{journal.id}-{transaction['legacy_unique_import_id']}"
+            if transaction.get('legacy_unique_import_id') else None
+            for transaction in transactions
+        ]
         import_ids = [line['unique_import_id'] for line in values if line['unique_import_id']]
+        import_ids += [legacy_id for legacy_id in legacy_ids if legacy_id]
         already_imported = set(self.env['account.bank.statement.line'].sudo().search_fetch(
             [('unique_import_id', 'in', import_ids)], ['unique_import_id'],
         ).mapped('unique_import_id')) if import_ids else set()
-        new_values = [line for line in values
-                      if not line['unique_import_id'] or line['unique_import_id'] not in already_imported]
-        skipped = len(values) - len(new_values)
+        new_values, skipped_values = [], []
+        for line, legacy_id in zip(values, legacy_ids):
+            if (line['unique_import_id'] and line['unique_import_id'] in already_imported) \
+                    or (legacy_id and legacy_id in already_imported):
+                skipped_values.append(line)
+            else:
+                new_values.append(line)
+        skipped = len(skipped_values)
         if not new_values:
             return self.env['account.bank.statement'], skipped
 
+        balance_start = statement.get('balance_start')
+        if balance_start is not None and skipped_values:
+            # As in Odoo: the transactions already imported are already in the balance of the journal, the
+            # statement of the new ones starts after them and still ends on the closing balance of the file.
+            currency = journal.currency_id or journal.company_id.currency_id
+            balance_start = currency.round(balance_start + sum(line['amount'] for line in skipped_values))
         created = self.env['account.bank.statement'].create({
             'name': statement.get('name') or filename,
             'reference': filename,
             'line_ids': [(0, 0, line) for line in new_values],
             **({'date': statement['date']} if statement.get('date') else {}),
-            **({'balance_start': statement['balance_start']} if statement.get('balance_start') is not None else {}),
+            **({'balance_start': balance_start} if balance_start is not None else {}),
             **({'balance_end_real': statement['balance_end_real']}
                if statement.get('balance_end_real') is not None else {}),
         })

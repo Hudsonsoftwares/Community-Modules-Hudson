@@ -140,14 +140,33 @@ class IrAttachment(models.Model):
             self.with_context(dms_enterprise_routing=True)._route_to_dms_folders()
         return res
 
+    @api.model
+    def _dms_is_routable(self, attachment):
+        """Same filter Odoo Documents applies before turning an attachment
+        into a document: only real files attached to a business record.
+
+        Excluded:
+        * binary-field storage (``res_field`` set): avatars and their
+          image_1920/1024/512/256/128 resizes, generated letter-avatar SVGs,
+          signatures, report caches... These are field values, not documents.
+        * unlinked or ``res_id = 0`` attachments (chatter uploads before the
+          message is posted, wizard temp files).
+        * DMS's own records, and anything created with ``no_document`` in
+          context (Odoo's opt-out flag).
+        """
+        return bool(
+            attachment.res_model
+            and attachment.res_id
+            and not attachment.res_field
+            and attachment.res_model not in ("dms.file", "dms.directory")
+            and not self.env.context.get("no_document")
+        )
+
     def _route_to_dms_folders(self):
         """For each attachment, find a matching dms.folder.rule and route it."""
         FolderRule = self.env["dms.folder.rule"].sudo()
         for attachment in self:
-            if not attachment.res_model or not attachment.res_id:
-                continue
-            # Avoid routing files belonging directly to dms.file or dms.directory
-            if attachment.res_model in ("dms.file", "dms.directory"):
+            if not self._dms_is_routable(attachment):
                 continue
 
             record = None

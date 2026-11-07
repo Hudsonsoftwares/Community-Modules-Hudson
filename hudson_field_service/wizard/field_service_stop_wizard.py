@@ -55,7 +55,8 @@ class FieldServiceStopWizard(models.TransientModel):
         
         active_timer.unlink()
 
-        remaining_timers = self.env['field.service.active.timer'].search_count([('order_id', '=', order.id)])
+        # sudo: the timers of the other technicians are private to them
+        remaining_timers = self.env['field.service.active.timer'].sudo().search_count([('order_id', '=', order.id)])
         
         if remaining_timers == 0:
             order.write({

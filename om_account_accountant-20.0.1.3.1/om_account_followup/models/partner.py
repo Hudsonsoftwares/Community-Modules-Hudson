@@ -139,7 +139,9 @@ class ResPartner(models.Model):
             amount_due = amount_overdue = 0.0
             for line in lines_by_partner[partner.id]:
                 amount_due += line.amount_residual
-                if line._followup_due_date() <= date:
+                # like Odoo, the overdue amount is what the customer owes past the due date: the unapplied
+                # payments and credit notes lower the amount due, not the overdue one
+                if line.amount_residual > 0 and line._followup_due_date() <= date:
                     amount_overdue += line.amount_residual
                 if line.amount_residual <= 0:
                     continue
@@ -268,9 +270,10 @@ class ResPartner(models.Model):
                 date_maturity = aml.date_maturity or aml.date
                 if not worst_due_date or date_maturity < worst_due_date:
                     worst_due_date = date_maturity
-                amount_due += aml.result
-                if date_maturity <= current_date:
-                    amount_overdue += aml.result
+                amount_due += aml.amount_residual
+                # the unapplied payments and credit notes lower the amount due, not the overdue amount
+                if aml.amount_residual > 0 and date_maturity <= current_date:
+                    amount_overdue += aml.amount_residual
             partner.payment_amount_due = amount_due
             partner.payment_amount_overdue = amount_overdue
             partner.payment_earliest_due_date = worst_due_date
@@ -306,7 +309,7 @@ class ResPartner(models.Model):
                     p.id as pid
                 FROM (
                     SELECT
-                        (l.debit - l.credit) AS bal,
+                        l.amount_residual AS bal,
                         l.partner_id
                     FROM account_move_line l
                     LEFT JOIN account_account a ON a.id = l.account_id
@@ -321,7 +324,8 @@ class ResPartner(models.Model):
             ) AS pl
             GROUP BY pid HAVING %s
         """,
-            (SQL("AND COALESCE(l.date_maturity, l.date) <= %s", fields.Date.context_today(self))
+            (SQL("AND COALESCE(l.date_maturity, l.date) <= %s AND l.amount_residual > 0",
+                 fields.Date.context_today(self))
              if overdue_only else SQL()),
             self.env.company.id,
             having,
@@ -414,8 +418,9 @@ class ResPartner(models.Model):
                 'currency': currency,
                 'lines': items,
                 'total': sum(item['residual'] for item in items),
+                # what is owed past the due date: the unapplied payments are not netted into it
                 'total_overdue': sum(item['residual'] for item in items
-                                     if item['overdue'] and not item['disputed']),
+                                     if item['overdue'] and not item['disputed'] and item['residual'] > 0),
                 'ageing': self._followup_ageing(items),
             })
         return result
@@ -558,12 +563,27 @@ class ResPartner(models.Model):
         )
         return True
 
+    def _followup_activities(self):
+        """ The follow-up activities of the partners in the current company """
+        activity_type = self.env.ref('om_account_followup.mail_activity_type_followup')
+        company = self.env.company
+        return self.activity_ids.filtered(
+            lambda activity: activity.activity_type_id == activity_type
+            and activity.followup_company_id in (company, activity.followup_company_id.browse()))
+
+    def _followup_activity_schedule(self, **values):
+        """ Schedule a follow-up activity, linked to the current company """
+        return self.activity_schedule(
+            'om_account_followup.mail_activity_type_followup',
+            followup_company_id=self.env.company.id,
+            **values,
+        )
+
     def _followup_schedule_action(self, level):
         """ The manual action of a level becomes an activity of the responsible """
         self.ensure_one()
         user = self.payment_responsible_id or level.manual_action_responsible_id or self.env.user
-        activity_type = self.env.ref('om_account_followup.mail_activity_type_followup')
-        existing = self.activity_ids.filtered(lambda activity: activity.activity_type_id == activity_type)
+        existing = self._followup_activities()
         note = level.manual_action_note or level.name
         if existing:
             existing[:1].write({
@@ -572,8 +592,7 @@ class ResPartner(models.Model):
                 'user_id': user.id,
             })
             return existing[:1]
-        return self.activity_schedule(
-            'om_account_followup.mail_activity_type_followup',
+        return self._followup_activity_schedule(
             date_deadline=fields.Date.context_today(self),
             summary=level.name,
             note=note,
@@ -613,8 +632,7 @@ class ResPartner(models.Model):
                     result['emails'] += 1
                 else:
                     result['unknown_emails'] |= partner
-                    partner.activity_schedule(
-                        'om_account_followup.mail_activity_type_followup',
+                    partner._followup_activity_schedule(
                         date_deadline=date,
                         summary=_('Reminder not sent'),
                         note=_('The reminder could not be emailed: the customer has no email address.'),
@@ -632,9 +650,10 @@ class ResPartner(models.Model):
     # Legacy entry points, used by the batch processing
     # -------------------------------------------------------------------------
 
-    def do_partner_manual_action(self, partner_ids):
+    def do_partner_manual_action(self, partner_ids, level=None):
+        """ :param level: the level reached by the run, by default the highest level of the open items """
         for partner in self.browse(partner_ids):
-            level = partner.latest_followup_level_id
+            level = level or partner.latest_followup_level_id
             if level:
                 partner._followup_schedule_action(level)
 
@@ -645,15 +664,15 @@ class ResPartner(models.Model):
         partners = self.env['followup.stat.by.partner'].browse(wizard_partner_ids).partner_id
         return partners._followup_statement_action()
 
-    def do_partner_mail(self):
+    def do_partner_mail(self, level=None):
+        """ :param level: the level reached by the run, by default the highest level of the open items """
         unknown_mails = 0
         for partner in self:
-            level = partner.latest_followup_level_id
+            level = level or partner.latest_followup_level_id
             template = level.email_template_id if level and level.send_email else None
             if not partner._followup_send_email(template):
                 unknown_mails += 1
-                partner.activity_schedule(
-                    'om_account_followup.mail_activity_type_followup',
+                partner._followup_activity_schedule(
                     date_deadline=fields.Date.context_today(self),
                     summary=_('Reminder not sent'),
                     note=_('The reminder could not be emailed: the customer has no email address.'),

@@ -23,6 +23,16 @@ _AREA_MODELS = {
 class ResConfigSettings(models.TransientModel):
     _inherit = "res.config.settings"
 
+    # ── Forbidden File Extensions ─────────────────────────────────────────────
+    documents_forbidden_extension_ids = fields.Many2many(
+        comodel_name="dms.file.extension",
+        relation="res_config_settings_dms_forbidden_extension_rel",
+        column1="setting_id",
+        column2="extension_id",
+        string="Forbidden Extensions",
+        help="Select document file extensions to forbid from being uploaded in Document Controller.",
+    )
+
     # ── Trash Management ──────────────────────────────────────────────────────
     documents_trash_delay = fields.Integer(
         string="Deletion Delay (days)",
@@ -203,22 +213,30 @@ class ResConfigSettings(models.TransientModel):
 
     # ── Helpers: folder id stored as ir.config_parameter ─────────────────────
     def _get_folder_from_param(self, param_key):
-        param = self.env["ir.config_parameter"].sudo().get_param(param_key)
-        return self.env["dms.directory"].browse(int(param)) if param else False
+        cid = self.env.company.id
+        param = self.env["ir.config_parameter"].sudo().get_param(f"{param_key}_{cid}")
+        if not param:
+            param = self.env["ir.config_parameter"].sudo().get_param(param_key)
+        return self.env["dms.directory"].browse(int(param)) if param and param.isdigit() else False
 
     def _set_folder_to_param(self, param_key, folder_id):
+        cid = self.env.company.id
         self.env["ir.config_parameter"].sudo().set_param(
-            param_key, str(folder_id) if folder_id else ""
+            f"{param_key}_{cid}", str(folder_id) if folder_id else ""
         )
 
     def _get_tags_from_param(self, param_key):
-        param = self.env["ir.config_parameter"].sudo().get_param(param_key, "")
+        cid = self.env.company.id
+        param = self.env["ir.config_parameter"].sudo().get_param(f"{param_key}_{cid}")
+        if not param:
+            param = self.env["ir.config_parameter"].sudo().get_param(param_key, "")
         ids = [int(i) for i in param.split(",") if i.strip().isdigit()]
         return self.env["dms.tag"].browse(ids)
 
     def _set_tags_to_param(self, param_key, tag_ids):
+        cid = self.env.company.id
         self.env["ir.config_parameter"].sudo().set_param(
-            param_key, ",".join(str(i) for i in tag_ids.ids)
+            f"{param_key}_{cid}", ",".join(str(i) for i in tag_ids.ids)
         )
 
     # ── Compute / Inverse for each folder field ───────────────────────────────
@@ -443,16 +461,20 @@ class ResConfigSettings(models.TransientModel):
         if not ir_model:
             return
 
-        # Find existing rule
-        rule = self.env["dms.folder.rule"].sudo().search(
-            [("area", "=", area), ("model_id", "=", ir_model.id)], limit=1
-        )
+        # Find existing rule for this company
+        company = self.env.company
+        rule = self.env["dms.folder.rule"].sudo().search([
+            ("area", "=", area),
+            ("model_id", "=", ir_model.id),
+            ("company_id", "=", company.id),
+        ], limit=1)
         if folder:
             vals = {
-                "name": f"Auto-route {label}",
+                "name": f"Auto-route {label} ({company.name})",
                 "model_id": ir_model.id,
                 "directory_id": folder.id,
                 "area": area,
+                "company_id": company.id,
                 "active": True,
             }
             if rule:
@@ -463,3 +485,51 @@ class ResConfigSettings(models.TransientModel):
             # Folder cleared → deactivate rule
             if rule:
                 rule.write({"active": False})
+
+    @api.model
+    def get_values(self):
+        res = super().get_values()
+        get_param = self.env["ir.config_parameter"].sudo().get_param
+        forbidden_str = get_param("dms.forbidden_extensions", default="") or ""
+        ext_names = [e.strip().lower().lstrip(".") for e in forbidden_str.split(",") if e.strip()]
+        if ext_names:
+            ext_records = self.env["dms.file.extension"].sudo().search([("name", "in", ext_names)])
+            existing_names = set(ext_records.mapped("name"))
+            new_records = self.env["dms.file.extension"]
+            for name in ext_names:
+                if name not in existing_names:
+                    new_records |= self.env["dms.file.extension"].sudo().create({
+                        "name": name,
+                        "description": f"{name.upper()} File",
+                        "category": "document",
+                    })
+                    existing_names.add(name)
+            all_records = ext_records | new_records
+            res["documents_forbidden_extension_ids"] = [(6, 0, all_records.ids)]
+        else:
+            res["documents_forbidden_extension_ids"] = [(6, 0, [])]
+        return res
+
+    def set_values(self):
+        hr_was_enabled = self.env["ir.config_parameter"].sudo().get_param(
+            "dms_enterprise.hr_enabled"
+        ) in ("True", "1")
+        names = []
+        seen = set()
+        for record in self:
+            if record.documents_forbidden_extension_ids is not False:
+                for ext in record.documents_forbidden_extension_ids:
+                    if ext.name:
+                        clean = ext.name.strip().lower().lstrip(".")
+                        if clean and clean not in seen:
+                            seen.add(clean)
+                            names.append(clean)
+                record.documents_forbidden_extensions = ",".join(names)
+        super().set_values()
+        self.env["ir.config_parameter"].sudo().set_param(
+            "dms.forbidden_extensions", ",".join(names)
+        )
+        # HR documents just switched on: create folders for existing employees
+        if any(r.documents_hr_enabled for r in self) and not hr_was_enabled:
+            self.env["hr.employee"]._dms_backfill_folders()
+

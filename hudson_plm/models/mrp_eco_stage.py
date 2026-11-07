@@ -13,7 +13,13 @@ class MrpEcoStage(models.Model):
     final_stage = fields.Boolean('Final Stage', default=False, help="Folded in kanban view and implies no more changes can be done.")
     type_ids = fields.Many2many('mrp.eco.type', string='Types', required=True)
     approval_template_ids = fields.One2many('mrp.eco.approval.template', 'stage_id', string='Approvals')
-    
+
+    def _stage_key(self):
+        """ Position of the stage in the workflow, used to tell forward from backward moves. """
+        self.ensure_one()
+        return (self.sequence, self.id)
+
+
 class MrpEcoApprovalTemplate(models.Model):
     _name = 'mrp.eco.approval.template'
     _description = 'ECO Approval Template'

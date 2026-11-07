@@ -11,6 +11,15 @@ class DmsDirectoryPermission(models.Model):
         required=True,
         ondelete="cascade",
     )
+    company_id = fields.Many2one(
+        "res.company",
+        string="Company",
+        related="directory_id.company_id",
+        store=True,
+        readonly=True,
+        index=True,
+    )
+
     group_id = fields.Many2one(
         "dms.access.group",
         string="Access Group",
@@ -119,6 +128,24 @@ class DmsDirectoryPermission(models.Model):
             if not record.group_id and not record.partner_id and not record.user_id:
                 raise ValidationError(_("You must select either an Access Group or a Contact/User for this permission rule."))
 
+    @api.constrains('group_id', 'partner_id', 'user_id', 'directory_id')
+    def _check_user_not_in_folder_access_group(self):
+        """A user who is already a member of an access group granted on this
+        folder must not be added again as an individual user line."""
+        for record in self.filtered(lambda r: not r.group_id and (r.user_id or r.partner_id)):
+            users = (record.user_id | record.partner_id.user_ids).sudo()
+            group_lines = record.directory_id.sudo().permission_line_ids.filtered('group_id')
+            for line in group_lines:
+                overlap = users & line.group_id.users
+                if overlap:
+                    raise ValidationError(_(
+                        "%(user)s is already a member of the access group '%(group)s' on this folder. "
+                        "Change that group's permissions, or remove the user from the group, "
+                        "instead of adding them separately.",
+                        user=overlap[0].name,
+                        group=line.group_id.name,
+                    ))
+
     def _normalize_permissions(self, vals):
         sub_perms = ['perm_download', 'perm_upload', 'perm_edit', 'perm_rename', 'perm_move', 'perm_delete', 'perm_share']
         if any(vals.get(p) for p in sub_perms):
@@ -146,6 +173,7 @@ class DmsDirectoryPermission(models.Model):
                     vals['partner_id'] = user.partner_id.id
 
         records = super().create(vals_list)
+        records.filtered('group_id').directory_id._dms_dedupe_permission_lines()
         dms_user_group = self.env.ref('dms.group_dms_user', raise_if_not_found=False)
         portal_group = self.env.ref('base.group_portal', raise_if_not_found=False)
         for record in records:
@@ -168,6 +196,8 @@ class DmsDirectoryPermission(models.Model):
                 vals['partner_id'] = user.partner_id.id
 
         res = super().write(vals)
+        if vals.get('group_id'):
+            self.directory_id._dms_dedupe_permission_lines()
         if 'user_id' in vals or 'partner_id' in vals:
             dms_user_group = self.env.ref('dms.group_dms_user', raise_if_not_found=False)
             portal_group = self.env.ref('base.group_portal', raise_if_not_found=False)

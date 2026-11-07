@@ -25,6 +25,7 @@ class SaleSubscriptionReport(models.Model):
         ('3_progress', 'In Progress'),
         ('4_paused', 'Paused'),
         ('5_renew', 'To Renew'),
+        ('5_renewed', 'Renewed'),
         ('6_churn', 'Churned'),
         ('7_upsell', 'Upsell'),
     ], string='Subscription Status', readonly=True)

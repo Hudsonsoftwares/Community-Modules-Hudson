@@ -126,10 +126,10 @@
                                 </div>
                                 <t t-foreach="this.state.columns" t-as="col" t-key="col.key">
                                     <div class="fs-sched-cell" t-att-class="col.cssClass" t-on-click="() => this.onCellClick(res.id, col)">
-                                        <t t-foreach="this.getSlots(res.id, col)" t-as="slot" t-key="slot.id">
+                                        <t t-foreach="this.getSlots(res.id, col)" t-as="slot" t-key="slot.key">
                                             <div class="fs-sched-slot-card"
-                                                 t-att-class="('bg-color-' + (slot.color % 10)) + (slot.state === 'new' ? ' draft' : '')"
-                                                 t-on-click.stop="() => this.openSlot(slot.id)"
+                                                 t-att-class="slot.is_shift ? 'is-shift' : ('bg-color-' + (slot.color % 10)) + (slot.state === 'new' ? ' draft' : '')"
+                                                 t-on-click.stop="() => this.openSlot(slot)"
                                                  t-att-title="slot.name">
                                                 <div class="fs-sched-slot-title"><t t-out="this.formatTime(slot.date_start) + ' - ' + this.formatTime(slot.date_end)"/></div>
                                                 <div class="fs-sched-slot-sub"><t t-out="slot.role_name"/></div>

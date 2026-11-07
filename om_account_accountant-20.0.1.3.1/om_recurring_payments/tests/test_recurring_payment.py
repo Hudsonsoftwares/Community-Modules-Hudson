@@ -174,7 +174,7 @@ class TestRecurringPayment(AccountTestInvoicingCommon):
         for model in models:
             self.assertFalse(self.env[model].with_user(billing_user).has_access('read'), model)
 
-    def test_deleted_payment_makes_the_line_due_again(self):
+    def test_deleted_payment_is_not_created_again(self):
         self.template.journal_state = 'draft'
         recurring_payment = self._create_recurring_payment(date_end='2026-01-01')
         recurring_payment.action_done()
@@ -183,12 +183,34 @@ class TestRecurringPayment(AccountTestInvoicingCommon):
         self.assertEqual(line.state, 'done')
 
         line.payment_id.unlink()
-        self.assertEqual(line.state, 'draft')
+        self.assertEqual(line.state, 'cancel')
         self.assertFalse(line.payment_id)
 
+        # the next run of the cron does not bring the deleted payment back
+        self.env['recurring.payment'].action_generate_payment()
+        self.assertEqual(line.state, 'cancel')
+        self.assertFalse(line.payment_id)
+
+        # resetting the line makes it due again on purpose
+        line.action_reset()
         self.env['recurring.payment'].action_generate_payment()
         self.assertEqual(line.state, 'done')
         self.assertTrue(line.payment_id)
+
+    def test_dates_keep_the_end_of_the_month(self):
+        recurring_payment = self._create_recurring_payment(date_begin='2026-01-31', date_end='2026-06-30')
+        recurring_payment.action_done()
+        self.assertEqual(recurring_payment.line_ids.sorted('date').mapped('date'), [
+            date(2026, 1, 31), date(2026, 2, 28), date(2026, 3, 31),
+            date(2026, 4, 30), date(2026, 5, 31), date(2026, 6, 30),
+        ])
+
+        self.template.recurring_interval = 2
+        every_two_months = self._create_recurring_payment(date_begin='2026-08-31', date_end='2027-04-30')
+        every_two_months.action_done()
+        self.assertEqual(every_two_months.line_ids.sorted('date').mapped('date'), [
+            date(2026, 8, 31), date(2026, 10, 31), date(2026, 12, 31), date(2027, 2, 28), date(2027, 4, 30),
+        ])
 
     def test_multi_company(self):
         company_2 = self.company_data_2['company']

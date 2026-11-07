@@ -17,13 +17,13 @@
                                 invisible="state != 'draft'"/>
                         <button name="action_check_remote_status" type="object"
                                 string="Check Status"
-                                icon="fa-refresh"
+                                icon="refresh"
                                 class="btn-secondary"
                                 invisible="not remote_id"
                                 title="Pull the latest publish status from the remote Odoo Enterprise server"/>
                         <button name="action_sync_comments" type="object"
                                 string="Sync Comments"
-                                icon="fa-comments"
+                                icon="forum"
                                 class="btn-secondary"
                                 invisible="not remote_id or state != 'posted'"
                                 title="Fetch comments from social media platforms"/>

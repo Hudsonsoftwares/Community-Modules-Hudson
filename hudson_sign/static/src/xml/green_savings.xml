@@ -8,7 +8,7 @@
                     <div class="col-md-4">
                         <div class="card h-100 border-0 shadow-sm d-flex flex-row align-items-center p-3">
                             <div class="gs-icon text-secondary me-3">
-                                <i class="fa fa-leaf fa-3x"></i>
+                                <SignIcon name="'leaf'" size="48" cls="'o_gs_icon'"/>
                             </div>
                             <div>
                                 <h5 class="fw-bold mb-1">Paper Savings</h5>
@@ -21,7 +21,7 @@
                     <div class="col-md-4">
                         <div class="card h-100 border-0 shadow-sm d-flex flex-row align-items-center p-3">
                             <div class="gs-icon text-secondary me-3">
-                                <i class="fa fa-tint fa-3x"></i>
+                                <SignIcon name="'tint'" size="48" cls="'o_gs_icon'"/>
                             </div>
                             <div>
                                 <h5 class="fw-bold mb-1">Water</h5>
@@ -34,7 +34,7 @@
                     <div class="col-md-4">
                         <div class="card h-100 border-0 shadow-sm d-flex flex-row align-items-center p-3">
                             <div class="gs-icon text-secondary me-3">
-                                <i class="fa fa-tree fa-3x"></i>
+                                <SignIcon name="'tree'" size="48" cls="'o_gs_icon'"/>
                             </div>
                             <div>
                                 <h5 class="fw-bold mb-1">Wood</h5>
@@ -47,7 +47,7 @@
                     <div class="col-md-4">
                         <div class="card h-100 border-0 shadow-sm d-flex flex-row align-items-center p-3">
                             <div class="gs-icon text-secondary me-3">
-                                <i class="fa fa-cloud fa-3x"></i>
+                                <SignIcon name="'cloud'" size="48" cls="'o_gs_icon'"/>
                             </div>
                             <div>
                                 <h5 class="fw-bold mb-1">Carbon Emissions</h5>
@@ -60,7 +60,7 @@
                     <div class="col-md-4">
                         <div class="card h-100 border-0 shadow-sm d-flex flex-row align-items-center p-3">
                             <div class="gs-icon text-secondary me-3">
-                                <i class="fa fa-trash fa-3x"></i>
+                                <SignIcon name="'trash'" size="48" cls="'o_gs_icon'"/>
                             </div>
                             <div>
                                 <h5 class="fw-bold mb-1">Waste</h5>
@@ -74,7 +74,7 @@
                     <div class="col-md-4">
                         <div class="card h-100 border-0 shadow-sm d-flex flex-row align-items-center p-3">
                             <div class="gs-icon text-secondary me-3">
-                                <i class="fa fa-bolt fa-3x"></i>
+                                <SignIcon name="'bolt'" size="48" cls="'o_gs_icon'"/>
                             </div>
                             <div>
                                 <h5 class="fw-bold mb-1">Energy</h5>

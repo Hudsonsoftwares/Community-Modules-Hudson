@@ -1,6 +1,8 @@
 # Copyright 2024 Hudson Community
 # License LGPL-3.0 or later (http://www.gnu.org/licenses/lgpl).
 
+import base64
+
 from odoo import api, fields, models, _
 from odoo.exceptions import UserError
 
@@ -18,6 +20,14 @@ class DMSFileRevision(models.Model):
         required=True,
         ondelete="cascade",
         index=True
+    )
+    company_id = fields.Many2one(
+        comodel_name="res.company",
+        string="Company",
+        related="file_id.company_id",
+        store=True,
+        readonly=True,
+        index=True,
     )
     version = fields.Char(
         string="Version",
@@ -83,8 +93,10 @@ class DMSFileRevision(models.Model):
             
             # Sync attachment if attachment storage is used
             if file_rec.attachment_id:
+                # Odoo 20 reads binaries as BinaryValue objects: 'datas' would store them empty
+                content = record.content
                 file_rec.attachment_id.sudo().write({
-                    'datas': record.content,
+                    'raw': base64.b64decode(content) if isinstance(content, str) else bytes(content),
                     'name': record.file_name or file_rec.name,
                 })
 

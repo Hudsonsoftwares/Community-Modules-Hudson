@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        dental_core/security/dental_core_security.xml
+        ===============================================
+        Creates a dedicated "Dental Dentist" privilege row in Settings > Users.
+
+        This gives the system administrator a dedicated toggle row for clinical /
+        dentist staff — completely separate from the front-desk "Dental Reception"
+        row and the administrative "Dental Clinic" row.
+
+        Result in the user form (under "Dental Clinic" section heading):
+          Dental Clinic     → [Clinic Manager  ▼]   ← administrative oversight only
+          Dental Reception  → [Receptionist    ▼]   (set by dental_appointment)
+          Dental Dentist    → [Dentist          ▼]   ← this file
+          Dental Lab        → [Lab Technician   ▼]   (set by dental_lab)
+          Dental Pharmacy   → [Pharmacist       ▼]   (set by dental_pharmacy)
+
+        This mirrors the established pattern used by dental_lab and dental_pharmacy.
+
+        NOTE: The actual group record (group_dental_dentist) remains defined in
+        dental_base to preserve all cross-module XML-ID references.
+        We only update its privilege_id here so it appears under the new row.
+    -->
+
+    <!-- ===== Privilege: creates the "Dental Dentist" dropdown row ===== -->
+    <record model="res.groups.privilege" id="res_groups_privilege_dental_dentist">
+        <field name="name">Dental Dentist</field>
+        <field name="sequence">11</field>
+        <field name="category_id" ref="dental_base.module_category_dental_clinic"/>
+    </record>
+
+    <!-- ===== Re-assign existing group to the new "Dental Dentist" row ===== -->
+    <!--
+        The group is defined in dental_base (XML ID stays there for cross-module
+        compatibility). We reassign its privilege_id so it appears under this new row
+        instead of the main "Dental Clinic" row. This is safe because dental_core
+        always loads after dental_base.
+    -->
+
+    <record id="dental_base.group_dental_dentist" model="res.groups">
+        <field name="privilege_id" ref="dental_core.res_groups_privilege_dental_dentist"/>
+        <field name="comment">Doctor: Clinical consultation, odontogram charting, diagnosis, treatment plans, prescriptions, and imaging.</field>
+    </record>
+
+
+</odoo>

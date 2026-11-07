@@ -1,5 +1,6 @@
 # Copyright 2024 Hudson Community
 # License LGPL-3.0 or later (http://www.gnu.org/licenses/lgpl).
+from . import dms_file_extension
 from . import dms_folder_rule
 from . import dms_file_tags
 from . import res_config_settings
@@ -16,3 +17,4 @@ from . import dms_security_mixin
 from . import dms_access_group
 from . import hr_employee
 from . import ir_config_parameter
+from . import res_company

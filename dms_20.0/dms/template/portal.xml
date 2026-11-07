@@ -4,26 +4,19 @@
     License LGPL-3.0 or later (http://www.gnu.org/licenses/lgpl).
 -->
 <odoo>
-    <template
-        id="portal_my_home_dms"
-        name="Portal My Home : dms entries"
-        inherit_id="portal.portal_my_home"
-        priority="20"
-    >
-        <xpath expr="//div[hasclass('o_portal_docs')]" position="inside">
-            <div class="o_portal_category row g-2 mt-3" id="portal_dms_category">
-                <t t-call="portal.portal_docs_entry">
-                    <t t-set="title">Documents</t>
-                    <t t-set="text" t-value="'Manage your documents'" />
-                    <t t-set="url" t-value="'/my/dms'" />
-                    <t
-                        t-set="icon"
-                        t-value="'/dms/static/description/portal_icon.svg'"
-                    />
-                    <t t-set="placeholder_count" t-value="'dms_directory_count'" />
-                </t>
-            </div>
-        </xpath>
+    <record id="portal_entry_dms" model="portal.entry">
+        <field name="name">Documents</field>
+        <field name="description">Manage your folders and documents</field>
+        <field name="url">/my/dms</field>
+        <field name="placeholder_count">dms_document_count</field>
+        <field name="category">client_category</field>
+        <field name="sequence">35</field>
+        <field name="is_config_card" eval="False"/>
+        <field name="show_in_portal" eval="True"/>
+    </record>
+
+    <template id="portal_my_home_dms" name="Portal My Home : dms entries">
+        <!-- Native portal.entry record used above for Odoo 20 card rendering -->
     </template>
     <template
         id="portal_my_dms_breadcrumbs"

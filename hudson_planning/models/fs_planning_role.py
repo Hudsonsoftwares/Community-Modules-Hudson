@@ -20,6 +20,12 @@ class FsPlanningRole(models.Model):
         string='Resources',
         help='Employees who can perform this role.',
     )
+    product_ids = fields.One2many(
+        'product.template',
+        'planning_role_id',
+        string='Services',
+        help='Services whose sales orders generate shifts for this role (Plan Services).',
+    )
     slot_count = fields.Integer(
         string='Shifts',
         compute='_compute_slot_count',

@@ -1,0 +1,180 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Inherit Employee Form View to add Dental Profile -->
+    <record id="view_employee_form_inherit_dental" model="ir.ui.view">
+        <field name="name">hr.employee.form.inherit.dental</field>
+        <field name="model">hr.employee</field>
+        <field name="inherit_id" ref="hr.view_employee_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//sheet" position="inside">
+                <field name="employee_id" invisible="1"/>
+            </xpath>
+            <xpath expr="//div[@id='o_hr_skills_resume_container']" position="before">
+                <div class="card p-3 mb-4 shadow-sm border-0" style="background-color: #f8fafc; border-radius: 12px; border: 1px solid #e2e8f0 !important;">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <h5 class="fw-bold mb-0" style="color: #0284c7;">
+                            <i class="fa fa-file-text-o me-2"/>Resume / CV Document Upload
+                        </h5>
+                        <span class="text-muted small" invisible="not resume_attachment">
+                            Uploaded: <field name="resume_upload_date" readonly="1" class="fw-semibold"/>
+                        </span>
+                    </div>
+                    <p class="text-muted small mb-3">Upload the employee's CV or Resume document (PDF, Word, or scanned document).</p>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <field name="resume_filename" invisible="1"/>
+                            <field name="resume_attachment" filename="resume_filename" widget="binary" string="Attach Resume File"/>
+                        </div>
+                        <div class="col-md-6">
+                            <field name="resume_notes" placeholder="Notes or summary regarding the resume / credentials..." rows="2"/>
+                        </div>
+                    </div>
+                </div>
+            </xpath>
+            <xpath expr="//notebook" position="inside">
+                <page string="Dental Clinic Profile" name="dental_profile">
+                    <!-- Dental Role Selector -->
+                    <group>
+                        <group string="Dental Role">
+                            <field name="dental_role" required="1"/>
+                            <field name="is_dentist" invisible="1"/>
+                        </group>
+                    </group>
+
+                    <!-- 1. DENTIST ROLE -->
+                    <group string="Doctor Credentials" invisible="dental_role != 'dentist'">
+                        <group>
+                            <field name="registration_number" string="Dental License / Reg No."/>
+                            <field name="specialization"/>
+                        </group>
+                        <group>
+                            <field name="consultation_fee"/>
+                        </group>
+                    </group>
+                    <group string="Digital Signatures &amp; Stamps" invisible="dental_role != 'dentist'">
+                        <group string="Doctor Signature Image">
+                            <field name="signature_image" widget="image" options="{'size': [160, 80]}"/>
+                        </group>
+                        <group string="Digital Clinic Stamp">
+                            <field name="digital_stamp" widget="image" options="{'size': [160, 160]}"/>
+                        </group>
+                    </group>
+
+                    <!-- 2. DENTAL ASSISTANT ROLE -->
+                    <group string="Dental Assistant Credentials &amp; Assignment" invisible="dental_role != 'assistant'">
+                        <group>
+                            <field name="assistant_qualification"/>
+                            <field name="assigned_dentist_id"/>
+                        </group>
+                        <group>
+                            <field name="assistant_skills"/>
+                        </group>
+                    </group>
+
+                    <!-- 3. RECEPTIONIST ROLE -->
+                    <group string="Receptionist Details &amp; Work Schedule" invisible="dental_role != 'receptionist'">
+                        <group>
+                            <field name="company_id" string="Branch" readonly="0"/>
+                            <field name="reception_counter"/>
+                        </group>
+                        <group>
+                            <field name="resource_calendar_id" string="Work Schedule"/>
+                        </group>
+                    </group>
+
+                    <!-- 4. LAB TECHNICIAN ROLE -->
+                    <group string="Lab Technician Credentials &amp; Assignment" invisible="dental_role != 'lab_tech'">
+                        <group>
+                            <field name="lab_qualification"/>
+                            <field name="lab_specialization"/>
+                        </group>
+                        <group>
+                            <field name="lab_assignment"/>
+                        </group>
+                    </group>
+
+                    <!-- 5. PHARMACIST ROLE -->
+                    <group string="Pharmacist Credentials &amp; Assignment" invisible="dental_role != 'pharmacist'">
+                        <group>
+                            <field name="pharmacy_license"/>
+                            <field name="pharmacist_qualification"/>
+                        </group>
+                        <group>
+                            <field name="pharmacy_assignment"/>
+                        </group>
+                    </group>
+
+                    <!-- 6. CLINIC MANAGER ROLE -->
+                    <group string="Branch Management &amp; Operational Permissions" invisible="dental_role != 'manager'">
+                        <group>
+                            <field name="managed_branch_ids" widget="many2many_tags" options="{'no_create': True}"/>
+                            <field name="manager_approval_limit"/>
+                        </group>
+                        <group>
+                            <field name="manager_permissions"/>
+                        </group>
+                    </group>
+
+                    <!-- 7. DENTAL ADMINISTRATOR ROLE -->
+                    <group string="Administrative Permissions &amp; Branch Access" invisible="dental_role != 'admin'">
+                        <group>
+                            <field name="admin_system_role"/>
+                            <field name="admin_branch_access_ids" widget="many2many_tags" options="{'no_create': True}"/>
+                        </group>
+                        <group>
+                            <field name="admin_notes"/>
+                        </group>
+                    </group>
+                </page>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- Inherit Employee Search View to add Dental Filters -->
+    <record id="view_employee_filter_inherit_dental" model="ir.ui.view">
+        <field name="name">hr.employee.search.inherit.dental</field>
+        <field name="model">hr.employee</field>
+        <field name="inherit_id" ref="hr.view_employee_filter"/>
+        <field name="arch" type="xml">
+            <xpath expr="//filter[@name='group_job']" position="after">
+                <filter string="Dental Role" name="group_dental_role" domain="[]" context="{'group_by': 'dental_role'}"/>
+                <filter string="Clinic Branch" name="group_dental_branch" domain="[]" context="{'group_by': 'company_id'}"/>
+                <filter string="Department" name="group_dental_department" domain="[]" context="{'group_by': 'department_id'}"/>
+                <filter string="Duty Schedule" name="group_duty_schedule" domain="[]" context="{'group_by': 'resource_calendar_id'}"/>
+            </xpath>
+            <xpath expr="//search" position="inside">
+                <separator/>
+                <filter string="All Dental Staff" name="filter_dental_staff" domain="[('dental_role', '!=', False)]"/>
+                <filter string="Dentists &amp; Doctors" name="filter_dentists" domain="[('dental_role', '=', 'dentist')]"/>
+                <filter string="Dental Assistants" name="filter_assistants" domain="[('dental_role', '=', 'assistant')]"/>
+                <filter string="Receptionists" name="filter_receptionists" domain="[('dental_role', '=', 'receptionist')]"/>
+                <filter string="Lab Technicians" name="filter_lab_techs" domain="[('dental_role', '=', 'lab_tech')]"/>
+                <filter string="Pharmacists" name="filter_pharmacists" domain="[('dental_role', '=', 'pharmacist')]"/>
+                <filter string="Clinic Managers" name="filter_managers" domain="[('dental_role', '=', 'manager')]"/>
+                <filter string="Dental Administrators" name="filter_admins" domain="[('dental_role', '=', 'admin')]"/>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- Action for Dental Staff & Doctors -->
+    <record id="action_dental_staff" model="ir.actions.act_window">
+        <field name="name">Staff &amp; Doctors</field>
+        <field name="res_model">hr.employee</field>
+        <field name="view_mode">kanban,list,form</field>
+        <field name="domain">[('dental_role', '!=', False)]</field>
+        <field name="context">{'search_default_filter_dental_staff': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Add staff members and doctors for your dental clinic!
+            </p>
+            <p>
+                Manage dentists, assistants, receptionists, lab technicians, and pharmacists with roles and branches.
+            </p>
+        </field>
+    </record>
+
+    <!-- Hide Learning menu from Employee navbar -->
+    <record id="hr_skills.hr_skill_learning_menu" model="ir.ui.menu">
+        <field name="active" eval="False"/>
+    </record>
+</odoo>

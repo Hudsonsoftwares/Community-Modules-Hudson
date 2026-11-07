@@ -1,10 +1,41 @@
 import re
 
-from odoo import models
+from odoo import api, models
 
 
 class AccountReconcileModel(models.Model):
     _inherit = 'account.reconcile.model'
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        records = super().create(vals_list)
+        for record in records:
+            if record.active:
+                domain = [('is_reconciled', '=', False)]
+                if record.company_id:
+                    domain.append(('company_id', '=', record.company_id.id))
+                st_lines = self.env['account.bank.statement.line'].search(domain)
+                if st_lines:
+                    if hasattr(st_lines, '_hudson_auto_reconcile_sync'):
+                        st_lines._hudson_auto_reconcile_sync()
+                    if hasattr(st_lines, '_om_auto_reconcile'):
+                        st_lines._om_auto_reconcile()
+        return records
+
+    def write(self, vals):
+        res = super().write(vals)
+        for record in self:
+            if record.active:
+                domain = [('is_reconciled', '=', False)]
+                if record.company_id:
+                    domain.append(('company_id', '=', record.company_id.id))
+                st_lines = self.env['account.bank.statement.line'].search(domain)
+                if st_lines:
+                    if hasattr(st_lines, '_hudson_auto_reconcile_sync'):
+                        st_lines._hudson_auto_reconcile_sync()
+                    if hasattr(st_lines, '_om_auto_reconcile'):
+                        st_lines._om_auto_reconcile()
+        return res
 
     def _om_label_texts(self, st_line):
         texts = [st_line.payment_ref or '']
@@ -12,21 +43,23 @@ class AccountReconcileModel(models.Model):
             texts.append(str(st_line.transaction_details))
         if st_line.narration:
             texts.append(str(st_line.narration))
+        if st_line.ref:
+            texts.append(str(st_line.ref))
         return texts
 
     def _om_is_applicable(self, st_line):
         """ Whether the conditions of the model are fulfilled by the transaction. """
         self.ensure_one()
-        if self.company_id != st_line.company_id:
+        if self.company_id and self.company_id != st_line.company_id:
             return False
         if self.match_journal_ids and st_line.journal_id not in self.match_journal_ids:
             return False
-        amount = abs(st_line.amount)
+        amount = abs(st_line.amount_currency if st_line.foreign_currency_id else st_line.amount)
         if self.match_amount == 'lower' and amount > self.match_amount_max:
             return False
         if self.match_amount == 'greater' and amount < self.match_amount_min:
             return False
-        if self.match_amount == 'between' and not self.match_amount_min <= amount <= self.match_amount_max:
+        if self.match_amount == 'between' and not (self.match_amount_min <= amount <= self.match_amount_max):
             return False
         if self.match_label and self.match_label_param:
             texts = self._om_label_texts(st_line)
@@ -37,11 +70,14 @@ class AccountReconcileModel(models.Model):
                 if any(self.match_label_param.lower() in text.lower() for text in texts):
                     return False
             elif self.match_label == 'match_regex':
-                if not any(re.search(self.match_label_param, text) for text in texts):
+                try:
+                    if not any(re.search(self.match_label_param, text) for text in texts):
+                        return False
+                except Exception:
                     return False
-        if (self.match_partner_ids
-                and st_line.partner_id.commercial_partner_id not in self.match_partner_ids.commercial_partner_id):
-            return False
+        if self.match_partner_ids:
+            if not st_line.partner_id or st_line.partner_id.commercial_partner_id not in self.match_partner_ids.commercial_partner_id:
+                return False
         return True
 
     def _om_get_proposal(self, st_line):
@@ -116,18 +152,20 @@ class AccountReconcileModel(models.Model):
         the difference being written off with the lines of the model. """
         self.ensure_one()
         partner = st_line.partner_id.commercial_partner_id
-        if not partner:
-            return {}
+        if not partner and self.match_partner_ids:
+            partner = self.match_partner_ids[0].commercial_partner_id
         trans_currency, _company_currency = st_line._om_currencies()
         residual = -st_line.amount_residual
         if trans_currency.is_zero(residual):
             return {}
+        domain = st_line._om_candidates_domain() + [
+            ('account_id.account_type', 'in',
+             ('asset_receivable', 'liability_payable', 'asset_current', 'liability_current')),
+        ]
+        if partner:
+            domain += [('partner_id', 'child_of', partner.id)]
         amls = self.env['account.move.line'].search(
-            st_line._om_candidates_domain() + [
-                ('partner_id', 'child_of', partner.id),
-                ('account_id.account_type', 'in',
-                 ('asset_receivable', 'liability_payable', 'asset_current', 'liability_current')),
-            ],
+            domain,
             order='date_maturity %s, date %s, id' % (
                 ('asc', 'asc') if self.matching_order == 'old_first' else ('desc', 'desc')
             ),
@@ -150,6 +188,9 @@ class AccountReconcileModel(models.Model):
                 proposal = {
                     'matches': [{'aml_id': aml.id, 'amount': abs(aml.amount_residual_currency)} for aml in selected],
                 }
+                matched_partner = partner or (selected and selected[0].partner_id and selected[0].partner_id.commercial_partner_id)
+                if matched_partner:
+                    proposal['partner_id'] = matched_partner.id
                 if not trans_currency.is_zero(difference):
                     if not self.line_ids.filtered('account_id'):
                         return {}

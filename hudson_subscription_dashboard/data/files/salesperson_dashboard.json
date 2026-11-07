@@ -1,0 +1,2263 @@
+{
+    "version": "19.5.1",
+    "sheets": [
+        {
+            "id": "dashboard_sheet_id",
+            "name": "Dashboard",
+            "colNumber": 10,
+            "rowNumber": 80,
+            "rows": {
+                "79": {
+                    "size": 21
+                }
+            },
+            "cols": {
+                "0": {
+                    "size": 136
+                }
+            },
+            "merges": [],
+            "cells": {},
+            "styles": {},
+            "formats": {},
+            "borders": {},
+            "conditionalFormats": [],
+            "dataValidationRules": [],
+            "figures": [
+                {
+                    "id": "a5dcffea-a653-44c3-9563-773e5979da47",
+                    "width": 212,
+                    "height": 107,
+                    "tag": "chart",
+                    "data": {
+                        "baselineColorDown": "#DC6965",
+                        "baselineColorUp": "#00A04A",
+                        "baselineMode": "text",
+                        "title": {
+                            "text": "New Subscriptions",
+                            "bold": true,
+                            "color": "#2D7E84"
+                        },
+                        "type": "scorecard",
+                        "background": "",
+                        "baseline": "=Data!E2",
+                        "baselineDescr": {
+                            "text": "MRR"
+                        },
+                        "keyValue": "=Data!D2",
+                        "humanize": false,
+                        "chartId": "a5dcffea-a653-44c3-9563-773e5979da47"
+                    },
+                    "offset": {
+                        "x": 0,
+                        "y": 9
+                    },
+                    "col": 0,
+                    "row": 0
+                },
+                {
+                    "id": "259c7a2c-c4ae-4471-8b64-1292ef24ce47",
+                    "width": 212,
+                    "height": 107,
+                    "tag": "chart",
+                    "data": {
+                        "baselineColorDown": "#DC6965",
+                        "baselineColorUp": "#00A04A",
+                        "baselineMode": "text",
+                        "title": {
+                            "text": "Churn",
+                            "bold": true,
+                            "color": "#2D7E84"
+                        },
+                        "type": "scorecard",
+                        "background": "",
+                        "baseline": "=Data!E8",
+                        "baselineDescr": {
+                            "text": "MRR"
+                        },
+                        "keyValue": "=Data!D8",
+                        "humanize": false,
+                        "chartId": "259c7a2c-c4ae-4471-8b64-1292ef24ce47"
+                    },
+                    "offset": {
+                        "x": 222,
+                        "y": 9
+                    },
+                    "col": 0,
+                    "row": 0
+                },
+                {
+                    "id": "d6573225-1b5e-4a1d-930b-19071b5023c4",
+                    "width": 212,
+                    "height": 107,
+                    "tag": "chart",
+                    "data": {
+                        "baselineColorDown": "#DC6965",
+                        "baselineColorUp": "#00A04A",
+                        "baselineMode": "percentage",
+                        "title": {
+                            "text": "MRR Evolution",
+                            "color": "#2D7E84",
+                            "bold": true
+                        },
+                        "type": "scorecard",
+                        "background": "",
+                        "baseline": "=Data!C10",
+                        "baselineDescr": "",
+                        "keyValue": "=Data!D10",
+                        "humanize": false,
+                        "chartId": "d6573225-1b5e-4a1d-930b-19071b5023c4"
+                    },
+                    "offset": {
+                        "x": 444,
+                        "y": 9
+                    },
+                    "col": 0,
+                    "row": 0
+                },
+                {
+                    "id": "f1b6db9c-ddb7-495f-916c-4f918492ffc4",
+                    "width": 212,
+                    "height": 107,
+                    "tag": "chart",
+                    "data": {
+                        "baselineColorDown": "#DC6965",
+                        "baselineColorUp": "#00A04A",
+                        "baselineMode": "text",
+                        "title": {
+                            "text": "Non Rec. Rev.",
+                            "bold": true,
+                            "color": "#2D7E84"
+                        },
+                        "type": "scorecard",
+                        "background": "",
+                        "baseline": "=Data!D13",
+                        "baselineDescr": {
+                            "text": "over the period"
+                        },
+                        "keyValue": "=Data!D12",
+                        "humanize": false,
+                        "chartId": "f1b6db9c-ddb7-495f-916c-4f918492ffc4"
+                    },
+                    "offset": {
+                        "x": 666,
+                        "y": 9
+                    },
+                    "col": 0,
+                    "row": 0
+                },
+                {
+                    "id": "9c6baf67-6369",
+                    "col": 0,
+                    "row": 0,
+                    "offset": {
+                        "x": 0,
+                        "y": 126
+                    },
+                    "width": 1000,
+                    "height": 390,
+                    "tag": "carousel",
+                    "data": {
+                        "chartDefinitions": {
+                            "9c6baf67-6369-0": {
+                                "type": "bar",
+                                "title": {
+                                    "text": ""
+                                },
+                                "humanize": true,
+                                "dataSetStyles": {},
+                                "legendPosition": "none",
+                                "dataSource": {
+                                    "type": "odoo",
+                                    "metaData": {
+                                        "groupBy": [
+                                            "event_type"
+                                        ],
+                                        "measure": "amount_signed",
+                                        "order": null,
+                                        "resModel": "sale.subscription.event.report"
+                                    },
+                                    "searchParams": {
+                                        "context": {},
+                                        "domain": [],
+                                        "groupBy": [],
+                                        "orderBy": []
+                                    }
+                                },
+                                "axesDesign": {
+                                    "y": {
+                                        "title": {
+                                            "text": "MRR Change"
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "items": [
+                            {
+                                "type": "chart",
+                                "chartId": "9c6baf67-6369-0",
+                                "title": "Graph"
+                            }
+                        ],
+                        "fieldMatching": {
+                            "9c6baf67-6369-0": {
+                                "5dac8b40-3868-4049-a237-6fc28656c7a4": {
+                                    "chain": "event_date",
+                                    "type": "date"
+                                },
+                                "2967df50-3aec-4336-af5d-4eaceb383120": {
+                                    "chain": "country_id",
+                                    "type": "many2one"
+                                },
+                                "4e294d4b-9dae-401f-a278-49a0237387a6": {
+                                    "chain": "team_id",
+                                    "type": "many2one"
+                                },
+                                "64c04791-cd96-44a0-9fc2-4edbc062f23d": {
+                                    "chain": "user_id",
+                                    "type": "many2one"
+                                }
+                            }
+                        },
+                        "title": {
+                            "text": "MRR Breakdown",
+                            "bold": true,
+                            "fontSize": 21,
+                            "color": "#01666B"
+                        }
+                    }
+                },
+                {
+                    "id": "c5571b81-c8e2",
+                    "col": 0,
+                    "row": 0,
+                    "offset": {
+                        "x": 0,
+                        "y": 526
+                    },
+                    "width": 495,
+                    "height": 424,
+                    "tag": "carousel",
+                    "data": {
+                        "chartDefinitions": {},
+                        "title": {
+                            "text": "Worst Churn",
+                            "bold": true,
+                            "fontSize": 21,
+                            "color": "#2D7E84"
+                        },
+                        "items": [
+                            {
+                                "type": "carouselDataView",
+                                "rangeData": {
+                                    "_sheetId": "b2f22bfa-66c9",
+                                    "_zone": {
+                                        "top": 0,
+                                        "left": 0,
+                                        "bottom": 50,
+                                        "right": 2
+                                    }
+                                }
+                            }
+                        ],
+                        "fieldMatching": {}
+                    }
+                },
+                {
+                    "id": "4cf36207-d985",
+                    "col": 0,
+                    "row": 0,
+                    "offset": {
+                        "x": 505,
+                        "y": 526
+                    },
+                    "width": 495,
+                    "height": 424,
+                    "tag": "carousel",
+                    "data": {
+                        "chartDefinitions": {},
+                        "title": {
+                            "text": "Top New",
+                            "bold": true,
+                            "fontSize": 21,
+                            "color": "#2D7E84"
+                        },
+                        "items": [
+                            {
+                                "type": "carouselDataView",
+                                "rangeData": {
+                                    "_sheetId": "ef396f5f-4334",
+                                    "_zone": {
+                                        "top": 0,
+                                        "left": 0,
+                                        "bottom": 50,
+                                        "right": 2
+                                    }
+                                }
+                            }
+                        ],
+                        "fieldMatching": {}
+                    }
+                },
+                {
+                    "id": "9c3ccede-eaad",
+                    "col": 0,
+                    "row": 0,
+                    "offset": {
+                        "x": 0,
+                        "y": 960
+                    },
+                    "width": 495,
+                    "height": 424,
+                    "tag": "carousel",
+                    "data": {
+                        "chartDefinitions": {},
+                        "title": {
+                            "text": "Worst Contraction",
+                            "bold": true,
+                            "fontSize": 21,
+                            "color": "#2D7E84"
+                        },
+                        "items": [
+                            {
+                                "type": "carouselDataView",
+                                "rangeData": {
+                                    "_sheetId": "b377499c-9e20",
+                                    "_zone": {
+                                        "top": 0,
+                                        "left": 0,
+                                        "bottom": 50,
+                                        "right": 2
+                                    }
+                                }
+                            }
+                        ],
+                        "fieldMatching": {}
+                    }
+                },
+                {
+                    "id": "30299127-2c2e",
+                    "col": 0,
+                    "row": 0,
+                    "offset": {
+                        "x": 505,
+                        "y": 960
+                    },
+                    "width": 495,
+                    "height": 424,
+                    "tag": "carousel",
+                    "data": {
+                        "chartDefinitions": {},
+                        "title": {
+                            "text": "Top Expansion",
+                            "bold": true,
+                            "fontSize": 21,
+                            "color": "#2D7E84"
+                        },
+                        "items": [
+                            {
+                                "type": "carouselDataView",
+                                "rangeData": {
+                                    "_sheetId": "7dbf2d36-b0f7",
+                                    "_zone": {
+                                        "top": 0,
+                                        "left": 0,
+                                        "bottom": 50,
+                                        "right": 2
+                                    }
+                                }
+                            }
+                        ],
+                        "fieldMatching": {}
+                    }
+                },
+                {
+                    "id": "c73395ee-2b7b",
+                    "col": 0,
+                    "row": 0,
+                    "offset": {
+                        "x": 0,
+                        "y": 1394
+                    },
+                    "width": 1000,
+                    "height": 424,
+                    "tag": "carousel",
+                    "data": {
+                        "chartDefinitions": {},
+                        "title": {
+                            "text": "Top Recurrence",
+                            "bold": true,
+                            "fontSize": 21,
+                            "color": "#2D7E84"
+                        },
+                        "items": [
+                            {
+                                "type": "carouselDataView",
+                                "rangeData": {
+                                    "_sheetId": "d8d1644c-93b5",
+                                    "_zone": {
+                                        "top": 0,
+                                        "left": 0,
+                                        "bottom": 50,
+                                        "right": 2
+                                    }
+                                }
+                            }
+                        ],
+                        "fieldMatching": {}
+                    }
+                }
+            ],
+            "tables": [],
+            "areGridLinesVisible": true,
+            "isVisible": true,
+            "backgroundColor": "#F9FAFB",
+            "headerGroups": {
+                "ROW": [],
+                "COL": []
+            },
+            "comments": {}
+        },
+        {
+            "id": "6082093e-fde4-497f-82a2-5d88ffde8e01",
+            "name": "Data",
+            "colNumber": 26,
+            "rowNumber": 102,
+            "rows": {},
+            "cols": {
+                "0": {
+                    "size": 138
+                },
+                "1": {
+                    "size": 66
+                }
+            },
+            "merges": [],
+            "cells": {
+                "A1": "KPI",
+                "A2": "New subscriptions",
+                "A3": "New subscriptions ($)",
+                "A4": "Expansion",
+                "A5": "Expansion ($)",
+                "A6": "Contraction",
+                "A7": "Contraction ($)",
+                "A8": "Churn",
+                "A9": "Churn ($)",
+                "A10": "MRR",
+                "A11": "Subscriptions",
+                "A12": "Non-recurring revenue",
+                "B1": "Current",
+                "B2": "=PIVOT.VALUE(1,\"__count\",\"event_type\",\"0_creation\")",
+                "B3": "=PIVOT.VALUE(1,\"amount_signed\",\"event_type\",\"0_creation\")",
+                "B4": "=PIVOT.VALUE(1,\"__count\",\"event_type\",\"1_expansion\")",
+                "B5": "=PIVOT.VALUE(1,\"amount_signed\",\"event_type\",\"1_expansion\")",
+                "B6": "=PIVOT.VALUE(1,\"__count\",\"event_type\",\"15_contraction\")",
+                "B7": "=PIVOT.VALUE(1,\"amount_signed\",\"event_type\",\"15_contraction\")",
+                "B8": "=PIVOT.VALUE(1,\"__count\",\"event_type\",\"2_churn\")",
+                "B9": "=PIVOT.VALUE(1,\"amount_signed\",\"event_type\",\"2_churn\")",
+                "B10": "=PIVOT.VALUE(2,\"recurring_monthly\")",
+                "B11": "=PIVOT.VALUE(2,\"__count\")",
+                "B12": "=PIVOT.VALUE(3,\"price_subtotal\")",
+                "C1": "Previous",
+                "C10": "=B10-SUM(B3,B5,B7,B9)",
+                "D1": "Current",
+                "D2": "=FORMAT.LARGE.NUMBER(B2)",
+                "D4": "=FORMAT.LARGE.NUMBER(B4)",
+                "D6": "=FORMAT.LARGE.NUMBER(B6)",
+                "D8": "=FORMAT.LARGE.NUMBER(B8)",
+                "D10": "=FORMAT.LARGE.NUMBER(B10)",
+                "D11": "=FORMAT.LARGE.NUMBER(B11)",
+                "D12": "=FORMAT.LARGE.NUMBER(B12)",
+                "E1": "Previous",
+                "E2": "=FORMAT.LARGE.NUMBER(B3)",
+                "E4": "=FORMAT.LARGE.NUMBER(B5)",
+                "E6": "=FORMAT.LARGE.NUMBER(B7)",
+                "E8": "=FORMAT.LARGE.NUMBER(B9)",
+                "E10": "=FORMAT.LARGE.NUMBER(C10)",
+                "E11": "=FORMAT.LARGE.NUMBER(C11)",
+                "C11": "=B11-N(B2)+N(B8)"
+            },
+            "styles": {
+                "A1:E1": 3
+            },
+            "formats": {
+                "B3": 1,
+                "B5": 1,
+                "B7": 1,
+                "B9": 1,
+                "B10": 1,
+                "B11": 2,
+                "B12": 1,
+                "C10": 1
+            },
+            "borders": {
+                "C9": 1,
+                "C10": 2,
+                "C11": 3,
+                "D10": 4
+            },
+            "conditionalFormats": [
+                {
+                    "id": "ab7ecc84-1d48",
+                    "rule": {
+                        "type": "CellIsRule",
+                        "operator": "isGreaterThan",
+                        "style": {
+                            "fillColor": "",
+                            "textColor": "#28A745"
+                        },
+                        "values": [
+                            "0"
+                        ]
+                    },
+                    "ranges": [
+                        "D2:D5",
+                        "D10:D12"
+                    ]
+                },
+                {
+                    "id": "684b8dbd-9bd7",
+                    "rule": {
+                        "type": "CellIsRule",
+                        "operator": "isLessThan",
+                        "style": {
+                            "fillColor": "",
+                            "textColor": "#D44C59"
+                        },
+                        "values": [
+                            "0"
+                        ]
+                    },
+                    "ranges": [
+                        "D2:D5",
+                        "D10:D12"
+                    ]
+                },
+                {
+                    "id": "bb5cfa0c-a985",
+                    "rule": {
+                        "type": "CellIsRule",
+                        "operator": "isGreaterThan",
+                        "style": {
+                            "fillColor": "",
+                            "textColor": "#D44C59"
+                        },
+                        "values": [
+                            "0"
+                        ]
+                    },
+                    "ranges": [
+                        "D6:D9"
+                    ]
+                },
+                {
+                    "id": "935eff06-398f",
+                    "rule": {
+                        "type": "CellIsRule",
+                        "operator": "isLessThan",
+                        "style": {
+                            "fillColor": "",
+                            "textColor": "#28A745"
+                        },
+                        "values": [
+                            "0"
+                        ]
+                    },
+                    "ranges": [
+                        "D6:D9"
+                    ]
+                }
+            ],
+            "dataValidationRules": [],
+            "figures": [],
+            "tables": [],
+            "areGridLinesVisible": true,
+            "isVisible": true,
+            "headerGroups": {
+                "ROW": [],
+                "COL": []
+            },
+            "comments": {}
+        },
+        {
+            "id": "b2f22bfa-66c9",
+            "name": "Worst Churn",
+            "colNumber": 26,
+            "rowNumber": 100,
+            "rows": {
+                "0": {
+                    "size": 28
+                },
+                "1": {
+                    "size": 28
+                },
+                "2": {
+                    "size": 28
+                },
+                "3": {
+                    "size": 28
+                },
+                "4": {
+                    "size": 28
+                },
+                "5": {
+                    "size": 28
+                },
+                "6": {
+                    "size": 28
+                },
+                "7": {
+                    "size": 28
+                },
+                "8": {
+                    "size": 28
+                },
+                "9": {
+                    "size": 28
+                },
+                "10": {
+                    "size": 28
+                },
+                "11": {
+                    "size": 28
+                },
+                "12": {
+                    "size": 28
+                },
+                "13": {
+                    "size": 28
+                },
+                "14": {
+                    "size": 28
+                },
+                "15": {
+                    "size": 28
+                },
+                "16": {
+                    "size": 28
+                },
+                "17": {
+                    "size": 28
+                },
+                "18": {
+                    "size": 28
+                },
+                "19": {
+                    "size": 28
+                },
+                "20": {
+                    "size": 28
+                },
+                "21": {
+                    "size": 28
+                },
+                "22": {
+                    "size": 28
+                },
+                "23": {
+                    "size": 28
+                },
+                "24": {
+                    "size": 28
+                },
+                "25": {
+                    "size": 28
+                },
+                "26": {
+                    "size": 28
+                },
+                "27": {
+                    "size": 28
+                },
+                "28": {
+                    "size": 28
+                },
+                "29": {
+                    "size": 28
+                },
+                "30": {
+                    "size": 28
+                },
+                "31": {
+                    "size": 28
+                },
+                "32": {
+                    "size": 28
+                },
+                "33": {
+                    "size": 28
+                },
+                "34": {
+                    "size": 28
+                },
+                "35": {
+                    "size": 28
+                },
+                "36": {
+                    "size": 28
+                },
+                "37": {
+                    "size": 28
+                },
+                "38": {
+                    "size": 28
+                },
+                "39": {
+                    "size": 28
+                },
+                "40": {
+                    "size": 28
+                },
+                "41": {
+                    "size": 28
+                },
+                "42": {
+                    "size": 28
+                },
+                "43": {
+                    "size": 28
+                },
+                "44": {
+                    "size": 28
+                },
+                "45": {
+                    "size": 28
+                },
+                "46": {
+                    "size": 28
+                },
+                "47": {
+                    "size": 28
+                },
+                "48": {
+                    "size": 28
+                },
+                "49": {
+                    "size": 28
+                },
+                "50": {
+                    "size": 28
+                }
+            },
+            "cols": {
+                "0": {
+                    "size": 189
+                }
+            },
+            "merges": [],
+            "cells": {
+                "A1": "=ODOO.LIST(1,50)"
+            },
+            "styles": {
+                "A1": 4,
+                "A2:A51": 5,
+                "B1:C1": 6,
+                "B2:C51": 7
+            },
+            "formats": {
+                "B2": 1,
+                "C2": 1
+            },
+            "borders": {},
+            "conditionalFormats": [
+                {
+                    "id": "29dc35d3-afab",
+                    "rule": {
+                        "type": "DataBarRule",
+                        "color": 14543610,
+                        "rangeValues": "C2:C51"
+                    },
+                    "ranges": [
+                        "A2:A51"
+                    ]
+                }
+            ],
+            "dataValidationRules": [],
+            "figures": [],
+            "tables": [],
+            "areGridLinesVisible": true,
+            "isVisible": true,
+            "isLocked": false,
+            "panes": {
+                "xSplit": 0,
+                "ySplit": 1
+            },
+            "headerGroups": {
+                "ROW": [],
+                "COL": []
+            },
+            "defaultStyle": {
+                "colDefault": {
+                    "0": 2,
+                    "1": 2,
+                    "2": 2
+                },
+                "rowDefault": {},
+                "sheetDefault": 1
+            },
+            "comments": {}
+        },
+        {
+            "id": "ef396f5f-4334",
+            "name": "Top New",
+            "colNumber": 26,
+            "rowNumber": 100,
+            "rows": {
+                "0": {
+                    "size": 28
+                },
+                "1": {
+                    "size": 28
+                },
+                "2": {
+                    "size": 28
+                },
+                "3": {
+                    "size": 28
+                },
+                "4": {
+                    "size": 28
+                },
+                "5": {
+                    "size": 28
+                },
+                "6": {
+                    "size": 28
+                },
+                "7": {
+                    "size": 28
+                },
+                "8": {
+                    "size": 28
+                },
+                "9": {
+                    "size": 28
+                },
+                "10": {
+                    "size": 28
+                },
+                "11": {
+                    "size": 28
+                },
+                "12": {
+                    "size": 28
+                },
+                "13": {
+                    "size": 28
+                },
+                "14": {
+                    "size": 28
+                },
+                "15": {
+                    "size": 28
+                },
+                "16": {
+                    "size": 28
+                },
+                "17": {
+                    "size": 28
+                },
+                "18": {
+                    "size": 28
+                },
+                "19": {
+                    "size": 28
+                },
+                "20": {
+                    "size": 28
+                },
+                "21": {
+                    "size": 28
+                },
+                "22": {
+                    "size": 28
+                },
+                "23": {
+                    "size": 28
+                },
+                "24": {
+                    "size": 28
+                },
+                "25": {
+                    "size": 28
+                },
+                "26": {
+                    "size": 28
+                },
+                "27": {
+                    "size": 28
+                },
+                "28": {
+                    "size": 28
+                },
+                "29": {
+                    "size": 28
+                },
+                "30": {
+                    "size": 28
+                },
+                "31": {
+                    "size": 28
+                },
+                "32": {
+                    "size": 28
+                },
+                "33": {
+                    "size": 28
+                },
+                "34": {
+                    "size": 28
+                },
+                "35": {
+                    "size": 28
+                },
+                "36": {
+                    "size": 28
+                },
+                "37": {
+                    "size": 28
+                },
+                "38": {
+                    "size": 28
+                },
+                "39": {
+                    "size": 28
+                },
+                "40": {
+                    "size": 28
+                },
+                "41": {
+                    "size": 28
+                },
+                "42": {
+                    "size": 28
+                },
+                "43": {
+                    "size": 28
+                },
+                "44": {
+                    "size": 28
+                },
+                "45": {
+                    "size": 28
+                },
+                "46": {
+                    "size": 28
+                },
+                "47": {
+                    "size": 28
+                },
+                "48": {
+                    "size": 28
+                },
+                "49": {
+                    "size": 28
+                },
+                "50": {
+                    "size": 28
+                }
+            },
+            "cols": {
+                "0": {
+                    "size": 189
+                },
+                "1": {
+                    "size": 95
+                },
+                "2": {
+                    "size": 194
+                }
+            },
+            "merges": [],
+            "cells": {
+                "A1": "=ODOO.LIST(2,50)"
+            },
+            "styles": {
+                "A1": 4,
+                "A2:A51": 5,
+                "B1:C1": 6,
+                "B2:C51": 7
+            },
+            "formats": {
+                "B2": 1,
+                "C2": 1,
+                "B3": 1,
+                "C3": 1,
+                "B4": 1,
+                "C4": 1,
+                "B5": 1,
+                "C5": 1
+            },
+            "borders": {},
+            "conditionalFormats": [
+                {
+                    "id": "29dc35d3-afab",
+                    "rule": {
+                        "type": "DataBarRule",
+                        "color": 14543610,
+                        "rangeValues": "C2:C51"
+                    },
+                    "ranges": [
+                        "A2:A51"
+                    ]
+                }
+            ],
+            "dataValidationRules": [],
+            "figures": [],
+            "tables": [],
+            "areGridLinesVisible": true,
+            "isVisible": true,
+            "isLocked": false,
+            "panes": {
+                "xSplit": 0,
+                "ySplit": 1
+            },
+            "headerGroups": {
+                "ROW": [],
+                "COL": []
+            },
+            "defaultStyle": {
+                "colDefault": {
+                    "0": 2,
+                    "1": 2,
+                    "2": 2
+                },
+                "rowDefault": {},
+                "sheetDefault": 1
+            },
+            "comments": {}
+        },
+        {
+            "id": "b377499c-9e20",
+            "name": "Worst Contraction",
+            "colNumber": 26,
+            "rowNumber": 100,
+            "rows": {
+                "0": {
+                    "size": 28
+                },
+                "1": {
+                    "size": 28
+                },
+                "2": {
+                    "size": 28
+                },
+                "3": {
+                    "size": 28
+                },
+                "4": {
+                    "size": 28
+                },
+                "5": {
+                    "size": 28
+                },
+                "6": {
+                    "size": 28
+                },
+                "7": {
+                    "size": 28
+                },
+                "8": {
+                    "size": 28
+                },
+                "9": {
+                    "size": 28
+                },
+                "10": {
+                    "size": 28
+                },
+                "11": {
+                    "size": 28
+                },
+                "12": {
+                    "size": 28
+                },
+                "13": {
+                    "size": 28
+                },
+                "14": {
+                    "size": 28
+                },
+                "15": {
+                    "size": 28
+                },
+                "16": {
+                    "size": 28
+                },
+                "17": {
+                    "size": 28
+                },
+                "18": {
+                    "size": 28
+                },
+                "19": {
+                    "size": 28
+                },
+                "20": {
+                    "size": 28
+                },
+                "21": {
+                    "size": 28
+                },
+                "22": {
+                    "size": 28
+                },
+                "23": {
+                    "size": 28
+                },
+                "24": {
+                    "size": 28
+                },
+                "25": {
+                    "size": 28
+                },
+                "26": {
+                    "size": 28
+                },
+                "27": {
+                    "size": 28
+                },
+                "28": {
+                    "size": 28
+                },
+                "29": {
+                    "size": 28
+                },
+                "30": {
+                    "size": 28
+                },
+                "31": {
+                    "size": 28
+                },
+                "32": {
+                    "size": 28
+                },
+                "33": {
+                    "size": 28
+                },
+                "34": {
+                    "size": 28
+                },
+                "35": {
+                    "size": 28
+                },
+                "36": {
+                    "size": 28
+                },
+                "37": {
+                    "size": 28
+                },
+                "38": {
+                    "size": 28
+                },
+                "39": {
+                    "size": 28
+                },
+                "40": {
+                    "size": 28
+                },
+                "41": {
+                    "size": 28
+                },
+                "42": {
+                    "size": 28
+                },
+                "43": {
+                    "size": 28
+                },
+                "44": {
+                    "size": 28
+                },
+                "45": {
+                    "size": 28
+                },
+                "46": {
+                    "size": 28
+                },
+                "47": {
+                    "size": 28
+                },
+                "48": {
+                    "size": 28
+                },
+                "49": {
+                    "size": 28
+                },
+                "50": {
+                    "size": 28
+                }
+            },
+            "cols": {
+                "0": {
+                    "size": 189
+                },
+                "1": {
+                    "size": 95
+                },
+                "2": {
+                    "size": 194
+                }
+            },
+            "merges": [],
+            "cells": {
+                "A1": "=ODOO.LIST(3,50)"
+            },
+            "styles": {
+                "A1": 4,
+                "A2:A51": 5,
+                "B1:C1": 6,
+                "B2:C51": 7
+            },
+            "formats": {},
+            "borders": {},
+            "conditionalFormats": [
+                {
+                    "id": "29dc35d3-afab",
+                    "rule": {
+                        "type": "DataBarRule",
+                        "color": 14543610,
+                        "rangeValues": "C2:C51"
+                    },
+                    "ranges": [
+                        "A2:A51"
+                    ]
+                }
+            ],
+            "dataValidationRules": [],
+            "figures": [],
+            "tables": [],
+            "areGridLinesVisible": true,
+            "isVisible": true,
+            "isLocked": false,
+            "panes": {
+                "xSplit": 0,
+                "ySplit": 1
+            },
+            "headerGroups": {
+                "ROW": [],
+                "COL": []
+            },
+            "defaultStyle": {
+                "colDefault": {
+                    "0": 2,
+                    "1": 2,
+                    "2": 2
+                },
+                "rowDefault": {},
+                "sheetDefault": 1
+            },
+            "comments": {}
+        },
+        {
+            "id": "7dbf2d36-b0f7",
+            "name": "Top Expansion",
+            "colNumber": 26,
+            "rowNumber": 100,
+            "rows": {
+                "0": {
+                    "size": 28
+                },
+                "1": {
+                    "size": 28
+                },
+                "2": {
+                    "size": 28
+                },
+                "3": {
+                    "size": 28
+                },
+                "4": {
+                    "size": 28
+                },
+                "5": {
+                    "size": 28
+                },
+                "6": {
+                    "size": 28
+                },
+                "7": {
+                    "size": 28
+                },
+                "8": {
+                    "size": 28
+                },
+                "9": {
+                    "size": 28
+                },
+                "10": {
+                    "size": 28
+                },
+                "11": {
+                    "size": 28
+                },
+                "12": {
+                    "size": 28
+                },
+                "13": {
+                    "size": 28
+                },
+                "14": {
+                    "size": 28
+                },
+                "15": {
+                    "size": 28
+                },
+                "16": {
+                    "size": 28
+                },
+                "17": {
+                    "size": 28
+                },
+                "18": {
+                    "size": 28
+                },
+                "19": {
+                    "size": 28
+                },
+                "20": {
+                    "size": 28
+                },
+                "21": {
+                    "size": 28
+                },
+                "22": {
+                    "size": 28
+                },
+                "23": {
+                    "size": 28
+                },
+                "24": {
+                    "size": 28
+                },
+                "25": {
+                    "size": 28
+                },
+                "26": {
+                    "size": 28
+                },
+                "27": {
+                    "size": 28
+                },
+                "28": {
+                    "size": 28
+                },
+                "29": {
+                    "size": 28
+                },
+                "30": {
+                    "size": 28
+                },
+                "31": {
+                    "size": 28
+                },
+                "32": {
+                    "size": 28
+                },
+                "33": {
+                    "size": 28
+                },
+                "34": {
+                    "size": 28
+                },
+                "35": {
+                    "size": 28
+                },
+                "36": {
+                    "size": 28
+                },
+                "37": {
+                    "size": 28
+                },
+                "38": {
+                    "size": 28
+                },
+                "39": {
+                    "size": 28
+                },
+                "40": {
+                    "size": 28
+                },
+                "41": {
+                    "size": 28
+                },
+                "42": {
+                    "size": 28
+                },
+                "43": {
+                    "size": 28
+                },
+                "44": {
+                    "size": 28
+                },
+                "45": {
+                    "size": 28
+                },
+                "46": {
+                    "size": 28
+                },
+                "47": {
+                    "size": 28
+                },
+                "48": {
+                    "size": 28
+                },
+                "49": {
+                    "size": 28
+                },
+                "50": {
+                    "size": 28
+                }
+            },
+            "cols": {
+                "0": {
+                    "size": 189
+                },
+                "1": {
+                    "size": 95
+                },
+                "2": {
+                    "size": 194
+                }
+            },
+            "merges": [],
+            "cells": {
+                "A1": "=ODOO.LIST(4,50)"
+            },
+            "styles": {
+                "A1": 4,
+                "A2:A51": 5,
+                "B1:C1": 6,
+                "B2:C51": 7
+            },
+            "formats": {
+                "B2": 1,
+                "C2": 1,
+                "B3": 1,
+                "C3": 1,
+                "B4": 1,
+                "C4": 1
+            },
+            "borders": {},
+            "conditionalFormats": [
+                {
+                    "id": "29dc35d3-afab",
+                    "rule": {
+                        "type": "DataBarRule",
+                        "color": 14543610,
+                        "rangeValues": "C2:C51"
+                    },
+                    "ranges": [
+                        "A2:A51"
+                    ]
+                }
+            ],
+            "dataValidationRules": [],
+            "figures": [],
+            "tables": [],
+            "areGridLinesVisible": true,
+            "isVisible": true,
+            "isLocked": false,
+            "panes": {
+                "xSplit": 0,
+                "ySplit": 1
+            },
+            "headerGroups": {
+                "ROW": [],
+                "COL": []
+            },
+            "defaultStyle": {
+                "colDefault": {
+                    "0": 2,
+                    "1": 2,
+                    "2": 2
+                },
+                "rowDefault": {},
+                "sheetDefault": 1
+            },
+            "comments": {}
+        },
+        {
+            "id": "d8d1644c-93b5",
+            "name": "Top Recurrence",
+            "colNumber": 26,
+            "rowNumber": 100,
+            "rows": {
+                "0": {
+                    "size": 28
+                },
+                "1": {
+                    "size": 28
+                },
+                "2": {
+                    "size": 28
+                },
+                "3": {
+                    "size": 28
+                },
+                "4": {
+                    "size": 28
+                },
+                "5": {
+                    "size": 28
+                },
+                "6": {
+                    "size": 28
+                },
+                "7": {
+                    "size": 28
+                },
+                "8": {
+                    "size": 28
+                },
+                "9": {
+                    "size": 28
+                },
+                "10": {
+                    "size": 28
+                },
+                "11": {
+                    "size": 28
+                },
+                "12": {
+                    "size": 28
+                },
+                "13": {
+                    "size": 28
+                },
+                "14": {
+                    "size": 28
+                },
+                "15": {
+                    "size": 28
+                },
+                "16": {
+                    "size": 28
+                },
+                "17": {
+                    "size": 28
+                },
+                "18": {
+                    "size": 28
+                },
+                "19": {
+                    "size": 28
+                },
+                "20": {
+                    "size": 28
+                },
+                "21": {
+                    "size": 28
+                },
+                "22": {
+                    "size": 28
+                },
+                "23": {
+                    "size": 28
+                },
+                "24": {
+                    "size": 28
+                },
+                "25": {
+                    "size": 28
+                },
+                "26": {
+                    "size": 28
+                },
+                "27": {
+                    "size": 28
+                },
+                "28": {
+                    "size": 28
+                },
+                "29": {
+                    "size": 28
+                },
+                "30": {
+                    "size": 28
+                },
+                "31": {
+                    "size": 28
+                },
+                "32": {
+                    "size": 28
+                },
+                "33": {
+                    "size": 28
+                },
+                "34": {
+                    "size": 28
+                },
+                "35": {
+                    "size": 28
+                },
+                "36": {
+                    "size": 28
+                },
+                "37": {
+                    "size": 28
+                },
+                "38": {
+                    "size": 28
+                },
+                "39": {
+                    "size": 28
+                },
+                "40": {
+                    "size": 28
+                },
+                "41": {
+                    "size": 28
+                },
+                "42": {
+                    "size": 28
+                },
+                "43": {
+                    "size": 28
+                },
+                "44": {
+                    "size": 28
+                },
+                "45": {
+                    "size": 28
+                },
+                "46": {
+                    "size": 28
+                },
+                "47": {
+                    "size": 28
+                },
+                "48": {
+                    "size": 28
+                },
+                "49": {
+                    "size": 28
+                },
+                "50": {
+                    "size": 28
+                }
+            },
+            "cols": {
+                "0": {
+                    "size": 151
+                },
+                "1": {
+                    "size": 114
+                },
+                "2": {
+                    "size": 48
+                }
+            },
+            "merges": [],
+            "cells": {
+                "A1": "=PIVOT(4,50,FALSE,FALSE)"
+            },
+            "styles": {
+                "A1": 4,
+                "B1:C1": 6,
+                "A2:C51": 7
+            },
+            "formats": {
+                "A2": 3,
+                "B2": 2,
+                "C2": 1
+            },
+            "borders": {},
+            "conditionalFormats": [
+                {
+                    "id": "29dc35d3-afab",
+                    "rule": {
+                        "type": "DataBarRule",
+                        "color": 14543610,
+                        "rangeValues": "C2:C51"
+                    },
+                    "ranges": [
+                        "A2:A51"
+                    ]
+                }
+            ],
+            "dataValidationRules": [],
+            "figures": [],
+            "tables": [],
+            "areGridLinesVisible": true,
+            "isVisible": true,
+            "isLocked": false,
+            "panes": {
+                "xSplit": 0,
+                "ySplit": 1
+            },
+            "headerGroups": {
+                "ROW": [],
+                "COL": []
+            },
+            "defaultStyle": {
+                "colDefault": {
+                    "0": 2,
+                    "1": 2,
+                    "2": 2
+                },
+                "rowDefault": {},
+                "sheetDefault": 1
+            },
+            "comments": {}
+        }
+    ],
+    "styles": {
+        "1": {},
+        "2": {
+            "textColor": "#434343"
+        },
+        "3": {
+            "bold": true
+        },
+        "4": {
+            "bold": true,
+            "fontSize": 11,
+            "verticalAlign": "top"
+        },
+        "5": {
+            "verticalAlign": "middle",
+            "textColor": "#2D7E84"
+        },
+        "6": {
+            "bold": true,
+            "fontSize": 11,
+            "verticalAlign": "top",
+            "align": "center"
+        },
+        "7": {
+            "verticalAlign": "middle"
+        },
+        "8": {
+            "bold": true
+        }
+    },
+    "formats": {
+        "1": "[$$]#,##0.00",
+        "2": "0",
+        "3": "@* ",
+        "4": "dd/mm/yyyy"
+    },
+    "borders": {
+        "1": {
+            "bottom": {
+                "style": "thin",
+                "color": "#2D7E84"
+            }
+        },
+        "2": {
+            "top": {
+                "style": "thin",
+                "color": "#2D7E84"
+            },
+            "right": {
+                "style": "thin",
+                "color": "#2D7E84"
+            },
+            "bottom": {
+                "style": "thin",
+                "color": "#2D7E84"
+            }
+        },
+        "3": {
+            "top": {
+                "style": "thin",
+                "color": "#2D7E84"
+            }
+        },
+        "4": {
+            "left": {
+                "style": "thin",
+                "color": "#2D7E84"
+            }
+        }
+    },
+    "revisionId": "254b2c97-c4f5-4fdc-bbd2-4e2d21fc926a",
+    "uniqueFigureIds": true,
+    "settings": {
+        "locale": {
+            "name": "English (IN)",
+            "code": "en_IN",
+            "thousandsSeparator": ",",
+            "decimalSeparator": ".",
+            "dateFormat": "dd/mm/yyyy",
+            "timeFormat": "hh:mm:ss a",
+            "formulaArgSeparator": ",",
+            "weekStart": 7,
+            "digitGrouping": "[3,2,0]"
+        }
+    },
+    "pivots": {
+        "1": {
+            "type": "ODOO",
+            "id": "1",
+            "formulaId": "1",
+            "name": "MRR changes",
+            "model": "sale.subscription.event.report",
+            "domain": [],
+            "context": {},
+            "measures": [
+                {
+                    "id": "__count",
+                    "fieldName": "__count"
+                },
+                {
+                    "id": "amount_signed",
+                    "fieldName": "amount_signed"
+                }
+            ],
+            "rows": [
+                {
+                    "fieldName": "event_type"
+                }
+            ],
+            "columns": [],
+            "sortedColumn": null,
+            "fieldMatching": {
+                "5dac8b40-3868-4049-a237-6fc28656c7a4": {
+                    "chain": "event_date",
+                    "type": "date",
+                    "offset": 0
+                },
+                "2967df50-3aec-4336-af5d-4eaceb383120": {
+                    "chain": "country_id",
+                    "type": "many2one"
+                },
+                "4e294d4b-9dae-401f-a278-49a0237387a6": {
+                    "chain": "team_id",
+                    "type": "many2one"
+                },
+                "64c04791-cd96-44a0-9fc2-4edbc062f23d": {
+                    "chain": "user_id",
+                    "type": "many2one"
+                }
+            }
+        },
+        "2": {
+            "type": "ODOO",
+            "id": "2",
+            "formulaId": "2",
+            "name": "Subscriptions",
+            "model": "sale.order",
+            "domain": [
+                [
+                    "is_subscription",
+                    "=",
+                    true
+                ],
+                [
+                    "is_upsell",
+                    "=",
+                    false
+                ],
+                [
+                    "subscription_state",
+                    "in",
+                    [
+                        "3_progress",
+                        "4_paused",
+                        "5_renew"
+                    ]
+                ]
+            ],
+            "context": {},
+            "measures": [
+                {
+                    "id": "__count",
+                    "fieldName": "__count"
+                },
+                {
+                    "id": "recurring_monthly",
+                    "fieldName": "recurring_monthly"
+                }
+            ],
+            "rows": [],
+            "columns": [],
+            "sortedColumn": null,
+            "fieldMatching": {
+                "2967df50-3aec-4336-af5d-4eaceb383120": {
+                    "chain": "partner_id.country_id",
+                    "type": "many2one"
+                },
+                "4e294d4b-9dae-401f-a278-49a0237387a6": {
+                    "chain": "team_id",
+                    "type": "many2one"
+                },
+                "64c04791-cd96-44a0-9fc2-4edbc062f23d": {
+                    "chain": "user_id",
+                    "type": "many2one"
+                }
+            }
+        },
+        "3": {
+            "type": "ODOO",
+            "id": "3",
+            "formulaId": "3",
+            "name": "Non recurring invoiced",
+            "model": "account.invoice.report",
+            "domain": [
+                [
+                    "state",
+                    "=",
+                    "posted"
+                ],
+                [
+                    "move_type",
+                    "in",
+                    [
+                        "out_invoice",
+                        "out_refund"
+                    ]
+                ],
+                [
+                    "product_id.recurring_invoice",
+                    "!=",
+                    true
+                ]
+            ],
+            "context": {},
+            "measures": [
+                {
+                    "id": "price_subtotal",
+                    "fieldName": "price_subtotal"
+                }
+            ],
+            "rows": [],
+            "columns": [],
+            "sortedColumn": null,
+            "fieldMatching": {
+                "5dac8b40-3868-4049-a237-6fc28656c7a4": {
+                    "chain": "invoice_date",
+                    "type": "date",
+                    "offset": 0
+                },
+                "2967df50-3aec-4336-af5d-4eaceb383120": {
+                    "chain": "country_id",
+                    "type": "many2one"
+                },
+                "4e294d4b-9dae-401f-a278-49a0237387a6": {
+                    "chain": "team_id",
+                    "type": "many2one"
+                },
+                "64c04791-cd96-44a0-9fc2-4edbc062f23d": {
+                    "chain": "invoice_user_id",
+                    "type": "many2one"
+                }
+            }
+        },
+        "4": {
+            "type": "ODOO",
+            "id": "4",
+            "formulaId": "4",
+            "name": "Plans",
+            "model": "sale.order",
+            "domain": [
+                [
+                    "is_subscription",
+                    "=",
+                    true
+                ],
+                [
+                    "is_upsell",
+                    "=",
+                    false
+                ],
+                [
+                    "subscription_state",
+                    "in",
+                    [
+                        "3_progress",
+                        "4_paused",
+                        "5_renew"
+                    ]
+                ]
+            ],
+            "context": {},
+            "measures": [
+                {
+                    "id": "__count",
+                    "fieldName": "__count",
+                    "userDefinedName": "# Subscriptions"
+                },
+                {
+                    "id": "recurring_monthly",
+                    "fieldName": "recurring_monthly",
+                    "userDefinedName": "MRR"
+                }
+            ],
+            "rows": [
+                {
+                    "fieldName": "plan_id"
+                }
+            ],
+            "columns": [],
+            "sortedColumn": {
+                "measure": "recurring_monthly",
+                "order": "desc",
+                "domain": []
+            },
+            "fieldMatching": {
+                "2967df50-3aec-4336-af5d-4eaceb383120": {
+                    "chain": "partner_id.country_id",
+                    "type": "many2one"
+                },
+                "4e294d4b-9dae-401f-a278-49a0237387a6": {
+                    "chain": "team_id",
+                    "type": "many2one"
+                },
+                "64c04791-cd96-44a0-9fc2-4edbc062f23d": {
+                    "chain": "user_id",
+                    "type": "many2one"
+                }
+            }
+        }
+    },
+    "pivotNextId": 14,
+    "customTableStyles": {},
+    "namedRanges": {},
+    "globalFilters": [
+        {
+            "id": "5dac8b40-3868-4049-a237-6fc28656c7a4",
+            "type": "date",
+            "label": "Period",
+            "defaultValue": "this_month"
+        },
+        {
+            "id": "2967df50-3aec-4336-af5d-4eaceb383120",
+            "type": "relation",
+            "label": "Country",
+            "defaultValueDisplayNames": [],
+            "modelName": "res.country"
+        },
+        {
+            "id": "4e294d4b-9dae-401f-a278-49a0237387a6",
+            "type": "relation",
+            "label": "Sales Team",
+            "defaultValueDisplayNames": [],
+            "modelName": "crm.team"
+        },
+        {
+            "id": "64c04791-cd96-44a0-9fc2-4edbc062f23d",
+            "type": "relation",
+            "label": "Salesperson",
+            "defaultValue": {
+                "operator": "in",
+                "ids": "current_user"
+            },
+            "defaultValueDisplayNames": [],
+            "modelName": "res.users"
+        }
+    ],
+    "lists": {
+        "1": {
+            "id": "1",
+            "model": "sale.subscription.event.report",
+            "name": "Worst Churn",
+            "domain": [
+                [
+                    "event_type",
+                    "=",
+                    "2_churn"
+                ]
+            ],
+            "context": {},
+            "orderBy": [
+                {
+                    "name": "amount_signed",
+                    "asc": true
+                }
+            ],
+            "columns": [
+                {
+                    "name": "order_id",
+                    "string": "Subscriptions"
+                },
+                {
+                    "name": "amount_signed",
+                    "string": "Value"
+                },
+                {
+                    "name": "recurring_monthly",
+                    "string": "MRR"
+                }
+            ],
+            "fieldMatching": {
+                "5dac8b40-3868-4049-a237-6fc28656c7a4": {
+                    "chain": "event_date",
+                    "type": "date"
+                },
+                "2967df50-3aec-4336-af5d-4eaceb383120": {
+                    "chain": "country_id",
+                    "type": "many2one"
+                },
+                "4e294d4b-9dae-401f-a278-49a0237387a6": {
+                    "chain": "team_id",
+                    "type": "many2one"
+                },
+                "64c04791-cd96-44a0-9fc2-4edbc062f23d": {
+                    "chain": "user_id",
+                    "type": "many2one"
+                }
+            },
+            "translateHeaders": true
+        },
+        "2": {
+            "id": "2",
+            "model": "sale.subscription.event.report",
+            "name": "Top New",
+            "domain": [
+                [
+                    "event_type",
+                    "=",
+                    "0_creation"
+                ]
+            ],
+            "context": {},
+            "orderBy": [
+                {
+                    "name": "amount_signed",
+                    "asc": false
+                }
+            ],
+            "columns": [
+                {
+                    "name": "order_id",
+                    "string": "Subscriptions"
+                },
+                {
+                    "name": "amount_signed",
+                    "string": "Value"
+                },
+                {
+                    "name": "recurring_monthly",
+                    "string": "MRR"
+                }
+            ],
+            "fieldMatching": {
+                "5dac8b40-3868-4049-a237-6fc28656c7a4": {
+                    "chain": "event_date",
+                    "type": "date"
+                },
+                "2967df50-3aec-4336-af5d-4eaceb383120": {
+                    "chain": "country_id",
+                    "type": "many2one"
+                },
+                "4e294d4b-9dae-401f-a278-49a0237387a6": {
+                    "chain": "team_id",
+                    "type": "many2one"
+                },
+                "64c04791-cd96-44a0-9fc2-4edbc062f23d": {
+                    "chain": "user_id",
+                    "type": "many2one"
+                }
+            },
+            "translateHeaders": true
+        },
+        "3": {
+            "id": "3",
+            "model": "sale.subscription.event.report",
+            "name": "Worst Contraction",
+            "domain": [
+                [
+                    "event_type",
+                    "=",
+                    "15_contraction"
+                ]
+            ],
+            "context": {},
+            "orderBy": [
+                {
+                    "name": "amount_signed",
+                    "asc": true
+                }
+            ],
+            "columns": [
+                {
+                    "name": "order_id",
+                    "string": "Subscriptions"
+                },
+                {
+                    "name": "amount_signed",
+                    "string": "Value"
+                },
+                {
+                    "name": "recurring_monthly",
+                    "string": "MRR"
+                }
+            ],
+            "fieldMatching": {
+                "5dac8b40-3868-4049-a237-6fc28656c7a4": {
+                    "chain": "event_date",
+                    "type": "date"
+                },
+                "2967df50-3aec-4336-af5d-4eaceb383120": {
+                    "chain": "country_id",
+                    "type": "many2one"
+                },
+                "4e294d4b-9dae-401f-a278-49a0237387a6": {
+                    "chain": "team_id",
+                    "type": "many2one"
+                },
+                "64c04791-cd96-44a0-9fc2-4edbc062f23d": {
+                    "chain": "user_id",
+                    "type": "many2one"
+                }
+            },
+            "translateHeaders": true
+        },
+        "4": {
+            "id": "4",
+            "model": "sale.subscription.event.report",
+            "name": "Top Expansion",
+            "domain": [
+                [
+                    "event_type",
+                    "=",
+                    "1_expansion"
+                ]
+            ],
+            "context": {},
+            "orderBy": [
+                {
+                    "name": "amount_signed",
+                    "asc": false
+                }
+            ],
+            "columns": [
+                {
+                    "name": "order_id",
+                    "string": "Subscriptions"
+                },
+                {
+                    "name": "amount_signed",
+                    "string": "Value"
+                },
+                {
+                    "name": "recurring_monthly",
+                    "string": "MRR"
+                }
+            ],
+            "fieldMatching": {
+                "5dac8b40-3868-4049-a237-6fc28656c7a4": {
+                    "chain": "event_date",
+                    "type": "date"
+                },
+                "2967df50-3aec-4336-af5d-4eaceb383120": {
+                    "chain": "country_id",
+                    "type": "many2one"
+                },
+                "4e294d4b-9dae-401f-a278-49a0237387a6": {
+                    "chain": "team_id",
+                    "type": "many2one"
+                },
+                "64c04791-cd96-44a0-9fc2-4edbc062f23d": {
+                    "chain": "user_id",
+                    "type": "many2one"
+                }
+            },
+            "translateHeaders": true
+        }
+    },
+    "listNextId": 5,
+    "odooLinkReferences": {}
+}

@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 from odoo import api, fields, models, _
 from odoo.exceptions import UserError
 
@@ -69,9 +69,17 @@ class AccountExecutiveSummaryWizard(models.TransientModel):
 
     report_html = fields.Html(string="Report HTML")
 
+    def _get_journal_clause(self):
+        """Restrict to the journals of the selected Multi Ledgers (passed in context)."""
+        journal_ids = self.env.context.get('report_journal_ids')
+        if journal_ids:
+            return "AND aml.journal_id IN %s", (tuple(journal_ids),)
+        return '', ()
+
     def _get_period_sum(self, account_types, df, dt, cid, state):
         """Sum of (debit-credit) for account types in a period."""
-        state_clause = "AND aml.parent_state = 'posted'" if state == 'posted' else ''
+        state_clause = "AND aml.parent_state = 'posted'" if state == 'posted' else "AND aml.parent_state IN ('draft', 'posted')"
+        journal_clause, journal_params = self._get_journal_clause()
         query = f"""
             SELECT COALESCE(SUM(aml.debit - aml.credit), 0.0)
             FROM account_move_line aml
@@ -81,14 +89,16 @@ class AccountExecutiveSummaryWizard(models.TransientModel):
               AND aml.company_id = %s
               AND aml.display_type NOT IN ('line_section', 'line_note')
               {state_clause}
+              {journal_clause}
         """
-        self.env.cr.execute(query, (tuple(account_types), df, dt, cid))
+        self.env.cr.execute(query, (tuple(account_types), df, dt, cid) + journal_params)
         result = self.env.cr.fetchone()
         return result[0] if result else 0.0
 
     def _get_period_cash_flow(self, df, dt, cid, state):
         """Returns (cash_received, cash_spent) as positive floats."""
-        state_clause = "AND aml.parent_state = 'posted'" if state == 'posted' else ''
+        state_clause = "AND aml.parent_state = 'posted'" if state == 'posted' else "AND aml.parent_state IN ('draft', 'posted')"
+        journal_clause, journal_params = self._get_journal_clause()
         query = f"""
             SELECT COALESCE(SUM(aml.debit), 0.0), COALESCE(SUM(aml.credit), 0.0)
             FROM account_move_line aml
@@ -98,14 +108,16 @@ class AccountExecutiveSummaryWizard(models.TransientModel):
               AND aml.company_id = %s
               AND aml.display_type NOT IN ('line_section', 'line_note')
               {state_clause}
+              {journal_clause}
         """
-        self.env.cr.execute(query, (df, dt, cid))
+        self.env.cr.execute(query, (df, dt, cid) + journal_params)
         result = self.env.cr.fetchone()
         return result[0] if result else 0.0, result[1] if result else 0.0
 
     def _get_balance_as_of(self, account_types, as_of, cid, state):
         """Cumulative debit-credit balance up to as_of date."""
-        state_clause = "AND aml.parent_state = 'posted'" if state == 'posted' else ''
+        state_clause = "AND aml.parent_state = 'posted'" if state == 'posted' else "AND aml.parent_state IN ('draft', 'posted')"
+        journal_clause, journal_params = self._get_journal_clause()
         query = f"""
             SELECT COALESCE(SUM(aml.debit - aml.credit), 0.0)
             FROM account_move_line aml
@@ -115,8 +127,9 @@ class AccountExecutiveSummaryWizard(models.TransientModel):
               AND aml.company_id = %s
               AND aml.display_type NOT IN ('line_section', 'line_note')
               {state_clause}
+              {journal_clause}
         """
-        self.env.cr.execute(query, (tuple(account_types), as_of, cid))
+        self.env.cr.execute(query, (tuple(account_types), as_of, cid) + journal_params)
         result = self.env.cr.fetchone()
         return result[0] if result else 0.0
 
@@ -126,7 +139,8 @@ class AccountExecutiveSummaryWizard(models.TransientModel):
         other_income = -self._get_period_sum(['income_other'], df, dt, cid, state)
         cogs = self._get_period_sum(['expense_direct_cost'], df, dt, cid, state)
         opex = self._get_period_sum(['expense', 'expense_depreciation'], df, dt, cid, state)
-        total_expenses = cogs + opex
+        other_expenses = self._get_period_sum(['expense_other'], df, dt, cid, state)
+        total_expenses = cogs + opex + other_expenses
         gross_profit = revenue - cogs
         net_profit = revenue + other_income - total_expenses
 
@@ -144,24 +158,26 @@ class AccountExecutiveSummaryWizard(models.TransientModel):
 
         # Cash flows
         cash_received, cash_spent = self._get_period_cash_flow(df, dt, cid, state)
-        cash_at_start = self._get_balance_as_of(['asset_cash'], df, cid, state)
+        # Opening balance is the balance at the end of the day before the period
+        cash_at_start = self._get_balance_as_of(['asset_cash'], df - timedelta(days=1), cid, state)
         cash_surplus = cash - cash_at_start
 
         # Ratios & Position Metrics
         current_ratio = (current_assets / current_liabilities) if current_liabilities else 0.0
         gross_margin = (gross_profit / revenue * 100) if revenue else 0.0
         net_margin = (net_profit / revenue * 100) if revenue else 0.0
-        # Wait, the screenshot uses net profit / assets. Let's calculate total assets.
-        # But we'll just use equity for simplicity if total_assets is hard, or we can use current_assets.
-        # Actually total_assets = equity + total_liabilities (approximately).
-        # Let's calculate total assets directly.
         total_assets = self._get_balance_as_of(
             ['asset_receivable', 'asset_cash', 'asset_current', 'asset_prepayments', 'asset_non_current', 'asset_fixed'], dt, cid, state
         )
+        total_liabilities = -self._get_balance_as_of(
+            ['liability_payable', 'liability_credit_card', 'liability_current', 'liability_non_current'], dt, cid, state
+        )
         roi = (net_profit / total_assets * 100) if total_assets else 0.0
 
-        avg_debtors_days = (ar / revenue) * 365 if revenue else 0.0
-        avg_creditors_days = (ap / cogs) * 365 if cogs else 0.0
+        # Scale by the actual period length, not a full year
+        period_days = (dt - df).days + 1
+        avg_debtors_days = (ar / revenue) * period_days if revenue else 0.0
+        avg_creditors_days = (ap / cogs) * period_days if cogs else 0.0
         short_term_cash_forecast = cash + ar - ap
 
         return {
@@ -176,7 +192,7 @@ class AccountExecutiveSummaryWizard(models.TransientModel):
             'net_profit': net_profit,
             'ar': ar,
             'ap': ap,
-            'net_assets': total_assets - current_liabilities, # Approximate net assets
+            'net_assets': total_assets - total_liabilities,
             'gross_margin': gross_margin,
             'net_margin': net_margin,
             'roi': roi,
@@ -257,6 +273,9 @@ class AccountExecutiveSummaryWizard(models.TransientModel):
 
     def _compute_summary_data(self):
         self.ensure_one()
+        # company_id can come from client data and is used in raw SQL
+        if self.company_id not in self.env.companies:
+            raise UserError(_("You are not allowed to access this company's data."))
         cid = self.company_id.id
         state = self.target_move
         current = self._compute_kpis(self.date_from, self.date_to, cid, state)

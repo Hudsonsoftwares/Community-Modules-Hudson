@@ -22,8 +22,8 @@
                 <field name="uom_id" string="Unit"/>
                 <field name="price_unit" string="Unit Price"/>
                 <field name="price_subtotal" string="Amount" sum="Total Amount"/>
-                <button name="action_open_invoices" type="object" string="View Bill" icon="fa-pencil-square-o" title="Open Vendor Bill"/>
-                <button name="action_open_order" type="object" string="View PO" icon="fa-file-text-o" title="Open Purchase Order"/>
+                <button name="action_open_invoices" type="object" string="View Bill" icon="edit" title="Open Vendor Bill"/>
+                <button name="action_open_order" type="object" string="View PO" icon="description" title="Open Purchase Order"/>
             </list>
         </field>
     </record>
@@ -92,8 +92,8 @@
                 <field name="product_uom_id" string="Unit"/>
                 <field name="price_unit" string="Unit Price"/>
                 <field name="price_subtotal" string="Amount" sum="Total Amount"/>
-                <button name="action_open_invoices" type="object" string="View Invoice" icon="fa-pencil-square-o" title="Open Customer Invoice"/>
-                <button name="action_open_order" type="object" string="View SO" icon="fa-file-text-o" title="Open Sale Order"/>
+                <button name="action_open_invoices" type="object" string="View Invoice" icon="edit" title="Open Customer Invoice"/>
+                <button name="action_open_order" type="object" string="View SO" icon="description" title="Open Sale Order"/>
             </list>
         </field>
     </record>

@@ -9,7 +9,7 @@
                     <field name="image" widget="image" class="oe_avatar"/>
                     <div class="oe_button_box" name="button_box">
                         <button name="action_view_requests" type="object"
-                                class="oe_stat_button" icon="fa-list-alt">
+                                class="oe_stat_button" icon="list_alt">
                             <field name="approval_request_count" widget="statinfo" string="Requests"/>
                         </button>
                     </div>

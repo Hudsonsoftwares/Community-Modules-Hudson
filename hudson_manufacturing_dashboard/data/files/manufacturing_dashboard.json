@@ -1,0 +1,1861 @@
+{
+    "version": "19.5.1",
+    "sheets": [
+        {
+            "id": "dashboard_sheet_id",
+            "name": "Dashboard",
+            "colNumber": 10,
+            "rowNumber": 78,
+            "rows": {
+                "77": {
+                    "size": 19
+                }
+            },
+            "cols": {
+                "0": {
+                    "size": 136
+                }
+            },
+            "merges": [],
+            "cells": {},
+            "styles": {},
+            "formats": {},
+            "borders": {},
+            "conditionalFormats": [],
+            "dataValidationRules": [],
+            "figures": [
+                {
+                    "id": "992b1b7d-78e0-4b41-b144-3995c16b73be",
+                    "width": 200,
+                    "height": 105,
+                    "tag": "chart",
+                    "data": {
+                        "baselineColorDown": "#DC6965",
+                        "baselineColorUp": "#00A04A",
+                        "baselineMode": "percentage",
+                        "title": {
+                            "text": "Quantity Produced",
+                            "bold": true,
+                            "color": "#01666B"
+                        },
+                        "type": "scorecard",
+                        "background": "",
+                        "baseline": "=Data!E3",
+                        "baselineDescr": {
+                            "text": "since last period"
+                        },
+                        "keyValue": "=Data!D3",
+                        "humanize": false,
+                        "chartId": "992b1b7d-78e0-4b41-b144-3995c16b73be"
+                    },
+                    "offset": {
+                        "x": 210,
+                        "y": 9
+                    },
+                    "col": 0,
+                    "row": 0
+                },
+                {
+                    "id": "379d22d2-4cbf-48fb-8fad-e44b9ce00dea",
+                    "width": 200,
+                    "height": 105,
+                    "tag": "chart",
+                    "data": {
+                        "baselineColorDown": "#DC6965",
+                        "baselineColorUp": "#00A04A",
+                        "baselineMode": "percentage",
+                        "title": {
+                            "text": "Manufacturing Orders",
+                            "bold": true,
+                            "color": "#01666B"
+                        },
+                        "type": "scorecard",
+                        "background": "",
+                        "baseline": "=Data!E2",
+                        "baselineDescr": {
+                            "text": "since last period"
+                        },
+                        "keyValue": "=Data!D2",
+                        "humanize": false,
+                        "chartId": "379d22d2-4cbf-48fb-8fad-e44b9ce00dea"
+                    },
+                    "offset": {
+                        "x": 0,
+                        "y": 9
+                    },
+                    "col": 0,
+                    "row": 0
+                },
+                {
+                    "id": "683afc26-bbb2-4647-8e80-e3699839ffd5",
+                    "width": 200,
+                    "height": 105,
+                    "tag": "chart",
+                    "data": {
+                        "baselineColorDown": "#DC6965",
+                        "baselineColorUp": "#00A04A",
+                        "baselineMode": "percentage",
+                        "title": {
+                            "text": "OEE",
+                            "bold": true,
+                            "color": "#01666B"
+                        },
+                        "type": "scorecard",
+                        "background": "",
+                        "baseline": "=Data!E7",
+                        "baselineDescr": {
+                            "text": "since last period"
+                        },
+                        "keyValue": "=Data!D7",
+                        "humanize": false,
+                        "chartId": "683afc26-bbb2-4647-8e80-e3699839ffd5"
+                    },
+                    "offset": {
+                        "x": 420,
+                        "y": 9
+                    },
+                    "col": 0,
+                    "row": 0
+                },
+                {
+                    "id": "9f95d0f4-ad80-45de-970a-9897eab4d56f",
+                    "width": 200,
+                    "height": 105,
+                    "tag": "chart",
+                    "data": {
+                        "baselineColorDown": "#DC6965",
+                        "baselineColorUp": "#00A04A",
+                        "baselineMode": "percentage",
+                        "title": {
+                            "text": "Average Cost / Unit",
+                            "color": "#01666B",
+                            "bold": true
+                        },
+                        "type": "scorecard",
+                        "background": "",
+                        "baseline": "=Data!E8",
+                        "baselineDescr": {
+                            "text": "since last period"
+                        },
+                        "keyValue": "=Data!D8",
+                        "humanize": false,
+                        "chartId": "9f95d0f4-ad80-45de-970a-9897eab4d56f"
+                    },
+                    "offset": {
+                        "x": 630,
+                        "y": 9
+                    },
+                    "col": 0,
+                    "row": 0
+                },
+                {
+                    "id": "5fbb8d4d-99f5",
+                    "col": 0,
+                    "row": 0,
+                    "offset": {
+                        "x": 0,
+                        "y": 124
+                    },
+                    "width": 1000,
+                    "height": 404,
+                    "tag": "carousel",
+                    "data": {
+                        "chartDefinitions": {
+                            "5fbb8d4d-99f5-0": {
+                                "type": "line",
+                                "title": {
+                                    "text": ""
+                                },
+                                "humanize": true,
+                                "dataSetStyles": {},
+                                "legendPosition": "none",
+                                "dataSource": {
+                                    "type": "odoo",
+                                    "metaData": {
+                                        "groupBy": [
+                                            "date_start:week"
+                                        ],
+                                        "measure": "__count",
+                                        "order": null,
+                                        "resModel": "mrp.production"
+                                    },
+                                    "searchParams": {
+                                        "context": {},
+                                        "domain": [
+                                            [
+                                                "state",
+                                                "!=",
+                                                "cancel"
+                                            ]
+                                        ],
+                                        "groupBy": [],
+                                        "orderBy": []
+                                    },
+                                    "actionXmlId": "mrp.mrp_production_action"
+                                },
+                                "fillArea": true
+                            }
+                        },
+                        "items": [
+                            {
+                                "type": "chart",
+                                "chartId": "5fbb8d4d-99f5-0",
+                                "title": "Graph"
+                            }
+                        ],
+                        "fieldMatching": {
+                            "5fbb8d4d-99f5-0": {
+                                "a5d0b2fb-b866-4fa0-8d25-bcf1c41cf592": {
+                                    "chain": "date_start",
+                                    "type": "datetime"
+                                },
+                                "ad6b4dd2-f0c1-4ef7-9591-f9af7c790bdb": {
+                                    "chain": "product_id",
+                                    "type": "many2one"
+                                },
+                                "dfe37941-d119-494e-af10-62c1ed04c413": {
+                                    "chain": "picking_type_id",
+                                    "type": "many2one"
+                                },
+                                "be98718e-525b-4252-92c5-1c95bd470fc9": {
+                                    "chain": "user_id",
+                                    "type": "many2one"
+                                }
+                            }
+                        },
+                        "title": {
+                            "text": "Manufacturing Orders",
+                            "bold": true,
+                            "fontSize": 21,
+                            "color": "#01666B"
+                        }
+                    }
+                },
+                {
+                    "id": "c9b1b985-cf64",
+                    "col": 0,
+                    "row": 0,
+                    "offset": {
+                        "x": 0,
+                        "y": 538
+                    },
+                    "width": 1000,
+                    "height": 404,
+                    "tag": "carousel",
+                    "data": {
+                        "chartDefinitions": {
+                            "c9b1b985-cf64-0": {
+                                "type": "bar",
+                                "title": {
+                                    "text": ""
+                                },
+                                "humanize": true,
+                                "dataSetStyles": {},
+                                "legendPosition": "right",
+                                "dataSource": {
+                                    "type": "odoo",
+                                    "metaData": {
+                                        "groupBy": [
+                                            "product_id",
+                                            "state"
+                                        ],
+                                        "measure": "product_qty",
+                                        "order": "DESC",
+                                        "resModel": "mrp.production"
+                                    },
+                                    "searchParams": {
+                                        "context": {},
+                                        "domain": [
+                                            [
+                                                "state",
+                                                "!=",
+                                                "cancel"
+                                            ]
+                                        ],
+                                        "groupBy": [],
+                                        "orderBy": []
+                                    },
+                                    "actionXmlId": "mrp.mrp_production_action"
+                                },
+                                "stacked": true
+                            }
+                        },
+                        "items": [
+                            {
+                                "type": "chart",
+                                "chartId": "c9b1b985-cf64-0",
+                                "title": "Graph"
+                            }
+                        ],
+                        "fieldMatching": {
+                            "c9b1b985-cf64-0": {
+                                "a5d0b2fb-b866-4fa0-8d25-bcf1c41cf592": {
+                                    "chain": "date_start",
+                                    "type": "datetime"
+                                },
+                                "ad6b4dd2-f0c1-4ef7-9591-f9af7c790bdb": {
+                                    "chain": "product_id",
+                                    "type": "many2one"
+                                },
+                                "dfe37941-d119-494e-af10-62c1ed04c413": {
+                                    "chain": "picking_type_id",
+                                    "type": "many2one"
+                                },
+                                "be98718e-525b-4252-92c5-1c95bd470fc9": {
+                                    "chain": "user_id",
+                                    "type": "many2one"
+                                }
+                            }
+                        },
+                        "title": {
+                            "text": "Quantity by Product",
+                            "bold": true,
+                            "fontSize": 21,
+                            "color": "#01666B"
+                        }
+                    }
+                },
+                {
+                    "id": "9380c45e-884f",
+                    "col": 0,
+                    "row": 0,
+                    "offset": {
+                        "x": 505,
+                        "y": 952
+                    },
+                    "width": 495,
+                    "height": 404,
+                    "tag": "carousel",
+                    "data": {
+                        "chartDefinitions": {},
+                        "title": {
+                            "text": "Top Operation Types",
+                            "bold": true,
+                            "fontSize": 21,
+                            "color": "#01666B"
+                        },
+                        "items": [
+                            {
+                                "type": "carouselDataView",
+                                "rangeData": {
+                                    "_sheetId": "67e5e494-f77b",
+                                    "_zone": {
+                                        "top": 0,
+                                        "left": 0,
+                                        "bottom": 50,
+                                        "right": 2
+                                    }
+                                }
+                            }
+                        ],
+                        "fieldMatching": {}
+                    }
+                },
+                {
+                    "id": "23672ad8-d866",
+                    "col": 0,
+                    "row": 0,
+                    "offset": {
+                        "x": 0,
+                        "y": 952
+                    },
+                    "width": 495,
+                    "height": 404,
+                    "tag": "carousel",
+                    "data": {
+                        "chartDefinitions": {},
+                        "title": {
+                            "text": "Top Products",
+                            "bold": true,
+                            "fontSize": 21,
+                            "color": "#01666B"
+                        },
+                        "items": [
+                            {
+                                "type": "carouselDataView",
+                                "rangeData": {
+                                    "_sheetId": "8adf875b-be31",
+                                    "_zone": {
+                                        "top": 0,
+                                        "left": 0,
+                                        "bottom": 50,
+                                        "right": 2
+                                    }
+                                }
+                            }
+                        ],
+                        "fieldMatching": {}
+                    }
+                },
+                {
+                    "id": "e30461d9-aeb9",
+                    "col": 0,
+                    "row": 0,
+                    "offset": {
+                        "x": 0,
+                        "y": 1366
+                    },
+                    "width": 1000,
+                    "height": 404,
+                    "tag": "carousel",
+                    "data": {
+                        "chartDefinitions": {},
+                        "title": {
+                            "text": "Top Responsibles",
+                            "bold": true,
+                            "fontSize": 21,
+                            "color": "#01666B"
+                        },
+                        "items": [
+                            {
+                                "type": "carouselDataView",
+                                "rangeData": {
+                                    "_sheetId": "36b6d9a7-68e7",
+                                    "_zone": {
+                                        "top": 0,
+                                        "left": 0,
+                                        "bottom": 50,
+                                        "right": 2
+                                    }
+                                }
+                            }
+                        ],
+                        "fieldMatching": {}
+                    }
+                }
+            ],
+            "tables": [],
+            "areGridLinesVisible": true,
+            "isVisible": true,
+            "backgroundColor": "#F9FAFB",
+            "headerGroups": {
+                "ROW": [],
+                "COL": []
+            },
+            "comments": {}
+        },
+        {
+            "id": "e85b0e6c-d32d-4ab1-a3c7-e5c1ae0e5350",
+            "name": "Data",
+            "colNumber": 26,
+            "rowNumber": 101,
+            "rows": {},
+            "cols": {},
+            "merges": [],
+            "cells": {
+                "A1": "KPI",
+                "B1": "Current",
+                "C1": "Previous",
+                "D1": "Current",
+                "E1": "Previous",
+                "A2": "Manufacturing orders",
+                "A3": "Quantity produced",
+                "A4": "Total time (min)",
+                "A5": "Lost time (min)",
+                "A6": "Productive time (min)",
+                "A7": "OEE",
+                "A8": "Average cost / unit",
+                "B2": "=PIVOT.VALUE(1,\"__count\")",
+                "B3": "=PIVOT.VALUE(1,\"product_qty\",\"state\",\"done\")",
+                "B4": "=PIVOT.VALUE(3,\"duration\")",
+                "B5": "=IFERROR(B4-B6)",
+                "B6": "=PIVOT.VALUE(5,\"duration\")",
+                "B7": "=IFERROR(B6/B4)",
+                "B8": "=IFERROR(PIVOT.VALUE(7,\"value\")/PIVOT.VALUE(7,\"quantity\"))",
+                "C2": "=PIVOT.VALUE(2,\"__count\")",
+                "C3": "=PIVOT.VALUE(2,\"product_qty\",\"state\",\"done\")",
+                "C4": "=PIVOT.VALUE(4,\"duration\")",
+                "C5": "=IFERROR(C4-C6)",
+                "C6": "=PIVOT.VALUE(6,\"duration\")",
+                "C7": "=IFERROR(C6/C4)",
+                "C8": "=IFERROR(PIVOT.VALUE(8,\"value\")/PIVOT.VALUE(8,\"quantity\"))",
+                "D2": "=FORMAT.LARGE.NUMBER(B2)",
+                "D3": "=FORMAT.LARGE.NUMBER(B3)",
+                "D8": "=FORMAT.LARGE.NUMBER(B8)",
+                "D7": "=B7",
+                "E2": "=FORMAT.LARGE.NUMBER(C2)",
+                "E3": "=FORMAT.LARGE.NUMBER(C3)",
+                "E8": "=FORMAT.LARGE.NUMBER(C8)",
+                "E7": "=C7"
+            },
+            "styles": {
+                "A1:Z1": 3
+            },
+            "formats": {
+                "D7:E7": 1,
+                "B2": 3,
+                "B3": 4,
+                "B4": 4,
+                "B5": 4,
+                "B6": 4,
+                "B8": 5,
+                "C2": 3,
+                "C3": 4,
+                "C4": 4,
+                "C5": 4,
+                "C6": 4,
+                "C8": 5
+            },
+            "borders": {},
+            "conditionalFormats": [],
+            "dataValidationRules": [],
+            "figures": [],
+            "tables": [],
+            "areGridLinesVisible": true,
+            "isVisible": true,
+            "headerGroups": {
+                "ROW": [],
+                "COL": []
+            },
+            "comments": {}
+        },
+        {
+            "id": "8adf875b-be31",
+            "name": "Top Products",
+            "colNumber": 26,
+            "rowNumber": 100,
+            "rows": {
+                "0": {
+                    "size": 28
+                },
+                "1": {
+                    "size": 28
+                },
+                "2": {
+                    "size": 28
+                },
+                "3": {
+                    "size": 28
+                },
+                "4": {
+                    "size": 28
+                },
+                "5": {
+                    "size": 28
+                },
+                "6": {
+                    "size": 28
+                },
+                "7": {
+                    "size": 28
+                },
+                "8": {
+                    "size": 28
+                },
+                "9": {
+                    "size": 28
+                },
+                "10": {
+                    "size": 28
+                },
+                "11": {
+                    "size": 28
+                },
+                "12": {
+                    "size": 28
+                },
+                "13": {
+                    "size": 28
+                },
+                "14": {
+                    "size": 28
+                },
+                "15": {
+                    "size": 28
+                },
+                "16": {
+                    "size": 28
+                },
+                "17": {
+                    "size": 28
+                },
+                "18": {
+                    "size": 28
+                },
+                "19": {
+                    "size": 28
+                },
+                "20": {
+                    "size": 28
+                },
+                "21": {
+                    "size": 28
+                },
+                "22": {
+                    "size": 28
+                },
+                "23": {
+                    "size": 28
+                },
+                "24": {
+                    "size": 28
+                },
+                "25": {
+                    "size": 28
+                },
+                "26": {
+                    "size": 28
+                },
+                "27": {
+                    "size": 28
+                },
+                "28": {
+                    "size": 28
+                },
+                "29": {
+                    "size": 28
+                },
+                "30": {
+                    "size": 28
+                },
+                "31": {
+                    "size": 28
+                },
+                "32": {
+                    "size": 28
+                },
+                "33": {
+                    "size": 28
+                },
+                "34": {
+                    "size": 28
+                },
+                "35": {
+                    "size": 28
+                },
+                "36": {
+                    "size": 28
+                },
+                "37": {
+                    "size": 28
+                },
+                "38": {
+                    "size": 28
+                },
+                "39": {
+                    "size": 28
+                },
+                "40": {
+                    "size": 28
+                },
+                "41": {
+                    "size": 28
+                },
+                "42": {
+                    "size": 28
+                },
+                "43": {
+                    "size": 28
+                },
+                "44": {
+                    "size": 28
+                },
+                "45": {
+                    "size": 28
+                },
+                "46": {
+                    "size": 28
+                },
+                "47": {
+                    "size": 28
+                },
+                "48": {
+                    "size": 28
+                },
+                "49": {
+                    "size": 28
+                },
+                "50": {
+                    "size": 28
+                }
+            },
+            "cols": {
+                "0": {
+                    "size": 233
+                }
+            },
+            "merges": [],
+            "cells": {
+                "A1": "=PIVOT(9,50,FALSE,FALSE)"
+            },
+            "styles": {
+                "A1": 4,
+                "A2:A51": 5,
+                "B4:C51": 5,
+                "B1": 6,
+                "B2:C3": 7,
+                "C1": 8,
+                "E4": 8
+            },
+            "formats": {
+                "A2:A13": 2,
+                "A2": 2,
+                "B2": 3,
+                "C2": 4,
+                "A3": 2,
+                "B3": 3,
+                "C3": 4,
+                "A4": 2,
+                "B4": 3,
+                "C4": 4,
+                "A5": 2,
+                "B5": 3,
+                "C5": 4,
+                "A6": 2,
+                "B6": 3,
+                "C6": 4
+            },
+            "borders": {},
+            "conditionalFormats": [
+                {
+                    "id": "e73b743b-5cab",
+                    "rule": {
+                        "type": "DataBarRule",
+                        "color": 14609659,
+                        "rangeValues": "C2:C51"
+                    },
+                    "ranges": [
+                        "A2:A51"
+                    ]
+                }
+            ],
+            "dataValidationRules": [],
+            "figures": [],
+            "tables": [],
+            "areGridLinesVisible": true,
+            "isVisible": true,
+            "isLocked": false,
+            "panes": {
+                "xSplit": 0,
+                "ySplit": 1
+            },
+            "headerGroups": {
+                "ROW": [],
+                "COL": []
+            },
+            "defaultStyle": {
+                "colDefault": {
+                    "0": 2
+                },
+                "rowDefault": {},
+                "sheetDefault": 1
+            },
+            "comments": {}
+        },
+        {
+            "id": "67e5e494-f77b",
+            "name": "Top Operation Types",
+            "colNumber": 26,
+            "rowNumber": 100,
+            "rows": {
+                "0": {
+                    "size": 28
+                },
+                "1": {
+                    "size": 28
+                },
+                "2": {
+                    "size": 28
+                },
+                "3": {
+                    "size": 28
+                },
+                "4": {
+                    "size": 28
+                },
+                "5": {
+                    "size": 28
+                },
+                "6": {
+                    "size": 28
+                },
+                "7": {
+                    "size": 28
+                },
+                "8": {
+                    "size": 28
+                },
+                "9": {
+                    "size": 28
+                },
+                "10": {
+                    "size": 28
+                },
+                "11": {
+                    "size": 28
+                },
+                "12": {
+                    "size": 28
+                },
+                "13": {
+                    "size": 28
+                },
+                "14": {
+                    "size": 28
+                },
+                "15": {
+                    "size": 28
+                },
+                "16": {
+                    "size": 28
+                },
+                "17": {
+                    "size": 28
+                },
+                "18": {
+                    "size": 28
+                },
+                "19": {
+                    "size": 28
+                },
+                "20": {
+                    "size": 28
+                },
+                "21": {
+                    "size": 28
+                },
+                "22": {
+                    "size": 28
+                },
+                "23": {
+                    "size": 28
+                },
+                "24": {
+                    "size": 28
+                },
+                "25": {
+                    "size": 28
+                },
+                "26": {
+                    "size": 28
+                },
+                "27": {
+                    "size": 28
+                },
+                "28": {
+                    "size": 28
+                },
+                "29": {
+                    "size": 28
+                },
+                "30": {
+                    "size": 28
+                },
+                "31": {
+                    "size": 28
+                },
+                "32": {
+                    "size": 28
+                },
+                "33": {
+                    "size": 28
+                },
+                "34": {
+                    "size": 28
+                },
+                "35": {
+                    "size": 28
+                },
+                "36": {
+                    "size": 28
+                },
+                "37": {
+                    "size": 28
+                },
+                "38": {
+                    "size": 28
+                },
+                "39": {
+                    "size": 28
+                },
+                "40": {
+                    "size": 28
+                },
+                "41": {
+                    "size": 28
+                },
+                "42": {
+                    "size": 28
+                },
+                "43": {
+                    "size": 28
+                },
+                "44": {
+                    "size": 28
+                },
+                "45": {
+                    "size": 28
+                },
+                "46": {
+                    "size": 28
+                },
+                "47": {
+                    "size": 28
+                },
+                "48": {
+                    "size": 28
+                },
+                "49": {
+                    "size": 28
+                },
+                "50": {
+                    "size": 28
+                }
+            },
+            "cols": {
+                "0": {
+                    "size": 233
+                }
+            },
+            "merges": [],
+            "cells": {
+                "A1": "=PIVOT(10,50,FALSE,FALSE)"
+            },
+            "styles": {
+                "A1": 4,
+                "A2:A51": 5,
+                "B4:C51": 5,
+                "B1": 6,
+                "B2:C3": 7,
+                "C1": 8,
+                "E4": 8
+            },
+            "formats": {
+                "A2:A13": 2,
+                "A2": 2,
+                "B2": 3,
+                "C2": 4
+            },
+            "borders": {},
+            "conditionalFormats": [
+                {
+                    "id": "e73b743b-5cab",
+                    "rule": {
+                        "type": "DataBarRule",
+                        "color": 14609659,
+                        "rangeValues": "C2:C51"
+                    },
+                    "ranges": [
+                        "A2:A51"
+                    ]
+                }
+            ],
+            "dataValidationRules": [],
+            "figures": [],
+            "tables": [],
+            "areGridLinesVisible": true,
+            "isVisible": true,
+            "isLocked": false,
+            "panes": {
+                "xSplit": 0,
+                "ySplit": 1
+            },
+            "headerGroups": {
+                "ROW": [],
+                "COL": []
+            },
+            "defaultStyle": {
+                "colDefault": {
+                    "0": 2
+                },
+                "rowDefault": {},
+                "sheetDefault": 1
+            },
+            "comments": {}
+        },
+        {
+            "id": "36b6d9a7-68e7",
+            "name": "Top Responsibles",
+            "colNumber": 26,
+            "rowNumber": 100,
+            "rows": {
+                "0": {
+                    "size": 28
+                },
+                "1": {
+                    "size": 28
+                },
+                "2": {
+                    "size": 28
+                },
+                "3": {
+                    "size": 28
+                },
+                "4": {
+                    "size": 28
+                },
+                "5": {
+                    "size": 28
+                },
+                "6": {
+                    "size": 28
+                },
+                "7": {
+                    "size": 28
+                },
+                "8": {
+                    "size": 28
+                },
+                "9": {
+                    "size": 28
+                },
+                "10": {
+                    "size": 28
+                },
+                "11": {
+                    "size": 28
+                },
+                "12": {
+                    "size": 28
+                },
+                "13": {
+                    "size": 28
+                },
+                "14": {
+                    "size": 28
+                },
+                "15": {
+                    "size": 28
+                },
+                "16": {
+                    "size": 28
+                },
+                "17": {
+                    "size": 28
+                },
+                "18": {
+                    "size": 28
+                },
+                "19": {
+                    "size": 28
+                },
+                "20": {
+                    "size": 28
+                },
+                "21": {
+                    "size": 28
+                },
+                "22": {
+                    "size": 28
+                },
+                "23": {
+                    "size": 28
+                },
+                "24": {
+                    "size": 28
+                },
+                "25": {
+                    "size": 28
+                },
+                "26": {
+                    "size": 28
+                },
+                "27": {
+                    "size": 28
+                },
+                "28": {
+                    "size": 28
+                },
+                "29": {
+                    "size": 28
+                },
+                "30": {
+                    "size": 28
+                },
+                "31": {
+                    "size": 28
+                },
+                "32": {
+                    "size": 28
+                },
+                "33": {
+                    "size": 28
+                },
+                "34": {
+                    "size": 28
+                },
+                "35": {
+                    "size": 28
+                },
+                "36": {
+                    "size": 28
+                },
+                "37": {
+                    "size": 28
+                },
+                "38": {
+                    "size": 28
+                },
+                "39": {
+                    "size": 28
+                },
+                "40": {
+                    "size": 28
+                },
+                "41": {
+                    "size": 28
+                },
+                "42": {
+                    "size": 28
+                },
+                "43": {
+                    "size": 28
+                },
+                "44": {
+                    "size": 28
+                },
+                "45": {
+                    "size": 28
+                },
+                "46": {
+                    "size": 28
+                },
+                "47": {
+                    "size": 28
+                },
+                "48": {
+                    "size": 28
+                },
+                "49": {
+                    "size": 28
+                },
+                "50": {
+                    "size": 28
+                }
+            },
+            "cols": {
+                "0": {
+                    "size": 233
+                }
+            },
+            "merges": [],
+            "cells": {
+                "A1": "=PIVOT(11,50,FALSE,FALSE)"
+            },
+            "styles": {
+                "A1": 4,
+                "A2:A51": 5,
+                "B4:C51": 5,
+                "B1": 6,
+                "B2:C3": 7,
+                "C1": 8,
+                "E4": 8
+            },
+            "formats": {
+                "A2:A13": 2,
+                "A2": 2,
+                "B2": 3,
+                "C2": 4
+            },
+            "borders": {},
+            "conditionalFormats": [
+                {
+                    "id": "e73b743b-5cab",
+                    "rule": {
+                        "type": "DataBarRule",
+                        "color": 14609659,
+                        "rangeValues": "C2:C51"
+                    },
+                    "ranges": [
+                        "A2:A51"
+                    ]
+                }
+            ],
+            "dataValidationRules": [],
+            "figures": [],
+            "tables": [],
+            "areGridLinesVisible": true,
+            "isVisible": true,
+            "isLocked": false,
+            "panes": {
+                "xSplit": 0,
+                "ySplit": 1
+            },
+            "headerGroups": {
+                "ROW": [],
+                "COL": []
+            },
+            "defaultStyle": {
+                "colDefault": {
+                    "0": 2
+                },
+                "rowDefault": {},
+                "sheetDefault": 1
+            },
+            "comments": {}
+        }
+    ],
+    "styles": {
+        "1": {},
+        "2": {
+            "textColor": "#434343"
+        },
+        "3": {
+            "bold": true
+        },
+        "4": {
+            "bold": true,
+            "align": "left",
+            "verticalAlign": "top",
+            "fontSize": 11
+        },
+        "5": {
+            "verticalAlign": "middle"
+        },
+        "6": {
+            "bold": true,
+            "align": "left",
+            "verticalAlign": "top",
+            "fontSize": 11,
+            "textColor": "#434343"
+        },
+        "7": {
+            "verticalAlign": "middle",
+            "textColor": "#434343"
+        },
+        "8": {
+            "bold": true,
+            "align": "center",
+            "verticalAlign": "top",
+            "fontSize": 11,
+            "textColor": "#434343"
+        },
+        "9": {
+            "bold": true
+        }
+    },
+    "formats": {
+        "1": "0%",
+        "2": "@",
+        "3": "0",
+        "4": "#,##0.00",
+        "5": "[$$]#,##0.00",
+        "6": "dd/mm/yyyy"
+    },
+    "borders": {},
+    "revisionId": "08d6775c-ba9a-4d35-8076-29af5e1ae75f",
+    "uniqueFigureIds": true,
+    "settings": {
+        "locale": {
+            "name": "English (IN)",
+            "code": "en_IN",
+            "thousandsSeparator": ",",
+            "decimalSeparator": ".",
+            "dateFormat": "dd/mm/yyyy",
+            "timeFormat": "hh:mm:ss a",
+            "formulaArgSeparator": ",",
+            "weekStart": 7,
+            "digitGrouping": "[3,2,0]"
+        }
+    },
+    "pivots": {
+        "1": {
+            "type": "ODOO",
+            "id": "1",
+            "formulaId": "1",
+            "name": "KPIs - current",
+            "model": "mrp.production",
+            "domain": [
+                [
+                    "state",
+                    "!=",
+                    "cancel"
+                ]
+            ],
+            "context": {},
+            "measures": [
+                {
+                    "id": "__count",
+                    "fieldName": "__count"
+                },
+                {
+                    "id": "product_qty",
+                    "fieldName": "product_qty"
+                }
+            ],
+            "rows": [
+                {
+                    "fieldName": "state"
+                }
+            ],
+            "columns": [],
+            "sortedColumn": null,
+            "fieldMatching": {
+                "a5d0b2fb-b866-4fa0-8d25-bcf1c41cf592": {
+                    "chain": "date_start",
+                    "type": "datetime",
+                    "offset": 0
+                },
+                "ad6b4dd2-f0c1-4ef7-9591-f9af7c790bdb": {
+                    "chain": "product_id",
+                    "type": "many2one"
+                },
+                "dfe37941-d119-494e-af10-62c1ed04c413": {
+                    "chain": "picking_type_id",
+                    "type": "many2one"
+                },
+                "be98718e-525b-4252-92c5-1c95bd470fc9": {
+                    "chain": "user_id",
+                    "type": "many2one"
+                }
+            }
+        },
+        "3": {
+            "type": "ODOO",
+            "id": "3",
+            "formulaId": "3",
+            "name": "Time - current",
+            "model": "mrp.workcenter.productivity",
+            "domain": [],
+            "context": {},
+            "measures": [
+                {
+                    "id": "duration",
+                    "fieldName": "duration"
+                }
+            ],
+            "rows": [],
+            "columns": [],
+            "sortedColumn": null,
+            "fieldMatching": {
+                "a5d0b2fb-b866-4fa0-8d25-bcf1c41cf592": {
+                    "chain": "date_start",
+                    "type": "datetime",
+                    "offset": 0
+                },
+                "ad6b4dd2-f0c1-4ef7-9591-f9af7c790bdb": {
+                    "chain": "workorder_id.production_id.product_id",
+                    "type": "many2one"
+                },
+                "dfe37941-d119-494e-af10-62c1ed04c413": {
+                    "chain": "workorder_id.production_id.picking_type_id",
+                    "type": "many2one"
+                },
+                "be98718e-525b-4252-92c5-1c95bd470fc9": {
+                    "chain": "workorder_id.production_id.user_id",
+                    "type": "many2one"
+                }
+            }
+        },
+        "5": {
+            "type": "ODOO",
+            "id": "5",
+            "formulaId": "5",
+            "name": "Productive time - current",
+            "model": "mrp.workcenter.productivity",
+            "domain": [
+                [
+                    "loss_type",
+                    "=",
+                    "productive"
+                ]
+            ],
+            "context": {},
+            "measures": [
+                {
+                    "id": "duration",
+                    "fieldName": "duration"
+                }
+            ],
+            "rows": [],
+            "columns": [],
+            "sortedColumn": null,
+            "fieldMatching": {
+                "a5d0b2fb-b866-4fa0-8d25-bcf1c41cf592": {
+                    "chain": "date_start",
+                    "type": "datetime",
+                    "offset": 0
+                },
+                "ad6b4dd2-f0c1-4ef7-9591-f9af7c790bdb": {
+                    "chain": "workorder_id.production_id.product_id",
+                    "type": "many2one"
+                },
+                "dfe37941-d119-494e-af10-62c1ed04c413": {
+                    "chain": "workorder_id.production_id.picking_type_id",
+                    "type": "many2one"
+                },
+                "be98718e-525b-4252-92c5-1c95bd470fc9": {
+                    "chain": "workorder_id.production_id.user_id",
+                    "type": "many2one"
+                }
+            }
+        },
+        "7": {
+            "type": "ODOO",
+            "id": "7",
+            "formulaId": "7",
+            "name": "Cost - current",
+            "model": "stock.move",
+            "domain": [
+                [
+                    "production_id",
+                    "!=",
+                    false
+                ],
+                [
+                    "state",
+                    "=",
+                    "done"
+                ]
+            ],
+            "context": {},
+            "measures": [
+                {
+                    "id": "value",
+                    "fieldName": "value"
+                },
+                {
+                    "id": "quantity",
+                    "fieldName": "quantity"
+                }
+            ],
+            "rows": [],
+            "columns": [],
+            "sortedColumn": null,
+            "fieldMatching": {
+                "a5d0b2fb-b866-4fa0-8d25-bcf1c41cf592": {
+                    "chain": "production_id.date_start",
+                    "type": "datetime",
+                    "offset": 0
+                },
+                "ad6b4dd2-f0c1-4ef7-9591-f9af7c790bdb": {
+                    "chain": "product_id",
+                    "type": "many2one"
+                },
+                "dfe37941-d119-494e-af10-62c1ed04c413": {
+                    "chain": "production_id.picking_type_id",
+                    "type": "many2one"
+                },
+                "be98718e-525b-4252-92c5-1c95bd470fc9": {
+                    "chain": "production_id.user_id",
+                    "type": "many2one"
+                }
+            }
+        },
+        "2": {
+            "type": "ODOO",
+            "id": "2",
+            "formulaId": "2",
+            "name": "KPIs - previous",
+            "model": "mrp.production",
+            "domain": [
+                [
+                    "state",
+                    "!=",
+                    "cancel"
+                ]
+            ],
+            "context": {},
+            "measures": [
+                {
+                    "id": "__count",
+                    "fieldName": "__count"
+                },
+                {
+                    "id": "product_qty",
+                    "fieldName": "product_qty"
+                }
+            ],
+            "rows": [
+                {
+                    "fieldName": "state"
+                }
+            ],
+            "columns": [],
+            "sortedColumn": null,
+            "fieldMatching": {
+                "a5d0b2fb-b866-4fa0-8d25-bcf1c41cf592": {
+                    "chain": "date_start",
+                    "type": "datetime",
+                    "offset": -1
+                },
+                "ad6b4dd2-f0c1-4ef7-9591-f9af7c790bdb": {
+                    "chain": "product_id",
+                    "type": "many2one"
+                },
+                "dfe37941-d119-494e-af10-62c1ed04c413": {
+                    "chain": "picking_type_id",
+                    "type": "many2one"
+                },
+                "be98718e-525b-4252-92c5-1c95bd470fc9": {
+                    "chain": "user_id",
+                    "type": "many2one"
+                }
+            }
+        },
+        "4": {
+            "type": "ODOO",
+            "id": "4",
+            "formulaId": "4",
+            "name": "Time - previous",
+            "model": "mrp.workcenter.productivity",
+            "domain": [],
+            "context": {},
+            "measures": [
+                {
+                    "id": "duration",
+                    "fieldName": "duration"
+                }
+            ],
+            "rows": [],
+            "columns": [],
+            "sortedColumn": null,
+            "fieldMatching": {
+                "a5d0b2fb-b866-4fa0-8d25-bcf1c41cf592": {
+                    "chain": "date_start",
+                    "type": "datetime",
+                    "offset": -1
+                },
+                "ad6b4dd2-f0c1-4ef7-9591-f9af7c790bdb": {
+                    "chain": "workorder_id.production_id.product_id",
+                    "type": "many2one"
+                },
+                "dfe37941-d119-494e-af10-62c1ed04c413": {
+                    "chain": "workorder_id.production_id.picking_type_id",
+                    "type": "many2one"
+                },
+                "be98718e-525b-4252-92c5-1c95bd470fc9": {
+                    "chain": "workorder_id.production_id.user_id",
+                    "type": "many2one"
+                }
+            }
+        },
+        "6": {
+            "type": "ODOO",
+            "id": "6",
+            "formulaId": "6",
+            "name": "Productive time - previous",
+            "model": "mrp.workcenter.productivity",
+            "domain": [
+                [
+                    "loss_type",
+                    "=",
+                    "productive"
+                ]
+            ],
+            "context": {},
+            "measures": [
+                {
+                    "id": "duration",
+                    "fieldName": "duration"
+                }
+            ],
+            "rows": [],
+            "columns": [],
+            "sortedColumn": null,
+            "fieldMatching": {
+                "a5d0b2fb-b866-4fa0-8d25-bcf1c41cf592": {
+                    "chain": "date_start",
+                    "type": "datetime",
+                    "offset": -1
+                },
+                "ad6b4dd2-f0c1-4ef7-9591-f9af7c790bdb": {
+                    "chain": "workorder_id.production_id.product_id",
+                    "type": "many2one"
+                },
+                "dfe37941-d119-494e-af10-62c1ed04c413": {
+                    "chain": "workorder_id.production_id.picking_type_id",
+                    "type": "many2one"
+                },
+                "be98718e-525b-4252-92c5-1c95bd470fc9": {
+                    "chain": "workorder_id.production_id.user_id",
+                    "type": "many2one"
+                }
+            }
+        },
+        "8": {
+            "type": "ODOO",
+            "id": "8",
+            "formulaId": "8",
+            "name": "Cost - previous",
+            "model": "stock.move",
+            "domain": [
+                [
+                    "production_id",
+                    "!=",
+                    false
+                ],
+                [
+                    "state",
+                    "=",
+                    "done"
+                ]
+            ],
+            "context": {},
+            "measures": [
+                {
+                    "id": "value",
+                    "fieldName": "value"
+                },
+                {
+                    "id": "quantity",
+                    "fieldName": "quantity"
+                }
+            ],
+            "rows": [],
+            "columns": [],
+            "sortedColumn": null,
+            "fieldMatching": {
+                "a5d0b2fb-b866-4fa0-8d25-bcf1c41cf592": {
+                    "chain": "production_id.date_start",
+                    "type": "datetime",
+                    "offset": -1
+                },
+                "ad6b4dd2-f0c1-4ef7-9591-f9af7c790bdb": {
+                    "chain": "product_id",
+                    "type": "many2one"
+                },
+                "dfe37941-d119-494e-af10-62c1ed04c413": {
+                    "chain": "production_id.picking_type_id",
+                    "type": "many2one"
+                },
+                "be98718e-525b-4252-92c5-1c95bd470fc9": {
+                    "chain": "production_id.user_id",
+                    "type": "many2one"
+                }
+            }
+        },
+        "9": {
+            "type": "ODOO",
+            "id": "9",
+            "formulaId": "9",
+            "name": "Product",
+            "model": "mrp.production",
+            "domain": [
+                [
+                    "state",
+                    "!=",
+                    "cancel"
+                ],
+                [
+                    "product_id",
+                    "!=",
+                    false
+                ]
+            ],
+            "context": {},
+            "measures": [
+                {
+                    "id": "__count",
+                    "fieldName": "__count",
+                    "userDefinedName": "Orders"
+                },
+                {
+                    "id": "product_qty",
+                    "fieldName": "product_qty",
+                    "userDefinedName": "Quantity"
+                }
+            ],
+            "rows": [
+                {
+                    "fieldName": "product_id"
+                }
+            ],
+            "columns": [],
+            "sortedColumn": {
+                "measure": "product_qty",
+                "order": "desc",
+                "domain": []
+            },
+            "fieldMatching": {
+                "a5d0b2fb-b866-4fa0-8d25-bcf1c41cf592": {
+                    "chain": "date_start",
+                    "type": "datetime",
+                    "offset": 0
+                },
+                "ad6b4dd2-f0c1-4ef7-9591-f9af7c790bdb": {
+                    "chain": "product_id",
+                    "type": "many2one"
+                },
+                "dfe37941-d119-494e-af10-62c1ed04c413": {
+                    "chain": "picking_type_id",
+                    "type": "many2one"
+                },
+                "be98718e-525b-4252-92c5-1c95bd470fc9": {
+                    "chain": "user_id",
+                    "type": "many2one"
+                }
+            }
+        },
+        "10": {
+            "type": "ODOO",
+            "id": "10",
+            "formulaId": "10",
+            "name": "Operation Type",
+            "model": "mrp.production",
+            "domain": [
+                [
+                    "state",
+                    "!=",
+                    "cancel"
+                ],
+                [
+                    "picking_type_id",
+                    "!=",
+                    false
+                ]
+            ],
+            "context": {},
+            "measures": [
+                {
+                    "id": "__count",
+                    "fieldName": "__count",
+                    "userDefinedName": "Orders"
+                },
+                {
+                    "id": "product_qty",
+                    "fieldName": "product_qty",
+                    "userDefinedName": "Quantity"
+                }
+            ],
+            "rows": [
+                {
+                    "fieldName": "picking_type_id"
+                }
+            ],
+            "columns": [],
+            "sortedColumn": {
+                "measure": "product_qty",
+                "order": "desc",
+                "domain": []
+            },
+            "fieldMatching": {
+                "a5d0b2fb-b866-4fa0-8d25-bcf1c41cf592": {
+                    "chain": "date_start",
+                    "type": "datetime",
+                    "offset": 0
+                },
+                "ad6b4dd2-f0c1-4ef7-9591-f9af7c790bdb": {
+                    "chain": "product_id",
+                    "type": "many2one"
+                },
+                "dfe37941-d119-494e-af10-62c1ed04c413": {
+                    "chain": "picking_type_id",
+                    "type": "many2one"
+                },
+                "be98718e-525b-4252-92c5-1c95bd470fc9": {
+                    "chain": "user_id",
+                    "type": "many2one"
+                }
+            }
+        },
+        "11": {
+            "type": "ODOO",
+            "id": "11",
+            "formulaId": "11",
+            "name": "Responsible",
+            "model": "mrp.production",
+            "domain": [
+                [
+                    "state",
+                    "!=",
+                    "cancel"
+                ],
+                [
+                    "user_id",
+                    "!=",
+                    false
+                ]
+            ],
+            "context": {},
+            "measures": [
+                {
+                    "id": "__count",
+                    "fieldName": "__count",
+                    "userDefinedName": "Orders"
+                },
+                {
+                    "id": "product_qty",
+                    "fieldName": "product_qty",
+                    "userDefinedName": "Quantity"
+                }
+            ],
+            "rows": [
+                {
+                    "fieldName": "user_id"
+                }
+            ],
+            "columns": [],
+            "sortedColumn": {
+                "measure": "product_qty",
+                "order": "desc",
+                "domain": []
+            },
+            "fieldMatching": {
+                "a5d0b2fb-b866-4fa0-8d25-bcf1c41cf592": {
+                    "chain": "date_start",
+                    "type": "datetime",
+                    "offset": 0
+                },
+                "ad6b4dd2-f0c1-4ef7-9591-f9af7c790bdb": {
+                    "chain": "product_id",
+                    "type": "many2one"
+                },
+                "dfe37941-d119-494e-af10-62c1ed04c413": {
+                    "chain": "picking_type_id",
+                    "type": "many2one"
+                },
+                "be98718e-525b-4252-92c5-1c95bd470fc9": {
+                    "chain": "user_id",
+                    "type": "many2one"
+                }
+            }
+        }
+    },
+    "pivotNextId": 12,
+    "customTableStyles": {},
+    "namedRanges": {},
+    "globalFilters": [
+        {
+            "id": "a5d0b2fb-b866-4fa0-8d25-bcf1c41cf592",
+            "type": "date",
+            "label": "Period",
+            "defaultValue": "last_90_days"
+        },
+        {
+            "id": "ad6b4dd2-f0c1-4ef7-9591-f9af7c790bdb",
+            "type": "relation",
+            "label": "Product",
+            "modelName": "product.product",
+            "defaultValueDisplayNames": []
+        },
+        {
+            "id": "dfe37941-d119-494e-af10-62c1ed04c413",
+            "type": "relation",
+            "label": "Operation Type",
+            "modelName": "stock.picking.type",
+            "defaultValueDisplayNames": []
+        },
+        {
+            "id": "be98718e-525b-4252-92c5-1c95bd470fc9",
+            "type": "relation",
+            "label": "Responsible",
+            "modelName": "res.users",
+            "defaultValueDisplayNames": []
+        }
+    ],
+    "lists": {},
+    "listNextId": 1,
+    "odooLinkReferences": {
+        "2828f15d-9fe0-43c8-8ad7-a2b7fe7ff3c5": {
+            "type": "odooMenu",
+            "odooMenuId": "mrp.menu_mrp_root"
+        },
+        "6591ce4b-64ce-4630-943d-18570a18a4f2": {
+            "type": "odooMenu",
+            "odooMenuId": "mrp.menu_mrp_root"
+        },
+        "3d49564f-cc66-495b-b056-61dd29b34ea6": {
+            "type": "odooMenu",
+            "odooMenuId": "mrp.menu_mrp_root"
+        },
+        "683afc26-bbb2-4647-8e80-e3699839ffd5": {
+            "type": "odooMenu",
+            "odooMenuId": "mrp.menu_mrp_workcenter_productivity_report"
+        },
+        "9f95d0f4-ad80-45de-970a-9897eab4d56f": {
+            "type": "odooMenu",
+            "odooMenuId": "mrp.menu_mrp_workcenter_productivity_report"
+        }
+    }
+}

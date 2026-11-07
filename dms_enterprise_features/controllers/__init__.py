@@ -2,5 +2,4 @@
 # License LGPL-3.0 or later (http://www.gnu.org/licenses/lgpl).
 
 from . import portal
-from . import signature_ui
 from . import directory_download

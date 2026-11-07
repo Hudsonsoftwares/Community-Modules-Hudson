@@ -7,7 +7,7 @@
         <field name="inherit_id" ref="dms.view_dms_directory_form"/>
         <field name="arch" type="xml">
             <xpath expr="//header" position="inside">
-                <button name="action_download_directory_zip" type="object" string="Download All Files" class="btn btn-secondary" invisible="not permission_download" icon="fa-download"/>
+                <button name="action_download_directory_zip" type="object" string="Download All Files" class="btn btn-secondary" invisible="not permission_download" icon="download"/>
             </xpath>
             
             <!-- Hide complete_name -->
@@ -21,6 +21,7 @@
                     <group>
                         <field name="inherit_group_ids" invisible="not parent_id" />
                         <field name="parent_id" options="{'no_quick_create': True}" />
+                        <field name="company_id" groups="base.group_multi_company" options="{'no_create': True}"/>
                     </group>
                     <group>
                         <field name="category_id" placeholder="Internal / Human Resource" options="{'no_open': True, 'no_create': True}" />
@@ -94,10 +95,17 @@
                             </field>
                         </page>
                         <page name="page_user_access" string="Users">
+                            <div class="alert alert-info d-flex flex-wrap align-items-center gap-2 py-2 mb-3" role="status" invisible="not group_member_user_ids">
+                                <span>Already covered by an access group on this folder, so they can't be added here (change their access in the Access Groups tab):</span>
+                                <field name="group_member_user_ids" widget="many2many_tags" readonly="1" nolabel="1"/>
+                            </div>
+                            <field name="group_member_partner_ids" invisible="1"/>
                             <field name="user_permission_ids" context="{'default_directory_id': id}">
                                 <list editable="bottom">
-                                    <field name="partner_id" string="Contact" options="{'no_create_edit': True}"/>
-                                    <field name="user_id" string="User" optional="show" options="{'no_create_edit': True}"/>
+                                    <field name="partner_id" string="Contact" options="{'no_create_edit': True}"
+                                           domain="[('id', 'not in', parent.group_member_partner_ids)]"/>
+                                    <field name="user_id" string="User" optional="show" options="{'no_create_edit': True}"
+                                           domain="[('id', 'not in', parent.group_member_user_ids)]"/>
                                     <field name="perm_view"/>
                                     <field name="perm_download"/>
                                     <field name="perm_upload"/>
@@ -175,47 +183,77 @@
                     </div>
                 </a>
             </xpath>
-            <xpath expr="//a[i[hasclass('fa-external-link')]]/.." position="replace">
-                <div role="menuitem" t-if="!record.is_trashed.raw_value and record.permission_download and record.permission_download.raw_value">
-                    <a type="object" name="action_download_directory_zip" class="dropdown-item">
-                        <i class="fa fa-download" />
-                        Download
-                    </a>
-                </div>
+            <!-- Card menu: one flat list, same items and look as the folder
+                 cards of the documents home (o_dms_card_menu). -->
+            <xpath expr="//t[@t-name='menu']" position="replace">
+                <t t-name="menu">
+                    <div class="o_dms_card_menu">
+                        <t t-if="!record.is_trashed.raw_value">
+                            <a role="menuitem" type="object" name="action_download_directory_zip" class="dropdown-item"
+                               t-if="record.permission_download and record.permission_download.raw_value">Download</a>
+                            <a role="menuitem" type="object" name="action_dms_new_subfolder" class="dropdown-item"
+                               t-if="record.permission_write.raw_value">New Subfolder</a>
+                            <a role="menuitem" type="object" name="action_open_move_wizard" class="dropdown-item"
+                               t-if="record.permission_move and record.permission_move.raw_value">Move</a>
+                            <a role="menuitem" type="object" name="action_open_form_view" class="dropdown-item"
+                               t-if="record.permission_edit and record.permission_edit.raw_value">Edit</a>
+                            <a role="menuitem" type="object" name="action_dms_schedule_activity" class="dropdown-item">Schedule Activity</a>
+                            <t t-if="record.permission_unlink.raw_value">
+                                <div class="dropdown-divider"/>
+                                <a role="menuitem" type="object" name="action_send_to_trash" class="dropdown-item o_dms_card_menu_danger"
+                                   confirm="Are you sure you want to send this folder to the Trash? Everything inside will be moved to the Trash as well. You can restore it later from the Trash."
+                                   confirm-title="Send to Trash" confirm-label="Send to Trash" cancel-label="Cancel">Send to Trash</a>
+                            </t>
+                        </t>
+                        <t t-else="">
+                            <a role="menuitem" type="object" name="action_restore" class="dropdown-item o_dms_card_menu_success"
+                               t-if="record.permission_unlink.raw_value and !record.parent_is_trashed.raw_value">Restore</a>
+                            <t t-if="record.permission_unlink.raw_value">
+                                <div class="dropdown-divider"/>
+                                <a role="menuitem" type="delete" class="dropdown-item o_dms_card_menu_danger">Delete permanently</a>
+                            </t>
+                        </t>
+                    </div>
+                </t>
             </xpath>
-            <xpath expr="//a[i[hasclass('fa-pencil')]]/.." position="replace">
-                <div role="menuitem" t-if="!record.is_trashed.raw_value and record.permission_edit and record.permission_edit.raw_value">
-                    <a type="object" name="action_open_form_view" class="dropdown-item">
-                        <i class="fa fa-pencil" />
-                        Edit
-                    </a>
-                </div>
-                <div role="menuitem" t-if="!record.is_trashed.raw_value and record.permission_move and record.permission_move.raw_value">
-                    <a type="object" name="action_open_move_wizard" class="dropdown-item">
-                        <i class="fa fa-arrows" />
-                        Move
-                    </a>
-                </div>
+        </field>
+    </record>
+
+    <!-- Configuration > Directories: same folder cards as the documents
+         home screen (icon, name, "N Folders" / "N Files" badges). Counters
+         are plain text; clicking a card opens that folder in the sidebar
+         (KanbanController.openRecord patch in unified_kanban_renderer.js).
+         Inherits the trash inherit so its card xpaths are applied first. -->
+    <record id="view_dms_directory_kanban_folder_cards" model="ir.ui.view">
+        <field name="name">dms.directory.kanban.folder.cards</field>
+        <field name="model">dms.directory</field>
+        <field name="inherit_id" ref="dms_enterprise_features.view_dms_directory_kanban_inherit_trash"/>
+        <field name="arch" type="xml">
+            <xpath expr="//kanban" position="attributes">
+                <attribute name="class" add="o_dms_directory_cards" separator=" "/>
             </xpath>
-            <xpath expr="//a[@type='delete']" position="replace">
-                <div role="menuitem" t-if="!record.is_trashed.raw_value and record.permission_unlink and record.permission_unlink.raw_value">
-                    <a type="object" name="action_send_to_trash" class="dropdown-item">
-                        <i class="fa fa-trash-o" />
-                        Send to Trash
-                    </a>
-                </div>
-                <div role="menuitem" t-if="record.is_trashed.raw_value and record.permission_unlink and record.permission_unlink.raw_value and !record.parent_is_trashed.raw_value">
-                    <a type="object" name="action_restore" class="dropdown-item">
-                        <i class="fa fa-undo" />
-                        Restore
-                    </a>
-                </div>
-                <div role="menuitem" t-if="record.is_trashed.raw_value and record.permission_unlink and record.permission_unlink.raw_value">
-                    <a type="delete" class="dropdown-item">
-                        <i class="fa fa-trash-o" />
-                        Delete permanently
-                    </a>
-                </div>
+            <xpath expr="//t[@t-name='card']" position="replace">
+                <t t-name="card" class="o_dms_folder_card flex-row p-0">
+                    <div class="o_dms_folder_inner w-100">
+                        <div class="row g-0 h-100 w-100 p-2">
+                            <div class="col-4 d-flex justify-content-center align-items-center">
+                                <img t-att-src="record.icon_url.raw_value or '/dms/static/description/open-folder.png'"
+                                     class="o_dms_folder_icon" width="48" height="48" alt="Folder"/>
+                            </div>
+                            <div class="col-8 py-1 px-2 d-flex flex-column justify-content-center">
+                                <strong class="o_dms_folder_name text-truncate d-block mb-1 pe-3" t-out="record.name.value"/>
+                                <div class="d-flex flex-wrap gap-1">
+                                    <span t-if="record.count_directories.raw_value" class="o_dms_folder_badge">
+                                        <t t-out="record.count_directories.raw_value"/> Folders
+                                    </span>
+                                    <span class="o_dms_folder_badge">
+                                        <t t-out="record.count_files.raw_value"/> Files
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </t>
             </xpath>
         </field>
     </record>
@@ -279,6 +317,80 @@
             if record:
                 action = record.action_download_directory_zip()
         </field>
+    </record>
+
+    <record id="view_dms_directory_tree_inherit_company" model="ir.ui.view">
+        <field name="name">dms.directory.tree.inherit.company</field>
+        <field name="model">dms.directory</field>
+        <field name="inherit_id" ref="dms.view_dms_directory_tree"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='name']" position="after">
+                <field name="company_id" groups="base.group_multi_company" optional="show"/>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="search_dms_directory_inherit_company" model="ir.ui.view">
+        <field name="name">dms.directory.search.inherit.company</field>
+        <field name="model">dms.directory</field>
+        <field name="inherit_id" ref="dms.search_dms_directory"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='complete_name']" position="after">
+                <field name="company_id" groups="base.group_multi_company"/>
+            </xpath>
+            <xpath expr="//searchpanel" position="attributes">
+                <attribute name="view_types">kanban,list,activity</attribute>
+            </xpath>
+            <!-- same heading as the documents sidebar -->
+            <xpath expr="//searchpanel/field[@name='parent_id']" position="attributes">
+                <attribute name="string">Directory</attribute>
+            </xpath>
+            <xpath expr="//searchpanel" position="before">
+                <group>
+                    <filter string="Company" name="groupby_company" domain="[]" context="{'group_by': 'company_id'}" groups="base.group_multi_company"/>
+                </group>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- Activity View for Directories -->
+    <record id="view_dms_directory_activity" model="ir.ui.view">
+        <field name="name">dms.directory.activity</field>
+        <field name="model">dms.directory</field>
+        <field name="arch" type="xml">
+            <activity string="Directories">
+                <field name="storage_id"/>
+                <templates>
+                    <div t-name="activity-box">
+                        <img t-att-src="activity_image('dms.directory', 'image_128', record.id.raw_value)" role="img" t-att-title="record.name.value" t-att-alt="record.name.value"/>
+                        <div>
+                            <field name="name" display="full" class="o_text_bold"/>
+                            <field name="storage_id" muted="1" display="full"/>
+                        </div>
+                    </div>
+                </templates>
+            </activity>
+        </field>
+    </record>
+
+    <!-- Update Directory window actions to include activity view -->
+    <!-- Trashed folders belong to the Trash only, never to the directory lists -->
+    <record id="dms.action_dms_directory" model="ir.actions.act_window">
+        <field name="view_mode">kanban,list,activity,form</field>
+        <field name="domain">[("is_hidden", "=", False), ("is_trashed", "=", False)]</field>
+    </record>
+
+    <record id="dms.action_dms_directories_directory" model="ir.actions.act_window">
+        <field name="view_mode">kanban,list,activity,form</field>
+        <field name="domain">[("is_hidden", "=", False), ("is_trashed", "=", False)]</field>
+    </record>
+
+    <record id="dms.action_dms_directories_all_directory" model="ir.actions.act_window">
+        <field name="domain">[("parent_id", "child_of", active_id), ("is_hidden", "=", False), ("id", "!=", active_id), ("is_trashed", "=", False)]</field>
+    </record>
+
+    <record id="dms.action_dms_directories_storage" model="ir.actions.act_window">
+        <field name="domain">[("storage_id", "=", active_id), ("is_hidden", "=", False), ("is_trashed", "=", False)]</field>
     </record>
 </odoo>
 

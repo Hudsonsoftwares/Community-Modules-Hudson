@@ -59,7 +59,7 @@
                             string="Route Existing Documents Now"
                             type="object"
                             class="btn-primary"
-                            icon="fa-bolt"
+                            icon="flash_on"
                             help="Search existing documents in Odoo matching this rule and route them into the folder."/>
                 </header>
                 <sheet>
@@ -67,7 +67,7 @@
                         <button name="action_view_routed_files"
                                 type="object"
                                 class="oe_stat_button"
-                                icon="fa-file-text-o">
+                                icon="description">
                             <field name="file_count" widget="statinfo" string="Routed Files"/>
                         </button>
                     </div>

@@ -10,21 +10,21 @@
                 <button name="action_view_statutory_audits"
                         type="object"
                         class="oe_stat_button"
-                        icon="fa-shield"
+                        icon="security"
                         invisible="hds_in_statutory_audit_count == 0">
                     <field name="hds_in_statutory_audit_count" widget="statinfo" string="Statutory Audits"/>
                 </button>
                 <button name="action_view_tax_regimes"
                         type="object"
                         class="oe_stat_button"
-                        icon="fa-list-alt"
+                        icon="list_alt"
                         groups="hudson_payroll_base.group_payroll_user">
                     <field name="hds_in_tax_regime_count" widget="statinfo" string="Tax Regimes"/>
                 </button>
                 <button name="action_open_tax_declaration_dashboard"
                         type="object"
                         class="oe_stat_button"
-                        icon="fa-calculator">
+                        icon="calculate">
                     <div class="o_stat_info">
                         <span class="o_stat_text">Tax</span>
                         <span class="o_stat_text">Declarations</span>
@@ -276,7 +276,7 @@
                         <button name="action_open_tax_declaration_dashboard"
                                 type="object"
                                 class="btn btn-primary btn-lg shadow-sm"
-                                icon="fa-arrow-circle-right"
+                                icon="east"
                                 string="Manage &amp; Approve Full Tax Declaration"/>
                     </div>
                     <!-- Previous Employer LTA History (Section 10(5) — Old Regime Only) -->

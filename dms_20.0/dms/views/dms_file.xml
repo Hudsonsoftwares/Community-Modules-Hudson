@@ -49,16 +49,16 @@
                         context="{'group_by':'directory_id'}"
                     />
                 </group>
-                <searchpanel>
+                <searchpanel view_types="kanban,list,activity">
                     <field
                         name="directory_id"
-                        icon="fa-folder"
+                        icon="folder"
                         limit="0"
                         enable_counters="1"
                     />
                     <field
                         name="category_id"
-                        icon="fa-users"
+                        icon="group"
                         limit="0"
                         enable_counters="1"
                     />
@@ -196,6 +196,15 @@
                             </t>
                             <t t-elif="record.mimetype.raw_value and record.mimetype.raw_value.indexOf('image/') === 0">
                                 <img t-attf-src="/web/image/dms.file/#{record.id.raw_value}/content" style="width: 100%; height: 100%; object-fit: cover; object-position: top;" alt="Preview"/>
+                            </t>
+                            <t t-elif="record.mimetype.raw_value and record.mimetype.raw_value.indexOf('video/') === 0">
+                                <video t-attf-src="/web/content/dms.file/#{record.id.raw_value}/content#t=0.5"
+                                       preload="metadata" muted="muted" playsinline="playsinline" disablepictureinpicture="disablepictureinpicture"
+                                       style="width: 100%; height: 100%; object-fit: cover; object-position: center; pointer-events: none; background: #000;"/>
+                                <span class="position-absolute top-50 start-50 translate-middle d-flex align-items-center justify-content-center rounded-circle"
+                                      style="width: 40px; height: 40px; background: rgba(0,0,0,0.55); pointer-events: none;">
+                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="#fff" aria-hidden="true"><path d="M4 2.5v11l9-5.5z"/></svg>
+                                </span>
                             </t>
                             <t t-else="">
                                 <div class="w-100 h-100 d-flex align-items-center justify-content-center">
@@ -495,13 +504,13 @@
                 <searchpanel>
                     <field
                         name="directory_id"
-                        icon="fa-folder"
+                        icon="folder"
                         limit="0"
                         enable_counters="1"
                     />
                     <field
                         name="category_id"
-                        icon="fa-users"
+                        icon="group"
                         limit="0"
                         enable_counters="1"
                     />

@@ -1,49 +1,39 @@
-/* Rental Frontend Styles */
+// Rental - website. Colours come from the website theme (compiled Bootstrap variables).
 
-.rental_product_card {
-    transition: transform 0.2s;
-    border: 1px solid #ddd;
+// Rental Period block: fields outlined when the chosen period can't be booked
+.o_rental_period.o_rental_period_invalid {
+    input[type="date"],
+    select {
+        border-color: $danger;
+        box-shadow: 0 0 0 0.15rem rgba($danger, 0.15);
+    }
 }
 
-.rental_product_card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+.o_rental_period .o_rental_period_error {
+    border-radius: $border-radius;
+    font-weight: 500;
+
+    .oi {
+        font-size: 1.25rem;
+        line-height: 1.2;
+    }
 }
 
-.rental_pricing_badge {
-    background-color: #007bff;
-    color: white;
-    padding: 8px 15px;
-    border-radius: 20px;
-    font-size: 16px;
-    font-weight: bold;
-}
+// Shop warning toast (e.g. cart messages): readable on any theme, instead of the pale
+// yellow default that is easy to miss
+.o_wsale_warning_toast {
+    min-width: 280px;
+    max-width: 380px;
+    color: $body-color;
+    background-color: $body-bg;
+    border: $border-width solid $border-color;
+    border-left: 4px solid $warning;
+    border-radius: $border-radius;
+    box-shadow: $box-shadow;
+    font-size: 0.95rem;
 
-.rental_form_container {
-    background-color: #f8f9fa;
-    padding: 20px;
-    border-radius: 8px;
-    margin-bottom: 20px;
-}
-
-.rental_calculation_box {
-    background-color: #d4edda;
-    border: 1px solid #c3e6cb;
-    padding: 15px;
-    border-radius: 5px;
-    margin-top: 15px;
-}
-
-.o_portal_rental .rental_status {
-    font-size: 14px;
-    padding: 5px 10px;
-    border-radius: 5px;
-}
-
-.rental_late_warning {
-    background-color: #f8d7da;
-    border: 1px solid #f5c6cb;
-    padding: 10px;
-    border-radius: 5px;
-    color: #721c24;
+    .oi {
+        color: shade-color($warning, 30%);
+        font-size: 1.25rem;
+    }
 }

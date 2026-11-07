@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+    <!-- Equipment Categories -->
+    <record id="equipment_category_dental_chairs" model="maintenance.equipment.category">
+        <field name="name">Dental Chairs &amp; Operatory Units</field>
+        <field name="note">Electric dental chairs, delivery systems, patient cuspidors, and operatory lighting units.</field>
+    </record>
+
+    <record id="equipment_category_autoclaves" model="maintenance.equipment.category">
+        <field name="name">Autoclaves &amp; Sterilization Equipment</field>
+        <field name="note">Class B steam autoclaves, ultrasonic cleaners, and instrument sterilization systems.</field>
+    </record>
+
+    <record id="equipment_category_imaging" model="maintenance.equipment.category">
+        <field name="name">Dental X-Ray &amp; Imaging Machines</field>
+        <field name="note">Intraoral X-ray units, digital RVG sensors, OPG/CBCT panoramic machines.</field>
+    </record>
+
+    <record id="equipment_category_compressors" model="maintenance.equipment.category">
+        <field name="name">Air Compressors &amp; Suction Systems</field>
+        <field name="note">Oil-free dental air compressors, high-volume surgical evacuation and central suction units.</field>
+    </record>
+
+    <record id="equipment_category_scalers" model="maintenance.equipment.category">
+        <field name="name">Ultrasonic Scalers &amp; Curing Lights</field>
+        <field name="note">Piezoelectric ultrasonic scalers, LED composite polymerization curing units, and handpieces.</field>
+    </record>
+
+    <record id="equipment_category_other" model="maintenance.equipment.category">
+        <field name="name">Other Clinic Equipment</field>
+        <field name="note">Apex locators, endodontic rotary motors, amalgamators, and general clinic devices.</field>
+    </record>
+
+    <!-- Maintenance Stages: New -> Assigned -> In Progress -> Repaired -> Closed -->
+    <record id="stage_assigned" model="maintenance.stage">
+        <field name="name">Assigned</field>
+        <field name="sequence">2</field>
+        <field name="fold" eval="False"/>
+    </record>
+
+    <record id="stage_closed" model="maintenance.stage">
+        <field name="name">Closed</field>
+        <field name="sequence">5</field>
+        <field name="fold" eval="True"/>
+    </record>
+</odoo>

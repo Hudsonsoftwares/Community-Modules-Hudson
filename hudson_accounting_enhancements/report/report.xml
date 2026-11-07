@@ -7,7 +7,8 @@
         <field name="report_type">qweb-pdf</field>
         <field name="report_name">hudson_accounting_enhancements.report_cf</field>
         <field name="print_report_name">'Cash Flow Statement - %s' % object.company_id.name</field>
-        <field name="binding_model_id" ref="base.model_res_users"/>
+        <!-- Printed from the wizard only; never offer it in the Print menu of other models -->
+        <field name="binding_model_id" eval="False"/>
     </record>
 
     <!-- Paperformat for Annual Financial Report -->

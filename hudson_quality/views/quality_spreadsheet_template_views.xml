@@ -9,7 +9,7 @@
                 <field name="name"/>
                 <field name="success_cell"/>
                 <field name="spreadsheet_file_name" string="Data"/>
-                <button name="action_open_spreadsheet" type="object" string="Edit" icon="fa-pencil"/>
+                <button name="action_open_spreadsheet" type="object" string="Edit" icon="edit"/>
                 <field name="spreadsheet_file_name" column_invisible="True"/>
             </list>
         </field>
@@ -31,7 +31,7 @@
                         <group>
                             <field name="success_cell"/>
                             <field name="spreadsheet_file_name" string="Data"/>
-                            <button name="action_open_spreadsheet" type="object" string="Edit Spreadsheet" icon="fa-pencil" class="btn-primary"/>
+                            <button name="action_open_spreadsheet" type="object" string="Edit Spreadsheet" icon="edit" class="btn-primary"/>
                             <field name="spreadsheet_file_name" invisible="1"/>
                         </group>
                     </group>

@@ -1,0 +1,305 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- ========================================================================= -->
+    <!-- 1. PATIENT VISITS REPORT                                                  -->
+    <!-- ========================================================================= -->
+    <record id="view_dental_patient_visits_graph" model="ir.ui.view">
+        <field name="name">dental.appointment.visits.graph</field>
+        <field name="model">dental.appointment</field>
+        <field name="arch" type="xml">
+            <graph string="Patient Visits Analysis" type="bar" sample="1">
+                <field name="date_start" interval="month"/>
+                <field name="state"/>
+                <field name="duration" type="measure"/>
+            </graph>
+        </field>
+    </record>
+
+    <record id="view_dental_patient_visits_pivot" model="ir.ui.view">
+        <field name="name">dental.appointment.visits.pivot</field>
+        <field name="model">dental.appointment</field>
+        <field name="arch" type="xml">
+            <pivot string="Patient Visits Analysis" sample="1">
+                <field name="branch_id" type="row"/>
+                <field name="doctor_id" type="row"/>
+                <field name="date_start" interval="month" type="col"/>
+                <field name="duration" type="measure"/>
+                <field name="waiting_time" type="measure"/>
+            </pivot>
+        </field>
+    </record>
+
+    <record id="action_dental_patient_visits_report" model="ir.actions.act_window">
+        <field name="name">Patient Visits Report</field>
+        <field name="res_model">dental.appointment</field>
+        <field name="view_mode">graph,pivot,list,form</field>
+        <field name="view_id" ref="view_dental_patient_visits_graph"/>
+        <field name="domain">[('branch_id', 'in', allowed_company_ids)]</field>
+        <field name="context">{'search_default_filter_date_start': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Comprehensive patient visits and attendance analysis.
+            </p>
+            <p>
+                Analyze patient traffic, visit durations, consultation outcomes, and doctor schedules across branches.
+            </p>
+        </field>
+    </record>
+
+    <!-- ========================================================================= -->
+    <!-- 2. BRANCH-WISE PERFORMANCE REPORT                                         -->
+    <!-- ========================================================================= -->
+    <record id="view_dental_branch_performance_graph" model="ir.ui.view">
+        <field name="name">dental.branch.performance.report.graph</field>
+        <field name="model">dental.branch.performance.report</field>
+        <field name="arch" type="xml">
+            <graph string="Branch-wise Performance Comparison" type="bar" sample="1">
+                <field name="branch_id"/>
+                <field name="completed_visits" type="measure"/>
+                <field name="total_appointments" type="measure"/>
+                <field name="estimated_revenue" type="measure"/>
+            </graph>
+        </field>
+    </record>
+
+    <record id="view_dental_branch_performance_pivot" model="ir.ui.view">
+        <field name="name">dental.branch.performance.report.pivot</field>
+        <field name="model">dental.branch.performance.report</field>
+        <field name="arch" type="xml">
+            <pivot string="Branch Performance Matrix" sample="1">
+                <field name="branch_id" type="row"/>
+                <field name="date" interval="month" type="col"/>
+                <field name="total_appointments" type="measure"/>
+                <field name="completed_visits" type="measure"/>
+                <field name="total_patients" type="measure"/>
+                <field name="estimated_revenue" type="measure"/>
+                <field name="total_duration" type="measure"/>
+            </pivot>
+        </field>
+    </record>
+
+    <record id="view_dental_branch_performance_tree" model="ir.ui.view">
+        <field name="name">dental.branch.performance.report.tree</field>
+        <field name="model">dental.branch.performance.report</field>
+        <field name="arch" type="xml">
+            <list create="false" delete="false">
+                <field name="branch_id"/>
+                <field name="date"/>
+                <field name="total_appointments"/>
+                <field name="completed_visits"/>
+                <field name="active_visits"/>
+                <field name="cancelled_visits"/>
+                <field name="total_patients"/>
+                <field name="total_doctors"/>
+                <field name="total_duration" widget="float_time"/>
+                <field name="estimated_revenue" widget="monetary" options="{'currency_field': 'currency_id'}"/>
+                <field name="currency_id" column_invisible="True"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_dental_branch_performance_search" model="ir.ui.view">
+        <field name="name">dental.branch.performance.report.search</field>
+        <field name="model">dental.branch.performance.report</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="branch_id"/>
+                <filter string="Date" name="filter_date" date="date"/>
+                <group>
+                    <filter string="Branch" name="group_branch" context="{'group_by': 'branch_id'}"/>
+                    <filter string="Date (Month)" name="group_month" context="{'group_by': 'date:month'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_dental_branch_performance_report" model="ir.actions.act_window">
+        <field name="name">Branch-wise Performance</field>
+        <field name="res_model">dental.branch.performance.report</field>
+        <field name="view_mode">graph,pivot,list</field>
+        <field name="view_id" ref="view_dental_branch_performance_graph"/>
+        <field name="domain">[('branch_id', 'in', allowed_company_ids)]</field>
+        <field name="context">{'search_default_group_branch': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Branch Performance Analytics
+            </p>
+            <p>
+                Compare clinic branches side-by-side across appointments, patient visits, doctor engagement, and revenue.
+            </p>
+        </field>
+    </record>
+
+    <!-- ========================================================================= -->
+    <!-- 3. REVENUE REPORT                                                         -->
+    <!-- ========================================================================= -->
+    <record id="view_dental_revenue_report_graph" model="ir.ui.view">
+        <field name="name">dental.revenue.report.graph</field>
+        <field name="model">dental.revenue.report</field>
+        <field name="arch" type="xml">
+            <graph string="Dental Revenue Analysis" type="bar" sample="1">
+                <field name="date" interval="month"/>
+                <field name="doctor_id"/>
+                <field name="total_revenue" type="measure"/>
+            </graph>
+        </field>
+    </record>
+
+    <record id="view_dental_revenue_report_pivot" model="ir.ui.view">
+        <field name="name">dental.revenue.report.pivot</field>
+        <field name="model">dental.revenue.report</field>
+        <field name="arch" type="xml">
+            <pivot string="Revenue Analysis Matrix" sample="1">
+                <field name="branch_id" type="row"/>
+                <field name="doctor_id" type="row"/>
+                <field name="date" interval="month" type="col"/>
+                <field name="consultation_revenue" type="measure"/>
+                <field name="treatment_revenue" type="measure"/>
+                <field name="total_revenue" type="measure"/>
+                <field name="visit_count" type="measure"/>
+            </pivot>
+        </field>
+    </record>
+
+    <record id="view_dental_revenue_report_tree" model="ir.ui.view">
+        <field name="name">dental.revenue.report.tree</field>
+        <field name="model">dental.revenue.report</field>
+        <field name="arch" type="xml">
+            <list create="false" delete="false">
+                <field name="date"/>
+                <field name="branch_id"/>
+                <field name="doctor_id"/>
+                <field name="patient_id"/>
+                <field name="treatment_id"/>
+                <field name="state"/>
+                <field name="consultation_revenue" widget="monetary" options="{'currency_field': 'currency_id'}"/>
+                <field name="treatment_revenue" widget="monetary" options="{'currency_field': 'currency_id'}"/>
+                <field name="total_revenue" widget="monetary" options="{'currency_field': 'currency_id'}"/>
+                <field name="currency_id" column_invisible="True"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_dental_revenue_report_search" model="ir.ui.view">
+        <field name="name">dental.revenue.report.search</field>
+        <field name="model">dental.revenue.report</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="doctor_id"/>
+                <field name="branch_id"/>
+                <field name="patient_id"/>
+                <field name="treatment_id"/>
+                <filter string="Date" name="filter_date" date="date"/>
+                <filter string="Completed Visits" name="filter_completed" domain="[('state', '=', 'completed')]"/>
+                <group>
+                    <filter string="Doctor" name="group_doctor" context="{'group_by': 'doctor_id'}"/>
+                    <filter string="Branch" name="group_branch" context="{'group_by': 'branch_id'}"/>
+                    <filter string="Treatment" name="group_treatment" context="{'group_by': 'treatment_id'}"/>
+                    <filter string="Date (Month)" name="group_month" context="{'group_by': 'date:month'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_dental_revenue_report" model="ir.actions.act_window">
+        <field name="name">Revenue Report</field>
+        <field name="res_model">dental.revenue.report</field>
+        <field name="view_mode">graph,pivot,list</field>
+        <field name="view_id" ref="view_dental_revenue_report_graph"/>
+        <field name="domain">[('branch_id', 'in', allowed_company_ids)]</field>
+        <field name="context">{'search_default_group_month': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Dental Hospital Revenue Analysis
+            </p>
+            <p>
+                Analyze earnings from clinical consultations, dental procedures, and doctor performance across all clinic branches.
+            </p>
+        </field>
+    </record>
+
+    <!-- ========================================================================= -->
+    <!-- 4. TREATMENT STATISTICS REPORT                                            -->
+    <!-- ========================================================================= -->
+    <record id="view_dental_treatment_report_graph" model="ir.ui.view">
+        <field name="name">dental.treatment.report.graph</field>
+        <field name="model">dental.treatment.report</field>
+        <field name="arch" type="xml">
+            <graph string="Treatment &amp; Procedure Statistics" type="bar" sample="1">
+                <field name="treatment_id"/>
+                <field name="procedure_count" type="measure"/>
+                <field name="total_amount" type="measure"/>
+            </graph>
+        </field>
+    </record>
+
+    <record id="view_dental_treatment_report_pivot" model="ir.ui.view">
+        <field name="name">dental.treatment.report.pivot</field>
+        <field name="model">dental.treatment.report</field>
+        <field name="arch" type="xml">
+            <pivot string="Treatment Statistics Matrix" sample="1">
+                <field name="treatment_id" type="row"/>
+                <field name="doctor_id" type="row"/>
+                <field name="date" interval="month" type="col"/>
+                <field name="procedure_count" type="measure"/>
+                <field name="total_amount" type="measure"/>
+                <field name="avg_price" type="measure"/>
+            </pivot>
+        </field>
+    </record>
+
+    <record id="view_dental_treatment_report_tree" model="ir.ui.view">
+        <field name="name">dental.treatment.report.tree</field>
+        <field name="model">dental.treatment.report</field>
+        <field name="arch" type="xml">
+            <list create="false" delete="false">
+                <field name="treatment_id"/>
+                <field name="doctor_id"/>
+                <field name="branch_id"/>
+                <field name="date"/>
+                <field name="state"/>
+                <field name="procedure_count"/>
+                <field name="total_amount" widget="monetary" options="{'currency_field': 'currency_id'}"/>
+                <field name="avg_price" widget="monetary" options="{'currency_field': 'currency_id'}"/>
+                <field name="currency_id" column_invisible="True"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_dental_treatment_report_search" model="ir.ui.view">
+        <field name="name">dental.treatment.report.search</field>
+        <field name="model">dental.treatment.report</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="treatment_id"/>
+                <field name="doctor_id"/>
+                <field name="branch_id"/>
+                <filter string="Date" name="filter_date" date="date"/>
+                <filter string="Completed" name="filter_completed" domain="[('state', '=', 'completed')]"/>
+                <group>
+                    <filter string="Treatment" name="group_treatment" context="{'group_by': 'treatment_id'}"/>
+                    <filter string="Doctor" name="group_doctor" context="{'group_by': 'doctor_id'}"/>
+                    <filter string="Branch" name="group_branch" context="{'group_by': 'branch_id'}"/>
+                    <filter string="Date (Month)" name="group_month" context="{'group_by': 'date:month'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_dental_treatment_report" model="ir.actions.act_window">
+        <field name="name">Treatment Statistics</field>
+        <field name="res_model">dental.treatment.report</field>
+        <field name="view_mode">graph,pivot,list</field>
+        <field name="view_id" ref="view_dental_treatment_report_graph"/>
+        <field name="domain">[('branch_id', 'in', allowed_company_ids)]</field>
+        <field name="context">{'search_default_group_treatment': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Treatment &amp; Procedure Statistics
+            </p>
+            <p>
+                Analyze popular procedures, clinical workloads, doctor volume, and procedure-level revenue.
+            </p>
+        </field>
+    </record>
+</odoo>

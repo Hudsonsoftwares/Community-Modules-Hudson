@@ -4,7 +4,7 @@ from dateutil.relativedelta import relativedelta
 from markupsafe import Markup
 
 from odoo import api, fields, models, _
-from odoo.exceptions import UserError
+from odoo.exceptions import AccessError, UserError
 
 from .rate_providers import PROVIDERS
 
@@ -116,9 +116,11 @@ class ResCompany(models.Model):
             messages.append(_('Not quoted by the sources: %s', ', '.join(not_quoted.mapped('name'))))
         return date, rates, sources, messages
 
-    def _update_currency_rates(self):
+    def _update_currency_rates(self, force=False):
         """ Fetch and save the rates of the companies.
 
+        :param force: save the rates even when they changed more than the maximum change, e.g. after a real
+            devaluation
         :return: True when some rates are saved
         """
         saved_any = False
@@ -127,10 +129,11 @@ class ResCompany(models.Model):
             date, rates, sources, messages = company._fetch_currency_rates()
             if company.rate_date_policy == 'today' or not date:
                 date = fields.Date.context_today(company)
-            saved, skipped = company._save_currency_rates(date, rates, sources)
+            saved, skipped = company._save_currency_rates(date, rates, sources, force=force)
             if skipped:
                 messages.append(_('Not saved, changed more than %(max)s%%: %(currencies)s',
                                   max=company.rate_max_change, currencies=', '.join(skipped)))
+                company._notify_rate_max_change(date, skipped)
             summary = (_('%(count)s rate(s) saved for %(date)s.', count=len(saved), date=date)
                        if saved else _('No rate saved.'))
             company.sudo().write({
@@ -145,21 +148,30 @@ class ResCompany(models.Model):
             saved_any = saved_any or bool(saved)
         return saved_any
 
-    def _save_currency_rates(self, date, rates, sources):
-        """ :return: (names of the currencies saved, names of the currencies skipped by the maximum change) """
+    def _save_currency_rates(self, date, rates, sources, force=False):
+        """ :param force: ignore the maximum change
+        :return: (names of the currencies saved, descriptions of the currencies skipped by the maximum change) """
         self.ensure_one()
-        Rate = self.env['res.currency.rate'].sudo()
+        Rate = self.env['res.currency.rate'].sudo().with_company(self)
         # the technical rate is relative to the rate of the company currency, usually 1
         reference = Rate._get_last_rates_for_companies(self)[self]
         saved, skipped = [], []
         for currency, rate in rates.items():
             existing = Rate.search([('currency_id', '=', currency.id), ('company_id', '=', self.id),
                                     ('name', '=', date)], limit=1)
+            # the last rate in use before this one, entered by hand or fetched
             previous = Rate.search([('currency_id', '=', currency.id), ('company_id', 'in', (self.id, False)),
-                                    ('name', '<', date)], order='name desc', limit=1)
-            if self.rate_max_change and previous.company_rate and \
+                                    ('name', '<', date)], order='name desc, company_id', limit=1)
+            if not force and self.rate_max_change and previous.company_rate and \
                     abs(rate / previous.company_rate - 1.0) * 100.0 > self.rate_max_change:
-                skipped.append(currency.name)
+                change = (rate / previous.company_rate - 1.0) * 100.0
+                _logger.warning(
+                    'Currency rate of %s for %s not saved: %.6f differs by %.2f%% from the last rate %.6f of %s, '
+                    'more than the maximum change of %s%%', currency.name, self.name, rate, change,
+                    previous.company_rate, previous.name, self.rate_max_change)
+                skipped.append(_('%(currency)s (%(previous)s on %(date)s → %(rate)s, %(change)s%%)',
+                                 currency=currency.name, previous=round(previous.company_rate, 6),
+                                 date=previous.name, rate=round(rate, 6), change=round(change, 2)))
                 continue
             values = {'rate': rate * reference, 'rate_source': sources[currency]}
             if existing:
@@ -169,12 +181,36 @@ class ResCompany(models.Model):
             saved.append(currency.name)
         return saved, skipped
 
+    def _get_rate_managers(self):
+        self.ensure_one()
+        return self.env.ref('account.group_account_manager').sudo().user_ids.filtered(
+            lambda user: self in user.company_ids and not user.share)
+
+    def _notify_rate_max_change(self, date, skipped):
+        """ Tell the accounting managers that rates were held back by the maximum change: until someone checks
+        them, the currencies keep their last rate. """
+        self.ensure_one()
+        managers = self._get_rate_managers()
+        if not managers:
+            return
+        # the emails go through the queue: never an SMTP connection during the update
+        self.env['mail.thread'].sudo().with_context(mail_notify_force_send=False).message_notify(
+            partner_ids=managers.partner_id.ids,
+            subject=_('Currency rates held back'),
+            body=Markup('<p>%s</p><ul>%s</ul><p>%s</p>') % (
+                _('The rates of %(date)s of %(company)s changed more than the maximum change of %(max)s%% and '
+                  'were not saved:', date=date, company=self.name, max=self.rate_max_change),
+                Markup().join(Markup('<li>%s</li>') % line for line in skipped),
+                _('Until they are checked, these currencies keep their last rate. If the change is real, use '
+                  '"Force Update" (Settings > Accounting > Automatic Currency Rates, or the Currencies list), or '
+                  'enter the rate by hand: the next updates compare with it.')),
+        )
+
     def _notify_rate_failure(self, messages):
         self.ensure_one()
-        managers = self.env.ref('account.group_account_manager').sudo().user_ids.filtered(
-            lambda user: self in user.company_ids and not user.share)
+        managers = self._get_rate_managers()
         if managers:
-            self.env['mail.thread'].sudo().message_notify(
+            self.env['mail.thread'].sudo().with_context(mail_notify_force_send=False).message_notify(
                 partner_ids=managers.partner_id.ids,
                 subject=_('Currency rates not updated'),
                 body=Markup('<p>%s</p><p>%s</p>') % (
@@ -214,3 +250,29 @@ class ResCompany(models.Model):
                            sample=', '.join('1 %s = %.6f %s' % (self.currency_id.name, rate, currency.name)
                                             for currency, rate in sample)))
         return '\n'.join(lines + messages) or _('No rate available.')
+
+    def action_update_currency_rates(self, force=False):
+        """ Update the rates of the company now, from the sources of its settings (button of the settings and of the
+        currencies). Reserved to the accounting managers: the rates feed every posting in a foreign currency.
+
+        :param force: save the rates even when they changed more than the maximum change
+        """
+        self.ensure_one()
+        if not self.env.su and not self.env.user.has_group('account.group_account_manager'):
+            raise AccessError(_("Only the accounting managers can update the currency rates."))
+        company = self.root_id
+        saved = company._update_currency_rates(force=force)
+        return self._rate_notification(company.rate_last_message, 'success' if saved else 'warning')
+
+    def _rate_notification(self, message, notification_type):
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'display_notification',
+            'params': {
+                'title': _('Currency Rates'),
+                'message': message,
+                'type': notification_type,
+                'sticky': notification_type == 'warning',
+                'next': {'type': 'ir.actions.client', 'tag': 'soft_reload'},
+            },
+        }

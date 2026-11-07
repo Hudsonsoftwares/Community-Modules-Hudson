@@ -9,7 +9,14 @@
                     <group>
                         <group>
                             <field name="name"/>
-                            <field name="sequence"/>
+                        </group>
+                        <group>
+                            <field name="alias_id" invisible="1"/>
+                            <label for="alias_name" string="Email Alias"/>
+                            <div class="d-flex align-items-baseline" name="alias_def">
+                                <field name="alias_name" placeholder="alias"/>@<field name="alias_domain_id"
+                                    options="{'no_create': True, 'no_open': True}"/>
+                            </div>
                         </group>
                     </group>
                 </sheet>
@@ -24,6 +31,7 @@
             <list string="ECO Types">
                 <field name="sequence" widget="handle"/>
                 <field name="name"/>
+                <field name="alias_email" string="Email Alias" optional="show"/>
             </list>
         </field>
     </record>
@@ -32,30 +40,19 @@
         <field name="name">mrp.eco.type.view.kanban</field>
         <field name="model">mrp.eco.type</field>
         <field name="arch" type="xml">
-            <kanban class="oe_background_grey o_kanban_dashboard o_mrp_eco_kanban" create="0" color="color">
-                <field name="name"/>
-                <field name="eco_count"/>
+            <kanban class="o_kanban_dashboard o_mrp_eco_kanban" create="0" highlight_color="color">
                 <templates>
+                    <t t-name="menu" groups="hudson_plm.group_plm_manager">
+                        <a role="menuitem" type="open" class="dropdown-item">Configuration</a>
+                        <div role="separator" class="dropdown-divider"/>
+                        <field name="color" widget="kanban_color_picker"/>
+                    </t>
                     <t t-name="card">
-                        <div>
-                            <div class="o_kanban_card_header">
-                                <div class="o_kanban_card_header_title">
-                                    <div class="o_primary">
-                                        <a type="action" name="%(mrp_eco_action_main)d" context="{'search_default_type_id': id, 'default_type_id': id}">
-                                            <field name="name"/>
-                                        </a>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="container o_kanban_card_content mt-4">
-                                <div class="row">
-                                    <div class="col-12 o_kanban_primary_left">
-                                        <button class="btn btn-primary" name="%(mrp_eco_action_main)d" type="action" context="{'search_default_type_id': id, 'default_type_id': id}">
-                                            <field name="eco_count"/> Changes
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
+                        <div class="p-3" style="height: 230px;">
+                            <field name="name" class="d-block fs-4 fw-bold mb-3"/>
+                            <button class="btn btn-primary" name="action_open_ecos" type="object">
+                                <field name="eco_count"/> Engineering Changes
+                            </button>
                         </div>
                     </t>
                 </templates>

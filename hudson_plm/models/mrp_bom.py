@@ -8,6 +8,18 @@ class MrpBom(models.Model):
     eco_count = fields.Integer('ECO Count', compute='_compute_eco_count')
     version_count = fields.Integer('Version Count', compute='_compute_version_count')
 
+    def write(self, vals):
+        res = super().write(vals)
+        if {'bom_line_ids', 'operation_ids'} & set(vals):
+            # Keep the change tabs of open ECOs in sync with their BoMs (sudo: MRP users
+            # without PLM rights may edit BoMs too)
+            ecos = self.env['mrp.eco'].sudo().search([
+                '|', ('bom_id', 'in', self.ids), ('new_bom_id', 'in', self.ids),
+                ('is_applied', '=', False),
+            ])
+            ecos._compute_eco_changes()
+        return res
+
     def _compute_version_count(self):
         for bom in self:
             bom.version_count = self.env['mrp.bom'].with_context(active_test=False).search_count([

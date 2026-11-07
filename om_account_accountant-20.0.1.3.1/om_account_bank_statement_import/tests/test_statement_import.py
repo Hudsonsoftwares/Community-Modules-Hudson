@@ -119,3 +119,60 @@ class TestStatementImport(AccountTestInvoicingCommon):
     def test_an_unknown_format_is_refused(self):
         with self.assertRaisesRegex(UserError, 'not supported'):
             self._import('nothing a bank would ever send', 'notes.txt', journal_id=self.journal.id)
+
+    # -------------------------------------------------------------------------
+    # Regressions: skipped lines, duplicated identifiers, overlapping MT940 files
+    # -------------------------------------------------------------------------
+
+    def _mt940(self, number, opening, lines, closing):
+        """ :param lines: (yymmdd, amount, bank reference, label) """
+        content = ':20:STMT\n:25:987654321 USD\n:28C:%s\n:60F:C260101USD%s\n' % (number, opening)
+        for day, amount, reference, label in lines:
+            mark = 'C' if amount > 0 else 'D'
+            content += ':61:%s%s%s%sNTRFNONREF//%s\n:86:/NAME/Customer/REMI/%s\n' % (
+                day, day[2:], mark, ('%.2f' % abs(amount)).replace('.', ','), reference, label)
+        content += ':62F:C260131USD%s\n' % closing
+        return content
+
+    def test_skipped_lines_keep_the_balances_right(self):
+        first = self._mt940('1', '1000,00', [('260105', 100.0, 'R1', 'one'), ('260106', -30.0, 'R2', 'two')],
+                            '1070,00')
+        self._import(first, 'first.sta', journal_id=self.journal.id)
+        # the second export starts on the same opening balance and holds the two lines again
+        second = self._mt940('2', '1000,00', [
+            ('260105', 100.0, 'R1', 'one'), ('260106', -30.0, 'R2', 'two'), ('260110', 50.0, 'R3', 'three'),
+        ], '1120,00')
+        statement = self._statements_of(self._import(second, 'second.sta', journal_id=self.journal.id))
+        self.assertEqual(statement.line_ids.mapped('payment_ref'), ['three'])
+        self.assertEqual(statement.balance_start, 1070.0)
+        self.assertEqual(statement.balance_end_real, 1120.0)
+        self.assertEqual(statement.balance_end, 1120.0)
+
+    def test_overlapping_mt940_files_do_not_duplicate(self):
+        first = self._mt940('10', '1000,00', [('260105', 100.0, 'R1', 'one'), ('260106', -30.0, 'R2', 'two')],
+                            '1070,00')
+        self._import(first, 'first.sta', journal_id=self.journal.id)
+        # another statement number, the common line at another place
+        second = self._mt940('11', '1100,00', [('260106', -30.0, 'R2', 'two'), ('260110', 50.0, 'R3', 'three')],
+                             '1120,00')
+        statement = self._statements_of(self._import(second, 'second.sta', journal_id=self.journal.id))
+        self.assertEqual(statement.line_ids.mapped('payment_ref'), ['three'])
+        self.assertEqual(self.env['account.bank.statement.line'].search_count([
+            ('journal_id', '=', self.journal.id), ('payment_ref', '=', 'two')]), 1)
+
+    def test_mt940_imported_before_is_recognised(self):
+        """ A file imported with the identifiers of the earlier versions is not imported again. """
+        content = self._mt940('5', '1000,00', [('260105', 100.0, 'R1', 'one')], '1100,00')
+        statement = self._statements_of(self._import(content, 'old.sta', journal_id=self.journal.id))
+        statement.line_ids.write({'unique_import_id': '%s-R1-5-1' % self.journal.id})
+        with self.assertRaisesRegex(UserError, 'already imported'):
+            self._import(content, 'old.sta', journal_id=self.journal.id)
+
+    def test_the_same_transaction_id_twice_in_a_file(self):
+        ofx = OFX_FILE.replace('<FITID>OFX-2', '<FITID>OFX-1')
+        statement = self._statements_of(self._import(ofx, 'statement.ofx'))
+        self.assertEqual(len(statement.line_ids), 2)
+        self.assertEqual(len(set(statement.line_ids.mapped('unique_import_id'))), 2)
+        # and importing it again brings nothing in
+        with self.assertRaisesRegex(UserError, 'already imported'):
+            self._import(ofx, 'statement.ofx')

@@ -20,6 +20,10 @@
     <record id="view_dms_file_approval_list" model="ir.ui.view">
         <field name="name">dms.file.list.approvals</field>
         <field name="model">dms.file</field>
+        <!-- Only used explicitly by the Approvals action; at the default
+             priority it became the default dms.file list, so My Documents /
+             Trash showed approval columns and no folder rows. -->
+        <field name="priority">90</field>
         <field name="arch" type="xml">
             <list string="Approval Requests" create="0">
                 <field name="name" string="Document"/>

@@ -6,7 +6,8 @@ from freezegun import freeze_time
 import requests
 
 from odoo import Command
-from odoo.tests import tagged
+from odoo.exceptions import AccessError
+from odoo.tests import new_test_user, tagged
 
 from odoo.addons.account.tests.common import AccountTestInvoicingCommon
 
@@ -164,3 +165,74 @@ class TestRateUpdate(AccountTestInvoicingCommon):
         self.company.rate_interval = 'manual'
         with patch(GET, side_effect=AssertionError('no request expected')):
             self.env['res.company']._cron_update_currency_rates()
+
+    def test_maximum_change_notifies_and_can_be_forced(self):
+        # a real devaluation: GBP moves by far more than the maximum change
+        self.env['res.currency.rate'].create({
+            'currency_id': self.gbp.id, 'company_id': self.company.id, 'name': date(2026, 9, 1), 'company_rate': 0.5,
+        })
+        self.company.rate_max_change = 10.0
+        self.env.user.group_ids = [Command.link(self.env.ref('account.group_account_manager').id)]
+        with patch(GET, fake_get({'frankfurter': FakeResponse(FRANKFURTER)})), \
+                patch('odoo.addons.mail.models.mail_mail.MailMail.send') as send:
+            self.company._update_currency_rates()
+        # held back, logged in the result and told to the accounting managers, without sending mails in the update
+        self.assertFalse(self._rate(self.gbp))
+        self.assertIn('GBP (0.5', self.company.rate_last_message)
+        notification = self.env['mail.message'].search([('subject', '=', 'Currency rates held back')])
+        self.assertTrue(notification)
+        self.assertIn(self.env.user.partner_id, notification.partner_ids)
+        self.assertIn('GBP', str(notification.body))
+        send.assert_not_called()
+
+        # the next update compares with the last rate again: still held back
+        with patch(GET, fake_get({'frankfurter': FakeResponse(FRANKFURTER)})):
+            self.company._update_currency_rates()
+        self.assertFalse(self._rate(self.gbp))
+
+        # forced by an accounting manager: saved, and the following updates compare with it
+        with patch(GET, fake_get({'frankfurter': FakeResponse(FRANKFURTER)})):
+            action = self.env['res.config.settings'].create({}).action_force_update_currency_rates()
+        self.assertEqual(action['params']['type'], 'success')
+        self.assertAlmostEqual(self._rate(self.gbp).company_rate, 0.8558 / 1.1539, places=6)
+        later = dict(FRANKFURTER, date='2026-09-16', rates=dict(FRANKFURTER['rates'], GBP=0.86))
+        with patch(GET, fake_get({'frankfurter': FakeResponse(later)})):
+            self.company._update_currency_rates()
+        self.assertTrue(self._rate(self.gbp, date(2026, 9, 16)))
+
+    def test_a_rate_entered_by_hand_unblocks_the_currency(self):
+        self.env['res.currency.rate'].create({
+            'currency_id': self.gbp.id, 'company_id': self.company.id, 'name': date(2026, 9, 1), 'company_rate': 0.5,
+        })
+        self.company.rate_max_change = 10.0
+        with patch(GET, fake_get({'frankfurter': FakeResponse(FRANKFURTER)})):
+            self.company._update_currency_rates()
+        self.assertFalse(self._rate(self.gbp))
+        # the accountant checks the devaluation and enters the rate of the 14th by hand
+        self.env['res.currency.rate'].create({
+            'currency_id': self.gbp.id, 'company_id': self.company.id, 'name': date(2026, 9, 14),
+            'company_rate': 0.74,
+        })
+        with patch(GET, fake_get({'frankfurter': FakeResponse(FRANKFURTER)})):
+            self.company._update_currency_rates()
+        self.assertTrue(self._rate(self.gbp))
+
+    def test_only_the_accounting_managers_update_the_rates(self):
+        accountant = new_test_user(self.env, login='rate_accountant',
+                                   groups='base.group_user,account.group_account_user',
+                                   company_id=self.company.id)
+        with patch(GET, side_effect=AssertionError('no request expected')), self.assertRaises(AccessError):
+            self.company.with_user(accountant).action_update_currency_rates()
+        manager = new_test_user(self.env, login='rate_manager',
+                                groups='base.group_user,account.group_account_manager',
+                                company_id=self.company.id)
+        with patch(GET, fake_get({'frankfurter': FakeResponse(FRANKFURTER)})):
+            action = self.company.with_user(manager).action_update_currency_rates()
+        self.assertEqual(action['params']['type'], 'success')
+        self.assertTrue(self._rate(self.eur))
+
+    def test_one_scheduled_update(self):
+        # the rates are updated by the scheduled action of this module only
+        crons = self.env['ir.cron'].with_context(active_test=False).search([
+            ('code', 'ilike', '_update_currency_rates'), ('active', '=', True)])
+        self.assertEqual(crons, self.env.ref('om_currency_rate_update.ir_cron_update_currency_rates'))

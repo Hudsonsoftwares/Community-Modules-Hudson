@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
     <data>
-        
+
         <!-- Rental Pricing Tree View (for One2many) -->
         <record id="rental_pricing_tree_view" model="ir.ui.view">
             <field name="name">rental.pricing.tree</field>
@@ -17,57 +17,74 @@
             </field>
         </record>
 
-        <!-- Product Template Form View - Add Rental Fields -->
+        <!-- Product Template Form View - Rental section in the Sales tab, like Odoo's Rental app.
+             A product is rentable when it has a Periodicity; leaving it blank means "Not for Rent". -->
         <record id="product_template_form_view_rental" model="ir.ui.view">
             <field name="name">product.template.rental.form</field>
             <field name="model">product.template</field>
             <field name="inherit_id" ref="product.product_template_form_view"/>
             <field name="arch" type="xml">
-                <xpath expr="//div[@name='button_box']" position="inside">
+                <xpath expr="//div[@name='button_box']/*[1]" position="before">
                     <button name="action_view_rental_orders" type="object"
-                            class="oe_stat_button" icon="fa-retweet"
-                            invisible="not is_rental or rental_order_count == 0">
-                        <field name="rental_order_count" widget="statinfo" string="Rentals"/>
+                            class="oe_stat_button" icon="calendar_today"
+                            invisible="not is_rental">
+                        <div class="o_field_widget o_stat_info">
+                            <span class="o_stat_text">In Rental</span>
+                            <span class="o_stat_value">
+                                <field name="qty_in_rent" class="me-1"/>
+                                <field name="uom_name"/>
+                            </span>
+                        </div>
                     </button>
                 </xpath>
-                <xpath expr="//field[@name='sale_ok']" position="after">
-                    <field name="is_rental"/>
-                </xpath>
-                <xpath expr="//page[@name='sales']" position="after">
-                    <page string="Rental" invisible="not is_rental">
-                        <group>
-                            <group string="Rental Settings">
-                                <field name="rental_periodicity" widget="selection"/>
-                                <field name="rental_pickup_time" widget="float_time"/>
-                                <field name="rental_return_time" widget="float_time"/>
-                                <field name="min_rental_duration"/>
-                                <field name="max_rental_duration"/>
-                            </group>
-                            <group string="Financials &amp; Stock">
-                                <field name="security_deposit"/>
-                                <field name="late_fee_per_day"/>
-                                <field name="rental_ok" readonly="1"/>
-                                <field name="rental_stock_available"/>
-                            </group>
-                        </group>
-                        <group string="Rental Pricing">
-                            <field name="rental_pricing_ids" nolabel="1" context="{'default_product_tmpl_id': id}"/>
-                        </group>
-                    </page>
+                <xpath expr="//group[@name='sale']" position="inside">
+                    <field name="is_rental" invisible="1"/>
+                    <group string="Rental" name="rental">
+                        <field name="rental_periodicity" placeholder="Not for Rent"/>
+                        <!-- Daily and longer rentals: fixed pickup and return times -->
+                        <field name="rental_pickup_time" widget="float_time"
+                               invisible="not rental_periodicity or rental_periodicity == 'hour'"/>
+                        <field name="rental_return_time" widget="float_time"
+                               invisible="not rental_periodicity or rental_periodicity == 'hour'"/>
+                        <!-- Hourly rentals: any time, with a padding before each pickup -->
+                        <label for="rental_padding_time" invisible="rental_periodicity != 'hour'"/>
+                        <div class="d-flex align-items-baseline" invisible="rental_periodicity != 'hour'">
+                            <field name="rental_padding_time" class="oe_inline"
+                                   options="{'hide_trailing_zeros': true}"/>
+                            <span>h</span>
+                        </div>
+                    </group>
                 </xpath>
             </field>
         </record>
 
-        <!-- Product Action for Rental -->
+        <!-- Product search: "Can be Rented" filter, like Odoo's Rental app -->
+        <record id="product_template_search_view_rental" model="ir.ui.view">
+            <field name="name">product.template.search.rental</field>
+            <field name="model">product.template</field>
+            <field name="inherit_id" ref="product.product_template_search_view"/>
+            <field name="arch" type="xml">
+                <filter name="filter_to_purchase" position="after">
+                    <filter string="Can be Rented" name="filter_to_rent" domain="[('is_rental', '=', True)]"/>
+                </filter>
+            </field>
+        </record>
+
+        <!-- Rental > Products: the regular product views, filtered on rentable products.
+             Removing the filter shows every product. -->
         <record id="action_rental_products" model="ir.actions.act_window">
-            <field name="name">Rental Products</field>
+            <field name="name">Products</field>
             <field name="res_model">product.template</field>
             <field name="view_mode">kanban,list,form</field>
-            <field name="domain">[('is_rental', '=', True)]</field>
-            <field name="context">{'default_is_rental': True}</field>
+            <field name="search_view_id" ref="product.product_template_search_view"/>
+            <field name="context">{'search_default_filter_to_rent': 1, 'default_rental_periodicity': 'day', 'default_sale_ok': True}</field>
             <field name="help" type="html">
                 <p class="o_view_nocontent_smiling_face">
                     Create a rental product
+                </p>
+                <p>
+                    Any product becomes rentable once a Periodicity is set in the Rental
+                    section of its Sales tab.
                 </p>
             </field>
         </record>

@@ -3,6 +3,8 @@
 import re
 from datetime import date
 
+from .common import set_content_import_ids
+
 AMOUNT_CLEANUP = re.compile(r'[^\d,.\-]')
 
 
@@ -100,9 +102,12 @@ def parse(data, filename, options=None):
         values.update({
             'payment_ref': label or f"{values['date']} {values['amount']}",
             'partner_name': label or None,
-            # a QIF transaction has no identifier: its place in the file tells two identical ones apart
-            'unique_import_id': f"{values['date']}-{values['amount']}-{index}",
+            # the identifier given by the earlier versions, from the place of the line in the file
+            'legacy_unique_import_id': f"{values['date']}-{values['amount']}-{index}",
         })
+    # a QIF transaction has no identifier: it is made of its contents, so that a file overlapping an
+    # earlier one does not bring its transactions in twice
+    set_content_import_ids(transactions, reference_key='ref')
     return [{
         'name': None,
         'date': max(values['date'] for values in transactions),

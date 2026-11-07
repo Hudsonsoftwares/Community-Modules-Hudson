@@ -51,6 +51,9 @@ class ReportAnnual(models.AbstractModel):
         else:
             company = self.env.company
 
+        if company and company not in self.env.companies:
+            raise UserError(_("You are not authorized to view or print the Annual Report for %s.") % company.name)
+
         # Make logo available as base64 string for template
         logo_b64 = False
         if company and company.logo:

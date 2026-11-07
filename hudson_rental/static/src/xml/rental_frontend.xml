@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+
+    <!-- Shop warning toast: themed, readable version (see rental_frontend.css) -->
+    <t t-inherit="website_sale.WarningNotification" t-inherit-mode="extension">
+        <xpath expr="//div[hasclass('toast')]" position="attributes">
+            <attribute name="class">toast show o_wsale_warning_toast</attribute>
+        </xpath>
+        <xpath expr="//div[hasclass('toast-body')]" position="attributes">
+            <attribute name="class">toast-body d-flex align-items-start gap-2</attribute>
+        </xpath>
+        <xpath expr="//i[@data-icon='warning']" position="attributes">
+            <attribute name="class">oi oi-filled flex-shrink-0</attribute>
+        </xpath>
+    </t>
+
+</templates>

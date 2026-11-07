@@ -1,6 +1,32 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
     
+
+    <!-- account.move List View for Loan Entries (Enterprise matching) -->
+    <record id="view_account_move_loan_entries_tree" model="ir.ui.view">
+        <field name="name">account.move.loan.entries.list</field>
+        <field name="model">account.move</field>
+        <field name="priority">99</field>
+        <field name="arch" type="xml">
+            <list string="Loan Entries" default_order="date asc, id asc" sample="1">
+                <field name="company_currency_id" column_invisible="True"/>
+                <field name="made_sequence_gap" column_invisible="True"/>
+                <field name="date"/>
+                <field name="name" string="Number" decoration-danger="made_sequence_gap and state == 'posted'" widget="char_with_placeholder_field" placeholder="/"/>
+                <field name="partner_id" optional="show"/>
+                <field name="ref" string="Reference"/>
+                <field name="journal_id"/>
+                <field name="company_id" groups="base.group_multi_company" optional="show"/>
+                <field name="amount_total_signed" string="Total" sum="Total" decoration-bf="1"/>
+                <field name="state" string="Status" widget="badge" 
+                       decoration-info="state == 'draft'" 
+                       decoration-success="state == 'posted'" 
+                       decoration-danger="state == 'cancel'"/>
+                <field name="currency_id" column_invisible="True"/>
+            </list>
+        </field>
+    </record>
+
     <!-- hudson.loan List View -->
     <record id="view_hudson_loan_tree" model="ir.ui.view">
         <field name="name">hudson.loan.tree</field>
@@ -11,6 +37,7 @@
                 <field name="date"/>
                 <field name="amount_borrowed"/>
                 <field name="outstanding_balance"/>
+                <field name="company_id" groups="base.group_multi_company" optional="show"/>
                 <field name="state" widget="badge" 
                        decoration-info="state == 'draft'" 
                        decoration-success="state == 'running'"
@@ -36,7 +63,7 @@
                 </header>
                 <sheet>
                     <div class="oe_button_box" name="button_box">
-                        <button name="action_view_entries" type="object" class="oe_stat_button" icon="fa-bars" invisible="move_count == 0">
+                        <button name="action_view_entries" type="object" class="oe_stat_button" icon="menu" invisible="move_count == 0">
                             <field name="move_count" widget="statinfo" string="Loan Entries"/>
                         </button>
                     </div>
@@ -56,7 +83,7 @@
                             <field name="date"/>
                             <field name="duration"/>
                             <field name="asset_group"/>
-                            <field name="company_id" invisible="1"/>
+                            <field name="company_id" groups="base.group_multi_company" options="{'no_create': True}" readonly="state != 'draft'"/>
                             <field name="currency_id" invisible="1"/>
                         </group>
                     </group>
@@ -94,11 +121,33 @@
         </field>
     </record>
 
+    <!-- hudson.loan Search View -->
+    <record id="view_hudson_loan_search" model="ir.ui.view">
+        <field name="name">hudson.loan.search</field>
+        <field name="model">hudson.loan</field>
+        <field name="arch" type="xml">
+            <search string="Loans">
+                <field name="name"/>
+                <field name="company_id" groups="base.group_multi_company"/>
+                <filter string="Draft" name="draft" domain="[('state', '=', 'draft')]"/>
+                <filter string="Running" name="running" domain="[('state', '=', 'running')]"/>
+                <filter string="Closed" name="closed" domain="[('state', '=', 'closed')]"/>
+                <filter string="Cancelled" name="cancelled" domain="[('state', '=', 'cancelled')]"/>
+                <group>
+                    <filter string="Status" name="group_by_state" context="{'group_by': 'state'}"/>
+                    <filter string="Date" name="group_by_date" context="{'group_by': 'date'}"/>
+                    <filter string="Company" name="group_by_company" context="{'group_by': 'company_id'}" groups="base.group_multi_company"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
     <!-- hudson.loan Action -->
     <record id="action_hudson_loan" model="ir.actions.act_window">
         <field name="name">Loans</field>
         <field name="res_model">hudson.loan</field>
         <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_hudson_loan_search"/>
         <field name="help" type="html">
             <p class="o_view_nocontent_smiling_face">
                 Create a new Loan
@@ -136,7 +185,7 @@
                 <field name="is_posted" widget="badge" decoration-success="is_posted == True" decoration-muted="is_posted == False"/>
                 <field name="move_id" optional="show"/>
                 <field name="currency_id" column_invisible="True"/>
-                <field name="company_id" optional="hide"/>
+                <field name="company_id" groups="base.group_multi_company" optional="show"/>
             </list>
         </field>
     </record>
@@ -161,6 +210,7 @@
             <search string="Loans Analysis">
                 <field name="loan_id"/>
                 <field name="date"/>
+                <field name="company_id" groups="base.group_multi_company"/>
                 <filter string="Current" name="current" domain="[('loan_id.state', '=', 'running')]"/>
                 <filter string="Closed" name="closed" domain="[('loan_id.state', '=', 'closed')]"/>
                 <filter string="Draft" name="draft" domain="[('loan_id.state', '=', 'draft')]"/>
@@ -172,6 +222,7 @@
                     <filter string="Month" name="group_by_date_month" context="{'group_by': 'date:month'}"/>
                     <filter string="Year" name="group_by_date_year" context="{'group_by': 'date:year'}"/>
                     <filter string="Status" name="group_by_status" context="{'group_by': 'loan_state'}"/>
+                    <filter string="Company" name="group_by_company" context="{'group_by': 'company_id'}" groups="base.group_multi_company"/>
                 </group>
             </search>
         </field>
@@ -196,6 +247,7 @@
                             <field name="interest"/>
                             <field name="payment"/>
                             <field name="balance"/>
+                            <field name="company_id" groups="base.group_multi_company" readonly="1"/>
                             <field name="currency_id" invisible="1"/>
                         </group>
                     </group>

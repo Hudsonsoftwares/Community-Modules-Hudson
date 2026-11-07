@@ -27,7 +27,7 @@
                             <!-- Row 1 Left: Payroll Rules -->
                             <setting id="payroll_rules_setting" string="Payroll Rules" help="Payroll rules that apply to your country">
                                 <div class="content-group mt8">
-                                    <button name="%(action_open_payroll_modules)d" icon="fa-arrow-right" type="action" string="Choose a Payroll Localization Package" class="btn-link"/>
+                                    <button name="%(action_open_payroll_modules)d" icon="arrow_forward" type="action" string="Choose a Payroll Localization Package" class="btn-link"/>
                                 </div>
                             </setting>
 

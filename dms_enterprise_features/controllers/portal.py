@@ -6,55 +6,419 @@ from odoo.http.stream import content_disposition
 from odoo.addons.portal.controllers.portal import CustomerPortal
 from odoo.exceptions import AccessError, MissingError
 from odoo.tools import human_size
+from .directory_download import extract_file_raw_bytes
 
 class DMSPortal(CustomerPortal):
 
+    def _prepare_portal_counter_values(self, counter):
+        if counter == 'dms_directory_count':
+            return 'dms.directory', [('company_id', 'in', [False] + request.env.companies.ids)], 'read'
+        if counter == 'dms_document_count':
+            return 'dms.file', [('is_trashed', '=', False), ('active', '=', True), ('company_id', 'in', [False] + request.env.companies.ids)], 'read'
+        if counter == 'dms_signature_count':
+            return 'dms.file.signature.request', [('recipient_id', '=', request.env.user.id), ('state', '!=', 'signed'), ('company_id', 'in', [False] + request.env.companies.ids)], 'read'
+        if hasattr(super(), '_prepare_portal_counter_values'):
+            return super()._prepare_portal_counter_values(counter)
+        return False, False, False
+
     def _prepare_home_portal_values(self, counters):
-        values = super()._prepare_home_portal_values(counters)
+        values = super()._prepare_home_portal_values(counters) if hasattr(super(), '_prepare_home_portal_values') else {}
         user = request.env.user
+        company_domain = [('company_id', 'in', [False] + request.env.companies.ids)]
+
+        if 'dms_directory_count' in counters:
+            own_root_ids = request.env['dms.directory']._get_own_root_directories()
+            values['dms_directory_count'] = len(own_root_ids)
+
+        if 'dms_document_count' in counters:
+            values['dms_document_count'] = request.env['dms.file'].search_count([
+                ('is_trashed', '=', False),
+                ('active', '=', True),
+            ] + company_domain)
+
         if 'dms_signature_count' in counters:
             values['dms_signature_count'] = request.env['dms.file.signature.request'].search_count([
                 ('recipient_id', '=', user.id),
-                ('state', 'in', ['sent', 'draft'])
-            ])
-        if 'dms_document_count' in counters:
-            values['dms_document_count'] = request.env['dms.file'].sudo().search_count([
-                ('is_trashed', '=', False),
-                ('active', '=', True),
-                '|', '|', '|',
-                ('access_ids.partner_id', '=', user.partner_id.id),
-                ('access_ids.user_id', '=', user.id),
-                ('document_owner_id', '=', user.id),
-                ('access_ids.group_id', 'in', user.group_ids.ids)
-            ])
+                ('state', 'in', ['sent', 'draft']),
+            ] + company_domain)
+
         return values
 
-    @http.route(['/my/dms/documents', '/my/dms/documents/page/<int:page>'], type='http', auth="user", website=True)
-    def portal_my_dms_documents(self, page=1, **kw):
+    @http.route(["/my/dms"], type="http", auth="user", website=True)
+    def portal_my_dms(self, sortby=None, filterby=None, search=None, search_in="name", **kw):
         values = self._prepare_portal_layout_values()
         user = request.env.user
+        is_admin = request.env.is_admin() or user.has_group('base.group_system') or user.has_group('dms.group_dms_manager')
+        company_domain = [] if is_admin else [('company_id', 'in', [False] + request.env.companies.ids)]
+
+        searchbar_sortings = {
+            'name': {'label': _('Name'), 'order': 'name asc'},
+            'date': {'label': _('Last update'), 'order': 'write_date desc'},
+        }
+        if not sortby or sortby not in searchbar_sortings:
+            sortby = 'name'
+        sort_order = searchbar_sortings[sortby]['order']
+
+        searchbar_inputs = {
+            'name': {'input': 'name', 'label': _('Search in Name')},
+        }
+
+        # Root directories accessible to this user
+        if is_admin:
+            dir_domain = [
+                ('parent_id', '=', False),
+                ('is_hidden', '=', False),
+                ('is_trashed', '=', False),
+            ]
+        else:
+            own_root_ids = request.env['dms.directory']._get_own_root_directories()
+            dir_domain = [
+                ('id', 'in', own_root_ids),
+                ('is_hidden', '=', False),
+                ('is_trashed', '=', False),
+            ] + company_domain
+
+        if search and search_in == 'name':
+            dir_domain.append(('name', 'ilike', search))
+
+        directories = request.env['dms.directory'].search(dir_domain, order=sort_order)
+        request.session['my_dms_folder_history'] = directories.ids
+
+        # Files located at root (directory_id is False)
+        file_domain = [
+            ('directory_id', '=', False),
+            ('is_hidden', '=', False),
+            ('is_trashed', '=', False),
+            ('active', '=', True),
+        ] + company_domain
+
+        if search and search_in == 'name':
+            file_domain.append(('name', 'ilike', search))
+
+        root_files = request.env['dms.file'].search(file_domain, order=sort_order)
+
+        # Count total accessible files
+        total_files_count = request.env['dms.file'].search_count([
+            ('is_trashed', '=', False),
+            ('active', '=', True),
+        ] + company_domain)
+
+        # Pending signatures mapping
+        pending_sigs = request.env['dms.file.signature.request'].sudo().search([
+            ('recipient_id', '=', user.id),
+            ('state', 'in', ['sent', 'draft']),
+        ])
+        sig_map = {}
+        for s in pending_sigs:
+            if s.revision_id and s.revision_id.file_id:
+                sig_map[s.revision_id.file_id.id] = s
+
+        # Signed files set
+        signed_sigs = request.env['dms.file.signature.request'].sudo().search([
+            ('recipient_id', 'in', [user.id, user.partner_id.id]),
+            ('state', '=', 'signed'),
+        ])
+        signed_file_ids = {s.revision_id.file_id.id for s in signed_sigs if s.revision_id and s.revision_id.file_id}
+
+        values.update({
+            'dms_directories': directories,
+            'dms_files': root_files,
+            'dms_directory': False,
+            'dms_parent_categories': [],
+            'total_files_count': total_files_count,
+            'sig_map': sig_map,
+            'signed_file_ids': signed_file_ids,
+            'page_name': 'dms_directory',
+            'default_url': '/my/dms',
+            'searchbar_sortings': searchbar_sortings,
+            'searchbar_inputs': searchbar_inputs,
+            'search_in': search_in,
+            'sortby': sortby,
+            'filterby': filterby,
+            'breadcrumbs_searchbar': True,
+            'is_admin': is_admin,
+            'access_token': None,
+        })
+        return request.render("dms_enterprise_features.portal_my_dms", values)
+
+    @http.route(
+        ["/my/dms/directory/<int:dms_directory_id>"],
+        type="http",
+        auth="user",
+        website=True,
+    )
+    def portal_my_dms_directory(
+        self,
+        dms_directory_id=False,
+        sortby=None,
+        filterby=None,
+        search=None,
+        search_in="name",
+        access_token=None,
+        **kw,
+    ):
+        values = self._prepare_portal_layout_values()
+        user = request.env.user
+        is_admin = request.env.is_admin() or user.has_group('base.group_system') or user.has_group('dms.group_dms_manager')
+        company_domain = [] if is_admin else [('company_id', 'in', [False] + request.env.companies.ids)]
+
+        directory = request.env['dms.directory'].browse(dms_directory_id)
+        if not directory.exists() or directory.is_trashed or directory.is_hidden:
+            return request.redirect("/my/dms")
+
+        # Multi-company verification
+        if not is_admin and directory.company_id and directory.company_id not in request.env.companies:
+            return request.redirect("/my/dms")
+
+        # Access check
+        if access_token:
+            if not directory.check_access_token(access_token):
+                return request.redirect("/my/dms")
+        else:
+            if not is_admin and not directory.permission_read:
+                return request.redirect("/my/dms")
+
+        searchbar_sortings = {
+            'name': {'label': _('Name'), 'order': 'name asc'},
+            'date': {'label': _('Last update'), 'order': 'write_date desc'},
+        }
+        if not sortby or sortby not in searchbar_sortings:
+            sortby = 'name'
+        sort_order = searchbar_sortings[sortby]['order']
+
+        searchbar_inputs = {
+            'name': {'input': 'name', 'label': _('Search in Name')},
+        }
+
+        # Subdirectories
+        sub_domain = [
+            ('parent_id', '=', directory.id),
+            ('is_hidden', '=', False),
+            ('is_trashed', '=', False),
+        ] + company_domain
+        if search and search_in == 'name':
+            sub_domain.append(('name', 'ilike', search))
+
+        subdirectories = request.env['dms.directory'].search(sub_domain, order=sort_order)
+
+        # Files in this directory
+        file_domain = [
+            ('directory_id', '=', directory.id),
+            ('is_hidden', '=', False),
+            ('is_trashed', '=', False),
+            ('active', '=', True),
+        ] + company_domain
+        if search and search_in == 'name':
+            file_domain.append(('name', 'ilike', search))
+
+        files = request.env['dms.file'].search(file_domain, order=sort_order)
+
+        # Pending signatures mapping
+        pending_sigs = request.env['dms.file.signature.request'].sudo().search([
+            ('recipient_id', '=', user.id),
+            ('state', 'in', ['sent', 'draft']),
+        ])
+        sig_map = {}
+        for s in pending_sigs:
+            if s.revision_id and s.revision_id.file_id:
+                sig_map[s.revision_id.file_id.id] = s
+
+        # Signed files set
+        signed_sigs = request.env['dms.file.signature.request'].sudo().search([
+            ('recipient_id', 'in', [user.id, user.partner_id.id]),
+            ('state', '=', 'signed'),
+        ])
+        signed_file_ids = {s.revision_id.file_id.id for s in signed_sigs if s.revision_id and s.revision_id.file_id}
+
+        parent_categories = directory.sudo()._get_parent_categories(access_token)
+
+        values.update({
+            'dms_directory': directory,
+            'dms_directories': subdirectories,
+            'dms_files': files,
+            'dms_parent_categories': parent_categories,
+            'sig_map': sig_map,
+            'signed_file_ids': signed_file_ids,
+            'page_name': 'dms_directory',
+            'default_url': f'/my/dms/directory/{directory.id}',
+            'searchbar_sortings': searchbar_sortings,
+            'searchbar_inputs': searchbar_inputs,
+            'search_in': search_in,
+            'sortby': sortby,
+            'filterby': filterby,
+            'breadcrumbs_searchbar': True,
+            'is_admin': is_admin,
+            'access_token': access_token,
+        })
+        return request.render("dms_enterprise_features.portal_my_dms", values)
+
+    @http.route(
+        ["/my/dms/file/<int:dms_file_id>/download"],
+        type="http",
+        auth="public",
+        website=True,
+    )
+    def portal_my_dms_file_download(self, dms_file_id, access_token=None, **kw):
+        file_rec = request.env['dms.file'].browse(dms_file_id)
+        if not file_rec.exists() or file_rec.is_trashed or not file_rec.active:
+            return request.not_found()
+
+        user = request.env.user
+        is_admin = request.env.is_admin() or user.has_group('base.group_system') or user.has_group('dms.group_dms_manager')
+
+        # Multi-company verification
+        if not is_admin and file_rec.company_id and not user._is_public():
+            if file_rec.company_id not in request.env.companies:
+                return request.not_found()
+
+        # Permission verification
+        if access_token:
+            if not file_rec.check_access_token(access_token):
+                return request.not_found()
+        else:
+            if user._is_public():
+                return request.redirect(f"/web/login?redirect=/my/dms/file/{dms_file_id}/download")
+            if not is_admin and not file_rec.permission_read and not file_rec.permission_download:
+                return request.not_found()
+
+        content_bytes = extract_file_raw_bytes(file_rec)
+        filename = file_rec.name or f"document_{file_rec.id}"
+        mimetype = file_rec.mimetype or "application/octet-stream"
+        headers = [
+            ("Content-Type", mimetype),
+            ("Content-Disposition", content_disposition(filename)),
+        ]
+        return request.make_response(content_bytes, headers)
+
+    @http.route(
+        ["/my/dms/file/<int:dms_file_id>/view"],
+        type="http",
+        auth="public",
+        website=True,
+    )
+    def portal_my_dms_file_view(self, dms_file_id, access_token=None, **kw):
+        file_rec = request.env['dms.file'].browse(dms_file_id)
+        if not file_rec.exists() or file_rec.is_trashed or not file_rec.active:
+            return request.not_found()
+
+        user = request.env.user
+        is_admin = not user._is_public() and (request.env.is_admin() or user.has_group('base.group_system') or user.has_group('dms.group_dms_manager'))
+
+        # Multi-company verification
+        if not is_admin and file_rec.company_id and not user._is_public():
+            if file_rec.company_id not in request.env.companies:
+                return request.not_found()
+
+        # Permission verification
+        if access_token:
+            if not file_rec.check_access_token(access_token):
+                return request.not_found()
+        else:
+            if user._is_public():
+                return request.redirect(f"/web/login?redirect=/my/dms/file/{dms_file_id}/view")
+            if not is_admin and not file_rec.permission_read and not file_rec.permission_view:
+                return request.not_found()
+
+        # If user has a pending signature request on this file, redirect directly to signature request!
+        if not user._is_public():
+            pending_sig = request.env['dms.file.signature.request'].sudo().search([
+                ('revision_id.file_id', '=', file_rec.id),
+                ('recipient_id', '=', user.id),
+                ('state', 'in', ['sent', 'draft']),
+            ], limit=1)
+            if pending_sig:
+                return request.redirect(pending_sig.get_portal_url())
+
+        # Directly stream document content inline in the browser
+        content_bytes = extract_file_raw_bytes(file_rec)
+        filename = (file_rec.current_revision_id.file_name if file_rec.current_revision_id else False) or file_rec.name or f"document_{file_rec.id}"
+        mimetype = (file_rec.mimetype or '').lower()
+        fname_lower = filename.lower()
+
+        if fname_lower.endswith('.pdf') or mimetype == 'application/pdf':
+            mimetype = 'application/pdf'
+        elif fname_lower.endswith(('.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp', '.bmp')) or mimetype.startswith('image/'):
+            if fname_lower.endswith(('.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp', '.bmp')):
+                ext = fname_lower.split('.')[-1]
+                mimetype = f'image/{ext if ext != "jpg" else "jpeg"}'
+        elif not mimetype or mimetype in ('application/octet-stream', 'binary/octet-stream'):
+            from odoo.tools.mimetypes import guess_mimetype
+            mimetype = guess_mimetype(content_bytes) or 'application/octet-stream'
+
+        headers = [
+            ('Content-Type', mimetype),
+            ('Content-Disposition', f'inline; filename="{filename}"'),
+            ('X-Content-Type-Options', 'nosniff'),
+            ('Cache-Control', 'public, max-age=3600'),
+        ]
+        return request.make_response(content_bytes, headers)
+
+    @http.route(['/my/dms/documents', '/my/dms/documents/page/<int:page>'], type='http', auth="user", website=True)
+    def portal_my_dms_documents(self, page=1, filterby=None, search=None, search_in="name", **kw):
+        values = self._prepare_portal_layout_values()
+        user = request.env.user
+        is_admin = request.env.is_admin() or user.has_group('base.group_system') or user.has_group('dms.group_dms_manager')
+        company_domain = [] if is_admin else [('company_id', 'in', [False] + request.env.companies.ids)]
+
         domain = [
             ('is_trashed', '=', False),
             ('active', '=', True),
-            '|', '|', '|',
-            ('access_ids.partner_id', '=', user.partner_id.id),
-            ('access_ids.user_id', '=', user.id),
-            ('document_owner_id', '=', user.id),
-            ('access_ids.group_id', 'in', user.group_ids.ids)
-        ]
-        files = request.env['dms.file'].sudo().search(domain, order='write_date desc')
+        ] + company_domain
+
+        if search and search_in == 'name':
+            domain.append(('name', 'ilike', search))
+
+        if filterby == 'pending_sig':
+            sig_files = request.env['dms.file.signature.request'].sudo().search([
+                ('recipient_id', '=', user.id),
+                ('state', 'in', ['sent', 'draft']),
+            ]).mapped('revision_id.file_id').ids
+            domain.append(('id', 'in', sig_files or [0]))
+        elif filterby == 'owned':
+            domain.append(('document_owner_id', '=', user.id))
+        elif filterby == 'shared':
+            domain.append(('document_owner_id', '!=', user.id))
+
+        files = request.env['dms.file'].search(domain, order='write_date desc')
+
+        pending_sigs = request.env['dms.file.signature.request'].sudo().search([
+            ('recipient_id', '=', user.id),
+            ('state', 'in', ['sent', 'draft']),
+        ])
+        sig_map = {}
+        for s in pending_sigs:
+            if s.revision_id and s.revision_id.file_id:
+                sig_map[s.revision_id.file_id.id] = s
+
+        # Signed files set
+        signed_sigs = request.env['dms.file.signature.request'].sudo().search([
+            ('recipient_id', 'in', [user.id, user.partner_id.id]),
+            ('state', '=', 'signed'),
+        ])
+        signed_file_ids = {s.revision_id.file_id.id for s in signed_sigs if s.revision_id and s.revision_id.file_id}
+
         values.update({
             'files': files,
+            'sig_map': sig_map,
+            'signed_file_ids': signed_file_ids,
             'page_name': 'dms_documents',
             'default_url': '/my/dms/documents',
+            'filterby': filterby,
+            'search': search,
+            'search_in': search_in,
+            'breadcrumbs_searchbar': True,
+            'is_admin': is_admin,
         })
         return request.render("dms_enterprise_features.portal_my_dms_documents", values)
-
 
     @http.route(['/my/dms/signatures', '/my/dms/signatures/page/<int:page>'], type='http', auth="user", website=True)
     def portal_my_dms_signatures(self, page=1, **kw):
         values = self._prepare_portal_layout_values()
-        domain = [('recipient_id', '=', request.env.user.id), ('state', 'in', ['sent', 'draft'])]
+        company_domain = [('company_id', 'in', [False] + request.env.companies.ids)]
+        domain = [
+            ('recipient_id', '=', request.env.user.id),
+            ('state', 'in', ['sent', 'draft']),
+        ] + company_domain
         
         signatures = request.env['dms.file.signature.request'].search(domain)
         request.session['my_signatures_history'] = signatures.ids[:100]
@@ -254,23 +618,13 @@ class DMSPortal(CustomerPortal):
         if user._is_public():
             return False, False
 
-        # Logged-in internal users:
-        # Check explicit access rules (groups, partners, users, departments)
-        user_access = file_rec.access_ids.filtered(
-            lambda a: (a.user_id == user) or 
-                      (a.partner_id == user.partner_id) or 
-                      (a.group_id and a.group_id in user.groups_id) or
-                      (a.department_id and hasattr(user, 'employee_id') and user.employee_id and a.department_id == user.employee_id.department_id)
-        )
-        if user_access:
-            has_edit = any(a.perm_edit or a.perm_rename or a.perm_move for a in user_access)
-            has_view = any(a.perm_view or a.perm_download for a in user_access)
-            if has_edit:
-                return True, not file_rec.is_locked
-            elif has_view:
-                return True, False
-            else:
-                return False, False
+        # Logged-in users: effective DMS permissions (inherited folder
+        # permissions + explicit file lines + owner), same as the backend.
+        perms = file_rec._dms_effective_permissions(user)
+        if perms['edit'] or perms['rename'] or perms['move']:
+            return True, not file_rec.is_locked
+        if perms['view'] or perms['download']:
+            return True, False
 
         # Document owner or DMS manager
         if file_rec.document_owner_id == user or file_rec.create_uid == user or user.has_group('dms.group_dms_manager'):

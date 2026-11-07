@@ -191,29 +191,6 @@
                                     </sheet>
                                 </form>
                             </field>
-                            <group invisible="state == 'draft'">
-                                <group/>
-                                <group class="oe_subtotal_footer border-top-0" name="budget_total">
-                                    <label for="expense_practical_amount" string="Expenses" invisible="budget_type == 'revenue'"/>
-                                    <div class="text-end text-nowrap" invisible="budget_type == 'revenue'">
-                                        <field name="expense_practical_amount" class="oe_inline"/>
-                                        <span class="text-muted"> of </span>
-                                        <field name="expense_planned_amount" class="oe_inline"/>
-                                    </div>
-                                    <label for="revenue_practical_amount" string="Revenues" invisible="budget_type == 'expense'"/>
-                                    <div class="text-end text-nowrap" invisible="budget_type == 'expense'">
-                                        <field name="revenue_practical_amount" class="oe_inline"/>
-                                        <span class="text-muted"> of </span>
-                                        <field name="revenue_planned_amount" class="oe_inline"/>
-                                    </div>
-                                    <label for="net_practical_amount" string="Net Profit / Margin" invisible="budget_type != 'both'"/>
-                                    <div class="text-end text-nowrap" invisible="budget_type != 'both'">
-                                        <field name="net_practical_amount" class="oe_inline"/>
-                                        <span class="text-muted"> of </span>
-                                        <field name="net_planned_amount" class="oe_inline"/>
-                                    </div>
-                                </group>
-                            </group>
                         </page>
                     </notebook>
                 </sheet>

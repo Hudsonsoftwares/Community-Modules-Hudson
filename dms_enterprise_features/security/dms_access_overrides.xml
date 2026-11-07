@@ -52,5 +52,32 @@
             <field name="domain">[(0, '=', 1)]</field>
         </record>
 
+        <!-- Override base computed global rules to use boolean True instead of user.id to prevent Odoo 20 warnings -->
+        <record id="dms.rule_directory_computed_read" model="ir.access">
+            <field name="domain">[('permission_read', '=', True)]</field>
+        </record>
+        <record id="dms.rule_directory_computed_write" model="ir.access">
+            <field name="domain">[('permission_write', '=', True)]</field>
+        </record>
+        <record id="dms.rule_directory_computed_create" model="ir.access">
+            <field name="domain">[('permission_create', '=', True)]</field>
+        </record>
+        <record id="dms.rule_directory_computed_unlink" model="ir.access">
+            <field name="domain">[('permission_unlink', '=', True)]</field>
+        </record>
+
+        <record id="dms.rule_file_computed_read" model="ir.access">
+            <field name="domain">[('permission_read', '=', True)]</field>
+        </record>
+        <record id="dms.rule_file_computed_write" model="ir.access">
+            <field name="domain">[('permission_write', '=', True)]</field>
+        </record>
+        <record id="dms.rule_file_computed_create" model="ir.access">
+            <field name="domain">[('permission_create', '=', True)]</field>
+        </record>
+        <record id="dms.rule_file_computed_unlink" model="ir.access">
+            <field name="domain">[('permission_unlink', '=', True)]</field>
+        </record>
+
     </data>
 </odoo>

@@ -15,7 +15,7 @@
                                 string="Test Connection"
                                 type="object"
                                 class="btn-primary"
-                                icon="fa-plug"/>
+                                icon="power"/>
                     </header>
                     <sheet>
                         <div class="oe_title">

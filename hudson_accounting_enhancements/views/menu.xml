@@ -508,6 +508,21 @@ action = {
         <field name="active" eval="True"/>
     </record>
 
+    <!-- 2. Customer Statement (as in Odoo Online): per partner, the receivable /
+         payable items of the period with their due date. No wizard: the dynamic
+         report computes it from its filters. -->
+    <record id="action_report_customer_statement" model="ir.actions.client">
+        <field name="name">Customer Statement</field>
+        <field name="tag">hudson_dynamic_reports.dynamic_report</field>
+        <field name="params" eval="{'model_name': 'account.customer.statement', 'wizard_id': False, 'data': {'form': {'target_move': 'posted', 'account_types': ['receivable', 'payable']}}}"/>
+    </record>
+    <menuitem id="menu_account_customer_statement"
+              name="Customer Statement"
+              parent="account.account_reports_partners_reports_menu"
+              action="action_report_customer_statement"
+              sequence="20"
+              groups="account.group_account_readonly"/>
+
     <!-- 3. Aged Receivable -->
     <record id="accounting_pdf_reports.menu_aged_receivable" model="ir.ui.menu">
         <field name="name">Aged Receivable</field>

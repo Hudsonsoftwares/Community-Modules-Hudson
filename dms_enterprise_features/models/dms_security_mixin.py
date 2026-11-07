@@ -199,6 +199,8 @@ class DmsSecurityMixin(models.AbstractModel):
         if operation != 'read':
             return dir_perm_domain
 
+        allowed_companies = tuple(self.env.companies.ids) if self.env.companies else ((self.env.user.company_id.id,) if self.env.user.company_id else (0,))
+
         # Rule 2 (read only): ancestor directories for tree navigation
         # Walk up the tree from directories/files the user can directly access
         ancestor_sql = SQL(
@@ -222,14 +224,26 @@ class DmsSecurityMixin(models.AbstractModel):
                 LEFT JOIN dms_file_access fa ON fa.file_id = f.id
                 WHERE f.directory_id IS NOT NULL
                   AND f.active = TRUE
+                  AND (f.is_trashed = FALSE OR f.is_trashed IS NULL)
+                  AND (f.company_id IS NULL OR f.company_id IN %s)
                   AND (
                       f.document_owner_id = %s
                       OR f.create_uid = %s
                       OR (
                           (fa.user_id = %s OR fa.partner_id = %s
-                           OR fa.group_id IN %s OR fa.department_id IN %s)
+                           OR fa.group_id IN %s OR fa.department_id IN %s
+                           OR fa.access_group_id IN (
+                               SELECT gid FROM dms_access_group_users_rel WHERE uid = %s))
                           AND (fa.perm_view = TRUE OR fa.perm_download = TRUE
                                OR fa.perm_share = TRUE)
+                      )
+                      OR EXISTS (
+                          SELECT 1 FROM dms_file_revision rev
+                          JOIN dms_file_signature_request sr ON sr.revision_id = rev.id
+                          WHERE rev.file_id = f.id
+                            AND (sr.recipient_id = %s OR EXISTS (
+                                SELECT 1 FROM res_users ru WHERE ru.id = sr.recipient_id AND ru.partner_id = %s
+                            ))
                       )
                   )
             ),
@@ -240,12 +254,16 @@ class DmsSecurityMixin(models.AbstractModel):
                 FROM dms_directory d
                 INNER JOIN ancestors a ON d.id = a.id
                 WHERE d.parent_id IS NOT NULL
+                  AND (d.company_id IS NULL OR d.company_id IN %s)
             )
             SELECT id FROM ancestors WHERE id IS NOT NULL
             """,
             uid, uid, partner_id,          # permission line match
+            allowed_companies,             # company isolation
             uid, uid,                      # owner / creator of file
-            uid, partner_id, user_groups, user_depts  # file access entry
+            uid, partner_id, user_groups, user_depts, uid,  # file access entry
+            uid, partner_id,               # signature request recipient
+            allowed_companies              # ancestor company isolation
         )
 
         return OR([dir_perm_domain, [('id', 'in', ancestor_sql)]])
@@ -256,16 +274,16 @@ class DmsSecurityMixin(models.AbstractModel):
         FALSE_DOMAIN
     ):
         """
-        Security domain for dms.file.
+        Security domain for dms.file (SharePoint-style inheritance).
 
         A file is accessible when ANY of:
-          (1) Explicit dms_file_access entry grants the required operation.
-          (2) User is the owner/creator:
-              - Read: always visible.
-              - Write/Unlink: only if directory permits OR directory is unrestricted.
-          (3) [Read only] User is listed as an approver.
-          (4) File has no file-level access rules AND the directory explicitly
-              grants the user the required operation.
+          (1) An explicit dms_file_access line grants the operation. File lines
+              are additive: they add rights, they never remove folder rights.
+          (2) User is the document owner or uploader (full control).
+          (3) [Read only] User is an approver or signature recipient.
+          (4) The file inherits folder permissions (inherit_permissions) AND
+              the folder grants the user the operation. Files with inheritance
+              stopped ("unique permissions") skip this rule.
         """
         op_file_sql = {
             'read':   '(fa.perm_view = TRUE OR fa.perm_download = TRUE OR fa.perm_share = TRUE)',
@@ -288,40 +306,17 @@ class DmsSecurityMixin(models.AbstractModel):
             domains.append([('id', 'in', SQL(
                 "SELECT fa.file_id FROM dms_file_access fa"
                 " WHERE (fa.user_id = %s OR fa.partner_id = %s"
-                "        OR fa.group_id IN %s OR fa.department_id IN %s)"
+                "        OR fa.group_id IN %s OR fa.department_id IN %s"
+                "        OR fa.access_group_id IN ("
+                "            SELECT gid FROM dms_access_group_users_rel WHERE uid = %s))"
                 " AND " + op_file_sql,
-                uid, partner_id, user_groups, user_depts
+                uid, partner_id, user_groups, user_depts, uid
             ))])
 
-        # Rule 2: owner / creator
-        if operation == 'read':
-            # Owners can always read their own files
+        # Rule 2: owner / uploader has full control of their own document
+        if operation in ('read', 'write', 'unlink'):
             domains.append([('document_owner_id', '=', uid)])
             domains.append([('create_uid', '=', uid)])
-
-        elif operation in ('write', 'unlink'):
-            # Owners can edit/delete their files only when:
-            # - the directory explicitly grants write/delete, OR
-            # - the directory has NO restriction at all (open folder)
-            domains.append([('id', 'in', SQL(
-                "SELECT f.id FROM dms_file f"
-                " WHERE (f.document_owner_id = %s OR f.create_uid = %s)"
-                "   AND ("
-                "       EXISTS ("
-                "           SELECT 1 FROM dms_dir_complete_perm_rel rel"
-                "           INNER JOIN dms_directory_permission dp ON rel.perm_id = dp.id"
-                "           LEFT JOIN dms_access_group dag ON dp.group_id = dag.id"
-                "           LEFT JOIN dms_access_group_users_rel gu ON gu.gid = dag.id"
-                "           WHERE rel.dir_id = f.directory_id"
-                "             AND (gu.uid = %s OR dp.user_id = %s OR dp.partner_id = %s)"
-                "             AND " + op_dir_sql +
-                "       ) OR NOT EXISTS ("
-                "           SELECT 1 FROM dms_dir_complete_perm_rel"
-                "           WHERE dir_id = f.directory_id"
-                "       )"
-                "   )",
-                uid, uid, uid, uid, partner_id
-            ))])
 
         # Rule 3: approver (read only)
         if operation == 'read':
@@ -331,13 +326,41 @@ class DmsSecurityMixin(models.AbstractModel):
                 uid
             ))])
 
-        # Rule 4: no file-level rules + directory grants this operation
+            # Rule 3b: signature request recipient (read only)
+            domains.append([('id', 'in', SQL(
+                """
+                SELECT DISTINCT rev.file_id
+                FROM dms_file_signature_request sr
+                JOIN dms_file_revision rev ON sr.revision_id = rev.id
+                WHERE (sr.recipient_id = %s OR EXISTS (
+                    SELECT 1 FROM res_users ru WHERE ru.id = sr.recipient_id AND ru.partner_id = %s
+                ))
+                """,
+                uid, partner_id
+            ))])
+
+        # Rule 5 (create): uploading is a folder right, independent of the
+        # new file's inheritance flag
+        if operation == 'create':
+            domains.append([('id', 'in', SQL(
+                "SELECT f.id FROM dms_file f"
+                " WHERE EXISTS ("
+                "     SELECT 1 FROM dms_dir_complete_perm_rel rel"
+                "     INNER JOIN dms_directory_permission dp ON rel.perm_id = dp.id"
+                "     LEFT JOIN dms_access_group dag ON dp.group_id = dag.id"
+                "     LEFT JOIN dms_access_group_users_rel gu ON gu.gid = dag.id"
+                "     WHERE rel.dir_id = f.directory_id"
+                "       AND (gu.uid = %s OR dp.user_id = %s OR dp.partner_id = %s)"
+                "       AND dp.perm_upload = TRUE"
+                " )",
+                uid, uid, partner_id
+            ))])
+
+        # Rule 4: file inherits folder permissions + folder grants this operation
         if operation in ('read', 'write', 'unlink'):
             domains.append([('id', 'in', SQL(
                 "SELECT f.id FROM dms_file f"
-                " WHERE NOT EXISTS ("
-                "     SELECT 1 FROM dms_file_access WHERE file_id = f.id"
-                " )"
+                " WHERE f.inherit_permissions = TRUE"
                 " AND EXISTS ("
                 "     SELECT 1 FROM dms_dir_complete_perm_rel rel"
                 "     INNER JOIN dms_directory_permission dp ON rel.perm_id = dp.id"
@@ -368,154 +391,36 @@ class DmsSecurityMixin(models.AbstractModel):
                 record.permission_write = record.permission_edit or record.permission_move or record.permission_rename
                 record.permission_unlink = record.permission_delete
 
-    def _compute_granular_permissions(self):  # noqa: C901
+    _DMS_PERM_KEYS = ("view", "download", "upload", "edit", "move", "rename", "delete", "share")
+
+    @api.model
+    def _dms_directory_perms_for_user(self, directory, user):
+        """Union of the folder permission lines (incl. inherited parents) that
+        target ``user``."""
+        perms = dict.fromkeys(self._DMS_PERM_KEYS, False)
+        if not directory:
+            return perms
+        partner = user.partner_id
+        for perm in directory.sudo().complete_permission_line_ids:
+            if (
+                (perm.group_id and user in perm.group_id.users)
+                or (perm.user_id and perm.user_id == user)
+                or (perm.partner_id and perm.partner_id == partner)
+            ):
+                for key in self._DMS_PERM_KEYS:
+                    if perm[f"perm_{key}"]:
+                        perms[key] = True
+        return perms
+
+    def _compute_granular_permissions(self):
+        user = self.env.user
+        privileged = self.env.su or self._is_dms_privileged_user()
         for record in self:
-            if (self.env.su
-                    or self.env.user.has_group('dms.group_dms_manager')
-                    or self.env.user.has_group('base.group_system')
-                    or self.env.user.has_group('dms_enterprise_features.group_dms_administrator')):
-                record.permission_view = True
-                record.permission_download = True
-                record.permission_upload = True
-                record.permission_edit = True
-                record.permission_move = True
-                record.permission_rename = True
-                record.permission_delete = True
-                record.permission_share = True
-                continue
-
-            directory = False
-            if record._name == "dms.directory":
-                directory = record
-            elif hasattr(record, "directory_id") and record.directory_id:
-                directory = record.directory_id
-
-            dir_perms = {
-                'view': False, 'download': False, 'upload': False,
-                'edit': False, 'move': False, 'rename': False,
-                'delete': False, 'share': False,
-            }
-
-            if directory:
-                uid = self.env.user.id
-                partner_id = self.env.user.partner_id.id if self.env.user.partner_id else 0
-                for perm in directory.sudo().complete_permission_line_ids:
-                    applies = False
-                    if perm.group_id and self.env.user in perm.group_id.users:
-                        applies = True
-                    elif perm.user_id and perm.user_id.id == uid:
-                        applies = True
-                    elif perm.partner_id and perm.partner_id.id == partner_id:
-                        applies = True
-                    if applies:
-                        if perm.perm_view:     dir_perms['view'] = True
-                        if perm.perm_download: dir_perms['download'] = True
-                        if perm.perm_upload:   dir_perms['upload'] = True
-                        if perm.perm_edit:     dir_perms['edit'] = True
-                        if perm.perm_move:     dir_perms['move'] = True
-                        if perm.perm_rename:   dir_perms['rename'] = True
-                        if perm.perm_delete:   dir_perms['delete'] = True
-                        if perm.perm_share:    dir_perms['share'] = True
-
-            if record._name == "dms.file":
-                is_owner = (
-                    (record.document_owner_id and record.document_owner_id.id == self.env.user.id)
-                    or (record.create_uid and record.create_uid.id == self.env.user.id)
-                )
-                is_approver = self.env.user.id in record.sudo().approval_ids.mapped('approver_id.id')
-                partner_id = self.env.user.partner_id.id if self.env.user.partner_id else 0
-
-                access_records = record.sudo().access_ids if hasattr(record, "access_ids") else []
-                if access_records:
-                    user_dept_ids = []
-                    if hasattr(self.env.user, "employee_ids"):
-                        user_dept_ids = self.env.user.sudo().employee_ids.mapped("department_id").ids
-
-                    file_perms = {
-                        'view': False, 'download': False,
-                        'edit': False, 'move': False, 'rename': False,
-                        'delete': False, 'share': False,
-                    }
-                    user_has_file_rule = False
-                    for access in access_records:
-                        applies = False
-                        if access.user_id and access.user_id.id == self.env.user.id:
-                            applies = True
-                        elif access.partner_id and access.partner_id.id == partner_id:
-                            applies = True
-                        elif access.group_id and self.env.user in access.group_id.user_ids:
-                            applies = True
-                        elif access.department_id and access.department_id.id in user_dept_ids:
-                            applies = True
-                        if applies:
-                            user_has_file_rule = True
-                            if access.perm_view:     file_perms['view'] = True
-                            if access.perm_download: file_perms['download'] = True
-                            if access.perm_edit:     file_perms['edit'] = True
-                            if access.perm_move:     file_perms['move'] = True
-                            if access.perm_rename:   file_perms['rename'] = True
-                            if access.perm_delete:   file_perms['delete'] = True
-                            if access.perm_share:    file_perms['share'] = True
-
-                    if user_has_file_rule:
-                        record.permission_view     = file_perms['view'] or is_approver
-                        record.permission_download = file_perms['download'] or is_approver
-                        record.permission_upload   = False
-                        record.permission_edit     = file_perms['edit']
-                        record.permission_move     = file_perms['move']
-                        record.permission_rename   = file_perms['rename']
-                        record.permission_delete   = file_perms['delete']
-                        record.permission_share    = file_perms['share']
-                    elif is_owner:
-                        record.permission_view = record.permission_download = True
-                        record.permission_upload = False
-                        record.permission_edit = record.permission_move = True
-                        record.permission_rename = record.permission_delete = True
-                        record.permission_share = True
-                    elif is_approver:
-                        record.permission_view = record.permission_download = True
-                        record.permission_upload = False
-                        record.permission_edit = record.permission_move = False
-                        record.permission_rename = record.permission_delete = False
-                        record.permission_share = False
-                    else:
-                        # File has explicit rules but user has no entry -> DENY all
-                        record.permission_view = record.permission_download = False
-                        record.permission_upload = record.permission_edit = False
-                        record.permission_move = record.permission_rename = False
-                        record.permission_delete = record.permission_share = False
-                else:
-                    # No file-level rules -> inherit directory perms + owner override
-                    if is_owner:
-                        record.permission_view = record.permission_download = True
-                        record.permission_upload = dir_perms['upload']
-                        record.permission_edit = record.permission_move = True
-                        record.permission_rename = record.permission_delete = True
-                        record.permission_share = True
-                    elif is_approver:
-                        record.permission_view = record.permission_download = True
-                        record.permission_upload = dir_perms['upload']
-                        record.permission_edit = dir_perms['edit']
-                        record.permission_move = dir_perms['move']
-                        record.permission_rename = dir_perms['rename']
-                        record.permission_delete = dir_perms['delete']
-                        record.permission_share = dir_perms['share']
-                    else:
-                        record.permission_view     = dir_perms['view']
-                        record.permission_download = dir_perms['download']
-                        record.permission_upload   = dir_perms['upload']
-                        record.permission_edit     = dir_perms['edit']
-                        record.permission_move     = dir_perms['move']
-                        record.permission_rename   = dir_perms['rename']
-                        record.permission_delete   = dir_perms['delete']
-                        record.permission_share    = dir_perms['share']
+            if privileged:
+                perms = dict.fromkeys(self._DMS_PERM_KEYS, True)
+            elif record._name == "dms.file":
+                perms = record._dms_effective_permissions(user)
             else:
-                # Directory record
-                record.permission_view     = dir_perms['view']
-                record.permission_download = dir_perms['download']
-                record.permission_upload   = dir_perms['upload']
-                record.permission_edit     = dir_perms['edit']
-                record.permission_move     = dir_perms['move']
-                record.permission_rename   = dir_perms['rename']
-                record.permission_delete   = dir_perms['delete']
-                record.permission_share    = dir_perms['share']
+                perms = self._dms_directory_perms_for_user(record, user)
+            for key in self._DMS_PERM_KEYS:
+                record[f"permission_{key}"] = perms[key]

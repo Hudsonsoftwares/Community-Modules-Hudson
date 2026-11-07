@@ -1,21 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
 
-    <!-- ============================================================ -->
-    <!-- ROOT MENU                                                     -->
-    <!-- ============================================================ -->
-
-    <menuitem
-        name="Field Service"
-        id="menu_field_service_root"
-        groups="hudson_field_service.group_field_service_user"
-        web_icon="hudson_field_service,static/description/icon.png"
-        sequence="55"
-    />
-
-    <!-- ============================================================ -->
-    <!-- DASHBOARD                                                     -->
-    <!-- ============================================================ -->
+    <!-- Field Service is part of the Planning app: a shift with a customer is
+         a field service job. Its menus live in the Planning menu. -->
 
     <!-- Field Service Board (Owl Schedule) -->
     <record id="action_fs_board" model="ir.actions.client">
@@ -24,90 +11,79 @@
         <field name="target">main</field>
     </record>
 
-    <menuitem
-        name="Field Service Board"
-        id="menu_field_service_board"
-        parent="menu_field_service_root"
-        action="action_fs_board"
-        groups="hudson_field_service.group_field_service_manager"
-        sequence="1"
-    />
+    <!-- ============================================================ -->
+    <!-- MAPS                                                          -->
+    <!-- ============================================================ -->
 
     <menuitem
-        name="My Calendar"
-        id="menu_field_service_dashboard"
-        parent="menu_field_service_root"
-        action="action_field_service_dashboard"
+        name="Maps"
+        id="menu_field_service_root"
+        parent="hudson_planning.menu_planning_root"
+        groups="hudson_field_service.group_field_service_manager"
+        sequence="10"
+    >
+        <menuitem
+            name="By Resource"
+            id="menu_fs_map_by_resource"
+            action="action_fs_job_map_by_resource"
+            sequence="1"
+        />
+        <menuitem
+            name="Live Map"
+            id="menu_field_service_live_map"
+            action="action_fs_live_map"
+            sequence="2"
+        />
+        <menuitem
+            name="Timeline"
+            id="menu_fs_map_timeline"
+            action="action_fs_job_map_timeline"
+            sequence="3"
+        />
+    </menuitem>
+
+    <!-- Planning > My > Map -->
+    <menuitem
+        name="Map"
+        id="menu_fs_my_map"
+        parent="hudson_planning.menu_planning_my"
+        action="action_fs_job_map_my"
+        groups="hudson_field_service.group_field_service_user"
         sequence="2"
     />
-
-    <!-- Live Technician Map — manager-only -->
-    <menuitem
-        name="Live Map"
-        id="menu_field_service_live_map"
-        parent="menu_field_service_root"
-        action="action_fs_live_map"
-        groups="hudson_field_service.group_field_service_manager"
-        sequence="3"
-    />
-
-
 
     <!-- ============================================================ -->
     <!-- REPORTING                                                     -->
     <!-- ============================================================ -->
 
     <menuitem
-        name="Reporting"
-        id="menu_field_service_reporting"
-        parent="menu_field_service_root"
-        sequence="90"
-    >
-        <menuitem
-            name="Service Analysis"
-            id="menu_field_service_report_analysis"
-            action="action_field_service_report"
-            sequence="1"
-        />
-    </menuitem>
+        name="Service Analysis"
+        id="menu_field_service_report_analysis"
+        parent="hudson_planning.menu_planning_reporting"
+        action="action_field_service_report"
+        groups="hudson_field_service.group_field_service_user"
+        sequence="10"
+    />
 
     <!-- ============================================================ -->
     <!-- CONFIGURATION                                                 -->
     <!-- ============================================================ -->
 
     <menuitem
-        name="Configuration"
-        id="menu_field_service_config"
-        parent="menu_field_service_root"
+        name="Materials"
+        id="menu_field_service_materials"
+        parent="hudson_planning.menu_planning_config"
+        action="action_field_service_material"
         groups="hudson_field_service.group_field_service_manager"
-        sequence="100"
-    >
-        <menuitem
-            name="Settings"
-            id="menu_field_service_settings"
-            action="action_field_service_config_settings"
-            groups="base.group_system"
-            sequence="1"
-        />
-        <menuitem
-            name="Stages"
-            id="menu_field_service_stages"
-            action="action_field_service_stages"
-            sequence="10"
-        />
-        <menuitem
-            name="Tags"
-            id="menu_field_service_tags"
-            action="action_field_service_tags"
-            sequence="20"
-        />
-        <menuitem
-            name="Materials"
-            id="menu_field_service_materials"
-            action="action_field_service_material"
-            sequence="30"
-        />
-
-    </menuitem>
+        sequence="20"
+    />
+    <menuitem
+        name="Worksheet Templates"
+        id="menu_fs_worksheet_templates"
+        parent="hudson_planning.menu_planning_config"
+        action="action_fs_worksheet_template"
+        groups="hudson_field_service.group_field_service_manager"
+        sequence="50"
+    />
 
 </odoo>

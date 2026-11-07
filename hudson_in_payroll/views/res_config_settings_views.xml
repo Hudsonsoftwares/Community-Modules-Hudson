@@ -82,7 +82,7 @@
                                     </div>
                                     <div class="mt8">
                                         <button name="%(hudson_in_payroll.action_esic_contribution_period)d"
-                                                icon="fa-arrow-right"
+                                                icon="arrow_forward"
                                                 type="action"
                                                 string="Configure Contribution Periods"
                                                 class="btn-link"/>
@@ -112,7 +112,7 @@
                                 </div>
                                 <div class="mt8">
                                     <button name="%(hudson_in_payroll.action_lwf_state_rate_act)d"
-                                            icon="fa-arrow-right"
+                                            icon="arrow_forward"
                                             type="action"
                                             string="Configure State Rates &amp; Thresholds"
                                             class="btn-link"/>
@@ -262,7 +262,7 @@
                                 </div>
                                 <div class="mt8">
                                     <button name="%(hudson_in_payroll.action_hds_payment_mode)d"
-                                            icon="fa-arrow-right"
+                                            icon="arrow_forward"
                                             type="action"
                                             string="Configure Payment Modes"
                                             class="btn-link"/>

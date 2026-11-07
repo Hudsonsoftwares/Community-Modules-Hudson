@@ -46,7 +46,7 @@
                 <div class="alert alert-success d-flex flex-wrap justify-content-between align-items-center mt-3 p-3 shadow-sm rounded-3">
                     <div class="mb-2 mb-md-0">
                         <h5 class="alert-heading mb-1 d-flex align-items-center">
-                            <i class="fa fa-check-circle text-success me-2 fs-4"/>
+                            <i class="oi text-success me-2 fs-4" data-icon="check_circle"/>
                             Subscription Confirmed &amp; Active!
                         </h5>
                         <p class="mb-0 text-muted">
@@ -55,7 +55,7 @@
                     </div>
                     <div>
                         <a t-attf-href="/my/subscriptions/#{order.id}?access_token=#{order.access_token}" class="btn btn-primary btn-lg shadow-sm">
-                            <i class="fa fa-refresh me-1"/> Manage Subscription
+                            <i class="oi me-1" data-icon="autorenew"/> Manage Subscription
                         </a>
                     </div>
                 </div>

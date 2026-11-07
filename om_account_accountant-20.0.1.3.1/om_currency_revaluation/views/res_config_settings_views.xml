@@ -24,11 +24,6 @@
                             <label for="currency_reval_loss_account_id" class="col-lg-4 o_light_label"/>
                             <field name="currency_reval_loss_account_id"/>
                         </div>
-                        <div class="mt8">
-                            <field name="currency_reval_reverse" class="oe_inline"/>
-                            <label for="currency_reval_reverse" class="o_light_label"
-                                   string="Reverse the adjustment at the start of the next period"/>
-                        </div>
                     </div>
                 </setting>
             </xpath>

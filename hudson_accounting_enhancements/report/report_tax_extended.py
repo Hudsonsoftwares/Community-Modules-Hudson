@@ -22,7 +22,10 @@ class ReportTaxExtended(models.AbstractModel):
         clean_form = {k: v for k, v in form.items() if k in valid_fields}
         if 'company' in form and 'company_id' in valid_fields:
             clean_form['company_id'] = form['company']
-            
+        # Keep the Multi Ledger selection so the PDF matches the on-screen report
+        if form.get('gaap_options'):
+            clean_form['gaap_options'] = form['gaap_options']
+
         # Get dynamic report data
         report_data = self.env['hudson.dynamic.report'].get_report_data(
             'account.tax.extended.wizard', wizard_id, {'form': clean_form}

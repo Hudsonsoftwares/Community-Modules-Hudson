@@ -2,6 +2,10 @@ import time
 from odoo import api, models, _
 from odoo.exceptions import UserError
 
+from .fiscal_year import (
+    day_before, fiscal_year_start, report_company, reset_account_types, unaffected_earnings_account,
+)
+
 
 class ReportGeneralLedger(models.AbstractModel):
     _name = 'report.accounting_pdf_reports.report_general_ledger'
@@ -64,11 +68,18 @@ class ReportGeneralLedger(models.AbstractModel):
                 LEFT JOIN res_currency c ON (l.currency_id=c.id)\
                 LEFT JOIN res_partner p ON (l.partner_id=p.id)\
                 JOIN account_journal j ON (l.journal_id=j.id)\
-                WHERE l.account_id IN %s""" + filters + ' GROUP BY l.account_id')
-            params = (tuple(accounts.ids),) + tuple(init_where_params)
+                JOIN account_account acc ON (l.account_id=acc.id)\
+                WHERE l.account_id IN %s\
+                AND (acc.account_type NOT IN %s OR l.date >= %s)""" + filters + ' GROUP BY l.account_id')
+            # as in Odoo Enterprise, the income and expense accounts start again at the beginning
+            # of the fiscal year: their initial balance only holds the current fiscal year
+            company = report_company(self.env, context.get('company_id'))
+            fy_start = fiscal_year_start(company, context['date_from'])
+            params = (tuple(accounts.ids), reset_account_types(self.env), fy_start) + tuple(init_where_params)
             cr.execute(sql, params)
             for row in cr.dictfetchall():
                 move_lines[row.pop('account_id')].append(row)
+            self._add_previous_years_earnings(accounts, move_lines, context, company, fy_start)
 
         sql_sort = 'l.date, l.move_id'
         if sortby == 'sort_journal_partner':
@@ -134,6 +145,36 @@ class ReportGeneralLedger(models.AbstractModel):
             if display_account == 'not_zero' and not currency.is_zero(res['balance']):
                 account_res.append(res)
         return account_res
+
+    def _add_previous_years_earnings(self, accounts, move_lines, context, company, fy_start):
+        """ Report what the income and expense accounts hold from the previous fiscal years in the
+        initial balance of the "Current Year Earnings" account (undistributed profits/losses), as
+        Odoo Enterprise does, so that the initial balances still add up to zero. """
+        target = unaffected_earnings_account(company, accounts)
+        if not target:
+            return
+        previous_context = dict(context, date_from=False, date_to=day_before(fy_start), initial_bal=False,
+                                strict_range=False)
+        tables, where_clause, where_params = self.env['account.move.line'].with_context(
+            previous_context)._query_get([('account_id.account_type', 'in', reset_account_types(self.env))])
+        tables = tables.replace('"', '') if tables else 'account_move_line'
+        self.env.cr.execute(
+            "SELECT COALESCE(SUM(debit), 0), COALESCE(SUM(credit), 0) FROM " + tables
+            + " WHERE " + (where_clause.strip() or "TRUE"), tuple(where_params))
+        debit, credit = self.env.cr.fetchone()
+        if not debit and not credit:
+            return
+        lines = move_lines[target.id]
+        if not lines or lines[0].get('lid'):
+            lines.insert(0, {
+                'lid': 0, 'ldate': '', 'lcode': '', 'amount_currency': 0.0, 'analytic_account_id': '',
+                'lref': '', 'lname': 'Initial Balance', 'debit': 0.0, 'credit': 0.0, 'balance': 0.0,
+                'lpartner_id': '', 'move_name': '', 'move_id': '', 'currency_code': '', 'currency_id': None,
+                'invoice_id': '', 'invoice_type': '', 'invoice_number': '', 'partner_name': '',
+            })
+        lines[0]['debit'] += debit
+        lines[0]['credit'] += credit
+        lines[0]['balance'] += debit - credit
 
     @api.model
     def _get_report_values(self, docids, data=None):

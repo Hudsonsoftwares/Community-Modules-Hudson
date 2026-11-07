@@ -43,10 +43,10 @@
                 </header>
                 <sheet>
                     <div class="oe_button_box" name="button_box">
-                        <button name="action_view_payslip_run" type="object" class="oe_stat_button" icon="fa-archive" invisible="not payslip_run_id">
+                        <button name="action_view_payslip_run" type="object" class="oe_stat_button" icon="archive" invisible="not payslip_run_id">
                             <field name="payslip_count" widget="statinfo" string="Payslip Batch"/>
                         </button>
-                        <button name="action_view_payslips" type="object" class="oe_stat_button" icon="fa-money" invisible="payslip_count == 0">
+                        <button name="action_view_payslips" type="object" class="oe_stat_button" icon="payments" invisible="payslip_count == 0">
                             <field name="payslip_count" widget="statinfo" string="Payslips"/>
                         </button>
                     </div>

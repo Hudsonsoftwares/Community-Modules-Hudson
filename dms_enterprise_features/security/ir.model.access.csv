@@ -1,4 +1,7 @@
 id,name,model_id/id,group_id/id,perm_read,perm_write,perm_create,perm_unlink
+access_dms_file_extension_user,dms.file.extension.user,model_dms_file_extension,base.group_user,1,0,0,0
+access_dms_file_extension_manager,dms.file.extension.manager,model_dms_file_extension,dms.group_dms_manager,1,1,1,1
+access_dms_file_extension_admin,dms.file.extension.admin,model_dms_file_extension,dms_enterprise_features.group_dms_administrator,1,1,1,1
 
 access_dms_folder_rule_user,dms_folder_rule_user,model_dms_folder_rule,dms.group_dms_user,1,0,0,0
 access_dms_folder_rule,dms.folder.rule,model_dms_folder_rule,dms.group_dms_manager,1,1,1,1
@@ -27,8 +30,6 @@ access_dms_directory_permission_user,dms.directory.permission.user,model_dms_dir
 access_dms_directory_permission_base_user,dms.directory.permission.base_user,model_dms_directory_permission,base.group_user,1,0,0,0
 access_res_config_settings_dms_admin,res.config.settings.dms.admin,base.model_res_config_settings,dms_enterprise_features.group_dms_administrator,1,1,1,1
 
-access_dms_signature_send_wizard,dms.signature.send.wizard,model_dms_signature_send_wizard,base.group_user,1,1,1,1
-access_dms_signature_send_wizard_role,dms.signature.send.wizard.role,model_dms_signature_send_wizard_role,base.group_user,1,1,1,1
 access_dms_move_wizard,dms.move.wizard,model_dms_move_wizard,base.group_user,1,1,1,1
 access_dms_file_share_wizard,dms.file.share.wizard,model_dms_file_share_wizard,base.group_user,1,1,1,1
 access_dms_file_reject_wizard,dms.file.reject.wizard,model_dms_file_reject_wizard,base.group_user,1,1,1,1

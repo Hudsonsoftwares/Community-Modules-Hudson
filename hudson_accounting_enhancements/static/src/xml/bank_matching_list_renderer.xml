@@ -13,7 +13,7 @@
                 <div class="d-flex align-items-center gap-3 flex-wrap mb-2">
                     <!-- Date Input (e.g. 28 Sept) -->
                     <div style="width: 100px;">
-                        <input type="text" class="form-control form-control-sm o_hudson_underlined_input" t-att-value="this.state.newDate" t-on-input="(ev) => this.state.newDate = ev.target.value" placeholder="Date"/>
+                        <input type="date" class="form-control form-control-sm o_hudson_underlined_input" t-att-value="this.state.newDate" t-on-input="(ev) => this.state.newDate = ev.target.value" placeholder="Date"/>
                     </div>
                     <!-- Label Input (Write a label ...) -->
                     <div class="flex-grow-1" style="min-width: 220px;">
@@ -29,9 +29,9 @@
                             <i t-if="this.state.newPartnerId" class="fa fa-times text-muted cursor-pointer ms-1 align-self-center" style="font-size: 0.75rem;" title="Clear Partner" t-on-click="this.onClearNewPartner"/>
                         </div>
                     </div>
-                    <!-- Amount Input ($ 0.00) -->
+                    <!-- Amount Input -->
                     <div style="width: 110px;">
-                        <input type="number" step="0.01" class="form-control form-control-sm o_hudson_underlined_input text-end" t-att-value="this.state.newAmount" t-on-input="(ev) => this.state.newAmount = ev.target.value" placeholder="$ 0.00"/>
+                        <input type="number" step="0.01" class="form-control form-control-sm o_hudson_underlined_input text-end" t-att-value="this.state.newAmount" t-on-input="(ev) => this.state.newAmount = ev.target.value" t-att-placeholder="this.currencyPlaceholder"/>
                     </div>
                     <!-- Reconciliation Model Dropdown -->
                     <div style="width: 200px;">
@@ -233,7 +233,7 @@
 
                                 <!-- Right: Amount & Chevron -->
                                 <div class="d-flex align-items-center flex-shrink-0 text-end" style="min-width: 130px; justify-content: flex-end;">
-                                    <span t-att-class="this.isNegative(record) ? 'o_hudson_amount_neg text-nowrap' : 'o_hudson_amount_pos text-nowrap'" t-out="this.formatAmount(record.data.amount)"/>
+                                    <span t-att-class="this.isNegative(record) ? 'o_hudson_amount_neg text-nowrap' : 'o_hudson_amount_pos text-nowrap'" t-out="this.formatRecordAmount(record)"/>
                                     <i class="fa fa-chevron-down ms-3 cursor-pointer opacity-75 hover-opacity-100" style="font-size: 0.72rem; color: #64748b;" title="Open Details" t-on-click="(ev) => this.onOpenRecord(record, ev)"/>
                                 </div>
                             </div>
@@ -350,6 +350,118 @@
                 <button class="btn btn-sm btn-outline-secondary bg-white text-dark fw-medium px-3 py-1" style="border-radius: 4px; border-color: #cbd5e1;" t-on-click="this.props.close">
                     Discard
                 </button>
+            </t>
+        </Dialog>
+    </t>
+
+    <!-- 4. Search: Journal Items to Match Dialog Template (Enterprise Style Matching Modal) -->
+    <t t-name="hudson_accounting_enhancements.MatchJournalItemsDialog">
+        <Dialog title="'Search: Journal Items to Match'" size="'xl'" close="this.props.close">
+            <t t-set-slot="default">
+                <div class="o_hudson_match_dialog_container d-flex flex-column h-100">
+                    <!-- Top Search Bar and Pagination Row -->
+                    <div class="d-flex align-items-center justify-content-between px-3 pt-2 pb-2 border-bottom">
+                        <div class="flex-grow-1 d-flex justify-content-center">
+                            <div class="position-relative" style="width: 440px; max-width: 100%;">
+                                <i class="fa fa-search position-absolute text-muted" style="left: 14px; top: 10px; font-size: 0.85rem;"/>
+                                <input type="text" class="form-control rounded-pill ps-5 pe-3 py-1 text-sm" style="border-color: #00878a;" placeholder="Search..." t-att-value="this.state.searchTerm" t-on-input="this.onSearchInput"/>
+                            </div>
+                        </div>
+                        <!-- Pagination (1-30 / 30 < >) -->
+                        <div class="d-flex align-items-center text-muted small ms-3">
+                            <span class="me-2" t-out="this.paginationText"/>
+                            <button class="btn btn-sm btn-link text-secondary p-0 me-1" t-att-disabled="!this.hasPrevious" t-on-click="this.onPreviousPage">
+                                <i class="fa fa-chevron-left"/>
+                            </button>
+                            <button class="btn btn-sm btn-link text-secondary p-0" t-att-disabled="!this.hasNext" t-on-click="this.onNextPage">
+                                <i class="fa fa-chevron-right"/>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Sub-header banner: Left: Date - Label, Right: Balance: Amount -->
+                    <div class="d-flex align-items-center justify-content-between px-4 py-2 border-bottom bg-light bg-opacity-25" style="font-size: 0.95rem;">
+                        <div class="fw-medium text-dark">
+                            <span t-out="this.props.statementLineDate"/>
+                            <span t-if="this.props.statementLineLabel"> - </span>
+                            <span t-out="this.props.statementLineLabel"/>
+                        </div>
+                        <div>
+                            <span class="text-muted">Balance: </span>
+                            <span class="fw-bold text-dark" t-out="this.formattedBalance"/>
+                        </div>
+                    </div>
+
+                    <!-- Items Table -->
+                    <div class="table-responsive flex-grow-1" style="max-height: 500px; min-height: 250px; overflow-y: auto;">
+                        <table class="table table-sm table-hover align-middle mb-0">
+                            <thead class="table-light sticky-top" style="border-top: none;">
+                                <tr class="text-secondary small fw-bold" style="font-size: 0.82rem; border-bottom: 2px solid #e2e8f0;">
+                                    <th style="width: 40px;" class="text-center">
+                                        <input type="checkbox" class="form-check-input" t-att-checked="this.isAllSelected" t-on-change="this.onToggleSelectAll"/>
+                                    </th>
+                                    <th style="min-width: 80px;">Date</th>
+                                    <th style="min-width: 150px;">Journal Entry</th>
+                                    <th style="min-width: 140px;">Partner</th>
+                                    <th style="min-width: 220px;">Description</th>
+                                    <th class="text-end" style="min-width: 150px;">Amount Due</th>
+                                    <th style="width: 70px;" class="text-center">
+                                        <i class="fa fa-sliders text-secondary" style="font-size: 0.85rem;" title="Columns"/>
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <t t-if="this.state.loading">
+                                    <tr>
+                                        <td colspan="7" class="text-center py-5 text-muted">
+                                            <i class="fa fa-spinner fa-spin fa-2x mb-2 text-secondary"/>
+                                            <div>Loading matching items...</div>
+                                        </td>
+                                    </tr>
+                                </t>
+                                <t t-elif="!this.state.candidates.length">
+                                    <tr>
+                                        <td colspan="7" class="text-center py-5 text-muted">
+                                            <p class="mb-0">No journal items to match found.</p>
+                                        </td>
+                                    </tr>
+                                </t>
+                                <t t-else="">
+                                    <t t-foreach="this.state.candidates" t-as="item" t-key="item.id">
+                                        <tr t-att-class="this.state.selectedIds.has(item.id) ? 'table-info bg-opacity-25' : ''" style="cursor: pointer;" t-on-click="(ev) => this.onRowClick(item, ev)">
+                                            <td class="text-center" t-on-click.stop="">
+                                                <input type="checkbox" class="form-check-input" t-att-checked="this.state.selectedIds.has(item.id)" t-on-change="() => this.onToggleSelect(item.id)"/>
+                                            </td>
+                                            <td class="text-nowrap" style="color: #334155; font-size: 0.875rem;" t-out="item.date"/>
+                                            <td class="text-nowrap fw-medium" style="color: #475569; font-size: 0.875rem;" t-out="item.move_name"/>
+                                            <td class="text-truncate" style="max-width: 180px; font-size: 0.875rem;" t-att-style="item.move_name ? 'color: #334155;' : 'color: #00878a; font-weight: 500;'" t-out="item.partner_name"/>
+                                            <td class="text-truncate text-muted" style="max-width: 240px; font-size: 0.85rem;" t-out="item.name"/>
+                                            <td class="text-end text-nowrap" style="font-size: 0.875rem;">
+                                                <span t-if="item.has_foreign_currency" class="me-3 text-secondary" t-out="item.foreign_amount_due_str"/>
+                                                <span t-att-class="item.is_negative ? 'text-dark' : 'text-dark'" t-out="item.amount_due_str"/>
+                                            </td>
+                                            <td class="text-center" t-on-click.stop="">
+                                                <button class="btn btn-link p-0 fw-semibold" style="color: #00878a; text-decoration: none; font-size: 0.875rem;" t-on-click="(ev) => this.onViewCandidate(item, ev)">
+                                                    View
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    </t>
+                                </t>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </t>
+            <t t-set-slot="footer">
+                <div class="d-flex align-items-center justify-content-start w-100 gap-2">
+                    <button class="btn btn-sm text-white fw-semibold px-3 py-1" style="background-color: #714B67; border-radius: 4px;" t-att-disabled="!this.state.selectedIds.size" t-on-click="this.onSelect">
+                        Select
+                    </button>
+                    <button class="btn btn-sm btn-outline-secondary bg-white text-dark fw-medium px-3 py-1" style="border-radius: 4px; border-color: #cbd5e1;" t-on-click="this.props.close">
+                        Close
+                    </button>
+                </div>
             </t>
         </Dialog>
     </t>

@@ -37,7 +37,7 @@
                 </header>
                 <sheet>
                     <div class="oe_button_box" name="button_box">
-                        <button name="action_view_payslips" type="object" class="oe_stat_button" icon="fa-file-text-o" invisible="applied_count == 0">
+                        <button name="action_view_payslips" type="object" class="oe_stat_button" icon="description" invisible="applied_count == 0">
                             <field name="applied_count" widget="statinfo" string="Payslips"/>
                         </button>
                     </div>

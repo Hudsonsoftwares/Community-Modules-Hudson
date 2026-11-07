@@ -80,14 +80,14 @@ class RepairOrder(models.Model):
 
     def action_view_quality_checks(self):
         self.ensure_one()
-        action = self.env['ir.actions.act_window']._for_xml_id('Quality.action_quality_check')
+        action = self.env['ir.actions.act_window']._for_xml_id('hudson_quality.action_quality_check')
         action['domain'] = [('repair_id', '=', self.id)]
         action['context'] = {'default_repair_id': self.id}
         return action
 
     def action_view_quality_alerts(self):
         self.ensure_one()
-        action = self.env['ir.actions.act_window']._for_xml_id('Quality.action_quality_alert')
+        action = self.env['ir.actions.act_window']._for_xml_id('hudson_quality.action_quality_alert')
         action['domain'] = [('repair_id', '=', self.id)]
         action['context'] = {'default_repair_id': self.id}
         return action

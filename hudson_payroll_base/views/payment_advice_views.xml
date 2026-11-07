@@ -6,10 +6,10 @@
         <field name="arch" type="xml">
             <form string="Payment Advice">
                 <header>
-                    <button name="action_export_csv" string="Download Bank CSV" type="object" class="btn-primary" icon="fa-download"/>
-                    <button name="action_export_enet" string="Download ENet CSV" type="object" class="btn-primary" icon="fa-download"/>
-                    <button name="action_export_xlsx" string="Download Excel" type="object" class="btn-secondary" icon="fa-file-excel-o"/>
-                    <button name="action_print_pdf" string="Print PDF Statement" type="object" class="btn-secondary" icon="fa-print"/>
+                    <button name="action_export_csv" string="Download Bank CSV" type="object" class="btn-primary" icon="download"/>
+                    <button name="action_export_enet" string="Download ENet CSV" type="object" class="btn-primary" icon="download"/>
+                    <button name="action_export_xlsx" string="Download Excel" type="object" class="btn-secondary" icon="table_chart"/>
+                    <button name="action_print_pdf" string="Print PDF Statement" type="object" class="btn-secondary" icon="print"/>
                     <button name="action_confirm" string="Confirm Advice" type="object" class="btn-primary" invisible="state != 'draft'"/>
                     <button name="action_set_to_draft" string="Set to Draft" type="object" invisible="state != 'confirmed'"/>
                     <field name="state" widget="statusbar" statusbar_visible="draft,confirmed"/>

@@ -86,6 +86,9 @@ class AccountPeriodClosing(models.Model):
 
     @api.model_create_multi
     def create(self, vals_list):
+        if not self.env.context.get('period_closing_state_change') and any(
+                vals.get('state', 'open') != 'open' for vals in vals_list):
+            raise UserError(_('A period is closed with the "Close Period" button, after its checks.'))
         closings = super().create(vals_list)
         for closing in closings:
             tasks = self.env['account.period.closing.task'].search([
@@ -99,6 +102,23 @@ class AccountPeriodClosing(models.Model):
             }) for task in tasks]
         closings.action_refresh()
         return closings
+
+    def write(self, vals):
+        # The status of a period only changes through action_close / action_reopen, which check the access
+        # rights and the checklist: a write of the status from the list view, an import or an RPC call skipped
+        # them.
+        if not self.env.context.get('period_closing_state_change'):
+            if 'state' in vals and any(closing.state != vals['state'] for closing in self):
+                raise UserError(_('Use the "Close Period" and "Reopen" buttons to change the status of a period.'))
+            protected = {'date_from', 'date_to', 'lock_type', 'company_id', 'closed_by_id', 'closed_on',
+                         'previous_lock_dates'}
+            if protected & set(vals) and self.filtered(lambda closing: closing.state == 'closed'):
+                raise UserError(_('Reopen a closed period before changing it.'))
+        return super().write(vals)
+
+    def copy_data(self, default=None):
+        default = dict(default or {}, state='open')
+        return super().copy_data(default)
 
     def unlink(self):
         if self.filtered(lambda closing: closing.state == 'closed'):
@@ -267,7 +287,7 @@ class AccountPeriodClosing(models.Model):
                     new_locks[field_name] = closing.date_to
             if new_locks:
                 company.sudo().write(new_locks)
-            closing.write({
+            closing.with_context(period_closing_state_change=True).write({
                 'state': 'closed',
                 'closed_by_id': self.env.user.id,
                 'closed_on': fields.Datetime.now(),
@@ -294,7 +314,7 @@ class AccountPeriodClosing(models.Model):
                 company.sudo().write(restore)
             if company.hard_lock_date and company.hard_lock_date >= closing.date_from:
                 closing.message_post(body=_('The period stays locked: it is before the permanent lock date.'))
-            closing.write({'state': 'open', 'closed_by_id': False, 'closed_on': False, 'previous_lock_dates': False})
+            closing.with_context(period_closing_state_change=True).write({'state': 'open', 'closed_by_id': False, 'closed_on': False, 'previous_lock_dates': False})
             closing.message_post(body=_('Period reopened.'))
             closing.action_refresh()
         return True

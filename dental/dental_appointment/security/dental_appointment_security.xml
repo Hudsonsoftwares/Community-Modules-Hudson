@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        dental_appointment/security/dental_appointment_security.xml
+        =============================================================
+        Creates a dedicated "Dental Reception" privilege row in Settings > Users.
+
+        This gives the system administrator a dedicated toggle row for front-desk /
+        reception staff — completely separate from the clinical "Dental Dentist" row
+        and the administrative "Dental Clinic" row.
+
+        Result in the user form (under "Dental Clinic" section heading):
+          Dental Clinic     → [Clinic Manager  ▼]   ← administrative oversight only
+          Dental Reception  → [Receptionist    ▼]   ← this file
+          Dental Dentist    → [Dentist          ▼]   (set by dental_core)
+          Dental Lab        → [Lab Technician   ▼]   (set by dental_lab)
+          Dental Pharmacy   → [Pharmacist       ▼]   (set by dental_pharmacy)
+
+        This mirrors the established pattern used by dental_lab and dental_pharmacy.
+
+        NOTE: The actual group records (group_dental_receptionist, group_dental_assistant)
+        remain defined in dental_base to preserve all cross-module XML-ID references.
+        We only update their privilege_id here so they appear under the new row.
+    -->
+
+    <!-- ===== Privilege: creates the "Dental Reception" dropdown row ===== -->
+    <record model="res.groups.privilege" id="res_groups_privilege_dental_reception">
+        <field name="name">Dental Reception</field>
+        <field name="sequence">12</field>
+        <field name="category_id" ref="dental_base.module_category_dental_clinic"/>
+    </record>
+
+    <!-- ===== Re-assign existing groups to the new "Dental Reception" row ===== -->
+    <!--
+        These groups are defined in dental_base (XML IDs stay there for cross-module
+        compatibility). We reassign their privilege_id so they appear under this new row
+        instead of the main "Dental Clinic" row. Setting the privilege_id here is safe
+        because dental_appointment always loads after dental_base.
+    -->
+
+    <record id="dental_base.group_dental_assistant" model="res.groups">
+        <field name="privilege_id" ref="dental_appointment.res_groups_privilege_dental_reception"/>
+        <field name="comment">Assists dentists, prepares visits, manages non-financial operations.</field>
+    </record>
+
+    <record id="dental_base.group_dental_receptionist" model="res.groups">
+        <field name="privilege_id" ref="dental_appointment.res_groups_privilege_dental_reception"/>
+        <field name="comment">Handles patient registration, enquiries (CRM), appointments, front desk check-in, and billing summary.</field>
+    </record>
+
+
+</odoo>

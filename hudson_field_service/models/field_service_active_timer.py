@@ -58,7 +58,7 @@ class FieldServiceActiveTimer(models.Model):
             record.customer_longitude = getattr(partner, 'partner_longitude', 0.0)
 
     def _compute_location_radius(self):
-        radius_str = self.env['ir.config_parameter'].sudo().get_param('hudson_field_service.fs_radius', '100')
+        radius_str = self.env['ir.config_parameter'].sudo().get_param('hudson_field_service.fs_location_radius', '500')
         try:
             radius = float(radius_str)
         except ValueError:
@@ -70,7 +70,7 @@ class FieldServiceActiveTimer(models.Model):
 
     @api.depends('current_latitude', 'current_longitude')
     def _compute_is_outside_radius(self):
-        radius_str = self.env['ir.config_parameter'].sudo().get_param('hudson_field_service.fs_radius', '100')
+        radius_str = self.env['ir.config_parameter'].sudo().get_param('hudson_field_service.fs_location_radius', '500')
         try:
             radius = float(radius_str)
         except ValueError:

@@ -47,9 +47,9 @@ class DmsFileShareWizard(models.TransientModel):
     )
     share_internal_access = fields.Selection(
         selection=[
-            ("editor", "Editor"),
+            ("none", "No access"),
             ("viewer", "Viewer"),
-            ("none", "None"),
+            ("editor", "Editor"),
         ],
         string="Internal Users",
         default="editor",
@@ -57,7 +57,7 @@ class DmsFileShareWizard(models.TransientModel):
     )
     share_link_access = fields.Selection(
         selection=[
-            ("none", "None"),
+            ("none", "No access"),
             ("viewer", "Viewer"),
             ("editor", "Editor"),
         ],
@@ -111,6 +111,37 @@ class DmsFileShareWizard(models.TransientModel):
 
     @api.depends("file_id", "file_id.access_ids", "file_id.document_owner_id")
     def _compute_people_with_access_html(self):
+        def avatar(url):
+            return f'<img class="o_dms_share_avatar" src="{url}" alt=""/>'
+
+        def icon(paths):
+            return (
+                '<span class="o_dms_share_avatar o_dms_share_avatar_icon">'
+                '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" '
+                'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" '
+                f'stroke-linejoin="round" aria-hidden="true">{paths}</svg></span>'
+            )
+
+        group_icon = icon(
+            '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/>'
+            '<path d="M16 4.5a3.5 3.5 0 0 1 0 7"/><path d="M18.5 20a6.5 6.5 0 0 0-2.5-5.1"/>'
+        )
+        department_icon = icon(
+            '<path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/><path d="M10 21v-4h4v4"/>'
+        )
+
+        def row(visual, name, sub, role, role_label, tag=""):
+            return (
+                '<div class="o_dms_share_row">'
+                f'{visual}'
+                '<div class="o_dms_share_row_text">'
+                f'<div class="o_dms_share_row_title">{html_escape(name)}{tag}</div>'
+                f'<div class="o_dms_share_row_sub">{html_escape(sub)}</div>'
+                '</div>'
+                f'<span class="o_dms_share_role o_dms_share_role_{role}">{html_escape(role_label)}</span>'
+                '</div>'
+            )
+
         for wizard in self:
             if not wizard.file_id:
                 wizard.people_with_access_html = ""
@@ -119,68 +150,39 @@ class DmsFileShareWizard(models.TransientModel):
             file_rec = wizard.file_id
             rows_html = []
 
-            # 1. Document Owner
+            # 1. Document owner
             owner = file_rec.document_owner_id or file_rec.create_uid
             if owner:
-                owner_avatar = f"/web/image/res.users/{owner.id}/avatar_128"
-                rows_html.append(f"""
-                <div class="d-flex align-items-center justify-content-between py-2 border-bottom">
-                    <div class="d-flex align-items-center">
-                        <img src="{owner_avatar}" class="rounded-circle me-3" style="width: 38px; height: 38px; object-fit: cover; border: 1px solid #dee2e6;"/>
-                        <div>
-                            <div class="fw-bold text-dark">{html_escape(owner.name or '')} <span class="badge bg-secondary ms-1 small">Owner</span></div>
-                            <div class="text-muted small">{html_escape(owner.email or '')}</div>
-                        </div>
-                    </div>
-                    <span class="badge rounded-pill bg-light text-dark border px-3 py-2">Editor</span>
-                </div>
-                """)
+                rows_html.append(row(
+                    avatar(f"/web/image/res.users/{owner.id}/avatar_128"),
+                    owner.name or "",
+                    owner.email or "",
+                    "editor",
+                    _("Editor"),
+                    tag=f'<span class="o_dms_share_tag">{html_escape(_("Owner"))}</span>',
+                ))
 
-            # 2. Explicit User & Group Access Rules
+            # 2. Explicit user / group access rules
             for access in file_rec.access_ids:
                 is_editor = access.perm_edit or access.perm_rename or access.perm_move
+                role = "editor" if is_editor else "viewer"
                 role_label = _("Editor") if is_editor else _("Viewer")
-                role_color = "primary" if is_editor else "info"
 
                 if access.partner_id:
-                    avatar = f"/web/image/res.partner/{access.partner_id.id}/avatar_128"
-                    name = access.partner_id.name or ''
-                    subtext = access.partner_id.email or ''
-                    icon = ""
+                    visual = avatar(f"/web/image/res.partner/{access.partner_id.id}/avatar_128")
+                    name, sub = access.partner_id.name or "", access.partner_id.email or ""
                 elif access.user_id:
-                    avatar = f"/web/image/res.users/{access.user_id.id}/avatar_128"
-                    name = access.user_id.name or ''
-                    subtext = access.user_id.email or ''
-                    icon = ""
+                    visual = avatar(f"/web/image/res.users/{access.user_id.id}/avatar_128")
+                    name, sub = access.user_id.name or "", access.user_id.email or ""
                 elif access.group_id:
-                    avatar = ""
-                    name = access.group_id.name or ''
-                    subtext = _("User Group")
-                    icon = '<div class="rounded-circle bg-light border d-flex align-items-center justify-content-center me-3" style="width: 38px; height: 38px;"><i class="fa fa-users text-secondary"></i></div>'
+                    visual, name, sub = group_icon, access.group_id.name or "", _("User group")
+                elif access.access_group_id:
+                    visual, name, sub = group_icon, access.access_group_id.name or "", _("Access group")
                 elif access.department_id:
-                    avatar = ""
-                    name = access.department_id.name or ''
-                    subtext = _("Department")
-                    icon = '<div class="rounded-circle bg-light border d-flex align-items-center justify-content-center me-3" style="width: 38px; height: 38px;"><i class="fa fa-building text-secondary"></i></div>'
+                    visual, name, sub = department_icon, access.department_id.name or "", _("Department")
                 else:
                     continue
-
-                img_or_icon = f'<img src="{avatar}" class="rounded-circle me-3" style="width: 38px; height: 38px; object-fit: cover; border: 1px solid #dee2e6;"/>' if avatar else icon
-
-                rows_html.append(f"""
-                <div class="d-flex align-items-center justify-content-between py-2 border-bottom">
-                    <div class="d-flex align-items-center">
-                        {img_or_icon}
-                        <div>
-                            <div class="fw-bold text-dark">{html_escape(name)}</div>
-                            <div class="text-muted small">{html_escape(subtext)}</div>
-                        </div>
-                    </div>
-                    <div class="d-flex align-items-center">
-                        <span class="badge rounded-pill bg-light text-{role_color} border px-3 py-2 me-2">{role_label}</span>
-                    </div>
-                </div>
-                """)
+                rows_html.append(row(visual, name, sub, role, role_label))
 
             wizard.people_with_access_html = "".join(rows_html)
 

@@ -80,7 +80,7 @@ class StockPicking(models.Model):
     def action_view_quality_checks(self):
         self.ensure_one()
         action = self.env['ir.actions.act_window']._for_xml_id(
-            'Quality.action_quality_check')
+            'hudson_quality.action_quality_check')
         action['domain'] = [('picking_id', '=', self.id)]
         action['context'] = {
             'default_picking_id': self.id,
@@ -91,7 +91,7 @@ class StockPicking(models.Model):
     def action_view_quality_alerts(self):
         self.ensure_one()
         action = self.env['ir.actions.act_window']._for_xml_id(
-            'Quality.action_quality_alert')
+            'hudson_quality.action_quality_alert')
         action['domain'] = [('picking_id', '=', self.id)]
         action['context'] = {'default_picking_id': self.id}
         return action

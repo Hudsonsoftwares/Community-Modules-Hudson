@@ -6,7 +6,7 @@
         <field name="inherit_id" ref="base.view_partner_form"/>
         <field name="arch" type="xml">
             <xpath expr="//div[@name='button_box']" position="inside">
-                <button name="action_view_subscriptions" type="object" class="oe_stat_button" icon="fa-repeat">
+                <button name="action_view_subscriptions" type="object" class="oe_stat_button" icon="refresh">
                     <field name="subscription_count" widget="statinfo" string="Subscriptions"/>
                 </button>
             </xpath>

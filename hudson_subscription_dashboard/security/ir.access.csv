@@ -1,0 +1,5 @@
+id,name,model_id,group_id/id,operation,domain
+access_subscription_event_report_user,Subscription User MRR Changes,sale.subscription.event.report,hudson_subscriptions.group_subscription_user,r,
+subscription_event_report_comp_rule,Subscription MRR Changes multi-company,sale.subscription.event.report,,crud,"[('company_id', 'in', company_ids)]"
+access_subscription_line_report_user,Subscription User Lines Analysis,sale.subscription.line.report,hudson_subscriptions.group_subscription_user,r,
+subscription_line_report_comp_rule,Subscription Lines Analysis multi-company,sale.subscription.line.report,,crud,"[('company_id', 'in', company_ids)]"

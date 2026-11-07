@@ -75,9 +75,12 @@ class RecurringPayment(models.Model):
         for rec in self:
             rec.currency_id = rec.journal_id.currency_id or rec.company_id.currency_id or self.env.company.currency_id
 
-    def compute_next_date(self, date):
+    def compute_next_date(self, date, count=1):
+        """ :return: the date `count` periods after `date`. Each date of a recurring payment is computed from
+        the start date, not from the previous one, so that the end of the month is kept (31 Jan, 28 Feb,
+        31 Mar...) instead of drifting (31 Jan, 28 Feb, 28 Mar...). """
         period = self.recurring_period
-        interval = self.recurring_interval
+        interval = self.recurring_interval * count
         if period == 'days':
             date += relativedelta(days=interval)
         elif period == 'weeks':
@@ -87,6 +90,15 @@ class RecurringPayment(models.Model):
         else:
             date += relativedelta(years=interval)
         return date
+
+    def _get_line_dates(self):
+        self.ensure_one()
+        dates = []
+        date = self.date_begin
+        while date <= self.date_end:
+            dates.append(date)
+            date = self.compute_next_date(self.date_begin, count=len(dates))
+        return dates
 
     def action_create_lines(self, date):
         ids = self.env['recurring.payment.line']
@@ -107,11 +119,8 @@ class RecurringPayment(models.Model):
             if rec.recurring_interval <= 0:
                 raise UserError(_('The recurring interval of template %s must be a positive number.',
                                   rec.template_id.display_name))
-            date_begin = rec.date_begin
-            while date_begin <= rec.date_end:
-                date = date_begin
+            for date in rec._get_line_dates():
                 rec.action_create_lines(date)
-                date_begin = rec.compute_next_date(date)
             rec.state = 'done'
 
     def action_draft(self):
@@ -284,8 +293,9 @@ class AccountPayment(models.Model):
     _inherit = 'account.payment'
 
     def unlink(self):
-        # the recurring lines of deleted payments are due again
+        # The recurring lines of deleted payments are skipped: putting them back to draft would make the
+        # daily cron create the deleted payment again. "Reset" on the line makes it due again on purpose.
         lines = self.env['recurring.payment.line'].sudo().search([('payment_id', 'in', self.ids)])
         res = super().unlink()
-        lines.write({'state': 'draft'})
+        lines.write({'state': 'cancel', 'error_message': False})
         return res

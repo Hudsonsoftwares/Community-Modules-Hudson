@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- ========================================================================= -->
+    <!-- MAINTENANCE DASHBOARD CLIENT ACTION                                       -->
+    <!-- ========================================================================= -->
+    <record id="action_dental_maintenance_dashboard" model="ir.actions.client">
+        <field name="name">Maintenance Dashboard</field>
+        <field name="tag">dental_core.maintenance_dashboard</field>
+    </record>
+
+    <!-- ========================================================================= -->
+    <!-- TOP-LEVEL EQUIPMENT & MAINTENANCE MENU (Sequence 55)                     -->
+    <!-- ========================================================================= -->
+    <record id="menu_dental_maintenance_root" model="ir.ui.menu">
+        <field name="name">Equipment &amp; Maintenance</field>
+        <field name="parent_id" ref="dental_base.menu_dental_root"/>
+        <field name="sequence" eval="55"/>
+        <field name="action" ref="action_dental_maintenance_dashboard"/>
+        <field name="group_ids" eval="[(6, 0, [
+            ref('dental_base.group_dental_assistant'),
+            ref('dental_base.group_dental_dentist'),
+            ref('dental_base.group_dental_manager'),
+            ref('dental_base.group_dental_admin')
+        ])]"/>
+        <field name="active" eval="True"/>
+    </record>
+
+    <!-- Sub-Menus under Equipment & Maintenance -->
+    <!-- 1. Maintenance Dashboard -->
+    <menuitem id="menu_dental_maintenance_overview"
+              name="Dashboard"
+              parent="menu_dental_maintenance_root"
+              action="action_dental_maintenance_dashboard"
+              sequence="10"/>
+
+    <!-- 2. Equipment Registry -->
+    <menuitem id="menu_dental_maintenance_equipment_registry"
+              name="Equipment Registry"
+              parent="menu_dental_maintenance_root"
+              action="action_dental_equipment_registry"
+              sequence="20"/>
+
+    <!-- 3. Maintenance & Repair Requests -->
+    <menuitem id="menu_dental_maintenance_requests_menu"
+              name="Repair &amp; Breakdown Requests"
+              parent="menu_dental_maintenance_root"
+              action="action_dental_maintenance_requests"
+              sequence="30"/>
+
+    <!-- 4. Preventive Schedules -->
+    <menuitem id="menu_dental_maintenance_preventive_schedule_menu"
+              name="Preventive Schedules"
+              parent="menu_dental_maintenance_root"
+              action="action_dental_preventive_schedule"
+              sequence="40"/>
+
+    <!-- 5. Equipment Categories -->
+    <menuitem id="menu_dental_maintenance_categories_menu"
+              name="Equipment Categories"
+              parent="menu_dental_maintenance_root"
+              action="maintenance.hr_equipment_category_action"
+              groups="dental_base.group_dental_manager,dental_base.group_dental_admin"
+              sequence="50"/>
+
+    <!-- 6. Maintenance Teams -->
+    <menuitem id="menu_dental_maintenance_teams_menu"
+              name="Maintenance Teams"
+              parent="menu_dental_maintenance_root"
+              action="maintenance.maintenance_team_action_settings"
+              groups="dental_base.group_dental_manager,dental_base.group_dental_admin"
+              sequence="60"/>
+
+    <!-- ========================================================================= -->
+    <!-- RECEPTION DESK MAINTENANCE QUICK MENUS                                    -->
+    <!-- ========================================================================= -->
+    <menuitem id="menu_reception_report_equipment_issue"
+              name="Report Equipment Issue"
+              parent="dental_core.menu_reception_front_desk"
+              action="action_reception_report_equipment_issue"
+              sequence="50"/>
+
+    <menuitem id="menu_reception_unavailable_equipment"
+              name="Equipment Out of Service"
+              parent="dental_core.menu_reception_front_desk"
+              action="action_reception_unavailable_equipment"
+              sequence="60"/>
+</odoo>

@@ -1,0 +1,183 @@
+// Rental schedule (Gantt) view
+
+.o_rental_gantt_view {
+    // Status colours: background / text
+    --rental-quotation-bg: #{$o-view-background-color};
+    --rental-quotation-fg: #{$body-color};
+    --rental-quotation-border: #{$gray-500};
+    --rental-reserved-bg: #8fbbe8;
+    --rental-late-pickup-bg: #f2a541;
+    --rental-early-pickup-bg: #b39ddb;
+    --rental-picked-up-bg: #7cc49a;
+    --rental-late-return-bg: #e5676b;
+    --rental-returned-bg: #c3c8ce;
+    --rental-pill-fg: #1f2933;
+    --rental-row-header-width: 260px;
+
+    &.o_rental_gantt_fullscreen {
+        position: fixed;
+        inset: 0;
+        z-index: $zindex-modal;
+        background-color: $o-view-background-color;
+    }
+}
+
+.o_rental_gantt_legend {
+    color: $text-muted;
+}
+
+.o_rental_gantt_swatch {
+    display: inline-block;
+    width: 14px;
+    height: 10px;
+    border-radius: 3px;
+}
+
+.o_rental_gantt_table {
+    min-width: max-content;
+}
+
+.o_rental_gantt_header {
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    background-color: $o-view-background-color;
+    border-bottom: 1px solid $border-color;
+}
+
+.o_rental_gantt_row_header {
+    position: sticky;
+    left: 0;
+    z-index: 2;
+    flex: 0 0 var(--rental-row-header-width);
+    width: var(--rental-row-header-width);
+    background-color: $o-view-background-color;
+    border-right: 1px solid $border-color;
+}
+
+.o_rental_gantt_corner {
+    z-index: 4;
+}
+
+.o_rental_gantt_title {
+    padding-top: 4px;
+    border-bottom: 1px solid $border-color;
+    color: $text-muted;
+}
+
+.o_rental_gantt_grid {
+    display: grid;
+}
+
+.o_rental_gantt_header_cell {
+    padding: 4px 2px;
+    border-right: 1px solid $border-color;
+}
+
+.o_rental_gantt_row {
+    border-bottom: 1px solid $border-color;
+
+    .o_rental_gantt_cells {
+        cursor: cell;
+        user-select: none;
+        touch-action: none;
+    }
+}
+
+// Columns being selected by dragging, to create a rental
+.o_rental_gantt_selection {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    background-color: rgba($primary, 0.18);
+    border: 1px solid rgba($primary, 0.6);
+    pointer-events: none;
+}
+
+.o_rental_gantt_cell {
+    border-right: 1px solid $border-color;
+
+    &.o_rental_gantt_weekend {
+        background-color: rgba($gray-500, 0.06);
+    }
+}
+
+.o_rental_gantt_today {
+    background-color: rgba($warning, 0.12);
+}
+
+.o_rental_gantt_header_cell.o_rental_gantt_today {
+    box-shadow: inset 0 0 0 1px rgba($warning, 0.6);
+}
+
+.o_rental_gantt_pill {
+    position: absolute;
+    height: 22px;
+    padding: 0 6px;
+    line-height: 22px;
+    font-size: 0.85rem;
+    border-radius: 5px;
+    color: var(--rental-pill-fg);
+    background-color: var(--rental-reserved-bg);
+    cursor: pointer;
+    z-index: 1;
+    box-shadow: 0 1px 1px rgba(0, 0, 0, 0.08);
+
+    &:hover {
+        filter: brightness(0.95);
+        z-index: 2;
+    }
+
+    // Rentals going on before / after the displayed period
+    &.o_continues_before {
+        border-top-left-radius: 0;
+        border-bottom-left-radius: 0;
+    }
+
+    &.o_continues_after {
+        border-top-right-radius: 0;
+        border-bottom-right-radius: 0;
+    }
+}
+
+// Status colours (pills and legend swatches)
+.o_rental_status_quotation {
+    background-color: var(--rental-quotation-bg) !important;
+    color: var(--rental-quotation-fg);
+    border: 1px dashed var(--rental-quotation-border);
+}
+
+.o_rental_status_reserved {
+    background-color: var(--rental-reserved-bg) !important;
+}
+
+.o_rental_status_late_pickup {
+    background-color: var(--rental-late-pickup-bg) !important;
+}
+
+.o_rental_status_early_pickup {
+    background-color: var(--rental-early-pickup-bg) !important;
+}
+
+.o_rental_status_picked_up {
+    background-color: var(--rental-picked-up-bg) !important;
+}
+
+.o_rental_status_late_return {
+    background-color: var(--rental-late-return-bg) !important;
+    color: #fff;
+}
+
+.o_rental_status_returned {
+    background-color: var(--rental-returned-bg) !important;
+}
+
+// Returned, but after the planned return: grey with a red edge
+.o_rental_status_returned_late {
+    background-color: var(--rental-returned-bg) !important;
+    box-shadow: inset 4px 0 0 var(--rental-late-return-bg);
+}
+
+.o_rental_gantt_swatch.o_rental_status_late_return {
+    color: inherit;
+}

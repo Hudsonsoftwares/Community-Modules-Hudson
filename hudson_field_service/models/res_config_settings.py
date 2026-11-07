@@ -14,12 +14,6 @@ class ResConfigSettings(models.TransientModel):
         default=50.0,
         help='Default hourly rate used when creating invoices for field service time.',
     )
-    field_service_auto_invoice = fields.Boolean(
-        string='Auto-Invoice on Completion',
-        config_parameter='hudson_field_service.auto_invoice',
-        default=False,
-        help='Automatically open the invoice wizard when a field service order is marked done.',
-    )
 
     # ── Scheduling ────────────────────────────────────────────────────────────
 
@@ -34,10 +28,10 @@ class ResConfigSettings(models.TransientModel):
         ),
     )
     fs_planning_enabled = fields.Boolean(
-        string='Enable Planning Schedule',
+        string='Field Service Jobs',
         config_parameter='hudson_field_service.fs_planning_enabled',
         default=True,
-        help='Enable the full planning schedule with roles, shift templates, and resource allocation.',
+        help='Shifts with a customer are field service jobs (timer, photos, products, worksheet, invoicing).',
     )
     fs_planning_auto_plan = fields.Boolean(
         string='Auto Plan',
@@ -160,3 +154,71 @@ class ResConfigSettings(models.TransientModel):
         help='The operation type used to deduct stock for field service products.',
     )
 
+
+    # ── Operations ─────────────────────────────────────────────────────────────
+
+    fs_mapbox_token = fields.Char(
+        string='Mapbox Token',
+        config_parameter='hudson_field_service.fs_mapbox_token',
+        help='Mapbox access token: real driving routes and travel times on the maps and for travel fees.',
+    )
+    fs_equipment = fields.Boolean(
+        string='Equipment',
+        config_parameter='hudson_field_service.fs_equipment',
+        default=True,
+        help='Track customer equipment and its intervention history.',
+    )
+    fs_maintenance_contracts = fields.Boolean(
+        string='Maintenance Contracts',
+        config_parameter='hudson_field_service.fs_maintenance_contracts',
+        default=False,
+        help='Track whether customer equipment is covered by a maintenance contract. '
+             'Jobs on covered equipment are under warranty and are not invoiced.',
+    )
+    fs_confirmation_email = fields.Boolean(
+        string='Confirmation Email',
+        config_parameter='hudson_field_service.fs_confirmation_email',
+        default=True,
+        help='Send a confirmation email to the customer when a shift is published.',
+    )
+    fs_confirmation_template_id = fields.Many2one(
+        'mail.template',
+        string='Email Template',
+        config_parameter='hudson_field_service.fs_confirmation_template_id',
+        domain="[('model', '=', 'field.service.order')]",
+    )
+
+    # ── Sales & Billing ──────────────────────────────────────────────────────────
+
+    fs_travel_fees = fields.Boolean(
+        string='Travel Fees',
+        config_parameter='hudson_field_service.fs_travel_fees',
+        default=False,
+        help="Invoice the travel time to the customer's location.",
+    )
+    fs_travel_product_id = fields.Many2one(
+        'product.product',
+        string='Travel Product',
+        config_parameter='hudson_field_service.fs_travel_product_id',
+        domain="[('type', '=', 'service')]",
+        help='Service invoiced per hour of travel (round trip).',
+    )
+    fs_website_form = fields.Boolean(
+        string='Website Form',
+        config_parameter='hudson_field_service.fs_website_form',
+        default=True,
+        help='Collect intervention requests via an online form.',
+    )
+    fs_website_form_url = fields.Char(string='Form URL', compute='_compute_fs_website_form_url')
+
+    def _compute_fs_website_form_url(self):
+        base_url = self.env['ir.config_parameter'].sudo().get_str('web.base.url')
+        for settings in self:
+            settings.fs_website_form_url = f'{base_url}/field-service/request'
+
+    def set_values(self):
+        Order = self.env['field.service.order']
+        planning_was_enabled = Order._is_planning_sync_enabled()
+        super().set_values()
+        if Order._is_planning_sync_enabled() != planning_was_enabled:
+            Order._resync_all_planning_slots()

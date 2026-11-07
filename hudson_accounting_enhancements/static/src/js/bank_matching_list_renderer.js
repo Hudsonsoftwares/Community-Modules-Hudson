@@ -10,9 +10,186 @@ import { DropdownItem } from "@web/core/dropdown/dropdown_item";
 import { useService, useBus } from "@web/core/utils/hooks";
 import { SelectCreateDialog } from "@web/views/view_dialogs/select_create_dialog";
 import { Dialog } from "@web/core/dialog/dialog";
+import { ConfirmationDialog } from "@web/core/confirmation_dialog/confirmation_dialog";
 import { ListController } from "@web/views/list/list_controller";
+import { session } from "@web/session";
 
 const reactiveState = proxy || (typeof owl !== "undefined" && (owl.proxy || owl.useState)) || ((obj) => obj);
+
+export const hudsonMatchJournalItemsDialogProps = {
+    statementLineId: t.any(),
+    statementLineDate: t.string(),
+    statementLineLabel: t.string(),
+    statementLineAmount: t.any(),
+    currencySymbol: t.string().optional(),
+    currencyPosition: t.string().optional(),
+    onReconciled: t.any().optional(),
+    close: t.any(),
+};
+
+export class HudsonMatchJournalItemsDialog extends Component {
+    static template = "hudson_accounting_enhancements.MatchJournalItemsDialog";
+    static components = { Dialog };
+    props = useProps(hudsonMatchJournalItemsDialogProps);
+
+    setup() {
+        this.orm = useService("orm");
+        this.action = useService("action");
+        this.notification = useService("notification");
+
+        this.state = reactiveState({
+            loading: true,
+            searchTerm: "",
+            candidates: [],
+            totalCount: 0,
+            limit: 30,
+            offset: 0,
+            selectedIds: new Set(),
+        });
+
+        this.searchTimeout = null;
+
+        onWillStart(async () => {
+            await this.loadCandidates();
+        });
+    }
+
+    get formattedBalance() {
+        const val = typeof this.props.statementLineAmount === "number" ? this.props.statementLineAmount : parseFloat(this.props.statementLineAmount) || 0;
+        const absVal = Math.abs(val).toLocaleString("en-US", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+        });
+        const sym = this.props.currencySymbol || "$";
+        const pos = this.props.currencyPosition || "before";
+        const isNeg = val < 0;
+        if (pos === "after") {
+            return isNeg ? `-${absVal} ${sym}` : `${absVal} ${sym}`;
+        }
+        return isNeg ? `${sym} -${absVal}` : `${sym} ${absVal}`;
+    }
+
+    get paginationText() {
+        if (!this.state.totalCount) return "0 / 0";
+        const start = this.state.offset + 1;
+        const end = Math.min(this.state.offset + this.state.limit, this.state.totalCount);
+        return `${start}-${end} / ${this.state.totalCount}`;
+    }
+
+    get hasPrevious() {
+        return this.state.offset > 0;
+    }
+
+    get hasNext() {
+        return this.state.offset + this.state.limit < this.state.totalCount;
+    }
+
+    get isAllSelected() {
+        if (!this.state.candidates.length) return false;
+        return this.state.candidates.every((c) => this.state.selectedIds.has(c.id));
+    }
+
+    async loadCandidates() {
+        this.state.loading = true;
+        try {
+            const res = await this.orm.call(
+                "account.bank.statement.line",
+                "get_hudson_matching_candidates",
+                [],
+                {
+                    statement_line_id: this.props.statementLineId,
+                    search_term: this.state.searchTerm,
+                    limit: this.state.limit,
+                    offset: this.state.offset,
+                }
+            );
+            this.state.candidates = res.candidates || [];
+            this.state.totalCount = res.total_count || 0;
+        } finally {
+            this.state.loading = false;
+        }
+    }
+
+    onSearchInput(ev) {
+        this.state.searchTerm = ev.target.value;
+        if (this.searchTimeout) {
+            clearTimeout(this.searchTimeout);
+        }
+        this.searchTimeout = setTimeout(async () => {
+            this.state.offset = 0;
+            await this.loadCandidates();
+        }, 300);
+    }
+
+    async onPreviousPage() {
+        if (!this.hasPrevious) return;
+        this.state.offset = Math.max(0, this.state.offset - this.state.limit);
+        await this.loadCandidates();
+    }
+
+    async onNextPage() {
+        if (!this.hasNext) return;
+        this.state.offset += this.state.limit;
+        await this.loadCandidates();
+    }
+
+    onToggleSelectAll() {
+        if (this.isAllSelected) {
+            for (const c of this.state.candidates) {
+                this.state.selectedIds.delete(c.id);
+            }
+        } else {
+            for (const c of this.state.candidates) {
+                this.state.selectedIds.add(c.id);
+            }
+        }
+    }
+
+    onToggleSelect(id) {
+        if (this.state.selectedIds.has(id)) {
+            this.state.selectedIds.delete(id);
+        } else {
+            this.state.selectedIds.add(id);
+        }
+    }
+
+    onRowClick(item, ev) {
+        this.onToggleSelect(item.id);
+    }
+
+    onViewCandidate(item, ev) {
+        ev?.stopPropagation?.();
+        ev?.preventDefault?.();
+        if (item.move_id) {
+            this.action.doAction({
+                type: "ir.actions.act_window",
+                res_model: "account.move",
+                res_id: item.move_id,
+                views: [[false, "form"]],
+                target: "new",
+            });
+        }
+    }
+
+    async onSelect() {
+        const selectedIds = Array.from(this.state.selectedIds);
+        if (!selectedIds.length) return;
+
+        try {
+            await this.orm.call(
+                "account.bank.statement.line",
+                "action_hudson_reconcile_items",
+                [[this.props.statementLineId], selectedIds]
+            );
+            if (this.props.onReconciled) {
+                await this.props.onReconciled();
+            }
+            this.props.close();
+        } catch (err) {
+            this.notification.add(err.message || "Failed to reconcile items.", { type: "danger" });
+        }
+    }
+}
 
 export const hudsonEditLineDialogProps = {
     resId: t.any(),
@@ -156,8 +333,6 @@ export class HudsonBankMatchingListRenderer extends Component {
         this.notification = useService("notification");
 
         const today = new Date();
-        const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sept", "Oct", "Nov", "Dec"];
-        const todayFormatted = `${today.getDate()} ${months[today.getMonth()]}`;
 
         const initialShowNew = Boolean(
             this.props.list?.context?.show_new_transaction ||
@@ -166,7 +341,7 @@ export class HudsonBankMatchingListRenderer extends Component {
 
         this.state = reactiveState({
             showNewTransaction: initialShowNew,
-            newDate: todayFormatted,
+            newDate: `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`,
             newLabel: "",
             newPartnerId: null,
             newPartnerName: "",
@@ -175,18 +350,31 @@ export class HudsonBankMatchingListRenderer extends Component {
             reconcileModels: [],
         });
 
+        this.currencyInfo = {
+            id: null,
+            name: "",
+            symbol: "$",
+            position: "before",
+        };
+
         useBus(this.env.bus, "hudson-show-new-transaction", () => {
             this.state.showNewTransaction = true;
         });
 
         onWillStart(async () => {
-            await this.loadReconcileModels();
+            await this.loadMatchingContext();
         });
     }
 
     get journalId() {
         const defaultJournal = this.props.list?.context?.default_journal_id;
         if (defaultJournal) return defaultJournal;
+        const searchJournal = this.env.searchModel?.context?.default_journal_id;
+        if (searchJournal) return searchJournal;
+        const activeModel = this.props.list?.context?.active_model;
+        if (activeModel === "account.journal" && this.props.list?.context?.active_id) {
+            return this.props.list.context.active_id;
+        }
         const records = this.props.list?.records || [];
         if (records.length > 0) {
             const j = records[0].data?.journal_id;
@@ -195,15 +383,35 @@ export class HudsonBankMatchingListRenderer extends Component {
         return false;
     }
 
-    async loadReconcileModels() {
+    get currencySymbol() {
+        return this.currencyInfo.symbol || "$";
+    }
+
+    get currencyPosition() {
+        return this.currencyInfo.position || "before";
+    }
+
+    get currencyPlaceholder() {
+        return this.currencyPosition === "after" ? `0.00 ${this.currencySymbol}` : `${this.currencySymbol} 0.00`;
+    }
+
+    async loadMatchingContext() {
         try {
-            const models = await this.orm.call(
+            const ctxData = await this.orm.call(
                 "account.bank.statement.line",
-                "get_available_reconcile_models",
+                "get_hudson_bank_matching_context",
                 [],
                 { journal_id: this.journalId || false }
             );
-            this.state.reconcileModels = models || [];
+            if (ctxData) {
+                this.currencyInfo = {
+                    id: ctxData.currency_id,
+                    name: ctxData.currency_name,
+                    symbol: ctxData.currency_symbol || "$",
+                    position: ctxData.currency_position || "before",
+                };
+                this.state.reconcileModels = ctxData.reconcile_models || [];
+            }
         } catch {
             this.state.reconcileModels = [];
         }
@@ -288,14 +496,34 @@ export class HudsonBankMatchingListRenderer extends Component {
         }
     }
 
-    formatAmount(amount) {
+    formatAmount(amount, customCurrencyId = null) {
         const val = typeof amount === "number" ? amount : parseFloat(amount) || 0;
         const isNegative = val < 0;
         const absVal = Math.abs(val).toLocaleString("en-US", {
             minimumFractionDigits: 2,
             maximumFractionDigits: 2,
         });
-        return isNegative ? `$-${absVal}` : `$ ${absVal}`;
+
+        let sym = this.currencySymbol;
+        let pos = this.currencyPosition;
+        if (customCurrencyId && session.currencies && session.currencies[customCurrencyId]) {
+            sym = session.currencies[customCurrencyId].symbol || sym;
+            pos = session.currencies[customCurrencyId].position || pos;
+        }
+
+        if (pos === "after") {
+            return isNegative ? `-${absVal} ${sym}` : `${absVal} ${sym}`;
+        }
+        return isNegative ? `${sym} -${absVal}` : `${sym} ${absVal}`;
+    }
+
+    formatRecordAmount(record) {
+        let currId = null;
+        const c = record.data?.currency_id;
+        if (c) {
+            currId = Array.isArray(c) ? c[0] : c.id || c;
+        }
+        return this.formatAmount(record.data?.amount, currId);
     }
 
     isNegative(record) {
@@ -374,10 +602,11 @@ export class HudsonBankMatchingListRenderer extends Component {
             return;
         }
 
-        const todayStr = new Date().toISOString().split("T")[0];
+        const _now = new Date();
+        const todayStr = `${_now.getFullYear()}-${String(_now.getMonth() + 1).padStart(2, '0')}-${String(_now.getDate()).padStart(2, '0')}`;
         const vals = {
             journal_id: this.journalId,
-            date: todayStr,
+            date: this.state.newDate || todayStr,
             payment_ref: label,
             amount: amt,
             partner_id: this.state.newPartnerId || false,
@@ -489,49 +718,15 @@ export class HudsonBankMatchingListRenderer extends Component {
         const resId = record.resId;
         if (!resId) return;
 
-        const domain = [
-            ["account_id.reconcile", "=", true],
-            ["reconciled", "=", false],
-            ["move_id.state", "=", "posted"],
-            ["journal_id.type", "not in", ["bank", "cash"]],
-        ];
-
-        let amount = record.data?.amount;
-        if (typeof amount === "object" && amount !== null) {
-            amount = amount.value !== undefined ? amount.value : amount.amount !== undefined ? amount.amount : 0;
-        }
-        amount = typeof amount === "number" ? amount : parseFloat(amount) || 0.0;
-        const roundedAmount = Math.round(amount * 100) / 100;
-
-        let partnerId = false;
-        const partner = record.data?.partner_id;
-        if (Array.isArray(partner) && partner.length > 0) {
-            partnerId = partner[0];
-        } else if (typeof partner === "object" && partner !== null) {
-            partnerId = partner.id || false;
-        } else if (typeof partner === "number") {
-            partnerId = partner;
-        }
-
-        this.dialog.add(SelectCreateDialog, {
-            resModel: "account.move.line",
-            title: "Select Journal Items to Match",
-            domain: domain,
-            context: {
-                hudson_match_amount: roundedAmount !== 0 ? roundedAmount : false,
-                hudson_match_partner_id: partnerId || false,
-            },
-            multiSelect: true,
-            noCreate: true,
-            onSelected: async (resIds) => {
-                if (resIds.length > 0) {
-                    await this.orm.call(
-                        "account.bank.statement.line",
-                        "action_hudson_reconcile_items",
-                        [[resId], resIds]
-                    );
-                    await this.reloadView();
-                }
+        this.dialog.add(HudsonMatchJournalItemsDialog, {
+            statementLineId: resId,
+            statementLineDate: this.formatDisplayDate(record.data?.date),
+            statementLineLabel: record.data?.payment_ref || "(No description)",
+            statementLineAmount: record.data?.amount,
+            currencySymbol: this.currencySymbol,
+            currencyPosition: this.currencyPosition,
+            onReconciled: async () => {
+                await this.reloadView();
             },
         });
     }
@@ -588,17 +783,17 @@ export class HudsonBankMatchingListRenderer extends Component {
     async onDelete(record) {
         const resId = record.resId;
         if (!resId) return;
-        try {
-            await this.orm.call(
-                "account.bank.statement.line",
-                "action_hudson_reset",
-                [[resId]]
-            );
-        } catch {
-            // Ignore if reset not needed
-        }
-        await this.orm.unlink("account.bank.statement.line", [resId]);
-        await this.reloadView();
+        this.dialog.add(ConfirmationDialog, {
+            title: "Delete Transaction",
+            body: "This will delete the bank transaction and its journal entry. Continue?",
+            confirm: async () => {
+                // Reset first so any reconciliation is undone; let failures surface.
+                await this.orm.call("account.bank.statement.line", "action_hudson_reset", [[resId]]);
+                await this.orm.unlink("account.bank.statement.line", [resId]);
+                await this.reloadView();
+            },
+            cancel: () => {},
+        });
     }
 
     async onInternalTransfers(record) {

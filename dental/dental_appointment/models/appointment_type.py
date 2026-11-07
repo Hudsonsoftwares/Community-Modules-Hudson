@@ -1,0 +1,29 @@
+from odoo import models, fields
+
+class DentalAppointmentType(models.Model):
+    _name = 'dental.appointment.type'
+    _description = 'Dental Appointment Type'
+
+    name = fields.Char(string='Name', required=True)
+    color = fields.Integer(string='Color')
+    duration = fields.Float(string='Duration (Minutes)', default=30.0)
+    description = fields.Text(string='Description')
+    price = fields.Float(string='Estimated Price', default=0.0)
+    icon = fields.Char(string='Icon Class', default='fa-stethoscope')
+    required_equipment_category_ids = fields.Many2many(
+        'maintenance.equipment.category',
+        'dental_appt_type_equip_cat_rel',
+        'type_id',
+        'category_id',
+        string='Required Equipment Categories',
+        help='Equipment categories required for this type of appointment (e.g. Dental X-ray machine for Diagnostic Imaging).'
+    )
+    required_equipment_ids = fields.Many2many(
+        'maintenance.equipment',
+        'dental_appt_type_equip_rel',
+        'type_id',
+        'equipment_id',
+        string='Specific Required Equipment',
+        help='Specific equipment items mandatory for this appointment type.'
+    )
+    active = fields.Boolean(string='Active', default=True)

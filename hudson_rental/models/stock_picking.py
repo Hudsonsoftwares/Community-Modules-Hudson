@@ -4,24 +4,31 @@
 from odoo import models, fields, api
 
 
+class StockMove(models.Model):
+    _inherit = 'stock.move'
+
+    # Rental line whose pickup / return made this move (rentals without Rental Transfers)
+    rental_sale_line_id = fields.Many2one(
+        'sale.order.line', string='Rental Line', readonly=True, index='btree_not_null', copy=False)
+
+
 class StockPicking(models.Model):
     _inherit = 'stock.picking'
 
-    rental_order_id = fields.Many2one('rental.order', string='Rental Order', readonly=True)
+    rental_sale_order_id = fields.Many2one('sale.order', string='Rental Order', readonly=True, index='btree_not_null')
     is_rental = fields.Boolean(string='Is Rental', compute='_compute_is_rental', store=True)
 
-    @api.depends('rental_order_id')
+    @api.depends('rental_sale_order_id')
     def _compute_is_rental(self):
         for picking in self:
-            picking.is_rental = bool(picking.rental_order_id)
+            picking.is_rental = bool(picking.rental_sale_order_id)
 
     def action_view_rental_order(self):
         self.ensure_one()
         return {
             'name': 'Rental Order',
             'type': 'ir.actions.act_window',
-            'res_model': 'rental.order',
+            'res_model': 'sale.order',
             'view_mode': 'form',
-            'res_id': self.rental_order_id.id,
+            'res_id': self.rental_sale_order_id.id,
         }
-

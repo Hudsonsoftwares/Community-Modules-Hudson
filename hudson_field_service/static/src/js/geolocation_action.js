@@ -46,20 +46,40 @@ export class FieldServiceTimerWidget extends Component {
         return this.props.record;
     }
 
+    // The widget is also used on planning shifts, which carry the job's
+    // values in their own fields.
+    get isShift() {
+        return this.record.resModel === "fs.planning.slot";
+    }
+
     get orderState() {
-        return this.record.data.state;
+        return this.isShift ? this.record.data.field_service_state : this.record.data.state;
     }
 
     get isTimerRunning() {
-        return this.record.data.is_timer_running;
+        return this.isShift ? this.record.data.fs_is_timer_running : this.record.data.is_timer_running;
+    }
+
+    async _reload() {
+        if (this.isShift) {
+            // Shifts are edited in a dialog: refresh the record in place.
+            await this.record.load();
+        } else {
+            await this.action.doAction({ type: "ir.actions.client", tag: "reload" });
+        }
+    }
+
+    // Published jobs only, by their technicians (see _get_start_work_error)
+    get canStartWork() {
+        return this.isShift ? this.record.data.fs_can_start_work : this.record.data.can_start_work;
     }
 
     get showStart() {
-        return ['new', 'scheduled'].includes(this.orderState) && !this.isTimerRunning;
+        return ['new', 'scheduled'].includes(this.orderState) && !this.isTimerRunning && this.canStartWork;
     }
 
     get showResume() {
-        return this.orderState === 'paused' && !this.isTimerRunning;
+        return this.orderState === 'paused' && !this.isTimerRunning && this.canStartWork;
     }
 
 
@@ -73,7 +93,8 @@ export class FieldServiceTimerWidget extends Component {
      */
     _fetchLocation() {
         return new Promise((resolve) => {
-            if (!navigator.geolocation) {
+            // Settings > Geolocation disabled: no location is recorded
+            if (!navigator.geolocation || this.record.data.fs_geolocation_enabled === false) {
                 resolve({ latitude: 0, longitude: 0 });
                 return;
             }
@@ -113,7 +134,7 @@ export class FieldServiceTimerWidget extends Component {
             );
 
             // Reload the form
-            await this.action.doAction({ type: "ir.actions.client", tag: "reload" });
+            await this._reload();
         } catch (error) {
             this.notification.add("Error: " + (error.message || error), { type: "danger" });
         } finally {
@@ -135,7 +156,7 @@ export class FieldServiceTimerWidget extends Component {
                 [this.record.resId],
                 { latitude: loc.latitude, longitude: loc.longitude }
             );
-            await this.action.doAction({ type: "ir.actions.client", tag: "reload" });
+            await this._reload();
         } catch (error) {
             this.notification.add("Error: " + (error.message || error), { type: "danger" });
         } finally {
@@ -160,7 +181,7 @@ export class FieldServiceTimerWidget extends Component {
                 localStorage.setItem('fs_offline_stops', JSON.stringify(offlineStops));
                 
                 // Optimistically reload
-                await this.action.doAction({ type: "ir.actions.client", tag: "reload" });
+                await this._reload();
                 return;
             }
             

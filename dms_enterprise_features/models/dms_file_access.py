@@ -14,6 +14,15 @@ class DMSFileAccess(models.Model):
         required=True,
         ondelete="cascade"
     )
+    company_id = fields.Many2one(
+        comodel_name="res.company",
+        string="Company",
+        related="file_id.company_id",
+        store=True,
+        readonly=True,
+        index=True,
+    )
+
     partner_id = fields.Many2one(
         comodel_name="res.partner",
         string="Contact",
@@ -29,6 +38,13 @@ class DMSFileAccess(models.Model):
     department_id = fields.Many2one(
         comodel_name="hr.department",
         string="Department",
+    )
+    # Same target type as folder permission lines, so a file can be granted to
+    # (and "Stop inheriting" can copy) the folder's DMS access groups.
+    access_group_id = fields.Many2one(
+        comodel_name="dms.access.group",
+        string="Access Group",
+        ondelete="cascade",
     )
 
     perm_view = fields.Boolean(string="View", default=False)
@@ -116,12 +132,46 @@ class DMSFileAccess(models.Model):
         if self.user_id and not self.partner_id:
             self.partner_id = self.user_id.partner_id.id
 
-    @api.constrains('partner_id', 'user_id', 'group_id', 'department_id')
+    @api.constrains('partner_id', 'user_id', 'group_id', 'department_id', 'access_group_id')
     def _check_target(self):
         for record in self:
-            targets = [bool(record.partner_id or record.user_id), bool(record.group_id), bool(record.department_id)]
+            targets = [
+                bool(record.partner_id or record.user_id),
+                bool(record.group_id),
+                bool(record.department_id),
+                bool(record.access_group_id),
+            ]
             if sum(targets) != 1:
-                raise ValidationError(_("You must select exactly one target (Contact/User, User Group, or Department) for this access rule."))
+                raise ValidationError(_("You must select exactly one target (Contact/User, User Group, Access Group, or Department) for this access rule."))
+
+    @api.constrains('partner_id', 'user_id', 'access_group_id', 'file_id')
+    def _check_user_not_in_file_access_group(self):
+        """A user who is already a member of an access group granted on this
+        file must not be added again as an individual contact line."""
+        for record in self.filtered(lambda r: not r.access_group_id and (r.user_id or r.partner_id)):
+            users = (record.user_id | record.partner_id.user_ids).sudo()
+            for line in record.file_id.sudo().access_ids.filtered('access_group_id'):
+                overlap = users & line.access_group_id.users
+                if overlap:
+                    raise ValidationError(_(
+                        "%(user)s is already a member of the access group '%(group)s' on this document. "
+                        "Change that group's permissions, or remove the user from the group, "
+                        "instead of adding them separately.",
+                        user=overlap[0].name,
+                        group=line.access_group_id.name,
+                    ))
+
+    def _applies_to(self, user):
+        """Return the subset of these lines that target ``user``."""
+        partner = user.partner_id
+        dept_ids = set(user.sudo().employee_ids.department_id.ids) if "employee_ids" in user._fields else set()
+        return self.filtered(
+            lambda a: (a.user_id and a.user_id == user)
+            or (a.partner_id and a.partner_id == partner)
+            or (a.group_id and user in a.group_id.sudo().user_ids)
+            or (a.access_group_id and user in a.access_group_id.sudo().users)
+            or (a.department_id and a.department_id.id in dept_ids)
+        )
 
     def _normalize_permissions(self, vals):
         sub_perms = ['perm_download', 'perm_edit', 'perm_rename', 'perm_move', 'perm_delete', 'perm_share']
@@ -150,6 +200,7 @@ class DMSFileAccess(models.Model):
                     vals['partner_id'] = user.partner_id.id
 
         records = super().create(vals_list)
+        records.filtered('access_group_id').file_id._dms_dedupe_access_lines()
         # Ensure targeted internal users have DMS user group to see the app
         dms_user_group = self.env.ref('dms.group_dms_user', raise_if_not_found=False)
         portal_group = self.env.ref('base.group_portal', raise_if_not_found=False)
@@ -173,6 +224,8 @@ class DMSFileAccess(models.Model):
                 vals['partner_id'] = user.partner_id.id
 
         res = super().write(vals)
+        if vals.get('access_group_id'):
+            self.file_id._dms_dedupe_access_lines()
         if 'user_id' in vals or 'partner_id' in vals:
             dms_user_group = self.env.ref('dms.group_dms_user', raise_if_not_found=False)
             portal_group = self.env.ref('base.group_portal', raise_if_not_found=False)

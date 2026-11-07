@@ -13,3 +13,4 @@ from . import subscription_report
 from . import product_pricelist_item
 from . import product_pricelist
 from . import payment_transaction
+from . import account_move

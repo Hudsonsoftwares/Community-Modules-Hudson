@@ -1,6 +1,6 @@
 {
     'name': 'Hudson Accounting Enhancements',
-    'version': '20.0.1.0.1',
+    'version': '20.0.1.0.3',
     'category': 'Accounting',
     'summary': (
         'Dynamic Interactive Financial Reports (OWL), Cash Flow Statement, Annual Report, '
@@ -44,6 +44,9 @@
     ],
     'data': [
         'security/ir.access.csv',
+        'security/hudson_loan_security.xml',
+        'security/account_annual_report_security.xml',
+        'security/hudson_multi_company_rules.xml',
         'data/account_financial_report_bs_pl.xml',
         'views/dynamic_report_action.xml',
         'wizard/hudson_set_partner_wizard_views.xml',
@@ -71,6 +74,7 @@
         'report/report_executive_summary.xml',
         'report/report_unrealized_currency.xml',
         'report/report_tax_extended.xml',
+        'report/report_dynamic_snapshot.xml',
         'wizard/account_auto_reconcile_wizard_views.xml',
         'views/account_reconcile_views.xml',
         'views/account_bank_statement_line_views.xml',
@@ -96,6 +100,7 @@
             'hudson_accounting_enhancements/static/src/js/bank_matching_list_renderer.js',
             'hudson_accounting_enhancements/static/src/xml/bank_matching_list_renderer.xml',
             'hudson_accounting_enhancements/static/src/scss/annual_report.scss',
+            'hudson_accounting_enhancements/static/src/scss/inventory_valuation.scss',
             'hudson_accounting_enhancements/static/src/views/grid/grid_view.scss',
             'hudson_accounting_enhancements/static/src/views/grid/grid_controller.js',
             'hudson_accounting_enhancements/static/src/views/grid/grid_view.js',

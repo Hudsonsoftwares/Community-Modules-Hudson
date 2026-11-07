@@ -13,13 +13,13 @@
               parent="menu_quality_root" sequence="10"/>
 
     <menuitem id="menu_quality_points" name="Control Points"
-              parent="menu_quality_control" action="Quality.action_quality_point" sequence="10"/>
+              parent="menu_quality_control" action="hudson_quality.action_quality_point" sequence="10"/>
 
     <menuitem id="menu_quality_checks" name="Quality Checks"
-              parent="menu_quality_control" action="Quality.action_quality_check" sequence="20"/>
+              parent="menu_quality_control" action="hudson_quality.action_quality_check" sequence="20"/>
 
     <menuitem id="menu_quality_alerts" name="Quality Alerts"
-              parent="menu_quality_control" action="Quality.action_quality_alert" sequence="30"/>
+              parent="menu_quality_control" action="hudson_quality.action_quality_alert" sequence="30"/>
 
     <!-- Products -->
     <menuitem id="menu_quality_products" name="Products"
@@ -44,16 +44,16 @@
     <!-- Configuration -->
     <menuitem id="menu_quality_configuration" name="Configuration"
               parent="menu_quality_root" sequence="90"
-              groups="Quality.group_quality_manager"/>
+              groups="hudson_quality.group_quality_manager"/>
 
     <menuitem id="menu_quality_teams" name="Quality Teams"
-              parent="menu_quality_configuration" action="Quality.action_quality_team" sequence="10"/>
+              parent="menu_quality_configuration" action="hudson_quality.action_quality_team" sequence="10"/>
 
     <menuitem id="menu_quality_alert_stages" name="Quality Alert Stages"
-              parent="menu_quality_configuration" action="Quality.action_quality_alert_stage" sequence="20"/>
+              parent="menu_quality_configuration" action="hudson_quality.action_quality_alert_stage" sequence="20"/>
 
     <menuitem id="menu_quality_tags" name="Quality Tags"
-              parent="menu_quality_configuration" action="Quality.action_quality_tag" sequence="30"/>
+              parent="menu_quality_configuration" action="hudson_quality.action_quality_tag" sequence="30"/>
 
     <menuitem id="menu_quality_spreadsheet_templates" name="Quality Spreadsheet Templates"
               parent="menu_quality_configuration" action="action_quality_spreadsheet_template" sequence="40"/>

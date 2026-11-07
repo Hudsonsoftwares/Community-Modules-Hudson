@@ -169,7 +169,7 @@ class QualityPoint(models.Model):
     def action_view_checks(self):
         self.ensure_one()
         action = self.env['ir.actions.act_window']._for_xml_id(
-            'Quality.action_quality_check')
+            'hudson_quality.action_quality_check')
         action['domain'] = [('point_id', '=', self.id)]
         action['context'] = {'default_point_id': self.id}
         return action

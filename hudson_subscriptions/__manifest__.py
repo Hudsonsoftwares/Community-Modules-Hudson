@@ -42,6 +42,7 @@ Complete enterprise-grade subscription and recurring billing management:
         # Data & Cron
         'data/subscription_sequence.xml',
         'data/subscription_data.xml',
+        'data/portal_entry_data.xml',
 
         # Wizard Views (must be loaded before actions referencing them)
         'wizard/subscription_close_wizard_views.xml',

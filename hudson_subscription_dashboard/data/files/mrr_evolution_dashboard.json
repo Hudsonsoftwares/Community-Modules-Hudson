@@ -1,0 +1,2718 @@
+{
+    "version": "19.5.1",
+    "sheets": [
+        {
+            "id": "dashboard_sheet_id",
+            "name": "Dashboard",
+            "colNumber": 10,
+            "rowNumber": 99,
+            "rows": {
+                "98": {
+                    "size": 13
+                }
+            },
+            "cols": {
+                "0": {
+                    "size": 136
+                }
+            },
+            "merges": [],
+            "cells": {},
+            "styles": {},
+            "formats": {},
+            "borders": {},
+            "conditionalFormats": [],
+            "dataValidationRules": [],
+            "figures": [
+                {
+                    "id": "fd511e83-ffe4-4c18-bd7f-eaf895b7b2ea",
+                    "width": 192,
+                    "height": 104,
+                    "tag": "chart",
+                    "data": {
+                        "baselineColorDown": "#DC6965",
+                        "baselineColorUp": "#00A04A",
+                        "baselineMode": "text",
+                        "title": {
+                            "text": "Net New",
+                            "color": "#01666B",
+                            "bold": true
+                        },
+                        "type": "scorecard",
+                        "background": "",
+                        "baseline": "=Data!C11",
+                        "baselineDescr": {
+                            "text": "ARR"
+                        },
+                        "keyValue": "=Data!C10",
+                        "humanize": false,
+                        "chartId": "fd511e83-ffe4-4c18-bd7f-eaf895b7b2ea"
+                    },
+                    "offset": {
+                        "x": 808,
+                        "y": 11
+                    },
+                    "col": 0,
+                    "row": 0
+                },
+                {
+                    "id": "0be7a14a-ae5b-4aa5-8603-f225fd3a8ab1",
+                    "width": 192,
+                    "height": 104,
+                    "tag": "chart",
+                    "data": {
+                        "baselineColorDown": "#DC6965",
+                        "baselineColorUp": "#00A04A",
+                        "baselineMode": "text",
+                        "title": {
+                            "text": "New MRR",
+                            "color": "#01666B",
+                            "bold": true
+                        },
+                        "type": "scorecard",
+                        "background": "",
+                        "baseline": "=Data!C3",
+                        "baselineDescr": {
+                            "text": "ARR"
+                        },
+                        "keyValue": "=Data!C2",
+                        "humanize": false,
+                        "chartId": "0be7a14a-ae5b-4aa5-8603-f225fd3a8ab1"
+                    },
+                    "offset": {
+                        "x": 0,
+                        "y": 11
+                    },
+                    "col": 0,
+                    "row": 0
+                },
+                {
+                    "id": "b64cc563-a655-48a8-ab6e-192040fcdbef",
+                    "width": 192,
+                    "height": 104,
+                    "tag": "chart",
+                    "data": {
+                        "baselineColorDown": "#DC6965",
+                        "baselineColorUp": "#00A04A",
+                        "baselineMode": "text",
+                        "title": {
+                            "text": "Up/Downgrade",
+                            "bold": true,
+                            "color": "#01666B"
+                        },
+                        "type": "scorecard",
+                        "background": "",
+                        "baseline": "=Data!C7",
+                        "baselineDescr": {
+                            "text": "ARR"
+                        },
+                        "keyValue": "=Data!C6",
+                        "humanize": false,
+                        "chartId": "b64cc563-a655-48a8-ab6e-192040fcdbef"
+                    },
+                    "offset": {
+                        "x": 202,
+                        "y": 11
+                    },
+                    "col": 0,
+                    "row": 0
+                },
+                {
+                    "id": "e16dfa8a-35ab-4a26-8fd1-dde560ee90b1",
+                    "width": 192,
+                    "height": 104,
+                    "tag": "chart",
+                    "data": {
+                        "baselineColorDown": "#DC6965",
+                        "baselineColorUp": "#00A04A",
+                        "baselineMode": "text",
+                        "title": {
+                            "text": "Churn",
+                            "color": "#01666B",
+                            "bold": true
+                        },
+                        "type": "scorecard",
+                        "background": "",
+                        "baseline": "=Data!C9",
+                        "baselineDescr": {
+                            "text": "ARR"
+                        },
+                        "keyValue": "=Data!C8",
+                        "humanize": false,
+                        "chartId": "e16dfa8a-35ab-4a26-8fd1-dde560ee90b1"
+                    },
+                    "offset": {
+                        "x": 404,
+                        "y": 11
+                    },
+                    "col": 0,
+                    "row": 0
+                },
+                {
+                    "id": "257ebd49-e289-48fb-a9cd-3720a9bdd2fb",
+                    "width": 192,
+                    "height": 104,
+                    "tag": "chart",
+                    "data": {
+                        "baselineColorDown": "#DC6965",
+                        "baselineColorUp": "#00A04A",
+                        "baselineMode": "text",
+                        "title": {
+                            "text": "Non Rec. Invoiced ",
+                            "color": "#01666B",
+                            "bold": true
+                        },
+                        "type": "scorecard",
+                        "background": "",
+                        "baseline": "=Data!C15",
+                        "baselineDescr": {
+                            "text": "of total invoiced"
+                        },
+                        "keyValue": "=Data!C13",
+                        "humanize": false,
+                        "chartId": "257ebd49-e289-48fb-a9cd-3720a9bdd2fb"
+                    },
+                    "offset": {
+                        "x": 606,
+                        "y": 11
+                    },
+                    "col": 0,
+                    "row": 0
+                },
+                {
+                    "id": "92dd504d-44d5",
+                    "col": 0,
+                    "row": 0,
+                    "offset": {
+                        "x": 505,
+                        "y": 1849
+                    },
+                    "width": 495,
+                    "height": 398,
+                    "tag": "carousel",
+                    "data": {
+                        "chartDefinitions": {
+                            "92dd504d-44d5-0": {
+                                "type": "geo",
+                                "title": {
+                                    "text": ""
+                                },
+                                "humanize": true,
+                                "dataSetStyles": {},
+                                "legendPosition": "left",
+                                "dataSource": {
+                                    "type": "odoo",
+                                    "metaData": {
+                                        "groupBy": [
+                                            "country_id"
+                                        ],
+                                        "measure": "amount_signed",
+                                        "order": null,
+                                        "resModel": "sale.subscription.event.report"
+                                    },
+                                    "searchParams": {
+                                        "context": {},
+                                        "domain": [],
+                                        "groupBy": [],
+                                        "orderBy": []
+                                    }
+                                },
+                                "colorScale": {
+                                    "minColor": "#f7fbff",
+                                    "midColor": "#6aaed6",
+                                    "maxColor": "#08306b"
+                                }
+                            }
+                        },
+                        "items": [
+                            {
+                                "type": "chart",
+                                "chartId": "92dd504d-44d5-0",
+                                "title": "Map"
+                            },
+                            {
+                                "type": "carouselDataView",
+                                "title": "Top 50",
+                                "rangeData": {
+                                    "_sheetId": "e053d92b-7131",
+                                    "_zone": {
+                                        "top": 0,
+                                        "left": 0,
+                                        "bottom": 50,
+                                        "right": 1
+                                    }
+                                }
+                            }
+                        ],
+                        "fieldMatching": {
+                            "92dd504d-44d5-0": {
+                                "954bb57d-1c53-4918-a516-c179fc19579b": {
+                                    "chain": "event_date",
+                                    "type": "date"
+                                },
+                                "a20dbbaa-c062-4527-bd96-641257f29345": {
+                                    "chain": "country_id",
+                                    "type": "many2one"
+                                },
+                                "efcb1557-c59e-45c7-b970-1d3df23908db": {
+                                    "chain": "partner_id",
+                                    "type": "many2one"
+                                },
+                                "ab1df29c-770b-4ec5-bf93-cd3f57bcdab4": {
+                                    "chain": "team_id",
+                                    "type": "many2one"
+                                },
+                                "866b40f9-0436-4e8b-8ec1-69c18381c876": {
+                                    "chain": "user_id",
+                                    "type": "many2one"
+                                },
+                                "bb803250-fe24-48ab-ab18-54ec5ab5806f": {
+                                    "chain": "plan_id",
+                                    "type": "many2one"
+                                }
+                            }
+                        },
+                        "title": {
+                            "text": "MRR by Country",
+                            "bold": true,
+                            "fontSize": 21,
+                            "color": "#01666B"
+                        }
+                    }
+                },
+                {
+                    "id": "fd0cf4a3-70c1",
+                    "col": 0,
+                    "row": 0,
+                    "offset": {
+                        "x": 0,
+                        "y": 125
+                    },
+                    "width": 1000,
+                    "height": 444,
+                    "tag": "carousel",
+                    "data": {
+                        "chartDefinitions": {
+                            "fd0cf4a3-70c1-0": {
+                                "type": "line",
+                                "title": {
+                                    "text": ""
+                                },
+                                "humanize": true,
+                                "dataSetStyles": {},
+                                "legendPosition": "none",
+                                "dataSource": {
+                                    "type": "odoo",
+                                    "metaData": {
+                                        "groupBy": [
+                                            "event_date:month"
+                                        ],
+                                        "measure": "amount_signed",
+                                        "order": null,
+                                        "resModel": "sale.subscription.event.report"
+                                    },
+                                    "searchParams": {
+                                        "context": {},
+                                        "domain": [],
+                                        "groupBy": [],
+                                        "orderBy": []
+                                    },
+                                    "cumulatedStart": true
+                                },
+                                "fillArea": true,
+                                "cumulative": true
+                            }
+                        },
+                        "items": [
+                            {
+                                "type": "chart",
+                                "chartId": "fd0cf4a3-70c1-0",
+                                "title": "Graph"
+                            }
+                        ],
+                        "fieldMatching": {
+                            "fd0cf4a3-70c1-0": {
+                                "954bb57d-1c53-4918-a516-c179fc19579b": {
+                                    "chain": "event_date",
+                                    "type": "date"
+                                },
+                                "a20dbbaa-c062-4527-bd96-641257f29345": {
+                                    "chain": "country_id",
+                                    "type": "many2one"
+                                },
+                                "efcb1557-c59e-45c7-b970-1d3df23908db": {
+                                    "chain": "partner_id",
+                                    "type": "many2one"
+                                },
+                                "ab1df29c-770b-4ec5-bf93-cd3f57bcdab4": {
+                                    "chain": "team_id",
+                                    "type": "many2one"
+                                },
+                                "866b40f9-0436-4e8b-8ec1-69c18381c876": {
+                                    "chain": "user_id",
+                                    "type": "many2one"
+                                },
+                                "bb803250-fe24-48ab-ab18-54ec5ab5806f": {
+                                    "chain": "plan_id",
+                                    "type": "many2one"
+                                }
+                            }
+                        },
+                        "title": {
+                            "text": "MRR",
+                            "bold": true,
+                            "fontSize": 21,
+                            "color": "#01666B"
+                        }
+                    }
+                },
+                {
+                    "id": "999fef73-2e9e",
+                    "col": 0,
+                    "row": 0,
+                    "offset": {
+                        "x": 0,
+                        "y": 579
+                    },
+                    "width": 1000,
+                    "height": 444,
+                    "tag": "carousel",
+                    "data": {
+                        "chartDefinitions": {
+                            "999fef73-2e9e-0": {
+                                "type": "bar",
+                                "title": {
+                                    "text": ""
+                                },
+                                "humanize": true,
+                                "dataSetStyles": {},
+                                "legendPosition": "top",
+                                "dataSource": {
+                                    "type": "odoo",
+                                    "metaData": {
+                                        "groupBy": [
+                                            "event_date:month",
+                                            "event_type"
+                                        ],
+                                        "measure": "amount_signed",
+                                        "order": null,
+                                        "resModel": "sale.subscription.event.report"
+                                    },
+                                    "searchParams": {
+                                        "context": {},
+                                        "domain": [],
+                                        "groupBy": [],
+                                        "orderBy": []
+                                    }
+                                },
+                                "stacked": true
+                            }
+                        },
+                        "items": [
+                            {
+                                "type": "chart",
+                                "chartId": "999fef73-2e9e-0",
+                                "title": "Graph"
+                            }
+                        ],
+                        "fieldMatching": {
+                            "999fef73-2e9e-0": {
+                                "954bb57d-1c53-4918-a516-c179fc19579b": {
+                                    "chain": "event_date",
+                                    "type": "date"
+                                },
+                                "a20dbbaa-c062-4527-bd96-641257f29345": {
+                                    "chain": "country_id",
+                                    "type": "many2one"
+                                },
+                                "efcb1557-c59e-45c7-b970-1d3df23908db": {
+                                    "chain": "partner_id",
+                                    "type": "many2one"
+                                },
+                                "ab1df29c-770b-4ec5-bf93-cd3f57bcdab4": {
+                                    "chain": "team_id",
+                                    "type": "many2one"
+                                },
+                                "866b40f9-0436-4e8b-8ec1-69c18381c876": {
+                                    "chain": "user_id",
+                                    "type": "many2one"
+                                },
+                                "bb803250-fe24-48ab-ab18-54ec5ab5806f": {
+                                    "chain": "plan_id",
+                                    "type": "many2one"
+                                }
+                            }
+                        },
+                        "title": {
+                            "text": "MRR Breakdown",
+                            "bold": true,
+                            "fontSize": 21,
+                            "color": "#01666B"
+                        }
+                    }
+                },
+                {
+                    "id": "10c62d3b-aa94",
+                    "col": 0,
+                    "row": 0,
+                    "offset": {
+                        "x": 0,
+                        "y": 1033
+                    },
+                    "width": 495,
+                    "height": 398,
+                    "tag": "carousel",
+                    "data": {
+                        "chartDefinitions": {},
+                        "title": {
+                            "text": "Top Upgrades",
+                            "bold": true,
+                            "fontSize": 21,
+                            "color": "#01666B"
+                        },
+                        "items": [
+                            {
+                                "type": "carouselDataView",
+                                "rangeData": {
+                                    "_sheetId": "20b1787b-0fb6",
+                                    "_zone": {
+                                        "top": 0,
+                                        "left": 0,
+                                        "bottom": 50,
+                                        "right": 2
+                                    }
+                                }
+                            }
+                        ],
+                        "fieldMatching": {}
+                    }
+                },
+                {
+                    "id": "345df81c-bd02",
+                    "col": 0,
+                    "row": 0,
+                    "offset": {
+                        "x": 505,
+                        "y": 1033
+                    },
+                    "width": 495,
+                    "height": 398,
+                    "tag": "carousel",
+                    "data": {
+                        "chartDefinitions": {},
+                        "title": {
+                            "text": "Worst Downgrades",
+                            "bold": true,
+                            "fontSize": 21,
+                            "color": "#01666B"
+                        },
+                        "items": [
+                            {
+                                "type": "carouselDataView",
+                                "rangeData": {
+                                    "_sheetId": "8ec6d264-b387",
+                                    "_zone": {
+                                        "top": 0,
+                                        "left": 0,
+                                        "bottom": 50,
+                                        "right": 2
+                                    }
+                                }
+                            }
+                        ],
+                        "fieldMatching": {}
+                    }
+                },
+                {
+                    "id": "d0dea6e7-d55c",
+                    "col": 0,
+                    "row": 0,
+                    "offset": {
+                        "x": 0,
+                        "y": 1441
+                    },
+                    "width": 495,
+                    "height": 398,
+                    "tag": "carousel",
+                    "data": {
+                        "chartDefinitions": {},
+                        "title": {
+                            "text": "MRR by Recurrence",
+                            "bold": true,
+                            "fontSize": 21,
+                            "color": "#01666B"
+                        },
+                        "items": [
+                            {
+                                "type": "carouselDataView",
+                                "rangeData": {
+                                    "_sheetId": "9af0167a-4ce7",
+                                    "_zone": {
+                                        "top": 0,
+                                        "left": 0,
+                                        "bottom": 50,
+                                        "right": 1
+                                    }
+                                }
+                            }
+                        ],
+                        "fieldMatching": {}
+                    }
+                },
+                {
+                    "id": "fbdda1cf-3610",
+                    "col": 0,
+                    "row": 0,
+                    "offset": {
+                        "x": 505,
+                        "y": 1441
+                    },
+                    "width": 495,
+                    "height": 398,
+                    "tag": "carousel",
+                    "data": {
+                        "chartDefinitions": {},
+                        "title": {
+                            "text": "MRR by Team",
+                            "bold": true,
+                            "fontSize": 21,
+                            "color": "#01666B"
+                        },
+                        "items": [
+                            {
+                                "type": "carouselDataView",
+                                "rangeData": {
+                                    "_sheetId": "143bf580-d73e",
+                                    "_zone": {
+                                        "top": 0,
+                                        "left": 0,
+                                        "bottom": 50,
+                                        "right": 1
+                                    }
+                                }
+                            }
+                        ],
+                        "fieldMatching": {}
+                    }
+                },
+                {
+                    "id": "ebea3144-d7a4",
+                    "col": 0,
+                    "row": 0,
+                    "offset": {
+                        "x": 0,
+                        "y": 1849
+                    },
+                    "width": 495,
+                    "height": 398,
+                    "tag": "carousel",
+                    "data": {
+                        "chartDefinitions": {},
+                        "title": {
+                            "text": "Top Salesperson",
+                            "bold": true,
+                            "fontSize": 21,
+                            "color": "#01666B"
+                        },
+                        "items": [
+                            {
+                                "type": "carouselDataView",
+                                "rangeData": {
+                                    "_sheetId": "8f236e2b-daa0",
+                                    "_zone": {
+                                        "top": 0,
+                                        "left": 0,
+                                        "bottom": 50,
+                                        "right": 1
+                                    }
+                                }
+                            }
+                        ],
+                        "fieldMatching": {}
+                    }
+                }
+            ],
+            "tables": [],
+            "areGridLinesVisible": true,
+            "isVisible": true,
+            "backgroundColor": "#F9FAFB",
+            "headerGroups": {
+                "ROW": [],
+                "COL": []
+            },
+            "comments": {}
+        },
+        {
+            "id": "3c31419a-d2cc-40b4-86ea-ab7cd02ef7d9",
+            "name": "Data",
+            "colNumber": 24,
+            "rowNumber": 105,
+            "rows": {},
+            "cols": {
+                "0": {
+                    "size": 143
+                }
+            },
+            "merges": [],
+            "cells": {
+                "A1": "KPI",
+                "A2": "New MRR",
+                "A3": "New ARR",
+                "A4": "Contraction",
+                "A5": "Expansion",
+                "A6": "Up/Downgrade",
+                "A7": "Up/Down ARR",
+                "A8": "Churn",
+                "A9": "Churn ARR",
+                "A10": "Net New",
+                "A11": "Net New ARR",
+                "A12": "Recurring Invoiced",
+                "A13": "Non Recurring Invoiced",
+                "A14": "Recurring Invoiced (%)",
+                "A15": "Non Recurring Invoiced (%)",
+                "B1": "Current",
+                "B2": "=PIVOT.VALUE(1,\"amount_signed\",\"event_type\",\"0_creation\")",
+                "B3": "=B2*12",
+                "B4": "=PIVOT.VALUE(1,\"amount_signed\",\"event_type\",\"15_contraction\")",
+                "B5": "=PIVOT.VALUE(1,\"amount_signed\",\"event_type\",\"1_expansion\")",
+                "B6": "=B4+B5",
+                "B7": "=B6*12",
+                "B8": "=PIVOT.VALUE(1,\"amount_signed\",\"event_type\",\"2_churn\")",
+                "B9": "=B8*12",
+                "B10": "=B2+B6+B8",
+                "B11": "=B10*12",
+                "B12": "=PIVOT.VALUE(2,\"price_subtotal\")",
+                "B13": "=PIVOT.VALUE(3,\"price_subtotal\")",
+                "B14": "=B12/(B12+B13)",
+                "B15": "=B13/(B12+B13)",
+                "C1": "Current",
+                "C2": "=FORMAT.LARGE.NUMBER(B2)",
+                "C3": "=FORMAT.LARGE.NUMBER(B3)",
+                "C4": "=FORMAT.LARGE.NUMBER(B4)",
+                "C5": "=FORMAT.LARGE.NUMBER(B5)",
+                "C6": "=FORMAT.LARGE.NUMBER(B6)",
+                "C7": "=FORMAT.LARGE.NUMBER(B7)",
+                "C8": "=FORMAT.LARGE.NUMBER(B8)",
+                "C9": "=FORMAT.LARGE.NUMBER(B9)",
+                "C10": "=FORMAT.LARGE.NUMBER(B10)",
+                "C11": "=FORMAT.LARGE.NUMBER(B11)",
+                "C12": "=FORMAT.LARGE.NUMBER(B12)",
+                "C13": "=FORMAT.LARGE.NUMBER(B13)",
+                "C14": "=FORMAT.LARGE.NUMBER(B14)",
+                "C15": "=FORMAT.LARGE.NUMBER(B15)"
+            },
+            "styles": {
+                "A1:C1": 3,
+                "A2:A15": 4
+            },
+            "formats": {
+                "B2": 1,
+                "B4": 1,
+                "B5": 1,
+                "B8": 1,
+                "B12": 1,
+                "B13": 1,
+                "B14:B15": 4
+            },
+            "borders": {},
+            "conditionalFormats": [
+                {
+                    "id": "dd6ce2b3-2843",
+                    "rule": {
+                        "type": "CellIsRule",
+                        "operator": "isGreaterThan",
+                        "style": {
+                            "fillColor": "",
+                            "textColor": "#28A745"
+                        },
+                        "values": [
+                            "0"
+                        ]
+                    },
+                    "ranges": [
+                        "C2:C3",
+                        "C5:C7",
+                        "C10:C15"
+                    ]
+                },
+                {
+                    "id": "c877480a-5a5e",
+                    "rule": {
+                        "type": "CellIsRule",
+                        "operator": "isLessThan",
+                        "style": {
+                            "fillColor": "",
+                            "textColor": "#D44C59"
+                        },
+                        "values": [
+                            "0"
+                        ]
+                    },
+                    "ranges": [
+                        "C2:C3",
+                        "C5:C7",
+                        "C10:C15"
+                    ]
+                },
+                {
+                    "id": "7684642d-b90c",
+                    "rule": {
+                        "type": "CellIsRule",
+                        "operator": "isGreaterThan",
+                        "style": {
+                            "fillColor": "",
+                            "textColor": "#D44C59"
+                        },
+                        "values": [
+                            "0"
+                        ]
+                    },
+                    "ranges": [
+                        "C4",
+                        "C8:C9"
+                    ]
+                },
+                {
+                    "id": "b0b76935-1eee",
+                    "rule": {
+                        "type": "CellIsRule",
+                        "operator": "isLessThan",
+                        "style": {
+                            "fillColor": "",
+                            "textColor": "#28A745"
+                        },
+                        "values": [
+                            "0"
+                        ]
+                    },
+                    "ranges": [
+                        "C4",
+                        "C8:C9"
+                    ]
+                }
+            ],
+            "dataValidationRules": [],
+            "figures": [],
+            "tables": [],
+            "areGridLinesVisible": true,
+            "isVisible": true,
+            "headerGroups": {
+                "ROW": [],
+                "COL": []
+            },
+            "comments": {}
+        },
+        {
+            "id": "20b1787b-0fb6",
+            "name": "Top Upgrades",
+            "colNumber": 26,
+            "rowNumber": 100,
+            "rows": {
+                "0": {
+                    "size": 28
+                },
+                "1": {
+                    "size": 28
+                },
+                "2": {
+                    "size": 28
+                },
+                "3": {
+                    "size": 28
+                },
+                "4": {
+                    "size": 28
+                },
+                "5": {
+                    "size": 28
+                },
+                "6": {
+                    "size": 28
+                },
+                "7": {
+                    "size": 28
+                },
+                "8": {
+                    "size": 28
+                },
+                "9": {
+                    "size": 28
+                },
+                "10": {
+                    "size": 28
+                },
+                "11": {
+                    "size": 28
+                },
+                "12": {
+                    "size": 28
+                },
+                "13": {
+                    "size": 28
+                },
+                "14": {
+                    "size": 28
+                },
+                "15": {
+                    "size": 28
+                },
+                "16": {
+                    "size": 28
+                },
+                "17": {
+                    "size": 28
+                },
+                "18": {
+                    "size": 28
+                },
+                "19": {
+                    "size": 28
+                },
+                "20": {
+                    "size": 28
+                },
+                "21": {
+                    "size": 28
+                },
+                "22": {
+                    "size": 28
+                },
+                "23": {
+                    "size": 28
+                },
+                "24": {
+                    "size": 28
+                },
+                "25": {
+                    "size": 28
+                },
+                "26": {
+                    "size": 28
+                },
+                "27": {
+                    "size": 28
+                },
+                "28": {
+                    "size": 28
+                },
+                "29": {
+                    "size": 28
+                },
+                "30": {
+                    "size": 28
+                },
+                "31": {
+                    "size": 28
+                },
+                "32": {
+                    "size": 28
+                },
+                "33": {
+                    "size": 28
+                },
+                "34": {
+                    "size": 28
+                },
+                "35": {
+                    "size": 28
+                },
+                "36": {
+                    "size": 28
+                },
+                "37": {
+                    "size": 28
+                },
+                "38": {
+                    "size": 28
+                },
+                "39": {
+                    "size": 28
+                },
+                "40": {
+                    "size": 28
+                },
+                "41": {
+                    "size": 28
+                },
+                "42": {
+                    "size": 28
+                },
+                "43": {
+                    "size": 28
+                },
+                "44": {
+                    "size": 28
+                },
+                "45": {
+                    "size": 28
+                },
+                "46": {
+                    "size": 28
+                },
+                "47": {
+                    "size": 28
+                },
+                "48": {
+                    "size": 28
+                },
+                "49": {
+                    "size": 28
+                },
+                "50": {
+                    "size": 28
+                }
+            },
+            "cols": {},
+            "merges": [],
+            "cells": {
+                "A1": "=ODOO.LIST(1,50)"
+            },
+            "styles": {
+                "A1:B1": 5,
+                "A2:A51": 6,
+                "A52:Z100": 7,
+                "C1": 8
+            },
+            "formats": {
+                "C2": 1,
+                "C3": 1,
+                "C4": 1
+            },
+            "borders": {},
+            "conditionalFormats": [
+                {
+                    "id": "d0a67453-b5ef",
+                    "rule": {
+                        "type": "DataBarRule",
+                        "color": 14740987,
+                        "rangeValues": "C2:C51"
+                    },
+                    "ranges": [
+                        "A2:A51"
+                    ]
+                }
+            ],
+            "dataValidationRules": [],
+            "figures": [],
+            "tables": [],
+            "areGridLinesVisible": true,
+            "isVisible": true,
+            "isLocked": false,
+            "panes": {
+                "xSplit": 0,
+                "ySplit": 1
+            },
+            "headerGroups": {
+                "ROW": [],
+                "COL": []
+            },
+            "defaultStyle": {
+                "colDefault": {
+                    "0": 2,
+                    "1": 2,
+                    "2": 2
+                },
+                "rowDefault": {},
+                "sheetDefault": 1
+            },
+            "comments": {}
+        },
+        {
+            "id": "8ec6d264-b387",
+            "name": "Worst Downgrades",
+            "colNumber": 26,
+            "rowNumber": 100,
+            "rows": {
+                "0": {
+                    "size": 28
+                },
+                "1": {
+                    "size": 28
+                },
+                "2": {
+                    "size": 28
+                },
+                "3": {
+                    "size": 28
+                },
+                "4": {
+                    "size": 28
+                },
+                "5": {
+                    "size": 28
+                },
+                "6": {
+                    "size": 28
+                },
+                "7": {
+                    "size": 28
+                },
+                "8": {
+                    "size": 28
+                },
+                "9": {
+                    "size": 28
+                },
+                "10": {
+                    "size": 28
+                },
+                "11": {
+                    "size": 28
+                },
+                "12": {
+                    "size": 28
+                },
+                "13": {
+                    "size": 28
+                },
+                "14": {
+                    "size": 28
+                },
+                "15": {
+                    "size": 28
+                },
+                "16": {
+                    "size": 28
+                },
+                "17": {
+                    "size": 28
+                },
+                "18": {
+                    "size": 28
+                },
+                "19": {
+                    "size": 28
+                },
+                "20": {
+                    "size": 28
+                },
+                "21": {
+                    "size": 28
+                },
+                "22": {
+                    "size": 28
+                },
+                "23": {
+                    "size": 28
+                },
+                "24": {
+                    "size": 28
+                },
+                "25": {
+                    "size": 28
+                },
+                "26": {
+                    "size": 28
+                },
+                "27": {
+                    "size": 28
+                },
+                "28": {
+                    "size": 28
+                },
+                "29": {
+                    "size": 28
+                },
+                "30": {
+                    "size": 28
+                },
+                "31": {
+                    "size": 28
+                },
+                "32": {
+                    "size": 28
+                },
+                "33": {
+                    "size": 28
+                },
+                "34": {
+                    "size": 28
+                },
+                "35": {
+                    "size": 28
+                },
+                "36": {
+                    "size": 28
+                },
+                "37": {
+                    "size": 28
+                },
+                "38": {
+                    "size": 28
+                },
+                "39": {
+                    "size": 28
+                },
+                "40": {
+                    "size": 28
+                },
+                "41": {
+                    "size": 28
+                },
+                "42": {
+                    "size": 28
+                },
+                "43": {
+                    "size": 28
+                },
+                "44": {
+                    "size": 28
+                },
+                "45": {
+                    "size": 28
+                },
+                "46": {
+                    "size": 28
+                },
+                "47": {
+                    "size": 28
+                },
+                "48": {
+                    "size": 28
+                },
+                "49": {
+                    "size": 28
+                },
+                "50": {
+                    "size": 28
+                }
+            },
+            "cols": {},
+            "merges": [],
+            "cells": {
+                "A1": "=ODOO.LIST(2,50)"
+            },
+            "styles": {
+                "A1:B1": 5,
+                "A2:A51": 6,
+                "C1": 8
+            },
+            "formats": {},
+            "borders": {},
+            "conditionalFormats": [
+                {
+                    "id": "d0a67453-b5ef",
+                    "rule": {
+                        "type": "DataBarRule",
+                        "color": 14740987,
+                        "rangeValues": "C2:C51"
+                    },
+                    "ranges": [
+                        "A2:A51"
+                    ]
+                }
+            ],
+            "dataValidationRules": [],
+            "figures": [],
+            "tables": [],
+            "areGridLinesVisible": true,
+            "isVisible": true,
+            "isLocked": false,
+            "panes": {
+                "xSplit": 0,
+                "ySplit": 1
+            },
+            "headerGroups": {
+                "ROW": [],
+                "COL": []
+            },
+            "defaultStyle": {
+                "colDefault": {
+                    "0": 2,
+                    "1": 2,
+                    "2": 2
+                },
+                "rowDefault": {},
+                "sheetDefault": 1
+            },
+            "comments": {}
+        },
+        {
+            "id": "9af0167a-4ce7",
+            "name": "MRR by Recurrence",
+            "colNumber": 26,
+            "rowNumber": 100,
+            "rows": {
+                "0": {
+                    "size": 28
+                },
+                "1": {
+                    "size": 28
+                },
+                "2": {
+                    "size": 28
+                },
+                "3": {
+                    "size": 28
+                },
+                "4": {
+                    "size": 28
+                },
+                "5": {
+                    "size": 28
+                },
+                "6": {
+                    "size": 28
+                },
+                "7": {
+                    "size": 28
+                },
+                "8": {
+                    "size": 28
+                },
+                "9": {
+                    "size": 28
+                },
+                "10": {
+                    "size": 28
+                },
+                "11": {
+                    "size": 28
+                },
+                "12": {
+                    "size": 28
+                },
+                "13": {
+                    "size": 28
+                },
+                "14": {
+                    "size": 28
+                },
+                "15": {
+                    "size": 28
+                },
+                "16": {
+                    "size": 28
+                },
+                "17": {
+                    "size": 28
+                },
+                "18": {
+                    "size": 28
+                },
+                "19": {
+                    "size": 28
+                },
+                "20": {
+                    "size": 28
+                },
+                "21": {
+                    "size": 28
+                },
+                "22": {
+                    "size": 28
+                },
+                "23": {
+                    "size": 28
+                },
+                "24": {
+                    "size": 28
+                },
+                "25": {
+                    "size": 28
+                },
+                "26": {
+                    "size": 28
+                },
+                "27": {
+                    "size": 28
+                },
+                "28": {
+                    "size": 28
+                },
+                "29": {
+                    "size": 28
+                },
+                "30": {
+                    "size": 28
+                },
+                "31": {
+                    "size": 28
+                },
+                "32": {
+                    "size": 28
+                },
+                "33": {
+                    "size": 28
+                },
+                "34": {
+                    "size": 28
+                },
+                "35": {
+                    "size": 28
+                },
+                "36": {
+                    "size": 28
+                },
+                "37": {
+                    "size": 28
+                },
+                "38": {
+                    "size": 28
+                },
+                "39": {
+                    "size": 28
+                },
+                "40": {
+                    "size": 28
+                },
+                "41": {
+                    "size": 28
+                },
+                "42": {
+                    "size": 28
+                },
+                "43": {
+                    "size": 28
+                },
+                "44": {
+                    "size": 28
+                },
+                "45": {
+                    "size": 28
+                },
+                "46": {
+                    "size": 28
+                },
+                "47": {
+                    "size": 28
+                },
+                "48": {
+                    "size": 28
+                },
+                "49": {
+                    "size": 28
+                },
+                "50": {
+                    "size": 28
+                }
+            },
+            "cols": {},
+            "merges": [],
+            "cells": {
+                "A1": "=PIVOT(4,50,FALSE,FALSE)"
+            },
+            "styles": {
+                "A1": 5,
+                "B1:C1": 8
+            },
+            "formats": {
+                "A2": 2,
+                "B2": 1,
+                "A3": 2,
+                "B3": 1
+            },
+            "borders": {},
+            "conditionalFormats": [
+                {
+                    "id": "d0a67453-b5ef",
+                    "rule": {
+                        "type": "DataBarRule",
+                        "color": 14740987,
+                        "rangeValues": "B2:B51"
+                    },
+                    "ranges": [
+                        "A2:A51"
+                    ]
+                }
+            ],
+            "dataValidationRules": [],
+            "figures": [],
+            "tables": [],
+            "areGridLinesVisible": true,
+            "isVisible": true,
+            "isLocked": false,
+            "panes": {
+                "xSplit": 0,
+                "ySplit": 1
+            },
+            "headerGroups": {
+                "ROW": [],
+                "COL": []
+            },
+            "defaultStyle": {
+                "colDefault": {
+                    "0": 2,
+                    "1": 2,
+                    "2": 2
+                },
+                "rowDefault": {},
+                "sheetDefault": 1
+            },
+            "comments": {}
+        },
+        {
+            "id": "143bf580-d73e",
+            "name": "MRR by Team",
+            "colNumber": 26,
+            "rowNumber": 100,
+            "rows": {
+                "0": {
+                    "size": 28
+                },
+                "1": {
+                    "size": 28
+                },
+                "2": {
+                    "size": 28
+                },
+                "3": {
+                    "size": 28
+                },
+                "4": {
+                    "size": 28
+                },
+                "5": {
+                    "size": 28
+                },
+                "6": {
+                    "size": 28
+                },
+                "7": {
+                    "size": 28
+                },
+                "8": {
+                    "size": 28
+                },
+                "9": {
+                    "size": 28
+                },
+                "10": {
+                    "size": 28
+                },
+                "11": {
+                    "size": 28
+                },
+                "12": {
+                    "size": 28
+                },
+                "13": {
+                    "size": 28
+                },
+                "14": {
+                    "size": 28
+                },
+                "15": {
+                    "size": 28
+                },
+                "16": {
+                    "size": 28
+                },
+                "17": {
+                    "size": 28
+                },
+                "18": {
+                    "size": 28
+                },
+                "19": {
+                    "size": 28
+                },
+                "20": {
+                    "size": 28
+                },
+                "21": {
+                    "size": 28
+                },
+                "22": {
+                    "size": 28
+                },
+                "23": {
+                    "size": 28
+                },
+                "24": {
+                    "size": 28
+                },
+                "25": {
+                    "size": 28
+                },
+                "26": {
+                    "size": 28
+                },
+                "27": {
+                    "size": 28
+                },
+                "28": {
+                    "size": 28
+                },
+                "29": {
+                    "size": 28
+                },
+                "30": {
+                    "size": 28
+                },
+                "31": {
+                    "size": 28
+                },
+                "32": {
+                    "size": 28
+                },
+                "33": {
+                    "size": 28
+                },
+                "34": {
+                    "size": 28
+                },
+                "35": {
+                    "size": 28
+                },
+                "36": {
+                    "size": 28
+                },
+                "37": {
+                    "size": 28
+                },
+                "38": {
+                    "size": 28
+                },
+                "39": {
+                    "size": 28
+                },
+                "40": {
+                    "size": 28
+                },
+                "41": {
+                    "size": 28
+                },
+                "42": {
+                    "size": 28
+                },
+                "43": {
+                    "size": 28
+                },
+                "44": {
+                    "size": 28
+                },
+                "45": {
+                    "size": 28
+                },
+                "46": {
+                    "size": 28
+                },
+                "47": {
+                    "size": 28
+                },
+                "48": {
+                    "size": 28
+                },
+                "49": {
+                    "size": 28
+                },
+                "50": {
+                    "size": 28
+                }
+            },
+            "cols": {},
+            "merges": [],
+            "cells": {
+                "A1": "=PIVOT(5,50,FALSE,FALSE)"
+            },
+            "styles": {
+                "A1": 5,
+                "B1:C1": 8
+            },
+            "formats": {
+                "A2": 2,
+                "B2": 1
+            },
+            "borders": {},
+            "conditionalFormats": [
+                {
+                    "id": "d0a67453-b5ef",
+                    "rule": {
+                        "type": "DataBarRule",
+                        "color": 14740987,
+                        "rangeValues": "B2:B51"
+                    },
+                    "ranges": [
+                        "A2:A51"
+                    ]
+                }
+            ],
+            "dataValidationRules": [],
+            "figures": [],
+            "tables": [],
+            "areGridLinesVisible": true,
+            "isVisible": true,
+            "isLocked": false,
+            "panes": {
+                "xSplit": 0,
+                "ySplit": 1
+            },
+            "headerGroups": {
+                "ROW": [],
+                "COL": []
+            },
+            "defaultStyle": {
+                "colDefault": {
+                    "0": 2,
+                    "1": 2,
+                    "2": 2
+                },
+                "rowDefault": {},
+                "sheetDefault": 1
+            },
+            "comments": {}
+        },
+        {
+            "id": "8f236e2b-daa0",
+            "name": "Top Salesperson",
+            "colNumber": 26,
+            "rowNumber": 100,
+            "rows": {
+                "0": {
+                    "size": 28
+                },
+                "1": {
+                    "size": 28
+                },
+                "2": {
+                    "size": 28
+                },
+                "3": {
+                    "size": 28
+                },
+                "4": {
+                    "size": 28
+                },
+                "5": {
+                    "size": 28
+                },
+                "6": {
+                    "size": 28
+                },
+                "7": {
+                    "size": 28
+                },
+                "8": {
+                    "size": 28
+                },
+                "9": {
+                    "size": 28
+                },
+                "10": {
+                    "size": 28
+                },
+                "11": {
+                    "size": 28
+                },
+                "12": {
+                    "size": 28
+                },
+                "13": {
+                    "size": 28
+                },
+                "14": {
+                    "size": 28
+                },
+                "15": {
+                    "size": 28
+                },
+                "16": {
+                    "size": 28
+                },
+                "17": {
+                    "size": 28
+                },
+                "18": {
+                    "size": 28
+                },
+                "19": {
+                    "size": 28
+                },
+                "20": {
+                    "size": 28
+                },
+                "21": {
+                    "size": 28
+                },
+                "22": {
+                    "size": 28
+                },
+                "23": {
+                    "size": 28
+                },
+                "24": {
+                    "size": 28
+                },
+                "25": {
+                    "size": 28
+                },
+                "26": {
+                    "size": 28
+                },
+                "27": {
+                    "size": 28
+                },
+                "28": {
+                    "size": 28
+                },
+                "29": {
+                    "size": 28
+                },
+                "30": {
+                    "size": 28
+                },
+                "31": {
+                    "size": 28
+                },
+                "32": {
+                    "size": 28
+                },
+                "33": {
+                    "size": 28
+                },
+                "34": {
+                    "size": 28
+                },
+                "35": {
+                    "size": 28
+                },
+                "36": {
+                    "size": 28
+                },
+                "37": {
+                    "size": 28
+                },
+                "38": {
+                    "size": 28
+                },
+                "39": {
+                    "size": 28
+                },
+                "40": {
+                    "size": 28
+                },
+                "41": {
+                    "size": 28
+                },
+                "42": {
+                    "size": 28
+                },
+                "43": {
+                    "size": 28
+                },
+                "44": {
+                    "size": 28
+                },
+                "45": {
+                    "size": 28
+                },
+                "46": {
+                    "size": 28
+                },
+                "47": {
+                    "size": 28
+                },
+                "48": {
+                    "size": 28
+                },
+                "49": {
+                    "size": 28
+                },
+                "50": {
+                    "size": 28
+                }
+            },
+            "cols": {},
+            "merges": [],
+            "cells": {
+                "A1": "=PIVOT(6,50,FALSE,FALSE)"
+            },
+            "styles": {
+                "A1": 5,
+                "B1:C1": 8
+            },
+            "formats": {
+                "A2": 2,
+                "B2": 1
+            },
+            "borders": {},
+            "conditionalFormats": [
+                {
+                    "id": "d0a67453-b5ef",
+                    "rule": {
+                        "type": "DataBarRule",
+                        "color": 14740987,
+                        "rangeValues": "B2:B51"
+                    },
+                    "ranges": [
+                        "A2:A51"
+                    ]
+                }
+            ],
+            "dataValidationRules": [],
+            "figures": [],
+            "tables": [],
+            "areGridLinesVisible": true,
+            "isVisible": true,
+            "isLocked": false,
+            "panes": {
+                "xSplit": 0,
+                "ySplit": 1
+            },
+            "headerGroups": {
+                "ROW": [],
+                "COL": []
+            },
+            "defaultStyle": {
+                "colDefault": {
+                    "0": 2,
+                    "1": 2,
+                    "2": 2
+                },
+                "rowDefault": {},
+                "sheetDefault": 1
+            },
+            "comments": {}
+        },
+        {
+            "id": "e053d92b-7131",
+            "name": "MRR by Country",
+            "colNumber": 26,
+            "rowNumber": 100,
+            "rows": {
+                "0": {
+                    "size": 28
+                },
+                "1": {
+                    "size": 28
+                },
+                "2": {
+                    "size": 28
+                },
+                "3": {
+                    "size": 28
+                },
+                "4": {
+                    "size": 28
+                },
+                "5": {
+                    "size": 28
+                },
+                "6": {
+                    "size": 28
+                },
+                "7": {
+                    "size": 28
+                },
+                "8": {
+                    "size": 28
+                },
+                "9": {
+                    "size": 28
+                },
+                "10": {
+                    "size": 28
+                },
+                "11": {
+                    "size": 28
+                },
+                "12": {
+                    "size": 28
+                },
+                "13": {
+                    "size": 28
+                },
+                "14": {
+                    "size": 28
+                },
+                "15": {
+                    "size": 28
+                },
+                "16": {
+                    "size": 28
+                },
+                "17": {
+                    "size": 28
+                },
+                "18": {
+                    "size": 28
+                },
+                "19": {
+                    "size": 28
+                },
+                "20": {
+                    "size": 28
+                },
+                "21": {
+                    "size": 28
+                },
+                "22": {
+                    "size": 28
+                },
+                "23": {
+                    "size": 28
+                },
+                "24": {
+                    "size": 28
+                },
+                "25": {
+                    "size": 28
+                },
+                "26": {
+                    "size": 28
+                },
+                "27": {
+                    "size": 28
+                },
+                "28": {
+                    "size": 28
+                },
+                "29": {
+                    "size": 28
+                },
+                "30": {
+                    "size": 28
+                },
+                "31": {
+                    "size": 28
+                },
+                "32": {
+                    "size": 28
+                },
+                "33": {
+                    "size": 28
+                },
+                "34": {
+                    "size": 28
+                },
+                "35": {
+                    "size": 28
+                },
+                "36": {
+                    "size": 28
+                },
+                "37": {
+                    "size": 28
+                },
+                "38": {
+                    "size": 28
+                },
+                "39": {
+                    "size": 28
+                },
+                "40": {
+                    "size": 28
+                },
+                "41": {
+                    "size": 28
+                },
+                "42": {
+                    "size": 28
+                },
+                "43": {
+                    "size": 28
+                },
+                "44": {
+                    "size": 28
+                },
+                "45": {
+                    "size": 28
+                },
+                "46": {
+                    "size": 28
+                },
+                "47": {
+                    "size": 28
+                },
+                "48": {
+                    "size": 28
+                },
+                "49": {
+                    "size": 28
+                },
+                "50": {
+                    "size": 28
+                }
+            },
+            "cols": {},
+            "merges": [],
+            "cells": {
+                "A1": "=PIVOT(7,50,FALSE,FALSE)"
+            },
+            "styles": {
+                "A1": 5,
+                "B1:C1": 8
+            },
+            "formats": {
+                "A2": 2,
+                "B2": 1
+            },
+            "borders": {},
+            "conditionalFormats": [
+                {
+                    "id": "d0a67453-b5ef",
+                    "rule": {
+                        "type": "DataBarRule",
+                        "color": 14740987,
+                        "rangeValues": "B2:B51"
+                    },
+                    "ranges": [
+                        "A2:A51"
+                    ]
+                }
+            ],
+            "dataValidationRules": [],
+            "figures": [],
+            "tables": [],
+            "areGridLinesVisible": true,
+            "isVisible": true,
+            "isLocked": false,
+            "panes": {
+                "xSplit": 0,
+                "ySplit": 1
+            },
+            "headerGroups": {
+                "ROW": [],
+                "COL": []
+            },
+            "defaultStyle": {
+                "colDefault": {
+                    "0": 2,
+                    "1": 2,
+                    "2": 2
+                },
+                "rowDefault": {},
+                "sheetDefault": 1
+            },
+            "comments": {}
+        }
+    ],
+    "styles": {
+        "1": {
+            "verticalAlign": "middle"
+        },
+        "2": {
+            "textColor": "#434343"
+        },
+        "3": {
+            "bold": true
+        },
+        "4": {
+            "fillColor": "#E6F2F3"
+        },
+        "5": {
+            "bold": true,
+            "fontSize": 11,
+            "verticalAlign": "top"
+        },
+        "6": {
+            "textColor": "#01666B"
+        },
+        "7": {
+            "verticalAlign": "bottom"
+        },
+        "8": {
+            "bold": true,
+            "fontSize": 11,
+            "verticalAlign": "top",
+            "align": "center"
+        },
+        "9": {
+            "bold": true
+        }
+    },
+    "formats": {
+        "1": "[$$]#,##0.00",
+        "2": "@* ",
+        "3": "dd/mm/yyyy",
+        "4": "0.00%"
+    },
+    "borders": {},
+    "revisionId": "b446d23a-e4c7-4e94-95d7-599d87b34491",
+    "uniqueFigureIds": true,
+    "settings": {
+        "locale": {
+            "name": "English (IN)",
+            "code": "en_IN",
+            "thousandsSeparator": ",",
+            "decimalSeparator": ".",
+            "dateFormat": "dd/mm/yyyy",
+            "timeFormat": "hh:mm:ss a",
+            "formulaArgSeparator": ",",
+            "weekStart": 7,
+            "digitGrouping": "[3,2,0]"
+        }
+    },
+    "pivots": {
+        "1": {
+            "type": "ODOO",
+            "id": "1",
+            "formulaId": "1",
+            "name": "MRR changes",
+            "model": "sale.subscription.event.report",
+            "domain": [],
+            "context": {},
+            "measures": [
+                {
+                    "id": "amount_signed",
+                    "fieldName": "amount_signed"
+                }
+            ],
+            "rows": [
+                {
+                    "fieldName": "event_type"
+                }
+            ],
+            "columns": [],
+            "sortedColumn": null,
+            "fieldMatching": {
+                "954bb57d-1c53-4918-a516-c179fc19579b": {
+                    "chain": "event_date",
+                    "type": "date",
+                    "offset": 0
+                },
+                "a20dbbaa-c062-4527-bd96-641257f29345": {
+                    "chain": "country_id",
+                    "type": "many2one"
+                },
+                "efcb1557-c59e-45c7-b970-1d3df23908db": {
+                    "chain": "partner_id",
+                    "type": "many2one"
+                },
+                "ab1df29c-770b-4ec5-bf93-cd3f57bcdab4": {
+                    "chain": "team_id",
+                    "type": "many2one"
+                },
+                "866b40f9-0436-4e8b-8ec1-69c18381c876": {
+                    "chain": "user_id",
+                    "type": "many2one"
+                },
+                "bb803250-fe24-48ab-ab18-54ec5ab5806f": {
+                    "chain": "plan_id",
+                    "type": "many2one"
+                }
+            }
+        },
+        "2": {
+            "type": "ODOO",
+            "id": "2",
+            "formulaId": "2",
+            "name": "Recurring invoiced",
+            "model": "account.invoice.report",
+            "domain": [
+                [
+                    "state",
+                    "=",
+                    "posted"
+                ],
+                [
+                    "move_type",
+                    "in",
+                    [
+                        "out_invoice",
+                        "out_refund"
+                    ]
+                ],
+                [
+                    "product_id.recurring_invoice",
+                    "=",
+                    true
+                ]
+            ],
+            "context": {},
+            "measures": [
+                {
+                    "id": "price_subtotal",
+                    "fieldName": "price_subtotal"
+                }
+            ],
+            "rows": [],
+            "columns": [],
+            "sortedColumn": null,
+            "fieldMatching": {
+                "954bb57d-1c53-4918-a516-c179fc19579b": {
+                    "chain": "invoice_date",
+                    "type": "date",
+                    "offset": 0
+                },
+                "a20dbbaa-c062-4527-bd96-641257f29345": {
+                    "chain": "country_id",
+                    "type": "many2one"
+                },
+                "efcb1557-c59e-45c7-b970-1d3df23908db": {
+                    "chain": "partner_id",
+                    "type": "many2one"
+                },
+                "ab1df29c-770b-4ec5-bf93-cd3f57bcdab4": {
+                    "chain": "team_id",
+                    "type": "many2one"
+                },
+                "866b40f9-0436-4e8b-8ec1-69c18381c876": {
+                    "chain": "invoice_user_id",
+                    "type": "many2one"
+                }
+            }
+        },
+        "3": {
+            "type": "ODOO",
+            "id": "3",
+            "formulaId": "3",
+            "name": "Non recurring invoiced",
+            "model": "account.invoice.report",
+            "domain": [
+                [
+                    "state",
+                    "=",
+                    "posted"
+                ],
+                [
+                    "move_type",
+                    "in",
+                    [
+                        "out_invoice",
+                        "out_refund"
+                    ]
+                ],
+                [
+                    "product_id.recurring_invoice",
+                    "!=",
+                    true
+                ]
+            ],
+            "context": {},
+            "measures": [
+                {
+                    "id": "price_subtotal",
+                    "fieldName": "price_subtotal"
+                }
+            ],
+            "rows": [],
+            "columns": [],
+            "sortedColumn": null,
+            "fieldMatching": {
+                "954bb57d-1c53-4918-a516-c179fc19579b": {
+                    "chain": "invoice_date",
+                    "type": "date",
+                    "offset": 0
+                },
+                "a20dbbaa-c062-4527-bd96-641257f29345": {
+                    "chain": "country_id",
+                    "type": "many2one"
+                },
+                "efcb1557-c59e-45c7-b970-1d3df23908db": {
+                    "chain": "partner_id",
+                    "type": "many2one"
+                },
+                "ab1df29c-770b-4ec5-bf93-cd3f57bcdab4": {
+                    "chain": "team_id",
+                    "type": "many2one"
+                },
+                "866b40f9-0436-4e8b-8ec1-69c18381c876": {
+                    "chain": "invoice_user_id",
+                    "type": "many2one"
+                }
+            }
+        },
+        "4": {
+            "type": "ODOO",
+            "id": "4",
+            "formulaId": "4",
+            "name": "Recurrence",
+            "model": "sale.subscription.event.report",
+            "domain": [
+                [
+                    "plan_id",
+                    "!=",
+                    false
+                ]
+            ],
+            "context": {},
+            "measures": [
+                {
+                    "id": "amount_signed",
+                    "fieldName": "amount_signed",
+                    "userDefinedName": "MRR"
+                }
+            ],
+            "rows": [
+                {
+                    "fieldName": "plan_id"
+                }
+            ],
+            "columns": [],
+            "sortedColumn": {
+                "measure": "amount_signed",
+                "order": "desc",
+                "domain": []
+            },
+            "fieldMatching": {
+                "954bb57d-1c53-4918-a516-c179fc19579b": {
+                    "chain": "event_date",
+                    "type": "date",
+                    "offset": 0
+                },
+                "a20dbbaa-c062-4527-bd96-641257f29345": {
+                    "chain": "country_id",
+                    "type": "many2one"
+                },
+                "efcb1557-c59e-45c7-b970-1d3df23908db": {
+                    "chain": "partner_id",
+                    "type": "many2one"
+                },
+                "ab1df29c-770b-4ec5-bf93-cd3f57bcdab4": {
+                    "chain": "team_id",
+                    "type": "many2one"
+                },
+                "866b40f9-0436-4e8b-8ec1-69c18381c876": {
+                    "chain": "user_id",
+                    "type": "many2one"
+                },
+                "bb803250-fe24-48ab-ab18-54ec5ab5806f": {
+                    "chain": "plan_id",
+                    "type": "many2one"
+                }
+            }
+        },
+        "5": {
+            "type": "ODOO",
+            "id": "5",
+            "formulaId": "5",
+            "name": "Sales Team",
+            "model": "sale.subscription.event.report",
+            "domain": [
+                [
+                    "team_id",
+                    "!=",
+                    false
+                ]
+            ],
+            "context": {},
+            "measures": [
+                {
+                    "id": "amount_signed",
+                    "fieldName": "amount_signed",
+                    "userDefinedName": "MRR"
+                }
+            ],
+            "rows": [
+                {
+                    "fieldName": "team_id"
+                }
+            ],
+            "columns": [],
+            "sortedColumn": {
+                "measure": "amount_signed",
+                "order": "desc",
+                "domain": []
+            },
+            "fieldMatching": {
+                "954bb57d-1c53-4918-a516-c179fc19579b": {
+                    "chain": "event_date",
+                    "type": "date",
+                    "offset": 0
+                },
+                "a20dbbaa-c062-4527-bd96-641257f29345": {
+                    "chain": "country_id",
+                    "type": "many2one"
+                },
+                "efcb1557-c59e-45c7-b970-1d3df23908db": {
+                    "chain": "partner_id",
+                    "type": "many2one"
+                },
+                "ab1df29c-770b-4ec5-bf93-cd3f57bcdab4": {
+                    "chain": "team_id",
+                    "type": "many2one"
+                },
+                "866b40f9-0436-4e8b-8ec1-69c18381c876": {
+                    "chain": "user_id",
+                    "type": "many2one"
+                },
+                "bb803250-fe24-48ab-ab18-54ec5ab5806f": {
+                    "chain": "plan_id",
+                    "type": "many2one"
+                }
+            }
+        },
+        "6": {
+            "type": "ODOO",
+            "id": "6",
+            "formulaId": "6",
+            "name": "Salesperson",
+            "model": "sale.subscription.event.report",
+            "domain": [
+                [
+                    "user_id",
+                    "!=",
+                    false
+                ]
+            ],
+            "context": {},
+            "measures": [
+                {
+                    "id": "amount_signed",
+                    "fieldName": "amount_signed",
+                    "userDefinedName": "MRR"
+                }
+            ],
+            "rows": [
+                {
+                    "fieldName": "user_id"
+                }
+            ],
+            "columns": [],
+            "sortedColumn": {
+                "measure": "amount_signed",
+                "order": "desc",
+                "domain": []
+            },
+            "fieldMatching": {
+                "954bb57d-1c53-4918-a516-c179fc19579b": {
+                    "chain": "event_date",
+                    "type": "date",
+                    "offset": 0
+                },
+                "a20dbbaa-c062-4527-bd96-641257f29345": {
+                    "chain": "country_id",
+                    "type": "many2one"
+                },
+                "efcb1557-c59e-45c7-b970-1d3df23908db": {
+                    "chain": "partner_id",
+                    "type": "many2one"
+                },
+                "ab1df29c-770b-4ec5-bf93-cd3f57bcdab4": {
+                    "chain": "team_id",
+                    "type": "many2one"
+                },
+                "866b40f9-0436-4e8b-8ec1-69c18381c876": {
+                    "chain": "user_id",
+                    "type": "many2one"
+                },
+                "bb803250-fe24-48ab-ab18-54ec5ab5806f": {
+                    "chain": "plan_id",
+                    "type": "many2one"
+                }
+            }
+        },
+        "7": {
+            "type": "ODOO",
+            "id": "7",
+            "formulaId": "7",
+            "name": "Country",
+            "model": "sale.subscription.event.report",
+            "domain": [
+                [
+                    "country_id",
+                    "!=",
+                    false
+                ]
+            ],
+            "context": {},
+            "measures": [
+                {
+                    "id": "amount_signed",
+                    "fieldName": "amount_signed",
+                    "userDefinedName": "MRR"
+                }
+            ],
+            "rows": [
+                {
+                    "fieldName": "country_id"
+                }
+            ],
+            "columns": [],
+            "sortedColumn": {
+                "measure": "amount_signed",
+                "order": "desc",
+                "domain": []
+            },
+            "fieldMatching": {
+                "954bb57d-1c53-4918-a516-c179fc19579b": {
+                    "chain": "event_date",
+                    "type": "date",
+                    "offset": 0
+                },
+                "a20dbbaa-c062-4527-bd96-641257f29345": {
+                    "chain": "country_id",
+                    "type": "many2one"
+                },
+                "efcb1557-c59e-45c7-b970-1d3df23908db": {
+                    "chain": "partner_id",
+                    "type": "many2one"
+                },
+                "ab1df29c-770b-4ec5-bf93-cd3f57bcdab4": {
+                    "chain": "team_id",
+                    "type": "many2one"
+                },
+                "866b40f9-0436-4e8b-8ec1-69c18381c876": {
+                    "chain": "user_id",
+                    "type": "many2one"
+                },
+                "bb803250-fe24-48ab-ab18-54ec5ab5806f": {
+                    "chain": "plan_id",
+                    "type": "many2one"
+                }
+            }
+        }
+    },
+    "pivotNextId": 9,
+    "customTableStyles": {},
+    "namedRanges": {},
+    "globalFilters": [
+        {
+            "id": "954bb57d-1c53-4918-a516-c179fc19579b",
+            "type": "date",
+            "label": "Date",
+            "defaultValue": "last_12_months"
+        },
+        {
+            "id": "a20dbbaa-c062-4527-bd96-641257f29345",
+            "type": "relation",
+            "label": "Country",
+            "defaultValueDisplayNames": [],
+            "modelName": "res.country"
+        },
+        {
+            "id": "efcb1557-c59e-45c7-b970-1d3df23908db",
+            "type": "relation",
+            "label": "Customer",
+            "defaultValueDisplayNames": [],
+            "modelName": "res.partner"
+        },
+        {
+            "id": "ab1df29c-770b-4ec5-bf93-cd3f57bcdab4",
+            "type": "relation",
+            "label": "Sales Team",
+            "defaultValueDisplayNames": [],
+            "modelName": "crm.team"
+        },
+        {
+            "id": "866b40f9-0436-4e8b-8ec1-69c18381c876",
+            "type": "relation",
+            "label": "Salesperson",
+            "defaultValueDisplayNames": [],
+            "modelName": "res.users"
+        },
+        {
+            "id": "bb803250-fe24-48ab-ab18-54ec5ab5806f",
+            "type": "relation",
+            "label": "Recurrence",
+            "defaultValueDisplayNames": [],
+            "modelName": "sale.subscription.plan"
+        }
+    ],
+    "lists": {
+        "1": {
+            "id": "1",
+            "model": "sale.subscription.event.report",
+            "name": "Top Upgrades",
+            "domain": [
+                [
+                    "event_type",
+                    "=",
+                    "1_expansion"
+                ]
+            ],
+            "context": {},
+            "orderBy": [
+                {
+                    "name": "amount_signed",
+                    "asc": false
+                }
+            ],
+            "columns": [
+                {
+                    "name": "partner_id",
+                    "string": "Customer"
+                },
+                {
+                    "name": "plan_id",
+                    "string": "Recurrence"
+                },
+                {
+                    "name": "amount_signed",
+                    "string": "MRR"
+                }
+            ],
+            "fieldMatching": {
+                "954bb57d-1c53-4918-a516-c179fc19579b": {
+                    "chain": "event_date",
+                    "type": "date"
+                },
+                "a20dbbaa-c062-4527-bd96-641257f29345": {
+                    "chain": "country_id",
+                    "type": "many2one"
+                },
+                "efcb1557-c59e-45c7-b970-1d3df23908db": {
+                    "chain": "partner_id",
+                    "type": "many2one"
+                },
+                "ab1df29c-770b-4ec5-bf93-cd3f57bcdab4": {
+                    "chain": "team_id",
+                    "type": "many2one"
+                },
+                "866b40f9-0436-4e8b-8ec1-69c18381c876": {
+                    "chain": "user_id",
+                    "type": "many2one"
+                },
+                "bb803250-fe24-48ab-ab18-54ec5ab5806f": {
+                    "chain": "plan_id",
+                    "type": "many2one"
+                }
+            },
+            "translateHeaders": true
+        },
+        "2": {
+            "id": "2",
+            "model": "sale.subscription.event.report",
+            "name": "Worst Downgrades",
+            "domain": [
+                [
+                    "event_type",
+                    "=",
+                    "15_contraction"
+                ]
+            ],
+            "context": {},
+            "orderBy": [
+                {
+                    "name": "amount_signed",
+                    "asc": true
+                }
+            ],
+            "columns": [
+                {
+                    "name": "partner_id",
+                    "string": "Customer"
+                },
+                {
+                    "name": "plan_id",
+                    "string": "Recurrence"
+                },
+                {
+                    "name": "amount_signed",
+                    "string": "MRR"
+                }
+            ],
+            "fieldMatching": {
+                "954bb57d-1c53-4918-a516-c179fc19579b": {
+                    "chain": "event_date",
+                    "type": "date"
+                },
+                "a20dbbaa-c062-4527-bd96-641257f29345": {
+                    "chain": "country_id",
+                    "type": "many2one"
+                },
+                "efcb1557-c59e-45c7-b970-1d3df23908db": {
+                    "chain": "partner_id",
+                    "type": "many2one"
+                },
+                "ab1df29c-770b-4ec5-bf93-cd3f57bcdab4": {
+                    "chain": "team_id",
+                    "type": "many2one"
+                },
+                "866b40f9-0436-4e8b-8ec1-69c18381c876": {
+                    "chain": "user_id",
+                    "type": "many2one"
+                },
+                "bb803250-fe24-48ab-ab18-54ec5ab5806f": {
+                    "chain": "plan_id",
+                    "type": "many2one"
+                }
+            },
+            "translateHeaders": true
+        }
+    },
+    "listNextId": 4,
+    "odooLinkReferences": {}
+}

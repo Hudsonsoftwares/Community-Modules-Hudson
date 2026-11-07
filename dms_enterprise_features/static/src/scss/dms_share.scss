@@ -1,0 +1,360 @@
+/* ==========================================================================
+   Share dialog (dms.file.share.wizard)
+   Access levels are segmented controls whose selected option is colour-coded
+   (Editor blue, Viewer green, No access grey), readable in light and dark.
+   ========================================================================== */
+
+$dms-share-dark: (variable-exists(o-webclient-color-scheme) and $o-webclient-color-scheme == "dark");
+
+@mixin dms-share-light {
+    --share-text: var(--dms-text-primary, #0f172a);
+    --share-muted: var(--dms-text-secondary, #64748b);
+    --share-border: var(--dms-card-border, #e2e8f0);
+    --share-surface: var(--dms-card-bg, #ffffff);
+    --share-track: #f1f5f9;
+    --share-thumb-shadow: 0 1px 2px rgba(15, 23, 42, 0.12);
+
+    --share-editor-bg: #dbeafe;
+    --share-editor-fg: #1d4ed8;
+    --share-editor-border: #bfdbfe;
+    --share-viewer-bg: #dcfce7;
+    --share-viewer-fg: #15803d;
+    --share-viewer-border: #bbf7d0;
+    --share-none-bg: #e2e8f0;
+    --share-none-fg: #334155;
+    --share-none-border: #cbd5e1;
+    --share-tag-bg: #f1f5f9;
+    --share-tag-fg: #475569;
+}
+
+@mixin dms-share-dark {
+    --share-text: var(--dms-text-primary, #f1f5f9);
+    --share-muted: var(--dms-text-secondary, #94a3b8);
+    --share-border: var(--dms-card-border, #2e3344);
+    --share-surface: var(--dms-card-bg, #212430);
+    --share-track: #161822;
+    --share-thumb-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+
+    --share-editor-bg: rgba(59, 130, 246, 0.22);
+    --share-editor-fg: #93c5fd;
+    --share-editor-border: rgba(59, 130, 246, 0.45);
+    --share-viewer-bg: rgba(34, 197, 94, 0.2);
+    --share-viewer-fg: #86efac;
+    --share-viewer-border: rgba(34, 197, 94, 0.4);
+    --share-none-bg: #2e3344;
+    --share-none-fg: #e2e8f0;
+    --share-none-border: #3b4256;
+    --share-tag-bg: #2e3344;
+    --share-tag-fg: #cbd5e1;
+}
+
+.o_dms_share {
+    @if $dms-share-dark {
+        @include dms-share-dark;
+    } @else {
+        @include dms-share-light;
+    }
+    color: var(--share-text);
+}
+
+[data-bs-theme="dark"] .o_dms_share,
+body.o_dark .o_dms_share {
+    @include dms-share-dark;
+}
+
+.o_dms_share_body {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    padding: 4px 0;
+}
+
+.o_dms_share_section {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.o_dms_share_heading {
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--share-muted);
+}
+
+/* ---- Cards and rows ---------------------------------------------------- */
+.o_dms_share_card {
+    border: 1px solid var(--share-border);
+    border-radius: 12px;
+    background: var(--share-surface);
+    overflow: hidden;
+
+    .o_field_html,
+    .o_field_html > div,
+    .o_readonly {
+        margin: 0 !important;
+        padding: 0 !important;
+        border: 0 !important;
+    }
+}
+
+.o_dms_share_row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    min-height: 62px;
+
+    & + & {
+        border-top: 1px solid var(--share-border);
+    }
+}
+
+.o_dms_share_row_text {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.o_dms_share_row_title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    font-size: 0.875rem;
+    color: var(--share-text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.o_dms_share_row_sub {
+    margin-top: 2px;
+    font-size: 0.78rem;
+    color: var(--share-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.o_dms_share_avatar {
+    flex: 0 0 36px;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 1px solid var(--share-border);
+}
+
+.o_dms_share_avatar_icon,
+.o_dms_share_icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 36px;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--share-none-bg);
+    color: var(--share-none-fg);
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+/* General-access icon follows the selected level */
+.o_dms_share_access_row:has(input[data-value="editor"]:checked) .o_dms_share_icon {
+    background: var(--share-editor-bg);
+    color: var(--share-editor-fg);
+}
+.o_dms_share_access_row:has(input[data-value="viewer"]:checked) .o_dms_share_icon {
+    background: var(--share-viewer-bg);
+    color: var(--share-viewer-fg);
+}
+
+/* ---- Role pills (people list) ------------------------------------------ */
+.o_dms_share_role {
+    flex: 0 0 auto;
+    padding: 4px 12px;
+    border-radius: 999px;
+    border: 1px solid;
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1.2;
+}
+.o_dms_share_role_editor {
+    background: var(--share-editor-bg);
+    color: var(--share-editor-fg);
+    border-color: var(--share-editor-border);
+}
+.o_dms_share_role_viewer {
+    background: var(--share-viewer-bg);
+    color: var(--share-viewer-fg);
+    border-color: var(--share-viewer-border);
+}
+
+.o_dms_share_tag {
+    padding: 1px 8px;
+    border-radius: 999px;
+    background: var(--share-tag-bg);
+    color: var(--share-tag-fg);
+    font-size: 0.7rem;
+    font-weight: 600;
+}
+
+/* ---- Segmented controls (radio widget) --------------------------------- */
+.o_dms_share_segmented {
+    width: auto !important;
+    flex: 0 0 auto;
+
+    [role="radiogroup"] {
+        display: inline-flex;
+        flex-wrap: nowrap;
+        gap: 2px;
+        padding: 3px;
+        border: 1px solid var(--share-border);
+        border-radius: 10px;
+        background: var(--share-track);
+    }
+
+    .o_radio_item.form-check {
+        position: relative;
+        margin: 0 !important;
+        padding: 0 !important;
+        min-height: 0;
+    }
+
+    .o_radio_input {
+        position: absolute;
+        inset: 0;
+        margin: 0 !important;
+        opacity: 0;
+        cursor: pointer;
+    }
+
+    .form-check-label {
+        display: block;
+        margin: 0 !important;
+        padding: 5px 12px;
+        border: 1px solid transparent;
+        border-radius: 7px;
+        font-size: 0.8125rem;
+        font-weight: 500;
+        line-height: 1.3;
+        white-space: nowrap;
+        color: var(--share-muted) !important;
+        cursor: pointer;
+        transition: background-color 0.15s ease, color 0.15s ease;
+    }
+
+    .o_radio_item:hover .form-check-label {
+        color: var(--share-text) !important;
+    }
+
+    .o_radio_input:checked + .form-check-label {
+        background: var(--share-surface);
+        color: var(--share-text) !important;
+        font-weight: 600;
+        box-shadow: var(--share-thumb-shadow);
+    }
+
+    .o_radio_input:focus-visible + .form-check-label {
+        outline: 2px solid var(--share-editor-fg);
+        outline-offset: 1px;
+    }
+}
+
+.o_dms_share_levels {
+    .o_radio_input[data-value="editor"]:checked + .form-check-label {
+        background: var(--share-editor-bg);
+        color: var(--share-editor-fg) !important;
+        border-color: var(--share-editor-border);
+    }
+    .o_radio_input[data-value="viewer"]:checked + .form-check-label {
+        background: var(--share-viewer-bg);
+        color: var(--share-viewer-fg) !important;
+        border-color: var(--share-viewer-border);
+    }
+    .o_radio_input[data-value="none"]:checked + .form-check-label {
+        background: var(--share-none-bg);
+        color: var(--share-none-fg) !important;
+        border-color: var(--share-none-border);
+    }
+}
+
+.o_dms_share_levels_sm .form-check-label {
+    padding: 4px 10px;
+}
+
+/* ---- Invite row ---------------------------------------------------------- */
+.o_dms_share_invite {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.o_dms_share_invite_input {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    min-height: 38px;
+    padding: 2px 10px;
+    border: 1px solid var(--share-border);
+    border-radius: 10px;
+    background: var(--share-surface);
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+
+    &:focus-within {
+        border-color: var(--share-editor-fg);
+        box-shadow: 0 0 0 3px var(--share-editor-bg);
+    }
+
+    .o_field_widget,
+    .o_field_tags {
+        flex: 1 1 auto;
+        width: 100% !important;
+        min-width: 0;
+    }
+
+    /* the text input takes the space left after the tags */
+    .o_field_many2many_selection {
+        flex: 1 1 160px;
+        width: auto !important;
+        min-width: 160px;
+    }
+
+    .o_input_dropdown,
+    .o-autocomplete {
+        width: 100% !important;
+    }
+
+    .o_dropdown_button {
+        display: none !important;
+    }
+
+    .o_input,
+    input {
+        border: 0 !important;
+        box-shadow: none !important;
+        background: transparent !important;
+    }
+}
+
+.o_dms_share_add {
+    min-height: 38px;
+    padding-inline: 16px;
+    border-radius: 10px;
+}
+
+/* Narrow dialogs: controls drop under their text */
+@media (max-width: 575.98px) {
+    .o_dms_share_invite,
+    .o_dms_share_access_row {
+        flex-wrap: wrap;
+    }
+    .o_dms_share_invite_input {
+        flex-basis: 100%;
+    }
+    .o_dms_share_access_row .o_dms_share_segmented {
+        margin-left: 48px;
+    }
+}

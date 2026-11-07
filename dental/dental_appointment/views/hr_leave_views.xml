@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Inherit Time Off Form View to add Conflicting Appointments Smart Button -->
+    <record id="view_hr_leave_form_inherit_dental" model="ir.ui.view">
+        <field name="name">hr.leave.form.inherit.dental</field>
+        <field name="model">hr.leave</field>
+        <field name="inherit_id" ref="hr_holidays.hr_leave_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//div[@name='button_box']" position="inside">
+                <button name="action_view_conflicting_appointments"
+                        type="object"
+                        class="oe_stat_button"
+                        icon="fa-calendar-times-o"
+                        invisible="conflicting_appointment_count == 0">
+                    <field name="conflicting_appointment_count" widget="statinfo" string="Appointment Conflicts"/>
+                </button>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- 1. Dentist / Staff: My Leave Requests -->
+    <record id="action_dental_my_leaves" model="ir.actions.act_window">
+        <field name="name">My Leave Requests</field>
+        <field name="res_model">hr.leave</field>
+        <field name="view_mode">calendar,list,form</field>
+        <field name="domain">[('employee_id.user_id', '=', uid)]</field>
+        <field name="context">{'default_holiday_type': 'employee'}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Submit a new leave or time off request!
+            </p>
+            <p>
+                Track your requested leaves, manager approvals, and schedule.
+            </p>
+        </field>
+    </record>
+
+    <!-- 2. Clinic Manager: Leave Requests to Approve -->
+    <record id="action_dental_leave_approval" model="ir.actions.act_window">
+        <field name="name">Leave Requests to Approve</field>
+        <field name="res_model">hr.leave</field>
+        <field name="view_mode">list,kanban,form,calendar</field>
+        <field name="domain">[('state', 'in', ('confirm', 'validate1')), ('employee_id.company_id', 'in', allowed_company_ids)]</field>
+        <field name="context">{'search_default_waiting_for_me': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                No leave requests awaiting approval!
+            </p>
+            <p>
+                When doctors or clinic staff request leaves, they appear here for manager review, approval, or refusal.
+            </p>
+        </field>
+    </record>
+
+    <!-- 3. Approved Leaves & Staff Calendar -->
+    <record id="action_dental_approved_leaves" model="ir.actions.act_window">
+        <field name="name">Approved Leaves &amp; Availability</field>
+        <field name="res_model">hr.leave</field>
+        <field name="view_mode">calendar,list,kanban,form</field>
+        <field name="domain">[('state', '=', 'validate'), ('employee_id.company_id', 'in', allowed_company_ids)]</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Approved Doctor &amp; Staff Leave Calendar
+            </p>
+            <p>
+                Overview of approved staff leaves across clinic branches to manage availability.
+            </p>
+        </field>
+    </record>
+
+    <!-- Menus under Staff & Doctors in Dental Clinic -->
+    <menuitem id="menu_dental_leave_approval"
+              name="Leave Requests to Approve"
+              parent="dental_base.menu_dental_staff_root"
+              action="action_dental_leave_approval"
+              sequence="34"
+              groups="dental_base.group_dental_manager,dental_base.group_dental_admin"/>
+
+    <menuitem id="menu_dental_approved_leaves"
+              name="Approved Leaves &amp; Calendar"
+              parent="dental_base.menu_dental_staff_root"
+              action="action_dental_approved_leaves"
+              sequence="36"
+              groups="dental_base.group_dental_manager,dental_base.group_dental_admin"/>
+
+    <menuitem id="menu_dental_staff_my_leaves"
+              name="My Leave Requests"
+              parent="dental_base.menu_dental_staff_root"
+              action="action_dental_my_leaves"
+              sequence="38"/>
+</odoo>

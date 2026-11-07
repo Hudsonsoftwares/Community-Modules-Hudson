@@ -3,3 +3,4 @@
 
 from . import subscription_close_wizard
 from . import subscription_renew_wizard
+from . import sale_make_invoice_advance

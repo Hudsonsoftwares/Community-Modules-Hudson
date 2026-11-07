@@ -33,33 +33,48 @@ class ReportTax(models.AbstractModel):
         return sql
 
     def _compute_from_amls(self, options, taxes):
+        """ Fill the tax and base amounts of `taxes` ({tax_id: values}) with the balance of the journal
+        items, debit positive. Only the items due in the period count: a cash basis tax is reported
+        on the cash basis entry of its payment, not on the invoice (as in Odoo Enterprise). """
+        MoveLine = self.env['account.move.line']
+        exigible_domain = list(MoveLine._get_tax_exigible_domain())
         #compute the tax amount
         sql = self._sql_from_amls_one()
-        tables, where_clause, where_params = self.env['account.move.line']._query_get()
+        tables, where_clause, where_params = MoveLine._query_get(list(exigible_domain))
         query = sql % (tables, where_clause)
         self.env.cr.execute(query, where_params)
         results = self.env.cr.fetchall()
         for result in results:
             if result[0] in taxes:
-                # no abs(): a net-negative period (refunds > invoices) must stay negative
-                taxes[result[0]]['tax'] = result[1] or 0.0
+                taxes[result[0]]['tax'] += result[1] or 0.0
 
         #compute the net amount
         sql2 = self._sql_from_amls_two()
+        tables, where_clause, where_params = MoveLine._query_get(list(exigible_domain))
         query = sql2 % (tables, where_clause)
         self.env.cr.execute(query, where_params)
         results = self.env.cr.fetchall()
-        for result in results:
-            if result[0] in taxes:
-                taxes[result[0]]['net'] = result[1] or 0.0
+        for tax_id, base in results:
+            # the base of a group of taxes is on the group: it is the base of each tax of the group
+            for target_id in options.get('_base_targets', {}).get(tax_id, [tax_id]):
+                if target_id in taxes:
+                    taxes[target_id]['net'] += base or 0.0
 
     @api.model
     def get_lines(self, options):
+        """ :return: {'sale': [tax values], 'purchase': [tax values]} where the base ('net') and the tax are
+            positive for the sales and the purchases of the period and negative for their refunds,
+            as in Odoo Enterprise. """
         taxes = {}
-        for tax in self.env['account.tax'].search([('type_tax_use', '!=', 'none')]):
-            if tax.children_tax_ids:
+        base_targets = {}
+        # archived taxes still have entries in the past periods
+        all_taxes = self.env['account.tax'].with_context(active_test=False).search([('type_tax_use', '!=', 'none')])
+        for tax in all_taxes:
+            if tax.amount_type == 'group' and tax.children_tax_ids:
+                base_targets[tax.id] = tax.children_tax_ids.ids
                 for child in tax.children_tax_ids:
                     if child.type_tax_use != 'none':
+                        # a child usable on its own is reported as itself, below
                         continue
                     taxes[child.id] = {'tax': 0, 'net': 0, 'name': child.name, 'type': tax.type_tax_use}
             else:
@@ -73,9 +88,16 @@ class ReportTax(models.AbstractModel):
             state=options['target_move'],
             strict_range=True,
         )
-        self.with_context(**report_context)._compute_from_amls(options, taxes)
+        self.with_context(**report_context)._compute_from_amls(dict(options, _base_targets=base_targets), taxes)
         groups = dict((tp, []) for tp in ['sale', 'purchase'])
         for tax in taxes.values():
+            if tax['type'] not in groups:
+                continue
+            # a sale is a credit: print it positive, its refunds negative (debit balances stay
+            # positive for the purchases)
+            if tax['type'] == 'sale':
+                tax['tax'] = -tax['tax']
+                tax['net'] = -tax['net']
             # keep 0%-rated taxes: they have no tax amount but a real base amount
             if tax['tax'] or tax['net']:
                 groups[tax['type']].append(tax)

@@ -64,17 +64,18 @@
             <form string="Field Service Order">
                 <header>
                     <!-- Timer Widget: Start/Resume/Pause/Stop with auto-geolocation -->
+                    <field name="can_start_work" invisible="1"/>
                     <widget name="field_service_timer"/>
                     <button name="action_get_directions"
                             string="Get Directions"
                             type="object"
                             class="btn-info"
-                            icon="fa-map-marker"/>
+                            icon="location_on"/>
                     <button name="action_mark_done"
                             string="Mark Done"
                             type="object"
                             class="btn-success"
-                            icon="fa-check"
+                            icon="check"
                             invisible="state not in ('paused', 'in_progress') or is_timer_running"/>
                     <button name="action_cancel"
                             string="Cancel"
@@ -87,21 +88,24 @@
                             groups="hudson_field_service.group_field_service_manager"/>
                     <separator/>
                     <!-- Invoice Buttons -->
-                    <button name="action_create_invoice"
-                            string="Create Invoice"
-                            type="object"
-                            class="btn-primary"
-                            invisible="state != 'done' or invoice_status == 'invoiced'"/>
+                    <field name="fs_worksheets_enabled" invisible="1"/>
+                    <field name="fs_customer_report_enabled" invisible="1"/>
+                    <field name="fs_billing_enabled" invisible="1"/>
+                    <field name="fs_products_enabled" invisible="1"/>
+                    <field name="fs_geolocation_enabled" invisible="1"/>
+                    <field name="fs_equipment_enabled" invisible="1"/>
+                    <field name="fs_maintenance_enabled" invisible="1"/>
+                    <field name="fs_travel_fees_enabled" invisible="1"/>
                     <button name="action_view_invoice"
                             string="View Invoice"
                             type="object"
-                            invisible="invoice_status != 'invoiced'"/>
+                            invisible="not invoice_id or not fs_billing_enabled"/>
                     <!-- Report Button -->
                     <button name="action_send_report"
                             string="Send Report"
                             type="object"
                             class="btn-secondary"
-                            invisible="state != 'done'"/>
+                            invisible="state != 'done' or not fs_customer_report_enabled"/>
                     <field name="state" widget="statusbar" statusbar_visible="new,scheduled,in_progress,done"/>
                 </header>
 
@@ -111,7 +115,7 @@
                         <button name="action_view_pickings"
                                 type="object"
                                 class="oe_stat_button"
-                                icon="fa-truck"
+                                icon="local_shipping"
                                 invisible="picking_count == 0">
                             <field name="picking_count" string="Deliveries" widget="statinfo"/>
                         </button>
@@ -119,14 +123,14 @@
                         <button name="action_view_timesheets"
                                 type="object"
                                 class="oe_stat_button"
-                                icon="fa-clock-o">
+                                icon="schedule">
                             <field name="timesheet_count" string="Time Entries" widget="statinfo"/>
                         </button>
                         <!-- Project Task stat button -->
                         <button name="action_view_project_task"
                                 type="object"
                                 class="oe_stat_button"
-                                icon="fa-tasks"
+                                icon="task"
                                 invisible="not task_id">
                             <span class="o_stat_text">Project Task</span>
                         </button>
@@ -134,7 +138,7 @@
                         <button name="action_view_sale_order"
                                 type="object"
                                 class="oe_stat_button"
-                                icon="fa-shopping-cart"
+                                icon="shopping_cart"
                                 invisible="not sale_order_id">
                             <div class="o_stat_info">
                                 <span class="o_stat_text">Sale Order</span>
@@ -147,7 +151,7 @@
                         <button type="object"
                                 name="action_view_rating"
                                 class="oe_stat_button"
-                                icon="fa-star"
+                                icon="star"
                                 invisible="not customer_rating">
                             <div class="o_stat_info">
                                 <span class="o_stat_text">Rating</span>
@@ -156,6 +160,11 @@
                                 </span>
                             </div>
                         </button>
+                    </div>
+
+                    <div class="alert alert-warning" role="alert" invisible="not planning_warning">
+                        <strong>Planning: </strong>
+                        <field name="planning_warning" class="d-inline" style="white-space: pre-line;"/>
                     </div>
 
                     <widget name="web_ribbon" title="Done" bg_color="text-bg-success" invisible="state != 'done'"/>
@@ -178,9 +187,13 @@
                             <field name="partner_address"/>
                             <field name="tag_ids" widget="many2many_tags" options="{'color_field': 'color'}"/>
                             <field name="priority" widget="priority"/>
+                            <field name="equipment_ids" widget="many2many_tags" invisible="not fs_equipment_enabled"
+                                   context="{'default_partner_id': partner_id}"/>
+                            <field name="under_warranty" invisible="not fs_maintenance_enabled"/>
                         </group>
                             <group string="Scheduling">
 
+                                <field name="role_id" options="{'no_create': True}"/>
                                 <field name="employee_id" widget="many2one_avatar_employee"/>
                                 <field name="extra_employee_ids" widget="many2many_avatar_employee" options="{'no_create': True}"/>
                                 <field name="team_leader_employee_id" widget="many2one_avatar_employee"/>
@@ -190,6 +203,10 @@
                                 <field name="duration_planned" widget="float_time" string="Total Scheduled Time" readonly="1" force_save="1"/>
                                 <field name="rest_time_planned" widget="float_time"/>
                                 <field name="duration_working_planned" widget="float_time" readonly="1" force_save="1"/>
+                                <field name="available_employee_ids"
+                                       widget="many2many_avatar_employee"
+                                       readonly="1"
+                                       invisible="not date_planned or state in ('done', 'cancelled')"/>
                             </group>
                     </group>
 
@@ -212,6 +229,8 @@
                             <field name="total_amount" string="Total Amount"/>
                             <field name="invoice_status"/>
                             <field name="invoice_id" invisible="invoice_status != 'invoiced'"/>
+                            <field name="travel_distance" invisible="not fs_travel_fees_enabled"/>
+                            <field name="travel_duration" widget="float_time" invisible="not fs_travel_fees_enabled"/>
                         </group>
                     </group>
 
@@ -288,7 +307,7 @@
                             </field>
                         </page>
 
-                        <page string="Signature" name="signature" invisible="not customer_signature">
+                        <page string="Signature" name="signature" invisible="not customer_signature or not fs_customer_report_enabled">
                             <group>
                                 <group>
                                     <field name="customer_signed_by" readonly="1"/>
@@ -300,7 +319,7 @@
                             </group>
                         </page>
 
-                        <page string="Products" name="products">
+                        <page string="Products" name="products" invisible="not fs_products_enabled">
                             <field name="product_line_ids">
                                 <list editable="bottom">
                                     <field name="sequence" widget="handle"/>
@@ -319,13 +338,21 @@
                         </page>
 
                         <page string="Worksheet" name="worksheet">
+                            <group invisible="not fs_worksheets_enabled">
+                                <field name="worksheet_template_id" options="{'no_create': True}"/>
+                            </group>
+                            <field name="worksheet_properties" nolabel="1" columns="2"
+                                   invisible="not worksheet_template_id or not fs_worksheets_enabled"/>
                             <group string="Work Performed">
                                 <field name="worksheet_notes" nolabel="1" placeholder="Document the work performed, observations, and results..."/>
                             </group>
-                            <group string="Customer Sign-off">
-                                <field name="customer_signed_by" placeholder="Name of person signing"/>
-                                <field name="customer_signature" widget="signature"/>
-                                <field name="customer_signed_date"/>
+                            <group string="Customer Sign-off" invisible="not fs_customer_report_enabled">
+                                <div colspan="2" class="text-muted" invisible="customer_signature">
+                                    Not signed yet. The customer signs the report from the link sent by email.
+                                </div>
+                                <field name="customer_signed_by" invisible="not customer_signature"/>
+                                <field name="customer_signature" widget="signature" readonly="1" invisible="not customer_signature"/>
+                                <field name="customer_signed_date" invisible="not customer_signature"/>
                             </group>
                         </page>
 

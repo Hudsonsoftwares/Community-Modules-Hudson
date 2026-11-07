@@ -52,7 +52,20 @@ class AccountFiscalYear(models.Model):
                 raise ValidationError(_('You can not have an overlap between two fiscal years, '
                                         'please correct the start and/or end dates of your fiscal years.'))
 
+    @api.model_create_multi
+    def create(self, vals_list):
+        if not self.env.context.get('fiscal_year_state_change') and any(
+                vals.get('state', 'open') != 'open' or vals.get('closing_move_id') for vals in vals_list):
+            raise UserError(_('A fiscal year is closed with the "Close Fiscal Year" button.'))
+        return super().create(vals_list)
+
     def write(self, vals):
+        # the status and the closing entry only change through _close / action_reopen, which check the access
+        # rights and post or reverse the closing entry
+        if not self.env.context.get('fiscal_year_state_change') and (
+                ('state' in vals and any(fy.state != vals['state'] for fy in self))
+                or ('closing_move_id' in vals and any(fy.closing_move_id.id != vals['closing_move_id'] for fy in self))):
+            raise UserError(_('Use the "Close Fiscal Year" and "Reopen" buttons to change the status of a fiscal year.'))
         if {'date_from', 'date_to', 'company_id'} & set(vals) and self.filtered(lambda fy: fy.state == 'closed'):
             raise UserError(_('The dates and the company of a closed fiscal year cannot be changed. Reopen it first.'))
         return super().write(vals)
@@ -75,6 +88,8 @@ class AccountFiscalYear(models.Model):
             ('company_id', 'child_of', self.company_id.id),
             ('parent_state', '=', 'posted'),
             ('date', '<=', self.date_to),
+            # not brought forward: the income and expense accounts and the unaffected earnings accounts, which
+            # hold the counterpart of the closing entries of the earlier years
             ('account_id.include_initial_balance', '=', False),
         ]
         if self.closing_move_id:
@@ -159,7 +174,7 @@ class AccountFiscalYear(models.Model):
             closing_move.action_post()
 
         company.retained_earnings_account_id = retained_earnings_account
-        self.write({'state': 'closed', 'closing_move_id': closing_move.id})
+        self.with_context(fiscal_year_state_change=True).write({'state': 'closed', 'closing_move_id': closing_move.id})
         if lock and (not company.fiscalyear_lock_date or company.fiscalyear_lock_date < self.date_to):
             company.sudo().fiscalyear_lock_date = self.date_to
         return closing_move
@@ -188,7 +203,7 @@ class AccountFiscalYear(models.Model):
                     'date': fy.closing_move_id.date,
                     'ref': _('Reopening of %s', fy.name),
                 }], cancel=True)
-            fy.write({'state': 'open', 'closing_move_id': False})
+            fy.with_context(fiscal_year_state_change=True).write({'state': 'open', 'closing_move_id': False})
         return True
 
     def action_view_closing_move(self):

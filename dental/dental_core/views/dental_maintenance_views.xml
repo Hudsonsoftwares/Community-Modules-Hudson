@@ -1,0 +1,400 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- ========================================================================= -->
+    <!-- 1. DENTAL EQUIPMENT VIEWS                                                 -->
+    <!-- ========================================================================= -->
+    <record id="view_dental_equipment_tree" model="ir.ui.view">
+        <field name="name">dental.maintenance.equipment.tree</field>
+        <field name="model">maintenance.equipment</field>
+        <field name="arch" type="xml">
+            <list string="Dental Equipment"
+                  decoration-danger="not is_available or equipment_condition in ('out_of_order', 'scrapped')"
+                  decoration-warning="is_overdue or equipment_condition in ('needs_maintenance', 'under_repair')"
+                  decoration-success="is_available and equipment_condition == 'operational'">
+                <field name="name"/>
+                <field name="category_id"/>
+                <field name="branch_id" optional="show"/>
+                <field name="serial_no"/>
+                <field name="model" optional="show"/>
+                <field name="equipment_condition" widget="badge"
+                       decoration-success="equipment_condition == 'operational'"
+                       decoration-warning="equipment_condition == 'needs_maintenance'"
+                       decoration-danger="equipment_condition in ('under_repair', 'out_of_order', 'scrapped')"/>
+                <field name="is_available" widget="boolean_toggle" readonly="1"/>
+                <field name="next_maintenance_date"/>
+                <field name="is_overdue" widget="boolean_toggle" readonly="1" optional="show"/>
+                <field name="warranty_status" widget="badge"
+                       decoration-success="warranty_status == 'valid'"
+                       decoration-warning="warranty_status == 'expiring_soon'"
+                       decoration-danger="warranty_status == 'expired'"
+                       optional="show"/>
+                <field name="total_maintenance_cost" widget="monetary" optional="show"/>
+                <field name="technician_user_id" optional="hide"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_dental_equipment_form" model="ir.ui.view">
+        <field name="name">dental.maintenance.equipment.form</field>
+        <field name="model">maintenance.equipment</field>
+        <field name="priority" eval="20"/>
+        <field name="arch" type="xml">
+            <form string="Dental Equipment">
+                <header>
+                    <button name="action_schedule_preventive_maintenance"
+                            string="Schedule Preventive Service"
+                            type="object"
+                            class="oe_highlight"
+                            icon="fa-calendar-check-o"/>
+                    <button name="action_report_breakdown"
+                            string="Report Breakdown / Defect"
+                            type="object"
+                            class="btn-danger"
+                            icon="fa-wrench"/>
+                    <field name="equipment_condition" widget="statusbar"
+                           statusbar_visible="operational,needs_maintenance,under_repair,out_of_order"/>
+                </header>
+                <sheet>
+                    <!-- Status / Availability Alert Ribbon -->
+                    <div class="alert alert-danger d-flex align-items-center justify-content-between p-3 mb-3 border-0 rounded-3 shadow-sm"
+                         role="alert"
+                         invisible="is_available">
+                        <div>
+                            <i class="fa fa-exclamation-triangle fa-lg me-2 text-danger"/>
+                            <strong>Equipment Unavailable:</strong> This equipment is currently marked as <field name="equipment_condition" readonly="1" class="fw-bold"/>. Appointments requiring this machine will display an availability conflict notice.
+                        </div>
+                    </div>
+
+                    <div class="alert alert-warning d-flex align-items-center justify-content-between p-3 mb-3 border-0 rounded-3 shadow-sm"
+                         role="alert"
+                         invisible="not is_overdue">
+                        <div>
+                            <i class="fa fa-clock-o fa-lg me-2 text-warning"/>
+                            <strong>Preventive Maintenance Overdue:</strong> Routine servicing was scheduled for <field name="next_maintenance_date" readonly="1" class="fw-bold"/>. Please perform or schedule preventive maintenance.
+                        </div>
+                        <button name="action_schedule_preventive_maintenance"
+                                string="Service Now"
+                                type="object"
+                                class="btn btn-sm btn-warning text-dark fw-bold"/>
+                    </div>
+
+                    <div class="oe_button_box" name="button_box">
+                        <button name="%(maintenance.hr_equipment_request_action_from_equipment)d"
+                                type="action"
+                                class="oe_stat_button"
+                                icon="fa-wrench">
+                            <field name="maintenance_count" string="Maintenance" widget="statinfo"/>
+                        </button>
+                        <button class="oe_stat_button" icon="fa-money" type="object" name="action_report_breakdown" invisible="1">
+                            <field name="total_maintenance_cost" string="Total Cost" widget="statinfo"/>
+                        </button>
+                    </div>
+
+                    <field name="is_available" invisible="1"/>
+                    <field name="is_overdue" invisible="1"/>
+
+                    <div class="oe_title">
+                        <label for="name" string="Dental Equipment Name"/>
+                        <h1>
+                            <field name="name" placeholder="e.g. Sirona Intego Dental Chair Unit, Melag Autoclave..."/>
+                        </h1>
+                    </div>
+
+                    <group>
+                        <group string="Equipment Registry &amp; Identification">
+                            <field name="category_id" required="1"/>
+                            <field name="branch_id" required="1"/>
+                            <field name="company_id" invisible="1"/>
+                            <field name="serial_no"/>
+                            <field name="model" placeholder="Model / Generation"/>
+                            <field name="is_available" widget="boolean_toggle"/>
+                        </group>
+                        <group string="Preventive Maintenance Schedule">
+                            <field name="preventive_frequency_days"/>
+                            <field name="last_maintenance_date"/>
+                            <field name="next_maintenance_date"/>
+                            <field name="is_overdue" widget="boolean_toggle" readonly="1"/>
+                        </group>
+                    </group>
+
+                    <group>
+                        <group string="Procurement &amp; Warranty Tracking">
+                            <field name="effective_date" string="Installation Date"/>
+                            <field name="warranty_date" string="Warranty Expiration"/>
+                            <field name="warranty_status" widget="badge"
+                                   decoration-success="warranty_status == 'valid'"
+                                   decoration-warning="warranty_status == 'expiring_soon'"
+                                   decoration-danger="warranty_status == 'expired'"/>
+                            <field name="partner_id" string="Vendor / Service Provider"/>
+                            <field name="partner_ref" string="Vendor Invoice / Serial Ref"/>
+                            <field name="cost" string="Purchase Cost" widget="monetary"/>
+                            <field name="total_maintenance_cost" string="Total Maintenance Expense" widget="monetary" readonly="1"/>
+                        </group>
+                        <group string="Responsible Department &amp; Staff">
+                            <field name="department_id"/>
+                            <field name="employee_id"/>
+                            <field name="maintenance_team_id"/>
+                            <field name="technician_user_id"/>
+                            <field name="repair_request_count" string="Breakdowns Logged" readonly="1"/>
+                            <field name="preventive_request_count" string="Preventive Tasks Completed" readonly="1"/>
+                        </group>
+                    </group>
+
+                    <notebook>
+                        <page string="Maintenance History" name="maintenance_history">
+                            <field name="maintenance_ids" readonly="1">
+                                <list decoration-danger="equipment_availability_impact == 'unavailable'"
+                                      decoration-success="stage_id.fold == True">
+                                    <field name="name" string="Issue / Task"/>
+                                    <field name="maintenance_type"/>
+                                    <field name="request_date"/>
+                                    <field name="priority" widget="priority"/>
+                                    <field name="equipment_availability_impact" widget="badge"/>
+                                    <field name="stage_id"/>
+                                    <field name="total_cost" widget="monetary"/>
+                                    <field name="close_date"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Service Documentation &amp; Technical Notes" name="documentation">
+                            <field name="note" placeholder="Equipment user manual instructions, operating guidelines, calibration criteria, or emergency cutoff procedures..."/>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_dental_equipment_search" model="ir.ui.view">
+        <field name="name">dental.maintenance.equipment.search</field>
+        <field name="model">maintenance.equipment</field>
+        <field name="arch" type="xml">
+            <search string="Search Dental Equipment">
+                <field name="name" string="Equipment"/>
+                <field name="category_id"/>
+                <field name="serial_no"/>
+                <field name="branch_id"/>
+                <field name="partner_id" string="Vendor"/>
+                <separator/>
+                <filter string="Operational &amp; Available" name="filter_available" domain="[('is_available', '=', True)]"/>
+                <filter string="Under Repair / Unavailable" name="filter_unavailable" domain="[('is_available', '=', False)]"/>
+                <separator/>
+                <filter string="Maintenance Overdue" name="filter_overdue" domain="[('is_overdue', '=', True)]"/>
+                <filter string="Warranty Expiring Soon" name="filter_warranty_expiring" domain="[('warranty_status', '=', 'expiring_soon')]"/>
+                <filter string="Warranty Expired" name="filter_warranty_expired" domain="[('warranty_status', '=', 'expired')]"/>
+                <group>
+                    <filter string="Category" name="group_by_category" context="{'group_by': 'category_id'}"/>
+                    <filter string="Clinic Branch" name="group_by_branch" context="{'group_by': 'branch_id'}"/>
+                    <filter string="Operational Condition" name="group_by_condition" context="{'group_by': 'equipment_condition'}"/>
+                    <filter string="Warranty Status" name="group_by_warranty" context="{'group_by': 'warranty_status'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_dental_equipment_registry" model="ir.actions.act_window">
+        <field name="name">Dental Equipment Registry</field>
+        <field name="res_model">maintenance.equipment</field>
+        <field name="view_mode">list,form,kanban</field>
+        <field name="view_id" ref="view_dental_equipment_tree"/>
+        <field name="search_view_id" ref="view_dental_equipment_search"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Register clinic equipment such as Dental Chairs, Autoclaves, X-ray Machines, and Compressors!
+            </p>
+        </field>
+    </record>
+
+    <!-- ========================================================================= -->
+    <!-- 2. MAINTENANCE REQUESTS (BREAKDOWNS & REPAIRS)                            -->
+    <!-- ========================================================================= -->
+    <record id="view_dental_maintenance_request_tree" model="ir.ui.view">
+        <field name="name">dental.maintenance.request.tree</field>
+        <field name="model">maintenance.request</field>
+        <field name="arch" type="xml">
+            <list string="Maintenance Requests"
+                  decoration-danger="equipment_availability_impact == 'unavailable' and not stage_id.fold"
+                  decoration-warning="priority == '3' and not stage_id.fold"
+                  decoration-success="stage_id.fold">
+                <field name="name" string="Issue / Task"/>
+                <field name="equipment_id"/>
+                <field name="category_id" optional="show"/>
+                <field name="branch_id" optional="show"/>
+                <field name="maintenance_type" widget="badge"/>
+                <field name="priority" widget="priority"/>
+                <field name="equipment_availability_impact" widget="badge"
+                       decoration-danger="equipment_availability_impact == 'unavailable'"
+                       decoration-warning="equipment_availability_impact == 'reduced_capacity'"
+                       decoration-success="equipment_availability_impact == 'none'"/>
+                <field name="owner_user_id" string="Reported By" optional="show"/>
+                <field name="user_ids" widget="many2many_tags" optional="show"/>
+                <field name="stage_id" widget="badge"/>
+                <field name="schedule_date" string="Scheduled"/>
+                <field name="total_cost" widget="monetary" sum="Total Expense"/>
+                <field name="close_date" optional="hide"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_dental_maintenance_request_form" model="ir.ui.view">
+        <field name="name">dental.maintenance.request.form</field>
+        <field name="model">maintenance.request</field>
+        <field name="priority" eval="20"/>
+        <field name="arch" type="xml">
+            <form string="Dental Maintenance Request">
+                <header>
+                    <button name="action_mark_repaired"
+                            string="Mark Repaired"
+                            type="object"
+                            class="btn-success"
+                            invisible="stage_id.fold"/>
+                    <button name="action_mark_closed"
+                            string="Close Request"
+                            type="object"
+                            class="oe_highlight"
+                            invisible="not stage_id.fold"/>
+                    <field name="stage_id" widget="statusbar" options="{'clickable': '1'}"/>
+                </header>
+                <sheet>
+                    <div class="alert alert-danger d-flex align-items-center justify-content-between p-3 mb-3 border-0 rounded-3 shadow-sm"
+                         role="alert"
+                         invisible="equipment_availability_impact != 'unavailable' or stage_id.fold">
+                        <div>
+                            <i class="fa fa-ban fa-lg me-2 text-danger"/>
+                            <strong>Clinical Availability Impact:</strong> This equipment is currently taken <strong>out of service</strong>. Appointments requiring this equipment will be flagged with an availability warning.
+                        </div>
+                    </div>
+
+                    <div class="oe_title">
+                        <label for="name" string="Issue / Problem Summary"/>
+                        <h1>
+                            <field name="name" placeholder="e.g. Ultrasonic scaler water leak, Autoclave pressure error 04..."/>
+                        </h1>
+                    </div>
+
+                    <group>
+                        <group string="Equipment &amp; Clinic Location">
+                            <field name="equipment_id" required="1"/>
+                            <field name="category_id"/>
+                            <field name="branch_id" required="1"/>
+                            <field name="company_id" invisible="1"/>
+                            <field name="maintenance_type" widget="radio"/>
+                            <field name="equipment_availability_impact" widget="radio"/>
+                        </group>
+                        <group string="Schedule &amp; Priority">
+                            <field name="request_date"/>
+                            <field name="priority" widget="priority"/>
+                            <field name="schedule_date" string="Target / Scheduled Date"/>
+                            <field name="schedule_end" string="Target Completion"/>
+                            <field name="duration" widget="float_time" string="Hours Spent"/>
+                            <field name="close_date" readonly="1"/>
+                        </group>
+                    </group>
+
+                    <group>
+                        <group string="Personnel &amp; Assignment">
+                            <field name="owner_user_id" string="Reported By"/>
+                            <field name="employee_id" string="Responsible Staff"/>
+                            <field name="maintenance_team_id"/>
+                            <field name="user_ids" widget="many2many_tags" string="Technicians"/>
+                        </group>
+                        <group string="Maintenance Expense Summary">
+                            <field name="repair_cost" widget="monetary" string="Service / Labor Expense"/>
+                            <field name="parts_cost" widget="monetary" string="Parts Cost" readonly="1"/>
+                            <field name="total_cost" widget="monetary" string="Total Maintenance Cost" class="fw-bold fs-5 text-primary" readonly="1"/>
+                        </group>
+                    </group>
+
+                    <notebook>
+                        <page string="Problem Description" name="description">
+                            <field name="description" placeholder="Describe the symptoms, error codes, and operational observations in detail..."/>
+                        </page>
+                        <page string="Spare Parts Used" name="spare_parts">
+                            <field name="parts_used_ids">
+                                <list editable="bottom">
+                                    <field name="product_id" string="Inventory Product (Optional)"/>
+                                    <field name="name" string="Part Name / Specification"/>
+                                    <field name="quantity"/>
+                                    <field name="unit_cost" widget="monetary"/>
+                                    <field name="subtotal" widget="monetary" sum="Total Parts Expense"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Technical Resolution Notes" name="resolution">
+                            <field name="resolution_notes" placeholder="Detailed technical diagnosis, repairs performed, replaced components, and post-repair testing outcome..."/>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_dental_maintenance_request_search" model="ir.ui.view">
+        <field name="name">dental.maintenance.request.search</field>
+        <field name="model">maintenance.request</field>
+        <field name="arch" type="xml">
+            <search string="Search Maintenance Requests">
+                <field name="name" string="Problem / Task"/>
+                <field name="equipment_id"/>
+                <field name="category_id"/>
+                <field name="branch_id"/>
+                <separator/>
+                <filter string="Open Requests" name="filter_open" domain="[('stage_id.fold', '=', False)]"/>
+                <filter string="Breakdowns (Corrective)" name="filter_corrective" domain="[('maintenance_type', '=', 'corrective')]"/>
+                <filter string="Preventive Service" name="filter_preventive" domain="[('maintenance_type', '=', 'preventive')]"/>
+                <filter string="Equipment Out of Service" name="filter_unavailable" domain="[('equipment_availability_impact', '=', 'unavailable'), ('stage_id.fold', '=', False)]"/>
+                <separator/>
+                <filter string="Repaired / Completed" name="filter_done" domain="[('stage_id.fold', '=', True)]"/>
+                <group>
+                    <filter string="Equipment" name="group_by_equipment" context="{'group_by': 'equipment_id'}"/>
+                    <filter string="Stage" name="group_by_stage" context="{'group_by': 'stage_id'}"/>
+                    <filter string="Maintenance Type" name="group_by_type" context="{'group_by': 'maintenance_type'}"/>
+                    <filter string="Clinic Branch" name="group_by_branch" context="{'group_by': 'branch_id'}"/>
+                    <filter string="Availability Impact" name="group_by_impact" context="{'group_by': 'equipment_availability_impact'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_dental_maintenance_requests" model="ir.actions.act_window">
+        <field name="name">Maintenance &amp; Repair Requests</field>
+        <field name="res_model">maintenance.request</field>
+        <field name="view_mode">list,kanban,form</field>
+        <field name="view_id" ref="view_dental_maintenance_request_tree"/>
+        <field name="search_view_id" ref="view_dental_maintenance_request_search"/>
+        <field name="context">{'search_default_filter_open': 1}</field>
+    </record>
+
+    <!-- Quick action for Receptionist / Clinic Staff to report issue -->
+    <record id="action_reception_report_equipment_issue" model="ir.actions.act_window">
+        <field name="name">Report Equipment Issue</field>
+        <field name="res_model">maintenance.request</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+        <field name="context">{
+            'default_maintenance_type': 'corrective',
+            'default_equipment_availability_impact': 'unavailable',
+            'default_priority': '2',
+        }</field>
+    </record>
+
+    <!-- Filtered action for Receptionist to view unavailable equipment requests -->
+    <record id="action_reception_unavailable_equipment" model="ir.actions.act_window">
+        <field name="name">Equipment Under Maintenance</field>
+        <field name="res_model">maintenance.request</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[('equipment_availability_impact', '=', 'unavailable'), ('stage_id.fold', '=', False)]</field>
+        <field name="view_id" ref="view_dental_maintenance_request_tree"/>
+    </record>
+
+    <!-- Action for Preventive Maintenance Schedules -->
+    <record id="action_dental_preventive_schedule" model="ir.actions.act_window">
+        <field name="name">Preventive Maintenance Schedules</field>
+        <field name="res_model">maintenance.equipment</field>
+        <field name="view_mode">list,form</field>
+        <field name="view_id" ref="view_dental_equipment_tree"/>
+        <field name="context">{'search_default_group_by_category': 1}</field>
+    </record>
+</odoo>

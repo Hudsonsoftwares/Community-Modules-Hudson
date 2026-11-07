@@ -5,10 +5,14 @@ import { ListController } from "@web/views/list/list_controller";
 import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
 import { kanbanView } from "@web/views/kanban/kanban_view";
+import { KanbanRecord } from "@web/views/kanban/kanban_record";
+import { KanbanRenderer } from "@web/views/kanban/kanban_renderer";
+import { ConfirmationDialog } from "@web/core/confirmation_dialog/confirmation_dialog";
+import { _t } from "@web/core/l10n/translation";
 import { listView } from "@web/views/list/list_view";
 import { Component } from "@odoo/owl";
 
-function triggerDirectUpload(orm, action) {
+function triggerDirectUpload(orm, action, fromTemplates = false) {
     const input = document.createElement("input");
     input.type = "file";
     input.accept = "application/pdf";
@@ -30,7 +34,9 @@ function triggerDirectUpload(orm, action) {
                 base64 = base64.split("base64,")[1];
             }
             try {
-                const res = await orm.call("hudson.sign.template", "create_template_from_file", [file.name, base64]);
+                const res = await orm.call("hudson.sign.template", "create_template_from_file", [file.name, base64], {
+                    from_templates: fromTemplates,
+                });
                 if (res) {
                     action.doAction(res);
                 }
@@ -54,13 +60,40 @@ export class HudsonSignTemplateKanbanController extends KanbanController {
     }
 
     async uploadPdf() {
-        triggerDirectUpload(this.orm, this.action);
+        triggerDirectUpload(this.orm, this.action, this.props.resModel === "hudson.sign.template");
     }
+}
+
+// Archive / Restore from the card menu: Odoo only reloads the card itself, so an
+// archived template stayed in the list until the page was refreshed
+export class HudsonSignTemplateKanbanRecord extends KanbanRecord {
+    async archiveRecord(record, active) {
+        const reloadList = () => record.model.root.load();
+        if (active) {
+            this.dialog.add(ConfirmationDialog, {
+                body: _t("Are you sure that you want to archive this record?"),
+                confirmLabel: _t("Archive"),
+                confirm: async () => {
+                    await record.archive();
+                    await reloadList();
+                },
+                cancel: () => {},
+            });
+        } else {
+            await record.unarchive();
+            await reloadList();
+        }
+    }
+}
+
+export class HudsonSignTemplateKanbanRenderer extends KanbanRenderer {
+    static components = { ...KanbanRenderer.components, KanbanRecord: HudsonSignTemplateKanbanRecord };
 }
 
 export const hudsonSignTemplateKanbanView = {
     ...kanbanView,
     Controller: HudsonSignTemplateKanbanController,
+    Renderer: HudsonSignTemplateKanbanRenderer,
     buttonTemplate: "hudson_sign.KanbanButtons",
 };
 
@@ -75,7 +108,7 @@ export class HudsonSignTemplateListController extends ListController {
     }
 
     async uploadPdf() {
-        triggerDirectUpload(this.orm, this.action);
+        triggerDirectUpload(this.orm, this.action, this.props.resModel === "hudson.sign.template");
     }
 }
 

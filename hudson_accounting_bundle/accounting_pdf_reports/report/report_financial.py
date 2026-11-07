@@ -126,6 +126,8 @@ class ReportFinancial(models.AbstractModel):
                     flag = False
                     account = self.env['account.account'].browse(account_id)
                     vals = {
+                        'account_id': account.id,
+                        'account_code': account.code,
                         'name': ' '.join(part for part in (account.code, account.name) if part),
                         'balance': value['balance'] * float(report.sign) or 0.0,
                         'type': 'account',

@@ -232,3 +232,22 @@
 .bg-color-7 { background-color: #d63384; color: white; border-left-color: #ab296a; }
 .bg-color-8 { background-color: #d9534f; color: white;  border-left-color: #c9302c; }
 .bg-color-9 { background-color: #ffc107; color: #000;  border-left-color: #cc9a06; }
+
+/* ── Field Service jobs on the schedule ── */
+.fs-sched-job-card { background-color: #017e84; color: white; border-left-color: #015b5f; }
+.fs-sched-slot-card.is-job { border-left-width: 5px; }
+
+/* Shifts shown on the Field Service board (read-only availability) */
+.fs-sched-slot-card.is-shift {
+    background-color: #e9ecef;
+    color: #495057;
+    border-left-color: #adb5bd;
+    box-shadow: none;
+    cursor: default;
+}
+
+/* Shift dialog: publishing is done from the footer, as in the "Add Shift" dialog */
+.modal .o_fs_header_publish {
+    display: none !important;
+}
+

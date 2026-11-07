@@ -9,7 +9,7 @@
                 <setting id="custom_barcode_nomenclature_setting" title="Barcode Nomenclature" company_dependent="1" help="Switch between Default Nomenclature and Default GS1 Nomenclature.">
                     <field name="barcode_nomenclature_id" required="1"/>
                     <div class="mt16">
-                        <button name="%(Barcode.action_report_barcode_commands)d" icon="fa-arrow-right" type="action" string="Print barcode commands and operation types" class="btn-link text-primary"/>
+                        <button name="%(Barcode.action_report_barcode_commands)d" icon="arrow_forward" type="action" string="Print barcode commands and operation types" class="btn-link text-primary"/>
                     </div>
                 </setting>
             </xpath>

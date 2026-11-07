@@ -254,7 +254,7 @@ class QualityCheck(models.Model):
     def action_view_alerts(self):
         self.ensure_one()
         action = self.env['ir.actions.act_window']._for_xml_id(
-            'Quality.action_quality_alert')
+            'hudson_quality.action_quality_alert')
         action['domain'] = [('check_id', '=', self.id)]
         action['context'] = {'default_check_id': self.id}
         return action

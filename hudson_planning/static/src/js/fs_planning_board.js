@@ -16,6 +16,7 @@
 
 import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
+import { FormViewDialog } from "@web/views/view_dialogs/form_view_dialog";
 import { Component, useState, onMounted, onWillUnmount, useRef, proxy } from "@odoo/owl";
 
 const useStateHook = proxy || useState || ((obj) => obj);
@@ -107,6 +108,7 @@ export class FsPlanningBoard extends Component {
     setup() {
         this.orm = useService("orm");
         this.action = useService("action");
+        this.dialog = useService("dialog");
         this.notification = useService("notification");
 
         this.gridWrapper = useRef("gridWrapper");
@@ -422,16 +424,14 @@ export class FsPlanningBoard extends Component {
 
     openOrder(ev, orderId) {
         ev.stopPropagation();
-        this.action.doAction({
-            type: "ir.actions.act_window",
-            res_model: "fs.planning.slot",
-            res_id: orderId,
-            views: [[false, "form"]],
-            target: "new", // Open as dialog (like Enterprise Add Shift)
+        // Dialog that can be expanded to the full form view
+        this.dialog.add(FormViewDialog, {
+            resModel: "fs.planning.slot",
+            resId: orderId,
+            title: "Edit Shift",
+            onRecordSaved: () => this._loadData(),
         }, {
-            onClose: () => {
-                this._loadData();
-            }
+            onClose: () => this._loadData(),
         });
     }
 

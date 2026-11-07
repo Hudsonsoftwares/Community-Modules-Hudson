@@ -66,12 +66,22 @@ class AccountBankStatementLine(models.Model):
         return abs(trans_amount) / abs(company_amount) if company_amount else 1.0
 
     def _om_to_transaction_amount(self, currency, amount_currency, balance):
-        """ Express a journal item amount in the transaction currency, using the bank rate. """
-        trans_currency, _company_currency = self._om_currencies()
+        """ Express a journal item amount in the transaction currency, using the bank rate.
+
+        An item in a foreign currency (other than the one of the transaction) is worth its foreign amount
+        at the date of the transaction, not its historical value in company currency: the gap between both
+        is the realized exchange difference booked when the items are reconciled. Using the historical
+        value would match only a part of a foreign invoice paid by a transaction in company currency and
+        leave the exchange difference on the suspense account.
+        """
+        trans_currency, company_currency = self._om_currencies()
         if currency == trans_currency:
             return amount_currency
+        if currency != company_currency and not currency.is_zero(amount_currency):
+            balance = company_currency.round(
+                currency._convert(amount_currency, company_currency, self.company_id, self.date))
         return self._prepare_counterpart_amounts_using_st_line_rate(
-            self.company_id.currency_id, balance, balance)['amount_currency']
+            company_currency, balance, balance)['amount_currency']
 
     # -------------------------------------------------------------------------
     # Lines of a reconciliation
@@ -196,11 +206,18 @@ class AccountBankStatementLine(models.Model):
             amount = match.get('amount')
             aml_amount = self._om_to_transaction_amount(aml.currency_id, aml.amount_residual_currency,
                                                         aml.amount_residual)
+            fit_to_transaction = False
             if amount is None and not trans_currency.is_zero(aml_amount) and (aml_amount > 0) == (to_cover > 0) \
                     and trans_currency.compare_amounts(abs(aml_amount), abs(to_cover)) > 0:
                 # by default an item is only matched up to the amount of the transaction
                 amount = aml.currency_id.round(abs(aml.amount_residual_currency) * abs(to_cover) / abs(aml_amount))
+                fit_to_transaction = True
             vals = self._om_prepare_match_line_vals(aml, amount)
+            if fit_to_transaction and vals['currency_id'] != trans_currency.id:
+                # an item in another foreign currency covering the rest of the transaction: its value in company
+                # currency is what the bank paid, otherwise a rounding difference stays on the suspense account
+                vals['balance'] = self._prepare_counterpart_amounts_using_st_line_rate(
+                    trans_currency, None, -to_cover)['balance']
             to_cover += self._om_to_transaction_amount(
                 self.env['res.currency'].browse(vals['currency_id']), vals['amount_currency'], vals['balance'])
             lines.append((vals, aml))
@@ -267,23 +284,46 @@ class AccountBankStatementLine(models.Model):
             raise UserError(_('The transaction %s is already reconciled.', self.display_name))
 
         if proposal.get('partner_id') and proposal['partner_id'] != self.partner_id.id:
-            self.partner_id = proposal['partner_id']
+            # setting the partner is part of this reconciliation: nothing else may reconcile the transaction
+            # in between (an automatic matching would pay a second invoice with the same money)
+            self.with_context(om_skip_auto_reconcile=True).partner_id = proposal['partner_id']
+            self.invalidate_recordset(['is_reconciled', 'amount_residual'])
+            if self.is_reconciled:
+                raise UserError(_('The transaction %s was reconciled in the meantime.', self.display_name))
 
         lines = self._om_prepare_proposal_lines(proposal)
         if not lines:
             raise UserError(_('Select journal items to match or add a counterpart first.'))
         matched_amls = self.env['account.move.line'].union([aml for _vals, aml in lines])
         self._om_check_matches(matched_amls)
-        remaining_trans, remaining_balance = self._om_remaining(lines)
 
+        self = self.with_context(skip_account_move_synchronization=True)
         _liquidity_lines, suspense_lines, _other_lines = self._seek_for_lines()
-        move = self.move_id.with_context(skip_readonly_check=True, check_move_validity=False, force_delete=True)
-        AccountMoveLine = self.env['account.move.line'].with_context(skip_readonly_check=True,
-                                                                     check_move_validity=False)
+        move = self.move_id.with_context(
+            skip_readonly_check=True,
+            check_move_validity=False,
+            force_delete=True,
+            skip_account_move_synchronization=True,
+        )
+        AccountMoveLine = self.env['account.move.line'].with_context(
+            skip_readonly_check=True,
+            check_move_validity=False,
+            skip_account_move_synchronization=True,
+        )
         new_lines = AccountMoveLine.create([{**vals, 'move_id': move.id} for vals, _aml in lines])
-        suspense_lines.with_context(force_delete=True, skip_readonly_check=True, check_move_validity=False).unlink()
+        suspense_lines.with_context(
+            force_delete=True,
+            skip_readonly_check=True,
+            check_move_validity=False,
+            skip_account_move_synchronization=True,
+        ).unlink()
+        # What is left is read from the journal items as they were written, so that nothing is ever pushed
+        # silently onto one of the counterparts: an amount the counterparts do not cover stays open on the
+        # suspense account, a mere difference of rounding in company currency between the rate of the bank
+        # and the counterparts in foreign currency is a realized exchange difference.
         trans_currency, company_currency = self._om_currencies()
-        if not (trans_currency.is_zero(remaining_trans) and company_currency.is_zero(remaining_balance)):
+        remaining_trans, remaining_balance = self._om_remaining([])
+        if not trans_currency.is_zero(remaining_trans):
             AccountMoveLine.create({
                 'move_id': move.id,
                 'name': self.payment_ref,
@@ -293,18 +333,42 @@ class AccountBankStatementLine(models.Model):
                 'amount_currency': remaining_trans,
                 'balance': remaining_balance,
             })
-        with self.move_id._check_balanced({'records': self.move_id}):
+        elif not company_currency.is_zero(remaining_balance):
+            company = self.company_id
+            exchange_account = (company.expense_currency_exchange_account_id if remaining_balance > 0
+                                else company.income_currency_exchange_account_id)
+            if not exchange_account:
+                raise UserError(_(
+                    'Configure the gain and loss exchange difference accounts of the company %s first.',
+                    company.display_name))
+            AccountMoveLine.create({
+                'move_id': move.id,
+                'name': _('Exchange Difference'),
+                'account_id': exchange_account.id,
+                'partner_id': self.partner_id.id,
+                'currency_id': trans_currency.id,
+                'amount_currency': 0.0,
+                'balance': remaining_balance,
+            })
+
+        with move._check_balanced({'records': move}):
             pass
 
         plan = [line + aml for line, (_vals, aml) in zip(new_lines, lines) if aml]
         if plan:
-            self.env['account.move.line']._reconcile_plan(plan)
+            self.env['account.move.line'].with_context(skip_account_move_synchronization=True)._reconcile_plan(plan)
         self.invalidate_recordset(['is_reconciled', 'amount_residual'])
         return True
 
     def _om_undo(self):
+        """ Undo the reconciliation; any error is raised to the user, never hidden. """
         self._om_check_access()
         self.action_undo_reconciliation()
+        self.invalidate_recordset(['is_reconciled', 'amount_residual'])
+        for st_line in self:
+            if not st_line.currency_id.is_zero(st_line.amount) and st_line.is_reconciled:
+                raise UserError(_('The reconciliation of the transaction %s could not be undone.',
+                                  st_line.display_name))
         return True
 
     # -------------------------------------------------------------------------
@@ -379,9 +443,8 @@ class AccountBankStatementLine(models.Model):
             score = 0
             aml_trans_residual = self._om_to_transaction_amount(aml.currency_id, aml.amount_residual_currency,
                                                                 aml.amount_residual)
-            if trans_currency.compare_amounts(aml_trans_residual, residual) == 0 or (
-                    aml.currency_id != trans_currency
-                    and aml.currency_id.compare_amounts(aml.amount_residual_currency, residual) == 0):
+            # amounts are compared in the currency of the transaction only: 100 EUR is not 100 USD
+            if trans_currency.compare_amounts(aml_trans_residual, residual) == 0:
                 score += SCORE_AMOUNT
             references = [aml.move_id.name, aml.move_id.payment_reference, aml.ref]
             if any(reference and len(reference) > 3 and reference.upper().replace(' ', '') in normalized_label
@@ -441,7 +504,7 @@ class AccountBankStatementLine(models.Model):
         """
         reconciled = self.browse()
         models = self.env['account.reconcile.model'].search([
-            ('company_id', 'in', self.company_id.ids),
+            '|', ('company_id', '=', False), ('company_id', 'in', self.company_id.ids),
         ])
         for st_line in self:
             try:
@@ -458,18 +521,26 @@ class AccountBankStatementLine(models.Model):
         self.ensure_one()
         if self.is_reconciled:
             return False
-        company_models = models.filtered(lambda model: model.company_id == self.company_id)
+        company_models = models.filtered(lambda model: not model.company_id or model.company_id == self.company_id)
         for model in company_models.filtered('mapped_partner_id'):
             if not self.partner_id and model._om_is_applicable(self):
                 self.partner_id = model.mapped_partner_id
                 break
-        for model in company_models.filtered(
-                lambda model: model.trigger == 'auto_reconcile' and not model.mapped_partner_id):
+        # only the models set to "Automated": a "Manual" model is a button the user clicks on the screen,
+        # whatever its conditions and counterparts
+        for model in company_models.filtered(lambda model: model._om_is_auto()):
             if not model._om_is_applicable(self):
                 continue
             proposal = model._om_get_proposal(self)
             if proposal and self._om_is_complete(proposal):
                 self._om_reconcile(proposal)
+                self.invalidate_recordset()
+                if hasattr(self, '_compute_is_reconciled'):
+                    self._compute_is_reconciled()
+                if hasattr(self, '_compute_hudson_matched_account_name'):
+                    self._compute_hudson_matched_account_name()
+                if hasattr(self, '_compute_hudson_suggestions'):
+                    self._compute_hudson_suggestions()
                 if model.next_activity_type_id:
                     self.move_id.activity_schedule(activity_type_id=model.next_activity_type_id.id)
                 return True
@@ -480,6 +551,13 @@ class AccountBankStatementLine(models.Model):
                 proposal = {'matches': [{'aml_id': perfect[0].id}]}
                 if self._om_is_complete(proposal):
                     self._om_reconcile(proposal)
+                    self.invalidate_recordset()
+                    if hasattr(self, '_compute_is_reconciled'):
+                        self._compute_is_reconciled()
+                    if hasattr(self, '_compute_hudson_matched_account_name'):
+                        self._compute_hudson_matched_account_name()
+                    if hasattr(self, '_compute_hudson_suggestions'):
+                        self._compute_hudson_suggestions()
                     return True
         return False
 

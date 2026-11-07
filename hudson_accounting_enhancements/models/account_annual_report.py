@@ -1,4 +1,5 @@
 from datetime import date
+from dateutil.relativedelta import relativedelta
 from odoo import api, fields, models, _
 from odoo.exceptions import UserError
 
@@ -17,15 +18,16 @@ class AccountAnnualReport(models.Model):
         required=True,
     )
 
+    # the fiscal year of the company (e.g. April - March), not the calendar year
     date_from = fields.Date(
         string='Date From',
         required=True,
-        default=lambda self: date.today().replace(month=1, day=1),
+        default=lambda self: self.env.company.compute_fiscalyear_dates(fields.Date.context_today(self))['date_from'],
     )
     date_to = fields.Date(
         string='Date To',
         required=True,
-        default=lambda self: date.today().replace(month=12, day=31),
+        default=lambda self: self.env.company.compute_fiscalyear_dates(fields.Date.context_today(self))['date_to'],
     )
     target_move = fields.Selection(
         [('posted', 'All Posted Entries'), ('all', 'All Entries')],
@@ -56,6 +58,28 @@ class AccountAnnualReport(models.Model):
         store=True,
     )
 
+    @api.constrains('company_id')
+    def _check_company_id(self):
+        for r in self:
+            if r.company_id and r.company_id not in self.env.user.company_ids:
+                raise UserError(_("You cannot create or modify an Annual Report for a company you do not belong to."))
+
+    def unlink(self):
+        for r in self:
+            if r.company_id and r.company_id not in self.env.companies:
+                raise UserError(_("You cannot delete an Annual Report belonging to another company (%s).") % r.company_id.name)
+        return super().unlink()
+
+    def write(self, vals):
+        if 'company_id' in vals and vals['company_id']:
+            target_comp = self.env['res.company'].browse(vals['company_id'])
+            if target_comp not in self.env.companies:
+                raise UserError(_("You cannot move an Annual Report to a company you are not currently logged into."))
+        for r in self:
+            if r.company_id and r.company_id not in self.env.companies:
+                raise UserError(_("You cannot modify an Annual Report belonging to another company (%s).") % r.company_id.name)
+        return super().write(vals)
+
     @api.depends('date_from', 'date_to')
     def _compute_period_display(self):
         for r in self:
@@ -82,7 +106,7 @@ class AccountAnnualReport(models.Model):
 
     def _get_balance(self, account_types, date_from, date_to, company_id, state):
         """Period movement balance for P&L items."""
-        state_clause = "AND aml.parent_state = 'posted'" if state == 'posted' else ''
+        state_clause = "AND aml.parent_state = 'posted'" if state == 'posted' else "AND aml.parent_state IN ('draft', 'posted')"
         query = f"""
             SELECT COALESCE(SUM(aml.debit - aml.credit), 0.0)
             FROM account_move_line aml
@@ -101,7 +125,7 @@ class AccountAnnualReport(models.Model):
 
     def _get_cumulative_balance(self, account_types, as_of_date, company_id, state):
         """Cumulative balance up to date for BS items."""
-        state_clause = "AND aml.parent_state = 'posted'" if state == 'posted' else ''
+        state_clause = "AND aml.parent_state = 'posted'" if state == 'posted' else "AND aml.parent_state IN ('draft', 'posted')"
         query = f"""
             SELECT COALESCE(SUM(aml.debit - aml.credit), 0.0)
             FROM account_move_line aml
@@ -119,25 +143,43 @@ class AccountAnnualReport(models.Model):
 
     def _get_prior_year_balance(self, account_types, as_of_date, company_id, state):
         """Get balance as of one year before (prior year comparison)."""
-        from datetime import timedelta
-        prior_date = as_of_date.replace(year=as_of_date.year - 1)
+        prior_date = as_of_date - relativedelta(years=1)
         return self._get_cumulative_balance(account_types, prior_date, company_id, state)
 
     def _get_prior_year_period_balance(self, account_types, date_from, date_to, company_id, state):
         """Prior year period movement balance."""
-        try:
-            prior_from = date_from.replace(year=date_from.year - 1)
-            prior_to = date_to.replace(year=date_to.year - 1)
-        except ValueError:
-            # Feb 29 edge case
-            prior_from = date_from.replace(year=date_from.year - 1, day=28)
-            prior_to = date_to.replace(year=date_to.year - 1, day=28)
+        # relativedelta clamps 29 February to the 28th
+        prior_from = date_from - relativedelta(years=1)
+        prior_to = date_to - relativedelta(years=1)
         return self._get_balance(account_types, prior_from, prior_to, company_id, state)
 
     def _get_aged_lines(self, account_type, as_of_date, company_id, state, period_length=30):
-        """Get aged payable/receivable bucket totals."""
-        state_clause = "AND am.state = 'posted'" if state == 'posted' else ''
+        """Get aged payable/receivable bucket totals, as they were on ``as_of_date``: what each item
+        still owed on that date (its amount less what was matched with it on or before that date),
+        not what it owes today - a report of last year printed today would show nothing open."""
+        state_clause = "AND am.state = 'posted'" if state == 'posted' else "AND am.state IN ('draft', 'posted')"
         query = f"""
+            WITH open_items AS (
+                SELECT aml.id, aml.date, aml.date_maturity,
+                       aml.balance
+                       - COALESCE((SELECT SUM(pr.amount) FROM account_partial_reconcile pr
+                                    WHERE pr.debit_move_id = aml.id AND pr.max_date <= %(as_of)s), 0)
+                       + COALESCE((SELECT SUM(pr.amount) FROM account_partial_reconcile pr
+                                    WHERE pr.credit_move_id = aml.id AND pr.max_date <= %(as_of)s), 0)
+                       AS amount_residual
+                FROM account_move_line aml
+                JOIN account_account aa ON aa.id = aml.account_id
+                JOIN account_move am ON am.id = aml.move_id
+                WHERE aa.account_type = %(atype)s
+                  AND aml.date <= %(as_of)s
+                  AND aml.company_id = %(cid)s
+                  AND aml.display_type NOT IN ('line_section', 'line_note')
+                  AND (aml.reconciled IS NOT TRUE OR EXISTS (
+                        SELECT 1 FROM account_partial_reconcile pr
+                         WHERE (pr.debit_move_id = aml.id OR pr.credit_move_id = aml.id)
+                           AND pr.max_date > %(as_of)s))
+                  {state_clause}
+            )
             SELECT
                 COALESCE(SUM(aml.amount_residual), 0) as total,
                 COALESCE(SUM(CASE WHEN (%(as_of)s - COALESCE(aml.date_maturity, aml.date)) BETWEEN 1 AND %(p)s THEN aml.amount_residual ELSE 0 END), 0) as b1,
@@ -146,15 +188,8 @@ class AccountAnnualReport(models.Model):
                 COALESCE(SUM(CASE WHEN (%(as_of)s - COALESCE(aml.date_maturity, aml.date)) BETWEEN %(p3)s+1 AND %(p4)s THEN aml.amount_residual ELSE 0 END), 0) as b4,
                 COALESCE(SUM(CASE WHEN (%(as_of)s - COALESCE(aml.date_maturity, aml.date)) > %(p4)s THEN aml.amount_residual ELSE 0 END), 0) as b5,
                 COALESCE(SUM(CASE WHEN (%(as_of)s - COALESCE(aml.date_maturity, aml.date)) <= 0 THEN aml.amount_residual ELSE 0 END), 0) as current_amt
-            FROM account_move_line aml
-            JOIN account_account aa ON aa.id = aml.account_id
-            JOIN account_move am ON am.id = aml.move_id
-            WHERE aa.account_type = %(atype)s
-              AND aml.date <= %(as_of)s
-              AND aml.company_id = %(cid)s
-              AND aml.display_type NOT IN ('line_section', 'line_note')
-              AND aml.amount_residual != 0
-              {state_clause}
+            FROM open_items aml
+            WHERE aml.amount_residual != 0
         """
         self.env.cr.execute(query, {
             'as_of': as_of_date,
@@ -175,6 +210,8 @@ class AccountAnnualReport(models.Model):
 
     def _compute_annual_data(self):
         self.ensure_one()
+        if self.company_id and self.company_id not in self.env.companies:
+            raise UserError(_("You cannot access financial data of another company (%s).") % self.company_id.name)
         if self.date_from > self.date_to:
             raise UserError(_('Date From must be before Date To.'))
 
@@ -189,9 +226,10 @@ class AccountAnnualReport(models.Model):
         cogs = self._get_balance(['expense_direct_cost'], df, dt, cid, st)
         operating_expenses = self._get_balance(['expense'], df, dt, cid, st)
         depreciation = self._get_balance(['expense_depreciation'], df, dt, cid, st)
+        other_expenses = self._get_balance(['expense_other'], df, dt, cid, st)
         gross_profit = revenue - cogs
         operating_profit = gross_profit - operating_expenses - depreciation
-        net_profit = operating_profit + other_income
+        net_profit = operating_profit + other_income - other_expenses
 
         # ── P&L (prior period) ──
         prev_revenue = -self._get_prior_year_period_balance(['income'], df, dt, cid, st)
@@ -199,8 +237,9 @@ class AccountAnnualReport(models.Model):
         prev_cogs = self._get_prior_year_period_balance(['expense_direct_cost'], df, dt, cid, st)
         prev_operating_expenses = self._get_prior_year_period_balance(['expense'], df, dt, cid, st)
         prev_depreciation = self._get_prior_year_period_balance(['expense_depreciation'], df, dt, cid, st)
+        prev_other_expenses = self._get_prior_year_period_balance(['expense_other'], df, dt, cid, st)
         prev_gross_profit = prev_revenue - prev_cogs
-        prev_net_profit = prev_gross_profit + prev_other_income - prev_operating_expenses - prev_depreciation
+        prev_net_profit = prev_gross_profit + prev_other_income - prev_operating_expenses - prev_depreciation - prev_other_expenses
 
         # ── Balance Sheet (current) ──
         cash = self._get_cumulative_balance(['asset_cash'], dt, cid, st)
@@ -220,11 +259,14 @@ class AccountAnnualReport(models.Model):
         total_liabilities = total_curr_liab + noncurrent_liab
 
         equity = -self._get_cumulative_balance(['equity'], dt, cid, st)
-        unallocated_earnings = -self._get_cumulative_balance(['equity_unaffected'], dt, cid, st)
+        # P&L accounts are never closed by Odoo: results before the period belong to
+        # retained earnings, otherwise assets != liabilities + equity.
+        pl_types = ['income', 'income_other', 'expense', 'expense_other', 'expense_depreciation', 'expense_direct_cost']
+        unallocated_earnings = -self._get_cumulative_balance(['equity_unaffected'], dt, cid, st)             - self._get_cumulative_balance(pl_types, df - relativedelta(days=1), cid, st)
         total_equity = equity + unallocated_earnings + net_profit
 
         # ── Balance Sheet (prior year) ──
-        prior_dt = dt.replace(year=dt.year - 1)
+        prior_dt = dt - relativedelta(years=1)
         p_cash = self._get_cumulative_balance(['asset_cash'], prior_dt, cid, st)
         p_receivables = self._get_cumulative_balance(['asset_receivable'], prior_dt, cid, st)
         p_current_assets = self._get_cumulative_balance(['asset_current'], prior_dt, cid, st)
@@ -241,7 +283,7 @@ class AccountAnnualReport(models.Model):
         p_noncurrent_liab = -self._get_cumulative_balance(['liability_non_current'], prior_dt, cid, st)
         p_total_liabilities = p_total_curr_liab + p_noncurrent_liab
         p_equity = -self._get_cumulative_balance(['equity'], prior_dt, cid, st)
-        p_unallocated = -self._get_cumulative_balance(['equity_unaffected'], prior_dt, cid, st)
+        p_unallocated = -self._get_cumulative_balance(['equity_unaffected'], prior_dt, cid, st)             - self._get_cumulative_balance(pl_types, df - relativedelta(years=1, days=1), cid, st)
         p_total_equity = p_equity + p_unallocated + prev_net_profit
 
         # ── Aged ──
@@ -294,6 +336,8 @@ class AccountAnnualReport(models.Model):
 
     def action_print_report(self):
         self.ensure_one()
+        if self.company_id and self.company_id not in self.env.companies:
+            raise UserError(_("You cannot view or print an Annual Report belonging to another company (%s).") % self.company_id.name)
         data = self._compute_annual_data()
         return self.env.ref(
             'hudson_accounting_enhancements.action_report_annual'

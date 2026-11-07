@@ -35,6 +35,7 @@ class SaleOrder(models.Model):
         ('3_progress', 'In Progress'),
         ('4_paused', 'Paused'),
         ('5_renew', 'To Renew'),
+        ('5_renewed', 'Renewed'),
         ('6_churn', 'Churned'),
         ('7_upsell', 'Upsell'),
     ], string='Subscription Status', default='draft', tracking=True, copy=False, index=True)
@@ -213,6 +214,24 @@ class SaleOrder(models.Model):
         string='Is Overdue',
         compute='_compute_is_subscription_overdue'
     )
+    subscription_invoice_due = fields.Boolean(
+        string='Invoice Due',
+        compute='_compute_subscription_invoice_due',
+        help='True when the current billing period has not been invoiced yet. '
+             'Drives the highlighted "Create Invoice" button.'
+    )
+
+    @api.depends('invoice_ids.state', 'next_invoice_date', 'is_subscription')
+    def _compute_subscription_invoice_due(self):
+        today = fields.Date.context_today(self)
+        for order in self:
+            if not order.is_subscription:
+                order.subscription_invoice_due = False
+                continue
+            active_invoices = order.invoice_ids.filtered(lambda m: m.state != 'cancel')
+            order.subscription_invoice_due = not active_invoices or bool(
+                order.next_invoice_date and order.next_invoice_date <= today
+            )
 
     # -------------------------------------------------------------------------
     # COMPUTE METHODS
@@ -326,6 +345,9 @@ class SaleOrder(models.Model):
             if order.is_subscription and not order.plan_id and not has_recurring_product:
                 order.is_subscription = False
 
+            if order.is_renewal and order.origin_order_id:
+                order._check_renewal_can_be_confirmed()
+
         res = super(SaleOrder, self).action_confirm()
         for order in self:
             if order.is_subscription and order.subscription_state in ('draft', 'sent'):
@@ -334,13 +356,87 @@ class SaleOrder(models.Model):
                     order.start_date = fields.Date.context_today(order)
                 if not order.next_invoice_date and order.plan_id:
                     order.next_invoice_date = order.plan_id.get_next_date(order.start_date)
+            if order.is_renewal and order.origin_order_id:
+                order._close_renewed_parent()
+        return res
+
+    # -------------------------------------------------------------------------
+    # RENEWALS (Odoo Online behaviour)
+    # -------------------------------------------------------------------------
+
+    def _check_renewal_can_be_confirmed(self):
+        """A renewal continues its parent contract: it may not start before the
+        end of the period the parent already billed, or it would be billed twice."""
+        self.ensure_one()
+        parent = self.origin_order_id
+        if parent.subscription_state in ('5_renewed', '6_churn') and parent.child_order_ids.filtered(
+            lambda o: o.is_renewal and o.state == 'sale' and o != self
+        ):
+            raise UserError(_(
+                "%(parent)s has already been renewed. Cancel this quotation or renew the latest contract instead.",
+                parent=parent.name,
+            ))
+        if parent.next_invoice_date and self.start_date and self.start_date < parent.next_invoice_date \
+                and parent.invoice_ids.filtered(lambda m: m.state != 'cancel'):
+            raise UserError(_(
+                "You cannot validate a renewal quotation starting before the next invoice date of the "
+                "parent contract. Please set the start date of %(renewal)s on or after %(date)s.",
+                renewal=self.name,
+                date=parent.next_invoice_date,
+            ))
+
+    def _close_renewed_parent(self):
+        """Confirming a renewal closes its parent as "Renewed": the parent stops
+        billing at the renewal start date and the renewal takes over. Other
+        pending renewal quotations of the same parent are cancelled."""
+        self.ensure_one()
+        parent = self.origin_order_id.sudo()
+        if not parent.is_subscription or parent.subscription_state not in ('3_progress', '4_paused', '5_renew'):
+            return
+        renewal_start = self.start_date or fields.Date.context_today(self)
+        if parent.first_contract_date:
+            self.first_contract_date = parent.first_contract_date
+        parent.write({
+            'subscription_state': '5_renewed',
+            'end_date': renewal_start,
+            'close_date': fields.Date.context_today(self),
+        })
+        parent.message_post(body=Markup(_("Subscription renewed by %s, which takes over from %s.")) % (
+            self._get_html_link(), renewal_start))
+        self.message_post(body=Markup(_("This renewal continues %s.")) % parent._get_html_link())
+
+        other_quotes = parent.child_order_ids.filtered(
+            lambda o: o.is_renewal and o != self and o.state in ('draft', 'sent'))
+        if other_quotes:
+            other_quotes._action_cancel()
+            for quote in other_quotes:
+                quote.message_post(body=Markup(_("Cancelled because %s renewed the subscription.")) % self._get_html_link())
+
+    def _action_cancel(self):
+        """Cancelling a confirmed renewal re-opens the contract it had replaced."""
+        renewals = self.filtered(lambda o: o.is_renewal and o.state == 'sale' and o.origin_order_id
+                                 and o.origin_order_id.subscription_state == '5_renewed')
+        res = super()._action_cancel()
+        today = fields.Date.context_today(self)
+        for renewal in renewals:
+            parent = renewal.origin_order_id.sudo()
+            if parent.child_order_ids.filtered(lambda o: o.is_renewal and o.state == 'sale'):
+                continue  # another confirmed renewal still continues it
+            parent.write({
+                'subscription_state': '5_renew' if parent.end_date and parent.end_date <= today else '3_progress',
+                'close_date': False,
+            })
+            parent.message_post(body=Markup(_("Renewal %s was cancelled: the subscription is active again.")) % renewal._get_html_link())
+        if renewals:
+            renewals.write({'subscription_state': 'draft'})
         return res
 
     def _can_be_edited_on_portal(self):
-        """Override to allow editing optional lines on confirmed subscriptions."""
+        """Let customers change optional products of a running subscription
+        from the portal, but only when its plan allows "Add Products"."""
         self.ensure_one()
-        if self.is_subscription and self.subscription_state == '3_progress':
-            return True
+        if self.is_subscription and self.state == 'sale':
+            return bool(self.subscription_state == '3_progress' and self.plan_id.user_add_products)
         return super()._can_be_edited_on_portal()
 
     def action_confirm_subscription(self):
@@ -455,6 +551,37 @@ class SaleOrder(models.Model):
         action['res_id'] = upsell_order.id
         return action
 
+    def _get_renewal_start_date(self):
+        """First day not billed by this contract (its next invoice date once
+        it has been invoiced), else its end date."""
+        self.ensure_one()
+        if self.next_invoice_date and self.invoice_ids.filtered(lambda m: m.state != 'cancel'):
+            return self.next_invoice_date
+        return self.end_date or self.next_invoice_date or fields.Date.context_today(self)
+
+    def _create_portal_renewal_quote(self, plan=None):
+        """Renewal quotation requested by the customer from the portal,
+        optionally on another plan (portal "Change Plan")."""
+        self.ensure_one()
+        plan = plan or self.plan_id
+        # The renewal takes over where the parent's billing stops.
+        start = self._get_renewal_start_date()
+        renewal = self.copy({
+            'origin_order_id': self.id,
+            'is_renewal': True,
+            'is_subscription': True,
+            'subscription_state': 'draft',
+            'plan_id': plan.id,
+            'start_date': start,
+            'next_invoice_date': start,
+            'end_date': False,
+        })
+        if plan != self.plan_id:
+            # Reprice the lines with the pricing of the new plan.
+            renewal._onchange_plan_id()
+        renewal._portal_ensure_token()
+        return renewal
+
     def action_view_subscription_history(self):
         self.ensure_one()
         action = self.env['ir.actions.actions']._for_xml_id('hudson_subscriptions.action_subscription_orders')
@@ -509,14 +636,29 @@ class SaleOrder(models.Model):
                 'name': _('Customer Invoices'),
                 'type': 'ir.actions.act_window',
                 'res_model': 'account.move',
-                'view_mode': 'tree,form',
+                'view_mode': 'list,form',
                 'domain': [('id', 'in', invoices.ids)],
             }
         raise UserError(_("No invoice could be generated. Check product lines and invoice settings."))
 
+    def _get_subscription_invoice_qty(self, line):
+        """Quantity of ``line`` to bill on the next subscription invoice.
+
+        Recurring products are billed for the whole period, whatever their
+        invoicing policy. A service set to "Delivered Quantities" has no
+        delivery to wait for in a subscription: the period itself is what is
+        delivered, so it is billed instead of raising "No items are available
+        to invoice" like the standard flow does.
+        One-time products (setup fees, hardware...) are billed only once.
+        """
+        if line.product_id.recurring_invoice:
+            return line.product_uom_qty
+        return max(line.product_uom_qty - line.qty_invoiced, 0.0)
+
     def _create_subscription_invoice(self, automatic=False):
         """Creates invoice for a subscription order and advances next_invoice_date."""
         self.ensure_one()
+        prior_active_invoices = self.invoice_ids.filtered(lambda m: m.state != 'cancel')
         invoice_vals = {
             'move_type': 'out_invoice',
             'partner_id': self.partner_invoice_id.id or self.partner_id.id,
@@ -533,11 +675,14 @@ class SaleOrder(models.Model):
         for line in self.order_line:
             if line.display_type:
                 continue
+            qty = self._get_subscription_invoice_qty(line)
+            if not qty:
+                continue
             line_vals = {
                 'name': f"{line.name} ({self.plan_id.name if self.plan_id else 'Recurring'})",
                 'product_id': line.product_id.id,
-                'quantity': line.product_uom_qty,
-                'product_uom_id': line.product_uom.id if hasattr(line, 'product_uom') else line.product_uom_id.id if hasattr(line, 'product_uom_id') else False,
+                'quantity': qty,
+                'product_uom_id': line.product_uom_id.id,
                 'price_unit': line.price_unit,
                 'discount': line.discount,
                 'tax_ids': [(6, 0, line.tax_ids.ids)],
@@ -545,12 +690,31 @@ class SaleOrder(models.Model):
             }
             invoice_vals['invoice_line_ids'].append((0, 0, line_vals))
 
-        invoice = self.env['account.move'].create(invoice_vals)
+        if not invoice_vals['invoice_line_ids']:
+            raise UserError(_(
+                "There is nothing to invoice on %s. Add a product to the subscription first.",
+                self.name,
+            ))
 
-        # Update next billing date
+        # Update next billing date. The first invoice covers the first period,
+        # which action_confirm already accounted for (next date = start + 1
+        # period), so it only moves the date when it is already due.
+        previous_next_date = self.next_invoice_date
         if self.plan_id:
-            curr_date = self.next_invoice_date or fields.Date.context_today(self)
-            self.next_invoice_date = self.plan_id.get_next_date(curr_date)
+            today = fields.Date.context_today(self)
+            curr_date = self.next_invoice_date or today
+            # Renewals start billing on their start date (next date == start date).
+            if prior_active_invoices or curr_date <= today or curr_date == self.start_date:
+                self.next_invoice_date = self.plan_id.get_next_date(curr_date)
+            else:
+                self.next_invoice_date = curr_date
+
+        invoice_vals.update({
+            'subscription_order_id': self.id,
+            'subscription_prev_next_date': previous_next_date,
+            'subscription_new_next_date': self.next_invoice_date,
+        })
+        invoice = self.env['account.move'].create(invoice_vals)
 
         # Check end date
         if self.end_date and self.next_invoice_date and self.next_invoice_date > self.end_date:
@@ -590,7 +754,9 @@ class SaleOrder(models.Model):
         Rows: Cohorts by start date (first_contract_date or start_date)
         Columns: Initial measure, +0, +1, +2, ... period retention percentages.
         """
-        domain = [('is_subscription', '=', True), ('state', '!=', 'cancel')]
+        # Renewals continue their parent contract: they are followed through
+        # the parent below instead of counting as new subscriptions.
+        domain = [('is_subscription', '=', True), ('state', '!=', 'cancel'), ('is_renewal', '=', False)]
         if search_query and search_query.strip():
             q = search_query.strip()
             domain += ['|', ('name', 'ilike', q), ('partner_id.name', 'ilike', q)]
@@ -600,13 +766,24 @@ class SaleOrder(models.Model):
         order_data = []
         today = fields.Date.today()
 
+        def latest_renewal(order):
+            seen = set()
+            while order.subscription_state == '5_renewed' and order.id not in seen:
+                seen.add(order.id)
+                renewal = order.child_order_ids.filtered(lambda c: c.is_renewal and c.state == 'sale')[:1]
+                if not renewal:
+                    break
+                order = renewal
+            return order
+
         for o in orders:
             s_date = o.first_contract_date or o.start_date or (o.date_order and o.date_order.date()) or today
+            last = latest_renewal(o)
             e_date = None
-            if o.subscription_state == '6_churn':
-                e_date = o.close_date or o.end_date or (o.write_date and o.write_date.date()) or today
-            elif o.end_date:
-                e_date = o.end_date
+            if last.subscription_state == '6_churn':
+                e_date = last.close_date or last.end_date or (last.write_date and last.write_date.date()) or today
+            elif last.end_date:
+                e_date = last.end_date
 
             val = 1.0
             if measure == 'recurring_monthly':
@@ -620,7 +797,7 @@ class SaleOrder(models.Model):
                 'partner_name': o.partner_id.name or '',
                 'start_date': s_date,
                 'end_date': e_date,
-                'state': o.subscription_state,
+                'state': last.subscription_state,
                 'value': val,
             })
 

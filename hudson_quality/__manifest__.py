@@ -54,10 +54,10 @@ Implements:
     'installable': True,
     'assets': {
         'spreadsheet.o_spreadsheet': [
-            'Quality/static/src/spreadsheet_bundle/**/*.js',
+            'hudson_quality/static/src/spreadsheet_bundle/**/*.js',
         ],
         'web.assets_backend': [
-            'Quality/static/src/assets_backend/**/*.js',
+            'hudson_quality/static/src/assets_backend/**/*.js',
         ],
     },
     'license': 'LGPL-3',

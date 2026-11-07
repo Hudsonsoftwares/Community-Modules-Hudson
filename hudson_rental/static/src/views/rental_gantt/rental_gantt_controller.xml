@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+
+    <t t-name="hudson_rental.RentalGanttController">
+        <div class="o_rental_gantt_view h-100" t-att-class="{ 'o_rental_gantt_fullscreen': this.state.isFullscreen }">
+            <Layout display="this.props.display">
+                <t t-set-slot="control-panel-additional-actions">
+                    <CogMenu/>
+                </t>
+                <t t-set-slot="control-panel-buttons">
+                    <button type="button" class="btn btn-primary o_rental_gantt_new" data-hotkey="c"
+                            t-on-click="() => this.createOrder()">New</button>
+                </t>
+                <t t-set-slot="control-panel-actions">
+                    <SearchBar toggler="this.searchBarToggler"/>
+                </t>
+                <t t-set-slot="control-panel-navigation-additional">
+                    <t t-component="this.searchBarToggler.component" t-props="this.searchBarToggler.props"/>
+                </t>
+                <div class="o_rental_gantt d-flex flex-column h-100 bg-view">
+                    <!-- Toolbar -->
+                    <div class="o_rental_gantt_toolbar d-flex flex-wrap align-items-center gap-1 px-3 py-2 border-bottom">
+                        <div class="btn-group">
+                            <button class="btn btn-secondary o_rental_gantt_prev" title="Previous" aria-label="Previous"
+                                    t-on-click="() => this.move('previous')"><i class="oi" data-icon="arrow_back"/></button>
+                            <button class="btn btn-secondary o_rental_gantt_next" title="Next" aria-label="Next"
+                                    t-on-click="() => this.move('next')"><i class="oi" data-icon="arrow_forward"/></button>
+                        </div>
+                        <ViewScaleSelector scales="this.scales" currentScale="this.model.scale" setScale.bind="this.setScale"/>
+                        <button class="btn btn-secondary o_rental_gantt_today" t-on-click="() => this.move('today')">Today</button>
+                        <button class="btn btn-secondary o_rental_gantt_fullscreen_toggle"
+                                t-att-title="this.state.isFullscreen ? 'Exit full screen' : 'Full screen'"
+                                t-on-click="() => this.state.isFullscreen = !this.state.isFullscreen">
+                            <i class="oi" t-att-data-icon="this.state.isFullscreen ? 'fullscreen_exit' : 'expand_content'"/>
+                        </button>
+                        <!-- Colour legend -->
+                        <div class="o_rental_gantt_legend d-flex flex-wrap align-items-center gap-2 ms-auto small">
+                            <t t-foreach="this.legend" t-as="item" t-key="item.key">
+                                <span class="d-inline-flex align-items-center gap-1 text-nowrap">
+                                    <span class="o_rental_gantt_swatch" t-att-class="'o_rental_status_' + item.key"/>
+                                    <t t-out="item.label"/>
+                                </span>
+                            </t>
+                        </div>
+                    </div>
+
+                    <!-- Timeline -->
+                    <div class="o_rental_gantt_scroll flex-grow-1 overflow-auto">
+                        <div class="o_rental_gantt_table">
+                            <!-- Header -->
+                            <div class="o_rental_gantt_header d-flex">
+                                <div class="o_rental_gantt_row_header o_rental_gantt_corner d-flex align-items-center justify-content-center fw-bold">
+                                    Rental
+                                </div>
+                                <div class="o_rental_gantt_timeline_header flex-grow-1">
+                                    <div class="o_rental_gantt_title px-2 small" t-out="this.model.title"/>
+                                    <div class="o_rental_gantt_grid" t-att-style="this.gridStyle()">
+                                        <t t-foreach="this.model.columns" t-as="column" t-key="column.key">
+                                            <div class="o_rental_gantt_header_cell text-center text-truncate"
+                                                 t-att-class="{ 'o_rental_gantt_today': column.isToday }"
+                                                 t-out="column.label"/>
+                                        </t>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Rows -->
+                            <t t-foreach="this.model.rows" t-as="row" t-key="row.key">
+                                <div class="o_rental_gantt_row d-flex" t-att-data-row-key="row.key">
+                                    <div class="o_rental_gantt_row_header d-flex align-items-center px-2"
+                                         t-att-title="row.label">
+                                        <span class="text-truncate" t-out="row.label"/>
+                                    </div>
+                                    <div class="o_rental_gantt_cells flex-grow-1 position-relative"
+                                         t-att-style="this.rowHeight(row)"
+                                         title="Click or drag to create a rental"
+                                         t-on-pointerdown="(ev) => this.onCellsPointerDown(row, ev)">
+                                        <div class="o_rental_gantt_grid h-100" t-att-style="this.gridStyle()">
+                                            <t t-foreach="this.model.columns" t-as="column" t-key="column.key">
+                                                <div class="o_rental_gantt_cell"
+                                                     t-att-class="{ 'o_rental_gantt_today': column.isToday, 'o_rental_gantt_weekend': column.isWeekend }"/>
+                                            </t>
+                                        </div>
+                                        <div t-if="this.selection.rowKey === row.key"
+                                             class="o_rental_gantt_selection"
+                                             t-att-style="this.selectionStyle(row)"/>
+                                        <t t-foreach="row.pills" t-as="pill" t-key="pill.id">
+                                            <div class="o_rental_gantt_pill text-truncate"
+                                                 t-att-class="['o_rental_status_' + pill.status, pill.continuesBefore ? 'o_continues_before' : '', pill.continuesAfter ? 'o_continues_after' : ''].join(' ')"
+                                                 t-att-style="this.pillStyle(pill)"
+                                                 t-att-title="this.pillTitle(pill)"
+                                                 t-att-data-id="pill.id"
+                                                 t-on-click.stop="() => this.openOrder(pill)">
+                                                <t t-out="pill.label"/>
+                                            </div>
+                                        </t>
+                                    </div>
+                                </div>
+                            </t>
+                            <div t-if="!this.model.rows.length" class="text-center text-muted p-5">
+                                No rentals in this period.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </Layout>
+        </div>
+    </t>
+
+</templates>

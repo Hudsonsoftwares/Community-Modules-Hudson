@@ -459,10 +459,10 @@ class DmsDirectory(models.Model):
             record.count_files = files
             record.count_files_title = _("%s Files") % files
 
-    @api.depends("child_directory_ids", "file_ids")
+    @api.depends("count_files", "count_directories", "child_directory_ids", "file_ids")
     def _compute_count_elements(self):
         for record in self:
-            record.count_elements = record.count_files + record.count_directories
+            record.count_elements = (record.count_files or len(record.file_ids)) + (record.count_directories or len(record.child_directory_ids))
 
     def _compute_count_total_directories(self):
         for record in self:

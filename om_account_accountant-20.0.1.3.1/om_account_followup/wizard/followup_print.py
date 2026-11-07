@@ -32,10 +32,14 @@ class FollowupPrint(models.TransientModel):
         nbmails = 0
         nbunknownmails = 0
         nbprints = 0
+        # the level each customer reaches with this run (by default, the highest level of its open items)
+        levels = {int(stat_id): self.env['followup.line'].browse(level_id)
+                  for stat_id, level_id in (self.env.context.get('followup_levels') or {}).items()}
         for partner in self.env['followup.stat.by.partner'].browse(
                 partner_ids):
-            if partner.max_followup_id.manual_action:
-                partner_obj.do_partner_manual_action([partner.partner_id.id])
+            level = levels.get(partner.id) or partner.max_followup_id
+            if level.manual_action:
+                partner_obj.do_partner_manual_action([partner.partner_id.id], level=level)
                 nbmanuals = nbmanuals + 1
                 key = partner.partner_id.payment_responsible_id.name or _(
                     "Anybody")
@@ -43,14 +47,13 @@ class FollowupPrint(models.TransientModel):
                     manuals[key] = 1
                 else:
                     manuals[key] = manuals[key] + 1
-            if partner.max_followup_id.send_email:
-                nbunknownmails += partner.partner_id.do_partner_mail()
+            if level.send_email:
+                nbunknownmails += partner.partner_id.do_partner_mail(level=level)
                 nbmails += 1
-            if partner.max_followup_id.send_letter and not self.env.context.get('followup_automatic'):
+            if level.send_letter and not self.env.context.get('followup_automatic'):
                 partner_ids_to_print.append(partner.id)
                 nbprints += 1
-                message = _("Follow-up letter of %s will be sent",
-                            Markup("<i>%s</i>") % partner.partner_id.latest_followup_level_id.name)
+                message = _("Follow-up letter of %s will be sent", Markup("<i>%s</i>") % level.name)
                 partner.partner_id.message_post(body=message)
         paragraph = Markup("<p>%s</p>")
         if nbunknownmails == 0:
@@ -81,20 +84,39 @@ class FollowupPrint(models.TransientModel):
                      'followup_date': date})
 
     def clear_manual_actions(self, partner_list):
-        """ The follow-up activities of the customers who have paid everything are done """
+        """ The follow-up activities of the customers who have paid everything are done.
+
+        Only the activities of the company of the plan are concerned: the customer may still owe the other
+        companies. The activities created before they were linked to a company are only done when the customer
+        owes nothing to any company.
+        """
+        company = self.company_id or self.env.company
         partner_list_ids = self.env['followup.stat.by.partner'].browse(partner_list).partner_id.ids
         activity_type = self.env.ref('om_account_followup.mail_activity_type_followup')
         activities = self.env['mail.activity'].search([
             ('res_model', '=', 'res.partner'),
             ('activity_type_id', '=', activity_type.id),
             ('res_id', 'not in', partner_list_ids),
+            ('followup_company_id', 'in', [company.id, False]),
         ])
-        partners = self.env['res.partner'].browse(activities.mapped('res_id')).exists()
+        partners = self.env['res.partner'].with_company(company).browse(activities.mapped('res_id')).exists()
         paid = partners.filtered(lambda partner: partner.payment_amount_due <= 0)
-        done = activities.filtered(lambda activity: activity.res_id in paid.ids)
+        still_owing = self.env['mail.activity']
+        legacy = activities.filtered(lambda activity: not activity.followup_company_id)
+        if legacy:
+            owing = self.env['account.move.line'].sudo()._read_group([
+                ('partner_id', 'in', legacy.mapped('res_id')),
+                ('account_id.account_type', '=', 'asset_receivable'),
+                ('parent_state', '=', 'posted'),
+                ('reconciled', '=', False),
+                ('move_id.followup_disputed', '=', False),
+            ], groupby=['partner_id', 'company_id'], aggregates=['amount_residual:sum'])
+            owing_partner_ids = {partner.id for partner, _company, residual in owing if residual > 0}
+            still_owing = legacy.filtered(lambda activity: activity.res_id in owing_partner_ids)
+        done = activities.filtered(lambda activity: activity.res_id in paid.ids) - still_owing
         if done:
             done.action_feedback(feedback=_('Nothing is due any more.'))
-        return len(paid)
+        return len(set(done.mapped('res_id')))
 
     def do_process(self):
         self = self.with_company(self.company_id)
@@ -109,7 +131,7 @@ class FollowupPrint(models.TransientModel):
 
         self.do_update_followup_level(to_update, partner_list, date)
         restot_context = context.copy()
-        restot = self.with_context(restot_context).process_partners(
+        restot = self.with_context(restot_context, followup_levels=tmp.get('levels', {})).process_partners(
             partner_list, data)
         context.update(restot_context)
         nbactionscleared = self.clear_manual_actions(partner_list)
@@ -151,11 +173,16 @@ class FollowupPrint(models.TransientModel):
         stat = self.env['followup.stat.by.partner']
         partner_list = []
         to_update = {}
+        levels = {}
         for partner, values in state.items():
-            if not values['lines_due']:
+            # nothing is sent to a customer who owes nothing overall, e.g. when an unapplied payment covers
+            # the overdue invoices
+            if not values['lines_due'] or company.currency_id.compare_amounts(values['amount_due'], 0) <= 0:
                 continue
             stat_line_id = stat._get_stat_id(partner.id, company.id)
             partner_list.append(stat_line_id)
+            # the reminder sent is the level reached by this run, not the highest one ever reached
+            levels[stat_line_id] = values['level_due'].id
             for line, level in values['lines_due'].items():
                 to_update[str(line.id)] = {'level': level.id, 'partner_id': stat_line_id}
-        return {'partner_ids': partner_list, 'to_update': to_update}
+        return {'partner_ids': partner_list, 'to_update': to_update, 'levels': levels}

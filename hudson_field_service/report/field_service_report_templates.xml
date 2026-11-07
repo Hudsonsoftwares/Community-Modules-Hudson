@@ -142,8 +142,10 @@
                                         <th>Product</th>
                                         <th>Description</th>
                                         <th class="text-end">Qty</th>
-                                        <th class="text-end">Unit Price</th>
-                                        <th class="text-end">Subtotal</th>
+                                        <t t-if="not doc.fs_hide_prices_enabled">
+                                            <th class="text-end">Unit Price</th>
+                                            <th class="text-end">Subtotal</th>
+                                        </t>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -151,11 +153,13 @@
                                         <td><span t-field="pl.product_id"/></td>
                                         <td><span t-field="pl.description"/></td>
                                         <td class="text-end"><span t-field="pl.quantity"/></td>
-                                        <td class="text-end"><span t-field="pl.price_unit" t-options="{'widget': 'monetary', 'display_currency': doc.company_id.currency_id}"/></td>
-                                        <td class="text-end"><span t-field="pl.price_subtotal" t-options="{'widget': 'monetary', 'display_currency': doc.company_id.currency_id}"/></td>
+                                        <t t-if="not doc.fs_hide_prices_enabled">
+                                            <td class="text-end"><span t-field="pl.price_unit" t-options="{'widget': 'monetary', 'display_currency': doc.company_id.currency_id}"/></td>
+                                            <td class="text-end"><span t-field="pl.price_subtotal" t-options="{'widget': 'monetary', 'display_currency': doc.company_id.currency_id}"/></td>
+                                        </t>
                                     </tr>
                                 </tbody>
-                                <tfoot>
+                                <tfoot t-if="not doc.fs_hide_prices_enabled">
                                     <tr>
                                         <td colspan="4" class="text-end"><strong>Products Total</strong></td>
                                         <td class="text-end">
@@ -167,6 +171,27 @@
                                 </tfoot>
                             </table>
                         </div>
+
+                        <!-- Worksheet -->
+                        <t t-if="doc.worksheet_template_id and doc.fs_worksheets_enabled">
+                            <t t-set="ws_sections" t-value="doc._get_worksheet_report_sections()"/>
+                            <div t-if="ws_sections" class="mb-4">
+                                <h5 t-field="doc.worksheet_template_id.name"/>
+                                <t t-foreach="ws_sections" t-as="section">
+                                    <h6 t-if="section[0]" class="mt-3 text-uppercase" t-out="section[0]"/>
+                                    <table class="table table-sm">
+                                        <tr t-foreach="section[1]" t-as="line">
+                                            <td class="w-25"><strong t-out="line[0]"/></td>
+                                            <td>
+                                                <img t-if="line[1] == 'signature'" t-att-src="line[2]" style="max-height: 4rem;" alt="Signature"/>
+                                                <div t-elif="line[1] == 'html'" t-out="line[2]"/>
+                                                <span t-else="" t-out="line[2]"/>
+                                            </td>
+                                        </tr>
+                                    </table>
+                                </t>
+                            </div>
+                        </t>
 
                         <!-- Work Performed -->
                         <div t-if="doc.worksheet_notes" class="mb-4">

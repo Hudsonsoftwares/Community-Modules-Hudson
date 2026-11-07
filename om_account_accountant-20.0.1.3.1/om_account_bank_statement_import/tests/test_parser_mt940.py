@@ -72,14 +72,16 @@ class TestMt940Parser(TransactionCase):
         self.assertEqual(credit['partner_name'], 'ACME Corp')
         self.assertEqual(credit['account_number'], 'NL91ABNA0417164300')
         self.assertEqual(credit['payment_ref'], 'Invoice 2023 0001')
-        self.assertEqual(credit['unique_import_id'], 'BANKREF001-123/1-1')
+        self.assertTrue(credit['unique_import_id'].startswith('2023-01-15-250.50-BANKREF001-'))
+        self.assertEqual(credit['legacy_unique_import_id'], 'BANKREF001-123/1-1')
         self.assertEqual(credit['transaction_type'], 'NTRF')
         self.assertTrue(credit['narration'].startswith('/EREF/'))
         self.assertEqual(debit['amount'], -100.0)
         self.assertEqual(debit['date'], date(2023, 1, 20))
         self.assertEqual(debit['partner_name'], 'Electricity Ltd')
         self.assertEqual(debit['payment_ref'], 'Energy bill')
-        self.assertEqual(debit['unique_import_id'], 'BANKREF002-123/1-2')
+        self.assertTrue(debit['unique_import_id'].startswith('2023-01-20--100.00-BANKREF002-'))
+        self.assertEqual(debit['legacy_unique_import_id'], 'BANKREF002-123/1-2')
 
     def test_mt940_reversals(self):
         """RC and RD cancel a credit and a debit, their amounts go the other way."""
@@ -101,7 +103,8 @@ class TestMt940Parser(TransactionCase):
         self.assertEqual(transaction['partner_name'], 'Muster GmbH & Co KG')
         self.assertEqual(transaction['account_number'], 'DE02120300000000202051')
         self.assertEqual(transaction['payment_ref'], 'SVWZ+Rechnung 4711 Kd-Nr 12345')
-        self.assertEqual(transaction['unique_import_id'], '9876543-4/1-1')
+        self.assertIn('-9876543-', transaction['unique_import_id'])
+        self.assertEqual(transaction['legacy_unique_import_id'], '9876543-4/1-1')
 
     def test_mt940_envelope_and_duplicates(self):
         """A file in its SWIFT envelope, whose two identical lines keep two identifiers."""
@@ -119,3 +122,22 @@ class TestMt940Parser(TransactionCase):
         self.assertIsNone(mt940.parse(b'OFXHEADER:100\nDATA:OFXSGML\n', 'file.ofx', {}))
         self.assertIsNone(mt940.parse(b'<?xml version="1.0"?><Document/>', 'file.xml', {}))
         self.assertIsNone(mt940.parse(b'!Type:Bank\nD01/15/2023\nT250.50\n^\n', 'file.qif', {}))
+
+    def test_mt940_overlapping_exports_give_the_same_identifiers(self):
+        """An export overlapping an earlier one (another statement number, the lines at other places)
+        gives the transactions they have in common the same identifiers."""
+        later = """:20:STARTUMS
+:25:NL02ABNA0123456789 EUR
+:28C:124/1
+:60F:C230119EUR1250,50
+:61:2301200120D100,00NTRFCUSTREF002//BANKREF002
+:86:/NAME/Electricity Ltd/REMI/Energy bill
+:61:2301250125C40,00NTRFNONREF//BANKREF003
+:86:/NAME/Someone/REMI/Refund
+:62F:C230131EUR1190,50
+"""
+        first = mt940.parse(MT940.encode(), 'first.sta', {})[0]['transactions']
+        second = mt940.parse(later.encode(), 'second.sta', {})[0]['transactions']
+        self.assertEqual(first[1]['unique_import_id'], second[0]['unique_import_id'])
+        self.assertNotEqual(first[1]['legacy_unique_import_id'], second[0]['legacy_unique_import_id'])
+        self.assertNotIn(second[1]['unique_import_id'], [line['unique_import_id'] for line in first])

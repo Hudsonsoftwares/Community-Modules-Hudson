@@ -1,0 +1,1255 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <template id="book_appointment" name="Book Dental Appointment">
+        <t t-call="website.layout">
+            <t t-set="additional_title">Dental Appointment Booking | <t t-out="request.env.company.name or 'Dental Clinic'"/></t>
+            <div id="wrap" class="oe_structure oe_empty">
+
+                <!-- STYLES MATCHING THE APPOINTMENT BOOKING WIZARD -->
+                <style><![CDATA[
+                    .o_dental_booking_flow_wrapper {
+                        background-color: #f8fafc;
+                        min-height: 85vh;
+                        padding: 30px 15px 80px 15px;
+                        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+                    }
+
+                    .flow-main-container {
+                        max-width: 860px;
+                        margin: 0 auto;
+                        background: #ffffff;
+                        border-radius: 18px;
+                        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05), 0 1px 3px rgba(0, 0, 0, 0.03);
+                        border: 1px solid #e2e8f0;
+                        padding: 36px 32px 50px 32px;
+                        position: relative;
+                    }
+
+                    /* Stepper Header */
+                    .flow-stepper-header {
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        border-bottom: 1px solid #f1f5f9;
+                        padding-bottom: 24px;
+                        margin-bottom: 30px;
+                    }
+
+                    .stepper-progress {
+                        display: flex;
+                        align-items: center;
+                        gap: 8px;
+                    }
+
+                    .step-dot {
+                        width: 34px;
+                        height: 34px;
+                        border-radius: 50%;
+                        background: #f1f5f9;
+                        color: #64748b;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        font-size: 0.9rem;
+                        font-weight: 700;
+                        transition: all 0.25s ease;
+                    }
+
+                    .step-dot.active {
+                        background: #0284c7;
+                        color: #ffffff;
+                        box-shadow: 0 0 0 4px rgba(2, 132, 199, 0.18);
+                    }
+
+                    .step-dot.completed {
+                        background: #e0f2fe;
+                        color: #0284c7;
+                    }
+
+                    .step-line {
+                        width: 24px;
+                        height: 2px;
+                        background: #e2e8f0;
+                        border-radius: 2px;
+                    }
+
+                    .step-line.active {
+                        background: #0284c7;
+                    }
+
+                    /* Summary Pills Bar */
+                    .summary-pills-bar {
+                        display: flex;
+                        flex-wrap: wrap;
+                        gap: 8px;
+                        margin-bottom: 24px;
+                        padding: 12px 16px;
+                        background: #f8fafc;
+                        border-radius: 10px;
+                        border: 1px solid #f1f5f9;
+                    }
+
+                    .summary-item {
+                        display: inline-flex;
+                        align-items: center;
+                        gap: 6px;
+                        padding: 5px 12px;
+                        background: #ffffff;
+                        border: 1px solid #e2e8f0;
+                        border-radius: 20px;
+                        font-size: 0.85rem;
+                        color: #334155;
+                        font-weight: 600;
+                    }
+
+                    .summary-item i {
+                        color: #0284c7;
+                    }
+
+                    /* Flow Titles */
+                    .flow-title {
+                        font-size: 1.75rem;
+                        font-weight: 800;
+                        color: #1e293b;
+                        margin-bottom: 6px;
+                    }
+
+                    .flow-subtitle {
+                        font-size: 0.95rem;
+                        color: #64748b;
+                        margin-bottom: 24px;
+                    }
+
+                    /* Step 1 Choice Cards */
+                    .choice-card-btn {
+                        background: #ffffff;
+                        border: 2px solid #e2e8f0;
+                        border-radius: 12px;
+                        padding: 24px 18px;
+                        text-align: center;
+                        cursor: pointer;
+                        transition: all 0.2s ease;
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
+                        height: 100%;
+                    }
+
+                    .choice-card-btn .choice-icon {
+                        font-size: 2.2rem;
+                        color: #0284c7;
+                        margin-bottom: 12px;
+                    }
+
+                    .choice-card-btn .choice-label {
+                        font-size: 1.15rem;
+                        font-weight: 700;
+                        color: #1e293b;
+                    }
+
+                    .choice-card-btn .choice-desc {
+                        font-size: 0.88rem;
+                        color: #64748b;
+                        margin-top: 4px;
+                    }
+
+                    .choice-card-btn:hover, .choice-card-btn.selected {
+                        border-color: #0284c7;
+                        background: #f0f9ff;
+                        transform: translateY(-2px);
+                        box-shadow: 0 4px 12px rgba(2, 132, 199, 0.12);
+                    }
+
+                    /* Existing Patient Box */
+                    .returning-patient-box {
+                        background: #f8fafc;
+                        border: 1px solid #e2e8f0;
+                        border-radius: 12px;
+                        padding: 20px;
+                        margin-top: 20px;
+                        animation: fadeIn 0.25s ease-in-out;
+                    }
+
+                    .patient-preview-card {
+                        background: #ffffff;
+                        border: 1px solid #cbd5e1;
+                        border-radius: 8px;
+                        padding: 14px 18px;
+                        margin-top: 14px;
+                    }
+
+                    /* Grid Cards for Services & Doctors */
+                    .type-grid-card, .doctor-choice-card {
+                        background: #ffffff;
+                        border: 1.5px solid #e2e8f0;
+                        border-radius: 12px;
+                        padding: 20px 16px;
+                        cursor: pointer;
+                        transition: all 0.2s ease;
+                        height: 100%;
+                        display: flex;
+                        flex-direction: column;
+                        justify-content: space-between;
+                    }
+
+                    .type-grid-card:hover, .type-grid-card.selected,
+                    .doctor-choice-card:hover, .doctor-choice-card.selected {
+                        border-color: #0284c7;
+                        background: #f0f9ff;
+                        box-shadow: 0 4px 14px rgba(2, 132, 199, 0.12);
+                        transform: translateY(-2px);
+                    }
+
+                    .type-icon {
+                        width: 48px;
+                        height: 48px;
+                        border-radius: 10px;
+                        background: #e0f2fe;
+                        color: #0284c7;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        font-size: 1.4rem;
+                        margin-bottom: 12px;
+                    }
+
+                    .type-name, .doctor-name {
+                        font-weight: 700;
+                        color: #1e293b;
+                        font-size: 1.05rem;
+                        margin-bottom: 4px;
+                    }
+
+                    .doctor-avatar-circle {
+                        width: 52px;
+                        height: 52px;
+                        border-radius: 50%;
+                        background: #e0f2fe;
+                        color: #0284c7;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        font-size: 1.5rem;
+                        margin-bottom: 12px;
+                    }
+
+                    .doctor-spec {
+                        font-size: 0.85rem;
+                        color: #64748b;
+                    }
+
+                    /* Slots Styles */
+                    .slots-section-title {
+                        font-size: 0.95rem;
+                        font-weight: 700;
+                        color: #475569;
+                        margin-bottom: 10px;
+                    }
+
+                    .slot-bubble-btn {
+                        padding: 9px 16px;
+                        border-radius: 8px;
+                        border: 1.5px solid #cbd5e1;
+                        background: #ffffff;
+                        color: #334155;
+                        font-weight: 600;
+                        font-size: 0.92rem;
+                        cursor: pointer;
+                        transition: all 0.2s ease;
+                    }
+
+                    .slot-bubble-btn:hover {
+                        border-color: #0284c7;
+                        color: #0284c7;
+                    }
+
+                    .slot-bubble-btn.selected {
+                        background: #0284c7;
+                        border-color: #0284c7;
+                        color: #ffffff;
+                        box-shadow: 0 2px 8px rgba(2, 132, 199, 0.25);
+                    }
+
+                    .slot-bubble-btn:disabled {
+                        opacity: 0.45;
+                        cursor: not-allowed;
+                        background: #f1f5f9;
+                        border-color: #e2e8f0;
+                    }
+
+                    /* Footer Buttons */
+                    .flow-footer-nav {
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        margin-top: 34px;
+                        padding-top: 24px;
+                        border-top: 1px solid #f1f5f9;
+                    }
+
+                    .btn-prev {
+                        background: #ffffff;
+                        border: 1px solid #cbd5e1;
+                        color: #475569;
+                        font-weight: 600;
+                        padding: 10px 22px;
+                        border-radius: 8px;
+                        cursor: pointer;
+                        transition: all 0.2s;
+                    }
+
+                    .btn-prev:hover {
+                        background: #f8fafc;
+                        color: #1e293b;
+                    }
+
+                    .btn-next {
+                        background: #0284c7;
+                        border: 1px solid #0284c7;
+                        color: #ffffff;
+                        font-weight: 700;
+                        padding: 11px 26px;
+                        border-radius: 8px;
+                        cursor: pointer;
+                        transition: all 0.2s;
+                        box-shadow: 0 2px 8px rgba(2, 132, 199, 0.2);
+                    }
+
+                    .btn-next:hover {
+                        background: #0369a1;
+                    }
+
+                    .btn-next:disabled {
+                        background: #94a3b8;
+                        border-color: #94a3b8;
+                        cursor: not-allowed;
+                        box-shadow: none;
+                    }
+
+                    /* Success Screen */
+                    .success-badge-circle {
+                        width: 72px;
+                        height: 72px;
+                        border-radius: 50%;
+                        background: #dcfce7;
+                        color: #16a34a;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        font-size: 2.2rem;
+                        margin: 0 auto 16px auto;
+                    }
+
+                    .success-card-info {
+                        max-width: 520px;
+                        margin: 0 auto;
+                        background: #f8fafc;
+                        border: 1px solid #e2e8f0;
+                        border-radius: 12px;
+                        padding: 22px 24px;
+                        text-align: left;
+                    }
+
+                    @keyframes fadeIn {
+                        from { opacity: 0; transform: translateY(6px); }
+                        to { opacity: 1; transform: translateY(0); }
+                    }
+                ]]></style>
+
+                <!-- MAIN WIZARD CONTAINER -->
+                <div class="o_dental_booking_flow_wrapper">
+                    <div class="flow-main-container">
+
+                        <!-- TOP PROGRESS TRACKER (Steps 1 to 5) -->
+                        <div id="flow_stepper_header" class="flow-stepper-header">
+                            <div class="d-flex align-items-center">
+                                <a href="/" class="btn btn-sm btn-outline-secondary me-3">
+                                    <i class="fa fa-home me-1"/> Home
+                                </a>
+                                <h4 class="mb-0 fw-bold text-dark">Dental Appointment Booking</h4>
+                            </div>
+
+                            <div class="stepper-progress">
+                                <div class="step-dot active" id="dot_step_1">1</div>
+                                <div class="step-line" id="line_step_1"/>
+                                <div class="step-dot" id="dot_step_2">2</div>
+                                <div class="step-line" id="line_step_2"/>
+                                <div class="step-dot" id="dot_step_3">3</div>
+                                <div class="step-line" id="line_step_3"/>
+                                <div class="step-dot" id="dot_step_4">4</div>
+                                <div class="step-line" id="line_step_4"/>
+                                <div class="step-dot" id="dot_step_5">5</div>
+                            </div>
+                        </div>
+
+                        <!-- SUMMARY PILLS (visible on steps 2 to 5) -->
+                        <div id="summary_pills_bar" class="summary-pills-bar d-none">
+                            <div class="summary-item">
+                                <i class="fa fa-user"/>
+                                <span id="pill_patient_type">New Patient</span>
+                            </div>
+                            <div class="summary-item" id="pill_service_item">
+                                <i class="fa fa-stethoscope"/>
+                                <span id="pill_service_name">Consultation</span>
+                            </div>
+                            <div class="summary-item d-none" id="pill_doctor_item">
+                                <i class="fa fa-user-md"/>
+                                <span id="pill_doctor_name">Any Specialist</span>
+                            </div>
+                            <div class="summary-item d-none" id="pill_slot_item">
+                                <i class="fa fa-calendar-check-o"/>
+                                <span id="pill_slot_name">-</span>
+                            </div>
+                        </div>
+
+                        <!-- ERROR ALERT -->
+                        <div id="flow_error_alert" class="alert alert-danger py-2 px-3 mb-4 rounded-3 d-none align-items-center">
+                            <i class="fa fa-exclamation-triangle me-2 fs-5"/>
+                            <span id="flow_error_text"/>
+                        </div>
+
+                        <!-- ============================================================= -->
+                        <!-- STEP 1: PATIENT SELECTION (New vs Existing)                   -->
+                        <!-- ============================================================= -->
+                        <div id="pane_step_1">
+                            <h2 class="flow-title text-center">Welcome!</h2>
+                            <p class="flow-subtitle text-center">Select whether the patient has visited the clinic before or is a new registration.</p>
+
+                            <div class="row g-4 mb-4">
+                                <div class="col-md-6">
+                                    <div class="choice-card-btn selected" id="card_choice_new" onclick="selectPatientType('new')">
+                                        <i class="fa fa-user-plus choice-icon"/>
+                                        <span class="choice-label">New Patient</span>
+                                        <span class="choice-desc">First-time visitor to our dental clinic</span>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="choice-card-btn" id="card_choice_existing" onclick="selectPatientType('returning')">
+                                        <i class="fa fa-id-card-o choice-icon"/>
+                                        <span class="choice-label">Existing Patient</span>
+                                        <span class="choice-desc">Already registered in patient records</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Existing Patient Search Box -->
+                            <div id="existing_patient_search_box" class="returning-patient-box d-none">
+                                <label class="form-label fw-bold text-secondary mb-2">Look Up Existing Patient Record:</label>
+                                <div class="input-group">
+                                    <input type="text" 
+                                           id="ret_search_identifier" 
+                                           class="form-control" 
+                                           placeholder="Enter Mobile Number, Email, or Patient ID..."
+                                           onkeyup="if(event.key === 'Enter') lookupPatient();"/>
+                                    <button type="button" class="btn btn-primary px-4 fw-bold" id="btn_lookup_patient" onclick="lookupPatient()">
+                                        <i class="fa fa-search me-1" id="icon_search_patient"/>
+                                        Search
+                                    </button>
+                                </div>
+                                <div id="ret_search_message" class="small mt-2 d-none"></div>
+
+                                <!-- Found Patient Preview Card -->
+                                <div id="ret_patient_preview" class="patient-preview-card d-none">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <h6 class="fw-bold text-dark mb-1" id="prev_pat_name">-</h6>
+                                            <div class="small text-muted">
+                                                <span class="badge bg-primary-subtle text-primary me-2" id="prev_pat_id">Registered</span>
+                                                <i class="fa fa-phone me-1"/> <span id="prev_pat_phone">-</span>
+                                                <span class="ms-3" id="prev_pat_email_wrap"><i class="fa fa-envelope me-1"/> <span id="prev_pat_email">-</span></span>
+                                            </div>
+                                        </div>
+                                        <span class="badge bg-success-subtle text-success py-2 px-3 fw-bold">Verified</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Clinic Location Info -->
+                            <div class="mt-4 p-3 bg-light rounded-3 text-center border">
+                                <div class="text-primary fs-5 mb-1">
+                                    <i class="fa fa-hospital-o me-1"/> 
+                                    <strong><t t-out="request.env.company.name or 'Premier Arts Dental'"/></strong>
+                                </div>
+                                <div class="text-muted small">
+                                    <t t-out="(request.env.company.street and request.env.company.city) and ('%s, %s' % (request.env.company.street, request.env.company.city)) or request.env.company.street or 'Dental Clinic Location'"/>
+                                </div>
+                                <t t-if="request.env.company.phone">
+                                    <div class="text-secondary small mt-1">
+                                        <i class="fa fa-phone me-1"/> <t t-out="request.env.company.phone"/>
+                                    </div>
+                                </t>
+                            </div>
+
+                            <div class="flow-footer-nav justify-content-end">
+                                <button type="button" class="btn-next" onclick="goToStep(2)">
+                                    Continue to Services <i class="fa fa-arrow-right ms-2"/>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- ============================================================= -->
+                        <!-- STEP 2: APPOINTMENT TYPE / SERVICE SELECTION                  -->
+                        <!-- ============================================================= -->
+                        <div id="pane_step_2" class="d-none">
+                            <h2 class="flow-title">Choose Service / Appointment Type</h2>
+                            <p class="flow-subtitle">Select the dental procedure or consultation needed for this visit.</p>
+
+                            <div class="row g-3">
+                                <t t-foreach="appointment_types" t-as="atype">
+                                    <t t-set="dur_val" t-value="int(atype.duration or 30)"/>
+                                    <div class="col-md-6 col-lg-4">
+                                        <div class="type-grid-card"
+                                             t-att-data-id="atype.id"
+                                             t-att-data-name="atype.name"
+                                             t-att-data-duration="dur_val"
+                                             onclick="selectService(this)">
+                                            <div>
+                                                <div class="type-icon">
+                                                    <i class="fa fa-stethoscope"/>
+                                                </div>
+                                                <div class="type-name"><t t-out="atype.name"/></div>
+                                                <p class="small text-muted mb-2 line-clamp-2" style="font-size:0.85rem;">
+                                                    <t t-out="atype.description or 'Specialist dental consultation and clinical assessment.'"/>
+                                                </p>
+                                            </div>
+                                            <div class="d-flex justify-content-between align-items-center mt-2 pt-2 border-top">
+                                                <span class="type-duration-badge small text-muted">
+                                                    <i class="fa fa-clock-o me-1 text-primary"/> <t t-out="dur_val"/> min
+                                                </span>
+                                                <t t-if="atype.price">
+                                                    <span class="fw-bold text-primary">₹<t t-out="atype.price"/></span>
+                                                </t>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </t>
+                            </div>
+
+                            <div class="flow-footer-nav">
+                                <button type="button" class="btn-prev" onclick="goToStep(1)">
+                                    <i class="fa fa-arrow-left me-2"/> Back
+                                </button>
+                                <button type="button" class="btn-next" onclick="goToStep(3)">
+                                    Choose Dentist <i class="fa fa-arrow-right ms-2"/>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- ============================================================= -->
+                        <!-- STEP 3: DENTIST / PROVIDER SELECTION                          -->
+                        <!-- ============================================================= -->
+                        <div id="pane_step_3" class="d-none">
+                            <h2 class="flow-title">Select Dental Specialist</h2>
+                            <p class="flow-subtitle">Pick a specific dental practitioner or select any available specialist.</p>
+
+                            <div class="row g-3">
+                                <!-- Any Specialist Card -->
+                                <div class="col-md-6 col-lg-4">
+                                    <div class="doctor-choice-card selected" data-id="" data-name="Any Specialist" onclick="selectDoctor(this)">
+                                        <div class="doctor-avatar-circle" style="background: #e0e7ff; color: #4338ca;">
+                                            <i class="fa fa-users"/>
+                                        </div>
+                                        <div class="doctor-name">Any Specialist</div>
+                                        <div class="doctor-spec">Next Available Doctor</div>
+                                        <div class="badge bg-primary-subtle text-primary mt-2">Fastest Scheduling</div>
+                                    </div>
+                                </div>
+
+                                <!-- Specific Dentists -->
+                                <t t-foreach="dentists" t-as="doc">
+                                    <div class="col-md-6 col-lg-4">
+                                        <div class="doctor-choice-card"
+                                             t-att-data-id="doc.id"
+                                             t-att-data-name="doc.name"
+                                             onclick="selectDoctor(this)">
+                                            <div class="doctor-avatar-circle">
+                                                <i class="fa fa-user-md"/>
+                                            </div>
+                                            <div class="doctor-name"><t t-out="doc.name"/></div>
+                                            <div class="doctor-spec"><t t-out="doc.job_title or 'Dental Specialist'"/></div>
+                                            <div class="small text-muted mt-2">
+                                                <i class="fa fa-check-circle text-success me-1"/> Available
+                                            </div>
+                                        </div>
+                                    </div>
+                                </t>
+                            </div>
+
+                            <div class="flow-footer-nav">
+                                <button type="button" class="btn-prev" onclick="goToStep(2)">
+                                    <i class="fa fa-arrow-left me-2"/> Back
+                                </button>
+                                <button type="button" class="btn-next" onclick="goToStep(4)">
+                                    Select Schedule <i class="fa fa-arrow-right ms-2"/>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- ============================================================= -->
+                        <!-- STEP 4: DATE & REAL-TIME SLOTS                                -->
+                        <!-- ============================================================= -->
+                        <div id="pane_step_4" class="d-none">
+                            <h2 class="flow-title">Select Appointment Date &amp; Time</h2>
+                            <p class="flow-subtitle">Pick an available time slot for <strong class="text-primary" id="s4_doctor_name_label">Any Specialist</strong>.</p>
+
+                            <div class="card p-3 bg-light border-0 mb-4">
+                                <div class="row align-items-center">
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-bold text-dark mb-1">Appointment Date:</label>
+                                        <input type="date" 
+                                               id="booking_date_picker" 
+                                               class="form-control form-control-lg bg-white" 
+                                               onchange="fetchAvailableSlots()"/>
+                                    </div>
+                                    <div class="col-md-6 mt-3 mt-md-0">
+                                        <div class="small text-muted">Selected Provider:</div>
+                                        <div class="fw-bold fs-6 text-dark">
+                                            <i class="fa fa-user-md text-primary me-2"/>
+                                            <span id="s4_doctor_summary">Any Specialist</span>
+                                        </div>
+                                        <div class="small text-muted">
+                                            Duration: <strong id="s4_dur_summary">30</strong> minutes
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Slots Loader -->
+                            <div id="slots_loading_indicator" class="text-center py-5 d-none">
+                                <i class="fa fa-spinner fa-spin fa-2x text-primary mb-2"/>
+                                <div class="text-muted small">Checking doctor availability and schedule...</div>
+                            </div>
+
+                            <!-- Slots Container -->
+                            <div id="slots_results_box">
+                                <div id="slots_none_message" class="text-center py-4 text-muted d-none">
+                                    <i class="fa fa-calendar-times-o fa-2x mb-2 text-secondary"/>
+                                    <div>No available slots found for this date. Please pick another date.</div>
+                                </div>
+
+                                <div id="slots_available_section">
+                                    <!-- Morning Slots -->
+                                    <div class="slots-section-title">
+                                        <i class="fa fa-sun-o text-warning"/> Morning Slots (9:00 AM – 1:00 PM)
+                                    </div>
+                                    <div class="d-flex flex-wrap gap-2 mb-4" id="morning_slots_container">
+                                        <!-- Loaded dynamically -->
+                                    </div>
+
+                                    <!-- Afternoon Slots -->
+                                    <div class="slots-section-title">
+                                        <i class="fa fa-moon-o text-primary"/> Afternoon Slots (2:00 PM – 6:00 PM)
+                                    </div>
+                                    <div class="d-flex flex-wrap gap-2 mb-4" id="afternoon_slots_container">
+                                        <!-- Loaded dynamically -->
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="flow-footer-nav">
+                                <button type="button" class="btn-prev" onclick="goToStep(3)">
+                                    <i class="fa fa-arrow-left me-2"/> Back
+                                </button>
+                                <button type="button" class="btn-next" id="btn_goto_step_5" disabled="disabled" onclick="goToStep(5)">
+                                    Patient Details <i class="fa fa-arrow-right ms-2"/>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- ============================================================= -->
+                        <!-- STEP 5: PATIENT DETAILS & CONFIRM                             -->
+                        <!-- ============================================================= -->
+                        <div id="pane_step_5" class="d-none">
+                            <h2 class="flow-title">Patient Details &amp; Confirmation</h2>
+                            <p class="flow-subtitle">Please verify patient information and complete the appointment booking.</p>
+
+                            <form id="public_booking_form" onsubmit="submitAppointmentBooking(event)">
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-semibold text-secondary">First Name *</label>
+                                        <input type="text" class="form-control" id="inp_first_name" placeholder="First Name" required="required"/>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-semibold text-secondary">Last Name</label>
+                                        <input type="text" class="form-control" id="inp_last_name" placeholder="Last Name"/>
+                                    </div>
+
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-semibold text-secondary">Mobile Phone Number *</label>
+                                        <input type="tel" class="form-control" id="inp_phone" placeholder="e.g. 9876543210" required="required"/>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-semibold text-secondary">Email Address</label>
+                                        <input type="email" class="form-control" id="inp_email" placeholder="patient@example.com"/>
+                                    </div>
+
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-semibold text-secondary">Date of Birth</label>
+                                        <input type="date" class="form-control" id="inp_dob"/>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-semibold text-secondary">Gender</label>
+                                        <select class="form-select" id="inp_gender">
+                                            <option value="male">Male</option>
+                                            <option value="female">Female</option>
+                                            <option value="other">Other</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-semibold text-secondary">Zip / Postal Code</label>
+                                        <input type="text" class="form-control" id="inp_zip_code" placeholder="Postal Code"/>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-semibold text-secondary">Priority</label>
+                                        <select class="form-select" id="inp_priority">
+                                            <option value="0">Low</option>
+                                            <option value="1" selected="selected">Normal</option>
+                                            <option value="2">High</option>
+                                            <option value="3">Emergency / Very High</option>
+                                        </select>
+                                    </div>
+
+                                    <!-- Insurance Toggle -->
+                                    <div class="col-12 mt-3">
+                                        <label class="form-label fw-semibold text-secondary d-block">Dental Insurance Coverage?</label>
+                                        <div class="btn-group" role="group">
+                                            <button type="button" class="btn btn-outline-primary active" id="btn_ins_no" onclick="setInsuranceChoice('no')">
+                                                No Insurance
+                                            </button>
+                                            <button type="button" class="btn btn-outline-primary" id="btn_ins_yes" onclick="setInsuranceChoice('yes')">
+                                                Yes, Has Insurance
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-12 d-none" id="insurance_info_container">
+                                        <input type="text" class="form-control" id="inp_insurance_info" placeholder="Insurance Provider / Policy Number"/>
+                                    </div>
+
+                                    <div class="col-12">
+                                        <label class="form-label fw-semibold text-secondary">Chief Complaint / Special Notes</label>
+                                        <textarea class="form-control" id="inp_notes" rows="2" placeholder="Reason for visit, symptoms, or special instructions..."/>
+                                    </div>
+                                </div>
+
+                                <div class="flow-footer-nav">
+                                    <button type="button" class="btn-prev" onclick="goToStep(4)">
+                                        <i class="fa fa-arrow-left me-2"/> Back
+                                    </button>
+                                    <button type="submit" class="btn-next btn-lg" id="btn_submit_appointment">
+                                        <i class="fa fa-check-circle me-2" id="icon_submit_btn"/>
+                                        Confirm &amp; Schedule Appointment
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+
+                        <!-- ============================================================= -->
+                        <!-- STEP 6: APPOINTMENT CONFIRMED (SUCCESS)                       -->
+                        <!-- ============================================================= -->
+                        <div id="pane_step_6" class="d-none text-center py-4">
+                            <div class="success-badge-circle">
+                                <i class="fa fa-check"/>
+                            </div>
+                            <h2 class="fw-bold text-dark mb-1">Appointment Confirmed!</h2>
+                            <p class="text-muted mb-4">The appointment record has been generated in the system.</p>
+
+                            <div class="success-card-info">
+                                <div class="d-flex justify-content-between align-items-center mb-3 pb-3 border-bottom">
+                                    <span class="text-muted">Appointment Ref:</span>
+                                    <span class="fw-bold fs-5 text-primary" id="res_succ_ref">APT-00000</span>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <span class="text-muted">Patient Name:</span>
+                                    <span class="fw-bold text-dark" id="res_succ_patient">-</span>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <span class="text-muted">Dentist:</span>
+                                    <span class="fw-bold text-dark" id="res_succ_doctor">-</span>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <span class="text-muted">Service:</span>
+                                    <span class="fw-bold text-dark" id="res_succ_service">-</span>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span class="text-muted">Date &amp; Time:</span>
+                                    <span class="fw-bold text-success" id="res_succ_datetime">-</span>
+                                </div>
+                            </div>
+
+                            <div class="d-flex justify-content-center flex-wrap gap-3 mt-4">
+                                <button type="button" class="btn btn-outline-secondary px-4 py-2 fw-semibold" onclick="restartBookingFlow()">
+                                    <i class="fa fa-plus me-2"/> Book Another
+                                </button>
+                                <a href="/" class="btn btn-primary px-4 py-2 fw-bold">
+                                    <i class="fa fa-home me-2"/> Back to Home
+                                </a>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- CONTROLLER LOGIC JAVASCRIPT -->
+                <script type="text/javascript"><![CDATA[
+                var bookingState = {
+                    step: 1,
+                    patientType: 'new', // 'new' | 'returning'
+                    existingPatientId: null,
+                    serviceId: null,
+                    serviceName: '',
+                    serviceDuration: 30,
+                    doctorId: null,
+                    doctorName: 'Any Specialist',
+                    selectedDate: '',
+                    selectedSlotTime: null,
+                    selectedSlotLabel: '',
+                    hasInsurance: 'no'
+                };
+
+                // Initialize today's date
+                document.addEventListener('DOMContentLoaded', function() {
+                    var today = new Date();
+                    var yyyy = today.getFullYear();
+                    var mm = String(today.getMonth() + 1).padStart(2, '0');
+                    var dd = String(today.getDate()).padStart(2, '0');
+                    bookingState.selectedDate = yyyy + '-' + mm + '-' + dd;
+                    var datePicker = document.getElementById('booking_date_picker');
+                    if (datePicker) {
+                        datePicker.value = bookingState.selectedDate;
+                        datePicker.min = bookingState.selectedDate;
+                    }
+
+                    // Pre-select first service card if available
+                    var firstCard = document.querySelector('.type-grid-card');
+                    if (firstCard) {
+                        selectService(firstCard);
+                    }
+                });
+
+                function getCsrf() {
+                    var el = document.querySelector('input[name="csrf_token"]');
+                    return (el && el.value) ? el.value : '';
+                }
+
+                function showError(msg) {
+                    var alertBox = document.getElementById('flow_error_alert');
+                    var textEl = document.getElementById('flow_error_text');
+                    if (alertBox && textEl) {
+                        textEl.textContent = msg;
+                        alertBox.classList.remove('d-none');
+                        alertBox.classList.add('d-flex');
+                    }
+                }
+
+                function clearError() {
+                    var alertBox = document.getElementById('flow_error_alert');
+                    if (alertBox) {
+                        alertBox.classList.add('d-none');
+                        alertBox.classList.remove('d-flex');
+                    }
+                }
+
+                function updateStepperUI(stepNum) {
+                    for (var i = 1; i <= 5; i++) {
+                        var dot = document.getElementById('dot_step_' + i);
+                        var line = document.getElementById('line_step_' + (i - 1));
+                        if (dot) {
+                            dot.classList.remove('active', 'completed');
+                            if (i === stepNum) dot.classList.add('active');
+                            else if (i < stepNum) dot.classList.add('completed');
+                        }
+                        if (line) {
+                            line.classList.remove('active');
+                            if (i <= stepNum) line.classList.add('active');
+                        }
+                    }
+
+                    // Stepper header visibility
+                    var header = document.getElementById('flow_stepper_header');
+                    if (header) {
+                        if (stepNum >= 6) header.classList.add('d-none');
+                        else header.classList.remove('d-none');
+                    }
+
+                    // Summary pills visibility
+                    var pillsBar = document.getElementById('summary_pills_bar');
+                    if (pillsBar) {
+                        if (stepNum > 1 && stepNum < 6) {
+                            pillsBar.classList.remove('d-none');
+                            document.getElementById('pill_patient_type').textContent = bookingState.patientType === 'returning' ? 'Existing Patient' : 'New Patient';
+                            document.getElementById('pill_service_name').textContent = bookingState.serviceName || 'Consultation';
+
+                            var pillDoc = document.getElementById('pill_doctor_item');
+                            if (stepNum > 3) {
+                                pillDoc.classList.remove('d-none');
+                                document.getElementById('pill_doctor_name').textContent = bookingState.doctorName || 'Any Specialist';
+                            } else {
+                                pillDoc.classList.add('d-none');
+                            }
+
+                            var pillSlot = document.getElementById('pill_slot_item');
+                            if (bookingState.selectedSlotLabel) {
+                                pillSlot.classList.remove('d-none');
+                                document.getElementById('pill_slot_name').textContent = bookingState.selectedDate + ' at ' + bookingState.selectedSlotLabel;
+                            } else {
+                                pillSlot.classList.add('d-none');
+                            }
+                        } else {
+                            pillsBar.classList.add('d-none');
+                        }
+                    }
+                }
+
+                function goToStep(stepNum) {
+                    clearError();
+                    for (var i = 1; i <= 6; i++) {
+                        var pane = document.getElementById('pane_step_' + i);
+                        if (pane) pane.classList.add('d-none');
+                    }
+                    var target = document.getElementById('pane_step_' + stepNum);
+                    if (target) {
+                        target.classList.remove('d-none');
+                        bookingState.step = stepNum;
+                        updateStepperUI(stepNum);
+
+                        if (stepNum === 4) {
+                            fetchAvailableSlots();
+                        }
+
+                        // Scroll smoothly to top of wizard
+                        var container = document.querySelector('.flow-main-container');
+                        if (container) {
+                            container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        }
+                    }
+                }
+
+                // Step 1: Patient Selection
+                function selectPatientType(type) {
+                    bookingState.patientType = type;
+                    var cardNew = document.getElementById('card_choice_new');
+                    var cardExt = document.getElementById('card_choice_existing');
+                    var boxSearch = document.getElementById('existing_patient_search_box');
+
+                    if (type === 'new') {
+                        cardNew.classList.add('selected');
+                        cardExt.classList.remove('selected');
+                        boxSearch.classList.add('d-none');
+                        bookingState.existingPatientId = null;
+                    } else {
+                        cardExt.classList.add('selected');
+                        cardNew.classList.remove('selected');
+                        boxSearch.classList.remove('d-none');
+                        document.getElementById('ret_search_identifier').focus();
+                    }
+                }
+
+                function lookupPatient() {
+                    var val = (document.getElementById('ret_search_identifier').value || '').trim();
+                    var msgEl = document.getElementById('ret_search_message');
+                    var prevEl = document.getElementById('ret_patient_preview');
+                    var iconSearch = document.getElementById('icon_search_patient');
+
+                    if (!val) {
+                        msgEl.className = 'small mt-2 text-danger';
+                        msgEl.textContent = 'Please enter a mobile phone number, email, or Patient ID.';
+                        msgEl.classList.remove('d-none');
+                        prevEl.classList.add('d-none');
+                        return;
+                    }
+
+                    iconSearch.className = 'fa fa-spinner fa-spin me-1';
+                    msgEl.className = 'small mt-2 text-muted';
+                    msgEl.textContent = 'Looking up patient records...';
+                    msgEl.classList.remove('d-none');
+
+                    fetch('/dental/check_patient', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+                        body: JSON.stringify({ jsonrpc: '2.0', method: 'call', params: { identifier: val } })
+                    })
+                    .then(function(r) { return r.json(); })
+                    .then(function(d) {
+                        iconSearch.className = 'fa fa-search me-1';
+                        var res = d.result || {};
+                        if (res.found) {
+                            bookingState.existingPatientId = res.id;
+                            msgEl.className = 'small mt-2 text-success fw-bold';
+                            msgEl.textContent = 'Patient record found and verified!';
+
+                            // Update preview card
+                            document.getElementById('prev_pat_name').textContent = res.name || '';
+                            document.getElementById('prev_pat_id').textContent = res.dental_patient_id || 'Registered';
+                            document.getElementById('prev_pat_phone').textContent = res.phone || '-';
+                            if (res.email) {
+                                document.getElementById('prev_pat_email_wrap').classList.remove('d-none');
+                                document.getElementById('prev_pat_email').textContent = res.email;
+                            } else {
+                                document.getElementById('prev_pat_email_wrap').classList.add('d-none');
+                            }
+                            prevEl.classList.remove('d-none');
+
+                            // Pre-fill Step 5 form
+                            var names = (res.name || '').split(' ');
+                            document.getElementById('inp_first_name').value = names[0] || '';
+                            document.getElementById('inp_last_name').value = names.slice(1).join(' ') || '';
+                            document.getElementById('inp_phone').value = res.phone || '';
+                            document.getElementById('inp_email').value = res.email || '';
+                            if (res.patient && res.patient.date_of_birth) {
+                                document.getElementById('inp_dob').value = res.patient.date_of_birth;
+                            }
+                            if (res.patient && res.patient.gender) {
+                                document.getElementById('inp_gender').value = res.patient.gender;
+                            }
+                        } else {
+                            msgEl.className = 'small mt-2 text-danger';
+                            msgEl.textContent = res.message || 'No record found. You can proceed as a New Patient.';
+                            prevEl.classList.add('d-none');
+                        }
+                    })
+                    .catch(function(err) {
+                        iconSearch.className = 'fa fa-search me-1';
+                        msgEl.className = 'small mt-2 text-danger';
+                        msgEl.textContent = 'Error contacting patient server. Please try again.';
+                    });
+                }
+
+                // Step 2: Service Selection
+                function selectService(card) {
+                    document.querySelectorAll('.type-grid-card').forEach(function(c) { c.classList.remove('selected'); });
+                    card.classList.add('selected');
+                    bookingState.serviceId = parseInt(card.getAttribute('data-id'));
+                    bookingState.serviceName = card.getAttribute('data-name');
+                    bookingState.serviceDuration = parseInt(card.getAttribute('data-duration')) || 30;
+
+                    document.getElementById('s4_dur_summary').textContent = bookingState.serviceDuration;
+                }
+
+                // Step 3: Doctor Selection
+                function selectDoctor(card) {
+                    document.querySelectorAll('.doctor-choice-card').forEach(function(c) { c.classList.remove('selected'); });
+                    card.classList.add('selected');
+                    var docId = card.getAttribute('data-id');
+                    bookingState.doctorId = docId ? parseInt(docId) : null;
+                    bookingState.doctorName = card.getAttribute('data-name') || 'Any Specialist';
+
+                    document.getElementById('s4_doctor_name_label').textContent = bookingState.doctorName;
+                    document.getElementById('s4_doctor_summary').textContent = bookingState.doctorName;
+                }
+
+                // Step 4: Slots Fetching
+                function fetchAvailableSlots() {
+                    var datePicker = document.getElementById('booking_date_picker');
+                    bookingState.selectedDate = datePicker.value || new Date().toISOString().split('T')[0];
+
+                    var loader = document.getElementById('slots_loading_indicator');
+                    var container = document.getElementById('slots_results_box');
+                    var noneMsg = document.getElementById('slots_none_message');
+                    var morningBox = document.getElementById('morning_slots_container');
+                    var afternoonBox = document.getElementById('afternoon_slots_container');
+                    var nextBtn = document.getElementById('btn_goto_step_5');
+
+                    morningBox.innerHTML = '';
+                    afternoonBox.innerHTML = '';
+                    bookingState.selectedSlotTime = null;
+                    bookingState.selectedSlotLabel = '';
+                    nextBtn.disabled = true;
+
+                    loader.classList.remove('d-none');
+                    noneMsg.classList.add('d-none');
+
+                    fetch('/dental/get_slots', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+                        body: JSON.stringify({
+                            jsonrpc: '2.0',
+                            method: 'call',
+                            params: {
+                                date: bookingState.selectedDate,
+                                doctor_id: bookingState.doctorId,
+                                duration: bookingState.serviceDuration
+                            }
+                        })
+                    })
+                    .then(function(r) { return r.json(); })
+                    .then(function(d) {
+                        loader.classList.add('d-none');
+                        var slots = (d.result && d.result.slots) ? d.result.slots : [];
+
+                        if (slots.length === 0) {
+                            noneMsg.classList.remove('d-none');
+                            return;
+                        }
+
+                        var morningCount = 0;
+                        var afternoonCount = 0;
+
+                        slots.forEach(function(slot) {
+                            var btn = document.createElement('button');
+                            btn.type = 'button';
+                            btn.className = 'slot-bubble-btn';
+                            btn.textContent = slot.label;
+                            btn.disabled = !slot.available;
+                            if (slot.available) {
+                                btn.onclick = function() {
+                                    document.querySelectorAll('.slot-bubble-btn').forEach(function(b) { b.classList.remove('selected'); });
+                                    btn.classList.add('selected');
+                                    bookingState.selectedSlotTime = slot.time;
+                                    bookingState.selectedSlotLabel = slot.label;
+                                    nextBtn.disabled = false;
+                                };
+                            }
+
+                            if (slot.period === 'morning') {
+                                morningBox.appendChild(btn);
+                                morningCount++;
+                            } else {
+                                afternoonBox.appendChild(btn);
+                                afternoonCount++;
+                            }
+                        });
+
+                        if (morningCount === 0) morningBox.innerHTML = '<span class="text-muted small">No morning slots available</span>';
+                        if (afternoonCount === 0) afternoonBox.innerHTML = '<span class="text-muted small">No afternoon slots available</span>';
+                    })
+                    .catch(function(err) {
+                        loader.classList.add('d-none');
+                        noneMsg.classList.remove('d-none');
+                    });
+                }
+
+                // Step 5: Insurance & Submit
+                function setInsuranceChoice(val) {
+                    bookingState.hasInsurance = val;
+                    var btnNo = document.getElementById('btn_ins_no');
+                    var btnYes = document.getElementById('btn_ins_yes');
+                    var wrap = document.getElementById('insurance_info_container');
+
+                    if (val === 'yes') {
+                        btnYes.classList.add('active');
+                        btnNo.classList.remove('active');
+                        wrap.classList.remove('d-none');
+                        document.getElementById('inp_insurance_info').focus();
+                    } else {
+                        btnNo.classList.add('active');
+                        btnYes.classList.remove('active');
+                        wrap.classList.add('d-none');
+                    }
+                }
+
+                function submitAppointmentBooking(e) {
+                    e.preventDefault();
+                    clearError();
+
+                    var fName = (document.getElementById('inp_first_name').value || '').trim();
+                    var lName = (document.getElementById('inp_last_name').value || '').trim();
+                    var phone = (document.getElementById('inp_phone').value || '').trim();
+                    var email = (document.getElementById('inp_email').value || '').trim();
+                    var dob = document.getElementById('inp_dob').value || '';
+                    var gender = document.getElementById('inp_gender').value || 'male';
+                    var zipCode = (document.getElementById('inp_zip_code').value || '').trim();
+                    var priority = document.getElementById('inp_priority').value || '1';
+                    var insInfo = bookingState.hasInsurance === 'yes' ? (document.getElementById('inp_insurance_info').value || '').trim() : '';
+                    var notes = (document.getElementById('inp_notes').value || '').trim();
+
+                    if (!fName || !phone) {
+                        showError('Please enter your full name and mobile phone number.');
+                        return;
+                    }
+
+                    if (!bookingState.selectedSlotTime) {
+                        showError('Please select an appointment time slot.');
+                        goToStep(4);
+                        return;
+                    }
+
+                    var submitBtn = document.getElementById('btn_submit_appointment');
+                    var iconSubmit = document.getElementById('icon_submit_btn');
+                    submitBtn.disabled = true;
+                    iconSubmit.className = 'fa fa-spinner fa-spin me-2';
+
+                    var payload = {
+                        name: fName + (lName ? (' ' + lName) : ''),
+                        first_name: fName,
+                        last_name: lName,
+                        phone: phone,
+                        email: email,
+                        dob: dob,
+                        gender: gender,
+                        zip_code: zipCode,
+                        priority: priority,
+                        has_insurance: bookingState.hasInsurance,
+                        insurance_info: insInfo,
+                        notes: notes,
+                        patient_type: bookingState.patientType,
+                        patient_id: bookingState.existingPatientId,
+                        appointment_type_id: bookingState.serviceId,
+                        doctor_id: bookingState.doctorId,
+                        date: bookingState.selectedDate,
+                        slot_time: bookingState.selectedSlotTime,
+                        duration: bookingState.serviceDuration
+                    };
+
+                    fetch('/dental/book_appointment', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+                        body: JSON.stringify({ jsonrpc: '2.0', method: 'call', params: payload })
+                    })
+                    .then(function(r) { return r.json(); })
+                    .then(function(d) {
+                        submitBtn.disabled = false;
+                        iconSubmit.className = 'fa fa-check-circle me-2';
+
+                        var res = d.result || {};
+                        if (res.success) {
+                            var appt = res.appointment || {};
+                            document.getElementById('res_succ_ref').textContent = appt.appointment_name || res.name || 'APT-00000';
+                            document.getElementById('res_succ_patient').textContent = (appt.patient_name || payload.name) + (appt.patient_id ? (' (' + appt.patient_id + ')') : '');
+                            document.getElementById('res_succ_doctor').textContent = appt.doctor_name || bookingState.doctorName;
+                            document.getElementById('res_succ_service').textContent = appt.service_name || bookingState.serviceName;
+                            document.getElementById('res_succ_datetime').textContent = (appt.date_formatted || bookingState.selectedDate) + ' at ' + (appt.time_formatted || bookingState.selectedSlotLabel);
+
+                            goToStep(6);
+                        } else {
+                            showError(res.error || res.message || 'Booking submission failed. Please try again.');
+                        }
+                    })
+                    .catch(function(err) {
+                        submitBtn.disabled = false;
+                        iconSubmit.className = 'fa fa-check-circle me-2';
+                        showError('A network error occurred while submitting your booking. Please try again.');
+                    });
+                }
+
+                function restartBookingFlow() {
+                    bookingState.existingPatientId = null;
+                    bookingState.selectedSlotTime = null;
+                    bookingState.selectedSlotLabel = '';
+                    selectPatientType('new');
+                    document.getElementById('public_booking_form').reset();
+                    goToStep(1);
+                }
+
+                // Explicitly bind to window for global access
+                window.bookingState = bookingState;
+                window.getCsrf = getCsrf;
+                window.showError = showError;
+                window.clearError = clearError;
+                window.updateStepperUI = updateStepperUI;
+                window.goToStep = goToStep;
+                window.selectPatientType = selectPatientType;
+                window.lookupPatient = lookupPatient;
+                window.selectService = selectService;
+                window.selectDoctor = selectDoctor;
+                window.fetchAvailableSlots = fetchAvailableSlots;
+                window.setInsuranceChoice = setInsuranceChoice;
+                window.submitAppointmentBooking = submitAppointmentBooking;
+                window.restartBookingFlow = restartBookingFlow;
+                ]]></script>
+
+            </div>
+        </t>
+    </template>
+</odoo>

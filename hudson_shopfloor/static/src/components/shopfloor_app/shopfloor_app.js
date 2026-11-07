@@ -1,49 +1,120 @@
 /** @odoo-module **/
 
 import { registry } from "@web/core/registry";
-import { Component, proxy, onWillStart, onWillDestroy } from "@odoo/owl";
+import { Component, proxy, onWillStart, onWillDestroy, useProps } from "@odoo/owl";
+import { standardActionServiceProps } from "@web/webclient/actions/action_plugin";
 import { useService } from "@web/core/utils/hooks";
+import { browser } from "@web/core/browser/browser";
+import { ConfirmationDialog } from "@web/core/confirmation_dialog/confirmation_dialog";
+
+const STATION_KEY = "hudson_shopfloor.station_workcenter_ids";
+const EMPLOYEES_KEY = "hudson_shopfloor.panel_employee_ids";
+const REFRESH_INTERVAL = 30000;
+
+function loadIds(key) {
+    try {
+        const ids = JSON.parse(browser.localStorage.getItem(key) || "[]");
+        return Array.isArray(ids) ? ids : [];
+    } catch {
+        return [];
+    }
+}
+
+function saveIds(key, ids) {
+    try {
+        browser.localStorage.setItem(key, JSON.stringify(ids));
+    } catch {
+        // Storage unavailable (private mode...): the selection only lasts for this session
+    }
+}
+
+// "YYYY-MM-DD HH:MM:SS" (UTC, server format) → Date
+function parseServerDatetime(value) {
+    return value ? new Date(value.replace(" ", "T") + "Z") : null;
+}
+
+function formatSeconds(totalSeconds) {
+    const secs = Math.max(0, Math.floor(totalSeconds));
+    const h = Math.floor(secs / 3600);
+    const m = Math.floor((secs % 3600) / 60);
+    const s = secs % 60;
+    const pad = (n) => String(n).padStart(2, "0");
+    return h ? `${h}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
+}
 
 export class ShopFloorApp extends Component {
     static template = "hudson_shopfloor.ShopFloorApp";
+    props = useProps(standardActionServiceProps);
 
     setup() {
         this.orm = useService("orm");
         this.action = useService("action");
+        this.dialog = useService("dialog");
         this.notification = useService("notification");
 
         this.state = proxy({
+            // Tabs: "overview" | "my_wo" | workcenter id
+            tab: "overview",
             workcenters: [],
-            selectedWorkcenter: null,
-            mos: [],
-            activeWoId: null,
+            overviewCount: 0,
+            myWoCount: 0,
+            productions: [],
+            workorders: [],
+            highlightWoId: null,
             currentTime: new Date(),
+            loading: false,
 
-            // Employee Operator
+            // Station configuration (stored on this device)
+            stationWorkcenterIds: loadIds(STATION_KEY),
+            panelEmployeeIds: loadIds(EMPLOYEES_KEY),
+
+            // Search & Filter
+            searchQuery: "",
+            showFilterPanel: false,
+            showHamburgerPanel: false,
+            filterMoReady: true,
+            filterMoPending: false,
+            filterThisStation: false,
+            filterWoToDo: true,
+            filterWoBlocked: false,
+            filterWoInProgress: true,
+
+            // Notification banner
+            showBanner: true,
+
+            // Operators
             employees: [],
             activeEmployee: null,
+
+            // PIN modal
             showPinModal: false,
-            pendingEmployee: null,
-            pinError: false,
-            pinInput: "",
+            pinEmployee: null,
+            pinValue: "",
+
+            // Generic multi-select modal (work centers / operators)
+            selectModal: null, // { title, items: [{id, name}], selected: [ids], onSave }
 
             // Options modal
             showOptionsModal: false,
             optionsMoId: null,
             optionsWoId: null,
 
-            // Register Quantity / Lot modal
+            // Register production modal
             showRegisterQtyModal: false,
-            registerQtyMoId: null,
-            registerQtyWoId: null,
+            registerMo: null, // { id, name, product, uom, tracking, qty_production }
             registerQtyValue: 1,
             registerLotName: "",
-            registerProducts: [],
-            registerSelectedMoveId: null,
+
+            // Register component modal
+            showComponentModal: false,
+            componentMoId: null,
+            componentMove: null,
+            componentQty: 0,
 
             // ── Product Catalog (Add Component) ──────────────────────────────
             showCatalogModal: false,
             catalogMoId: null,
+            catalogWoId: null,
             catalogSearch: "",
             catalogCategories: [],        // [{id, name, parent_id}]
             catalogSelectedCat: null,     // null → All
@@ -52,7 +123,7 @@ export class ShopFloorApp extends Component {
             catalogProducts: [],          // current page of products
             catalogPage: 1,
             catalogTotalCount: 0,
-            catalogCart: {},              // { productId: { qty, name, uom, uomId } }
+            catalogCart: {},              // { productId: { qty, name, uom } }
             catalogLoading: false,
 
             // ── Add Work Order ────────────────────────────────────────────────
@@ -63,10 +134,8 @@ export class ShopFloorApp extends Component {
             addWorkOrderWorkcenterId: null,
             addWorkOrderDurationMin: 0,        // stored in minutes internally
             addWorkOrderDateStart: "",
-            addWorkOrderEmployeeId: null,
             addWorkOrderOperations: [],        // workorders of current MO
             addWorkOrderWorkcentersList: [],
-            addWorkOrderEmployeesList: [],
 
             // Log Note modal
             showLogNoteModal: false,
@@ -74,17 +143,37 @@ export class ShopFloorApp extends Component {
             logNoteText: "",
         });
 
+        // Opened from a work center card (Manufacturing > Overview): land on its tab,
+        // adding it to this station's work centers when a selection is configured
+        const workcenterId = this.props.action?.context?.default_workcenter_id;
+        if (workcenterId) {
+            const station = this.state.stationWorkcenterIds;
+            if (station.length && !station.includes(workcenterId)) {
+                this.state.stationWorkcenterIds = [...station, workcenterId];
+                saveIds(STATION_KEY, this.state.stationWorkcenterIds);
+            }
+            this.state.tab = workcenterId;
+        }
+
         onWillStart(async () => {
             await this.loadEmployees();
-            await this.loadWorkcenters();
+            await this.reload();
         });
 
         this.timerInterval = setInterval(() => {
             this.state.currentTime = new Date();
         }, 1000);
+        this.refreshInterval = setInterval(() => {
+            if (!this.anyModalOpen) {
+                this.reload();
+                this.loadEmployees();
+            }
+        }, REFRESH_INTERVAL);
 
         onWillDestroy(() => {
             clearInterval(this.timerInterval);
+            clearInterval(this.refreshInterval);
+            clearTimeout(this.searchTimeout);
         });
     }
 
@@ -92,226 +181,455 @@ export class ShopFloorApp extends Component {
     // Helpers
     // =========================================================
 
-    isMoActive(mo) {
-        if (!this.state.activeWoId || !mo || !mo.workorders) {
-            return false;
-        }
-        return mo.workorders.some(w => w.id === this.state.activeWoId);
+    get anyModalOpen() {
+        const s = this.state;
+        return s.showOptionsModal || s.showRegisterQtyModal || s.showComponentModal ||
+            s.showCatalogModal || s.showAddWorkOrderModal || s.showLogNoteModal ||
+            s.showPinModal || !!s.selectModal;
     }
 
-    isMoInProgress(mo) {
-        if (!mo || !mo.workorders) {
-            return false;
+    get tabs() {
+        return [
+            { id: "overview", name: "Overview", count: this.state.overviewCount, color: 0 },
+            { id: "my_wo", name: "My WO", count: this.state.myWoCount, color: 0 },
+            ...this.state.workcenters,
+        ];
+    }
+
+    // Badge colour of a workcenter (tab counter + WO tag), from its Odoo color index
+    getWorkcenterColorClass(workcenterId) {
+        const wc = this.state.workcenters.find(w => w.id === workcenterId);
+        return `sf-color-${(wc && wc.color) || 0}`;
+    }
+
+    getStatusBadge(mo) {
+        if (mo.state === "to_close") return { label: "To Close", cls: "sf-badge-to-close" };
+        if (mo.state === "progress") return { label: "In Progress", cls: "sf-badge-progress" };
+        return { label: mo.state_label || "Confirmed", cls: "sf-badge-confirmed" };
+    }
+
+    pendingWorkorders(mo) {
+        return mo.workorders.filter(wo => wo.state !== "done");
+    }
+
+    formatQty(qty) {
+        qty = Number(qty) || 0;
+        return Number.isInteger(qty) ? qty : parseFloat(qty.toFixed(3));
+    }
+
+    // Elapsed time on a work order: closed time lines + the running one
+    woElapsedSeconds(wo) {
+        let seconds = (wo.duration_closed || 0) * 60;
+        const start = parseServerDatetime(wo.timer_start);
+        if (wo.is_running && start) {
+            seconds += (this.state.currentTime - start) / 1000;
         }
-        return mo.workorders.some(w => w.state === "progress");
+        return seconds;
+    }
+
+    formatWoTimer(wo) {
+        const elapsed = formatSeconds(this.woElapsedSeconds(wo));
+        return wo.duration_expected ? `${elapsed} / ${formatSeconds(wo.duration_expected * 60)}` : elapsed;
+    }
+
+    employeeSince(emp) {
+        const start = parseServerDatetime(emp.working_since);
+        return start ? formatSeconds((this.state.currentTime - start) / 1000) : "";
+    }
+
+    // Run an action returned by the server (wizard, details...) then refresh
+    async handleResult(result) {
+        if (result && typeof result === "object" && result.type) {
+            await this.action.doAction(result, { onClose: () => this.refreshAll() });
+        }
+        await this.refreshAll();
+    }
+
+    async refreshAll() {
+        await Promise.all([this.reload(), this.loadEmployees()]);
+    }
+
+    confirm(body, confirmLabel) {
+        return new Promise((resolve) => {
+            this.dialog.add(ConfirmationDialog, {
+                body,
+                confirmLabel,
+                confirm: () => resolve(true),
+                cancel: () => resolve(false),
+            }, { onClose: () => resolve(false) });
+        });
+    }
+
+    // =========================================================
+    // Search & Filter panel
+    // =========================================================
+
+    closeAllPanels() {
+        this.state.showFilterPanel = false;
+        this.state.showHamburgerPanel = false;
+    }
+
+    toggleFilterPanel(ev) {
+        if (ev) ev.stopPropagation();
+        const wasOpen = this.state.showFilterPanel;
+        this.closeAllPanels();
+        this.state.showFilterPanel = !wasOpen;
+    }
+
+    openFilterPanel() {
+        this.state.showHamburgerPanel = false;
+        this.state.showFilterPanel = true;
+    }
+
+    toggleHamburgerPanel(ev) {
+        if (ev) ev.stopPropagation();
+        const wasOpen = this.state.showHamburgerPanel;
+        this.closeAllPanels();
+        this.state.showHamburgerPanel = !wasOpen;
+    }
+
+    // MO filters shown as one facet in the search bar, like Odoo's search view
+    get moFacetValues() {
+        const values = [];
+        if (this.state.filterMoPending) values.push("MO Pending");
+        if (this.state.filterMoReady) values.push("MO Ready");
+        if (this.state.filterThisStation) values.push("This Station");
+        return values;
+    }
+
+    get filterItems() {
+        return [
+            { key: "mo_pending", label: "MO Pending", active: this.state.filterMoPending },
+            { key: "mo_ready", label: "MO Ready", active: this.state.filterMoReady },
+            { key: "this_station", label: "This Station", active: this.state.filterThisStation },
+        ];
+    }
+
+    get woFilterItems() {
+        return [
+            { key: "wo_todo", label: "To Do", active: this.state.filterWoToDo },
+            { key: "wo_blocked", label: "Blocked", active: this.state.filterWoBlocked },
+            { key: "wo_progress", label: "In Progress", active: this.state.filterWoInProgress },
+        ];
+    }
+
+    toggleMoFilter(key) {
+        if (key === "mo_ready") this.state.filterMoReady = !this.state.filterMoReady;
+        if (key === "mo_pending") this.state.filterMoPending = !this.state.filterMoPending;
+        if (key === "this_station") this.state.filterThisStation = !this.state.filterThisStation;
+        this.reload();
+    }
+
+    toggleWoFilter(key) {
+        if (key === "wo_todo") this.state.filterWoToDo = !this.state.filterWoToDo;
+        if (key === "wo_blocked") this.state.filterWoBlocked = !this.state.filterWoBlocked;
+        if (key === "wo_progress") this.state.filterWoInProgress = !this.state.filterWoInProgress;
+        this.reload();
+    }
+
+    removeMoFacet() {
+        this.state.filterMoReady = false;
+        this.state.filterMoPending = false;
+        this.state.filterThisStation = false;
+        this.reload();
+    }
+
+    onSearchInput(ev) {
+        this.state.searchQuery = ev.target.value;
+        clearTimeout(this.searchTimeout);
+        this.searchTimeout = setTimeout(() => this.reload(), 300);
+    }
+
+    onSearchKeydown(ev) {
+        if (ev.key === "Backspace" && !ev.target.value && this.moFacetValues.length) {
+            this.removeMoFacet();
+        } else if (ev.key === "Escape") {
+            this.closeAllPanels();
+        }
     }
 
     // =========================================================
     // Core data loading
     // =========================================================
 
+    async reload() {
+        const woStates = [];
+        if (this.state.filterWoToDo) woStates.push("ready");
+        if (this.state.filterWoBlocked) woStates.push("blocked");
+        if (this.state.filterWoInProgress) woStates.push("progress");
+
+        const data = await this.orm.call("mrp.production", "get_shopfloor_data", [{
+            tab: this.state.tab,
+            employee_id: this.state.activeEmployee ? this.state.activeEmployee.id : false,
+            mo_ready: this.state.filterMoReady,
+            mo_pending: this.state.filterMoPending,
+            this_station: this.state.filterThisStation,
+            station_workcenter_ids: this.state.stationWorkcenterIds,
+            wo_states: woStates,
+            search: this.state.searchQuery,
+        }]);
+        this.state.workcenters = data.workcenters;
+        this.state.overviewCount = data.overview_count;
+        this.state.myWoCount = data.my_wo_count;
+        this.state.productions = data.productions;
+        this.state.workorders = data.workorders;
+    }
+
     async loadEmployees() {
-        this.state.employees = await this.orm.searchRead(
-            "hr.employee", [["user_id", "!=", false]], ["name", "user_id"]
-        );
-    }
-
-    async loadWorkcenters() {
-        const workcenters = await this.orm.searchRead("mrp.workcenter", [], ["name", "code"]);
-        const countMap = {};
-        let totalCount = 0;
-        try {
-            // Odoo 20 read_group takes (domain, groupby, aggregates)
-            const counts = await this.orm.call("mrp.workorder", "read_group", [
-                [["state", "in", ["ready", "progress", "pending"]]],
-                ["workcenter_id"],
-                ["__count"],
-            ]);
-            for (const c of counts) {
-                if (Array.isArray(c)) {
-                    const wcId = c[0];
-                    const cnt = c[1] || 0;
-                    if (wcId) {
-                        countMap[wcId] = cnt;
-                        totalCount += cnt;
-                    }
-                } else if (c && typeof c === "object") {
-                    const wcId = Array.isArray(c.workcenter_id) ? c.workcenter_id[0] : c.workcenter_id;
-                    const cnt = c.workcenter_id_count || c.__count || 0;
-                    if (wcId) {
-                        countMap[wcId] = cnt;
-                        totalCount += cnt;
-                    }
-                }
-            }
-        } catch (e) {
-            console.error("Failed to read workorder groups:", e);
-        }
-
-        this.state.workcenters = [
-            { id: "overview", name: "Overview", count: totalCount },
-            ...workcenters.map(wc => ({ ...wc, count: countMap[wc.id] || 0 })),
-        ];
-        if (this.state.workcenters.length > 0) {
-            await this.selectWorkcenter(this.state.workcenters[0].id);
-        }
-    }
-
-    async selectWorkcenter(workcenterId) {
-        this.state.selectedWorkcenter = workcenterId;
-        this.state.activeWoId = null;
-        await this.loadMOs(workcenterId);
-    }
-
-    async loadMOs(workcenterId) {
-        let domain = [["state", "in", ["ready", "progress", "pending"]]];
-        if (workcenterId !== "overview") domain.push(["workcenter_id", "=", workcenterId]);
-
-        const activeWos = await this.orm.searchRead("mrp.workorder", domain, ["production_id"]);
-        if (activeWos.length === 0) { this.state.mos = []; return; }
-
-        const productionIds = [...new Set(activeWos.map(wo => wo.production_id[0]))];
-        let moDomain = [["id", "in", productionIds]];
+        const employees = await this.orm.call("hr.employee", "get_shopfloor_employees", [
+            this.state.panelEmployeeIds,
+        ]);
+        this.state.employees = employees;
         if (this.state.activeEmployee) {
-            moDomain.push(["user_id", "=", this.state.activeEmployee.user_id[0]]);
+            this.state.activeEmployee = employees.find(e => e.id === this.state.activeEmployee.id) || null;
         }
-        const validMos = await this.orm.searchRead("mrp.production", moDomain, ["id"]);
-        const validMoIds = validMos.map(m => m.id);
-        if (validMoIds.length === 0) { this.state.mos = []; return; }
+    }
 
-        const allWos = await this.orm.searchRead(
-            "mrp.workorder",
-            [["production_id", "in", validMoIds]],
-            ["name", "production_id", "product_id", "qty_producing", "qty_production",
-             "state", "workcenter_id", "date_start", "duration"]
-        );
+    async selectTab(tabId) {
+        this.state.tab = tabId;
+        this.state.highlightWoId = null;
+        await this.reload();
+    }
 
-        const grouped = {};
-        for (let wo of allWos) {
-            const moId = wo.production_id[0];
-            if (!grouped[moId]) {
-                grouped[moId] = {
-                    id: moId,
-                    name: wo.production_id[1],
-                    product_id: wo.product_id,
-                    qty_producing: wo.qty_producing,
-                    qty_production: wo.qty_production,
-                    workorders: [],
-                };
-            }
-            grouped[moId].workorders.push(wo);
-        }
-        Object.values(grouped).forEach(mo => mo.workorders.sort((a, b) => a.id - b.id));
-        this.state.mos = Object.values(grouped);
+    // From an MO card: jump to the work order in its work center
+    async openWorkorder(wo) {
+        this.state.tab = wo.workcenter_id[0];
+        await this.reload();
+        this.state.highlightWoId = wo.id;
     }
 
     // =========================================================
-    // Employee PIN
+    // Station configuration (work centers / operators shown here)
     // =========================================================
 
-    clickEmployee(emp) {
-        if (this.state.activeEmployee && this.state.activeEmployee.id === emp.id) return;
-        this.state.pendingEmployee = emp;
-        this.state.pinInput = "";
-        this.state.pinError = false;
-        this.state.showPinModal = true;
+    async openWorkcenterSelection() {
+        this.closeAllPanels();
+        const all = await this.orm.searchRead("mrp.workcenter", [], ["id", "name"], { order: "sequence, id" });
+        const current = this.state.stationWorkcenterIds.length
+            ? this.state.stationWorkcenterIds
+            : this.state.workcenters.map(wc => wc.id);
+        this.state.selectModal = {
+            title: "Work Centers on this station",
+            items: all,
+            selected: [...current],
+            onSave: async (ids) => {
+                this.state.stationWorkcenterIds = ids;
+                saveIds(STATION_KEY, ids);
+                if (typeof this.state.tab === "number" && !ids.includes(this.state.tab)) {
+                    this.state.tab = "overview";
+                }
+                await this.reload();
+            },
+        };
     }
 
-    closePinModal() {
-        this.state.showPinModal = false;
-        this.state.pendingEmployee = null;
-        this.state.pinInput = "";
-        this.state.pinError = false;
+    async openEmployeeSelection() {
+        const all = await this.orm.searchRead("hr.employee", [], ["id", "name"], { order: "name" });
+        this.state.selectModal = {
+            title: "Operators on this station",
+            items: all,
+            selected: this.state.employees.map(e => e.id),
+            onSave: async (ids) => {
+                this.state.panelEmployeeIds = ids;
+                saveIds(EMPLOYEES_KEY, ids);
+                await this.loadEmployees();
+            },
+        };
     }
 
-    addPinDigit(digit) {
-        this.state.pinInput += digit.toString();
-        this.state.pinError = false;
+    toggleSelectItem(id) {
+        const modal = this.state.selectModal;
+        modal.selected = modal.selected.includes(id)
+            ? modal.selected.filter(x => x !== id)
+            : [...modal.selected, id];
     }
 
-    clearPin() {
-        this.state.pinInput = "";
-        this.state.pinError = false;
+    closeSelectModal() {
+        this.state.selectModal = null;
     }
 
-    async submitPin() {
-        try {
-            const isValid = await this.orm.call(
-                "hr.employee", "check_shopfloor_pin",
-                [this.state.pendingEmployee.id, this.state.pinInput]
-            );
-            if (isValid) {
-                this.state.activeEmployee = this.state.pendingEmployee;
-                this.closePinModal();
-                await this.loadMOs(this.state.selectedWorkcenter);
-            } else {
-                this.state.pinError = true;
-                this.state.pinInput = "";
-            }
-        } catch (e) {
-            this.state.pinError = true;
+    async saveSelectModal() {
+        const { selected, onSave } = this.state.selectModal;
+        this.state.selectModal = null;
+        await onSave(selected);
+    }
+
+    // =========================================================
+    // Operators (with optional PIN)
+    // =========================================================
+
+    async clickEmployee(emp) {
+        if (this.state.activeEmployee && this.state.activeEmployee.id === emp.id) {
+            await this.logoutEmployee();
+            return;
         }
+        if (emp.has_pin) {
+            this.state.pinEmployee = emp;
+            this.state.pinValue = "";
+            this.state.showPinModal = true;
+            return;
+        }
+        await this.setActiveEmployee(emp);
+    }
+
+    async setActiveEmployee(emp) {
+        this.state.activeEmployee = emp;
+        await this.reload();
     }
 
     async logoutEmployee() {
         this.state.activeEmployee = null;
-        await this.loadMOs(this.state.selectedWorkcenter);
+        this.closeAllPanels();
+        await this.reload();
     }
 
-    // =========================================================
-    // Workorder Actions
-    // =========================================================
-
-    closeOperation() { this.state.activeWoId = null; }
-
-    get activeWo() {
-        if (!this.state.activeWoId) return null;
-        for (let mo of this.state.mos) {
-            const wo = mo.workorders.find(w => w.id === this.state.activeWoId);
-            if (wo) return wo;
+    pinPress(key) {
+        if (key === "back") {
+            this.state.pinValue = this.state.pinValue.slice(0, -1);
+        } else {
+            this.state.pinValue += key;
         }
-        return null;
     }
 
-    formatDuration(dateStartStr, initialDurationMin) {
-        if (!dateStartStr) return "0m 0s";
-        const initialMs = initialDurationMin * 60 * 1000;
-        const dateStart = new Date(dateStartStr.replace(" ", "T") + "Z");
-        const totalMs = initialMs + Math.max(0, this.state.currentTime - dateStart);
-        const totalSecs = Math.floor(totalMs / 1000);
-        return `${Math.floor(totalSecs / 60)}m ${totalSecs % 60}s`;
+    closePinModal() {
+        this.state.showPinModal = false;
+        this.state.pinEmployee = null;
+        this.state.pinValue = "";
     }
 
-    async actionStartWorkorder(workorderId) {
-        await this.orm.call("mrp.workorder", "button_start", [[workorderId]]);
-        await this.loadMOs(this.state.selectedWorkcenter);
-        this.state.activeWoId = workorderId;
+    async submitPin() {
+        const emp = this.state.pinEmployee;
+        const ok = await this.orm.call("hr.employee", "check_shopfloor_pin", [emp.id, this.state.pinValue]);
+        if (!ok) {
+            this.notification.add("Wrong PIN", { type: "danger" });
+            this.state.pinValue = "";
+            return;
+        }
+        this.closePinModal();
+        await this.setActiveEmployee(emp);
     }
 
-    async actionCloseProduction(workorderId) {
-        await this.orm.call("mrp.workorder", "button_finish", [[workorderId]]);
-        this.state.activeWoId = null;
-        await this.loadMOs(this.state.selectedWorkcenter);
+    // =========================================================
+    // Work order flow
+    // =========================================================
+
+    get employeeId() {
+        return this.state.activeEmployee ? this.state.activeEmployee.id : false;
     }
 
-    async actionScrap(woId) {
+    async toggleTimer(wo) {
+        if (wo.state === "blocked") {
+            this.notification.add("This work order is waiting for a previous operation.", { type: "warning" });
+            return;
+        }
+        const method = wo.me_running ? "shopfloor_pause" : "shopfloor_start";
+        await this.orm.call("mrp.workorder", method, [[wo.id]], { employee_id: this.employeeId });
+        await this.refreshAll();
+    }
+
+    async markWorkorderDone(wo) {
+        const result = await this.orm.call("mrp.workorder", "shopfloor_mark_done", [[wo.id]]);
+        await this.handleResult(result);
+    }
+
+    async closeProductionFromWorkorder(wo) {
+        const result = await this.orm.call("mrp.workorder", "shopfloor_close_production", [[wo.id]]);
+        if (result === true) {
+            this.notification.add(`${wo.production_id[1]} is done.`, { type: "success" });
+        }
+        await this.handleResult(result);
+    }
+
+    // =========================================================
+    // Manufacturing order flow
+    // =========================================================
+
+    moMainButtonLabel(mo) {
+        return mo.qty_producing > 0 || mo.state === "to_close" ? "Close Production" : "Produce";
+    }
+
+    // Produce / Close Production: registers the full quantity when nothing was
+    // registered, finishes the remaining work orders and closes the MO.
+    async closeProduction(mo) {
+        const pending = this.pendingWorkorders(mo);
+        if (pending.length) {
+            const ok = await this.confirm(
+                `${pending.length} operation(s) of ${mo.name} are not done yet. ` +
+                "They will be marked as done with their expected duration.",
+                "Produce"
+            );
+            if (!ok) return;
+        }
+        const result = await this.orm.call("mrp.production", "shopfloor_close_production", [[mo.id]]);
+        if (result === true) {
+            this.notification.add(`${mo.name} is done.`, { type: "success" });
+        }
+        await this.handleResult(result);
+    }
+
+    // Component line: register the full quantity in one tap
+    async registerComponentFull(moId, move) {
+        const result = await this.orm.call("mrp.production", "shopfloor_register_component", [[moId], move.id]);
+        await this.handleResult(result);
+    }
+
+    async openComponentModal(moId, move) {
+        if (move.tracking === "lot" || move.tracking === "serial") {
+            // Tracked component: Odoo's detailed operations (lots / serials)
+            await this.registerComponentFull(moId, move);
+            return;
+        }
+        this.state.componentMoId = moId;
+        this.state.componentMove = move;
+        this.state.componentQty = move.picked ? move.quantity : move.product_uom_qty;
+        this.state.showComponentModal = true;
+    }
+
+    closeComponentModal() {
+        this.state.showComponentModal = false;
+        this.state.componentMoId = null;
+        this.state.componentMove = null;
+    }
+
+    async submitComponentModal() {
+        const qty = parseFloat(this.state.componentQty);
+        if (isNaN(qty) || qty < 0) {
+            this.notification.add("Please enter a valid quantity", { type: "warning" });
+            return;
+        }
+        const { componentMoId, componentMove } = this.state;
+        this.closeComponentModal();
+        const result = await this.orm.call(
+            "mrp.production", "shopfloor_register_component", [[componentMoId], componentMove.id, qty]
+        );
+        await this.handleResult(result);
+    }
+
+    async actionScrap(moId, woId) {
         this.closeOptionsModal();
-        try {
-            const action = await this.orm.call("mrp.workorder", "action_scrap", [[woId]]);
-            if (action) {
-                await this.action.doAction(action);
-            }
-        } catch (e) {
-            console.error("Failed to scrap:", e);
-            this.notification.add("Failed to scrap: " + (e.message || e), { type: "danger" });
-        }
+        const result = woId
+            ? await this.orm.call("mrp.workorder", "action_scrap", [[woId]])
+            : await this.orm.call("mrp.production", "action_scrap", [[moId]]);
+        await this.handleResult(result);
+    }
+
+    actionOpenMO(moId) {
+        this.closeOptionsModal();
+        this.action.doAction({
+            type: "ir.actions.act_window",
+            res_model: "mrp.production",
+            res_id: moId,
+            views: [[false, "form"]],
+            target: "current",
+        });
     }
 
     // =========================================================
-    // Options Modal
+    // Options modal (opened by ⋮ kebab button)
     // =========================================================
 
-    openOptionsModal(moId, woId) {
+    openOptionsModal(moId, woId = null) {
+        this.closeAllPanels();
         this.state.optionsMoId = moId;
         this.state.optionsWoId = woId;
         this.state.showOptionsModal = true;
@@ -324,88 +642,63 @@ export class ShopFloorApp extends Component {
     }
 
     // =========================================================
-    // Register Quantity / Lot
+    // Register Production (quantity / lot / serial)
     // =========================================================
 
-    async openRegisterQtyModal(moId, woId) {
+    async openRegisterQtyModal(moId) {
         this.closeOptionsModal();
-        this.state.registerQtyMoId = moId;
-        this.state.registerQtyWoId = woId;
-        this.state.registerQtyValue = 1;
-        this.state.registerLotName = "";
-        this.state.registerSelectedMoveId = null;
-        try {
-            // In Odoo 20 stock.move uses 'quantity' instead of 'quantity_done'
-            const moves = await this.orm.searchRead(
-                "stock.move",
-                [["raw_material_production_id", "=", moId], ["state", "not in", ["done", "cancel"]]],
-                ["id", "product_id", "product_uom_qty", "quantity"]
-            );
-            this.state.registerProducts = moves;
-            if (moves.length > 0) {
-                this.state.registerSelectedMoveId = moves[0].id;
-                this.state.registerQtyValue = moves[0].product_uom_qty || 1;
-            }
-        } catch (e) {
-            this.state.registerProducts = [];
+        const [mo] = await this.orm.read("mrp.production", [moId], [
+            "name", "product_id", "product_qty", "qty_producing", "product_tracking", "uom_id", "lot_producing_ids",
+        ]);
+        let lotName = "";
+        if (mo.lot_producing_ids.length === 1) {
+            const [lot] = await this.orm.read("stock.lot", mo.lot_producing_ids, ["name"]);
+            lotName = lot.name;
         }
+        this.state.registerMo = {
+            id: mo.id,
+            name: mo.name,
+            product: mo.product_id[1],
+            uom: mo.uom_id[1],
+            tracking: mo.product_tracking,
+            qty_production: mo.product_qty,
+        };
+        this.state.registerQtyValue = mo.qty_producing || mo.product_qty;
+        this.state.registerLotName = lotName;
         this.state.showRegisterQtyModal = true;
     }
 
     closeRegisterQtyModal() {
         this.state.showRegisterQtyModal = false;
-        this.state.registerQtyMoId = null;
-        this.state.registerQtyWoId = null;
-        this.state.registerProducts = [];
+        this.state.registerMo = null;
     }
 
     async submitRegisterQty() {
-        try {
-            const moId = this.state.registerQtyMoId;
-            const qty = parseFloat(this.state.registerQtyValue) || 0;
-            const lotName = this.state.registerLotName.trim();
-            const moveId = this.state.registerSelectedMoveId;
-
-            if (moveId && qty > 0) {
-                await this.orm.write("stock.move", [moveId], { quantity: qty });
-            }
-            await this.orm.write("mrp.production", [moId], { qty_producing: qty });
-
-            if (lotName) {
-                const moData = await this.orm.read("mrp.production", [moId], ["product_id", "company_id"]);
-                const productId = moData[0].product_id[0];
-                const companyId = moData[0].company_id ? moData[0].company_id[0] : false;
-                const existing = await this.orm.searchRead(
-                    "stock.lot", [["name", "=", lotName], ["product_id", "=", productId]], ["id"]
-                );
-                const lotId = existing.length > 0
-                    ? existing[0].id
-                    : await this.orm.create("stock.lot", [{ name: lotName, product_id: productId, company_id: companyId }]);
-                // In Odoo 20, mrp.production uses lot_producing_ids (Many2many)
-                await this.orm.write("mrp.production", [moId], { lot_producing_ids: [[4, lotId]] });
-            }
-            this.notification.add("Quantity registered successfully", { type: "success" });
-            this.closeRegisterQtyModal();
-            await this.loadMOs(this.state.selectedWorkcenter);
-        } catch (e) {
-            this.notification.add("Failed to register quantity: " + (e.message || e), { type: "danger" });
+        const qty = parseFloat(this.state.registerQtyValue);
+        if (!(qty > 0)) {
+            this.notification.add("Please enter a quantity greater than 0", { type: "warning" });
+            return;
         }
-    }
-
-    onRegisterMoveChange(ev) {
-        const moveId = parseInt(ev.target.value);
-        this.state.registerSelectedMoveId = moveId;
-        const move = this.state.registerProducts.find(m => m.id === moveId);
-        if (move) this.state.registerQtyValue = move.product_uom_qty || 1;
+        const moId = this.state.registerMo.id;
+        const lotName = this.state.registerLotName.trim() || false;
+        this.closeRegisterQtyModal();
+        const result = await this.orm.call(
+            "mrp.production", "shopfloor_register_production", [[moId], qty, lotName]
+        );
+        if (result === true) {
+            this.notification.add("Production registered", { type: "success" });
+        }
+        await this.handleResult(result);
     }
 
     // =========================================================
     // Product Catalog (Add Component)
     // =========================================================
 
-    async openCatalogModal(moId) {
+    async openCatalogModal(moId, woId = null) {
         this.closeOptionsModal();
         this.state.catalogMoId = moId;
+        this.state.catalogWoId = woId;
         this.state.catalogSearch = "";
         this.state.catalogSelectedCat = null;
         this.state.catalogSelectedTag = null;
@@ -414,7 +707,6 @@ export class ShopFloorApp extends Component {
         this.state.catalogLoading = true;
         this.state.showCatalogModal = true;
 
-        // Load categories and tags in parallel
         const [cats, tags] = await Promise.all([
             this.orm.searchRead("product.category", [], ["id", "name", "parent_id"], { order: "complete_name asc" }),
             this.orm.searchRead("product.tag", [], ["id", "name"], { limit: 50 }).catch(() => []),
@@ -429,24 +721,22 @@ export class ShopFloorApp extends Component {
     closeCatalogModal() {
         this.state.showCatalogModal = false;
         this.state.catalogMoId = null;
+        this.state.catalogWoId = null;
         this.state.catalogCart = {};
         this.state.catalogProducts = [];
     }
 
     _buildCatalogDomain() {
-        const domain = [["type", "in", ["product", "consu"]]];
+        const domain = [["type", "=", "consu"]];
         if (this.state.catalogSelectedCat) {
             domain.push(["categ_id", "child_of", this.state.catalogSelectedCat]);
         }
         if (this.state.catalogSelectedTag) {
-            domain.push(["tag_ids", "in", [this.state.catalogSelectedTag]]);
+            domain.push(["product_tag_ids", "in", [this.state.catalogSelectedTag]]);
         }
         const q = this.state.catalogSearch.trim();
         if (q) {
-            domain.push(["|",
-                ["name", "ilike", q],
-                ["default_code", "ilike", q],
-            ]);
+            domain.push("|", ["name", "ilike", q], ["default_code", "ilike", q]);
         }
         return domain;
     }
@@ -543,7 +833,6 @@ export class ShopFloorApp extends Component {
                 qty: 1,
                 name: product.display_name || product.name,
                 uom: product.uom_id ? product.uom_id[1] : "Units",
-                uomId: product.uom_id ? product.uom_id[0] : 1,
                 productId: product.id,
             };
         }
@@ -558,11 +847,7 @@ export class ShopFloorApp extends Component {
         if (this.state.catalogCart[productId].qty > 1) {
             this.state.catalogCart[productId].qty -= 1;
         } else {
-            const newCart = {};
-            for (const [k, v] of Object.entries(this.state.catalogCart)) {
-                if (parseInt(k) !== productId) newCart[k] = v;
-            }
-            this.state.catalogCart = newCart;
+            this.catalogRemoveFromCart(productId);
         }
     }
 
@@ -587,38 +872,15 @@ export class ShopFloorApp extends Component {
             this.notification.add("No products selected", { type: "warning" });
             return;
         }
-        try {
-            const moId = this.state.catalogMoId;
-            const moData = await this.orm.read("mrp.production", [moId], [
-                "location_src_id", "location_dest_id", "company_id",
-            ]);
-            const mo = moData[0];
-
-            for (const item of items) {
-                await this.orm.create("stock.move", [{
-                    name: item.name,
-                    product_id: item.productId,
-                    product_uom_qty: item.qty,
-                    quantity: item.qty,
-                    product_uom: item.uomId,
-                    raw_material_production_id: moId,
-                    location_id: mo.location_src_id[0],
-                    location_dest_id: mo.location_dest_id[0],
-                    company_id: mo.company_id[0],
-                    state: "confirmed",
-                }]);
-            }
-
-            this.notification.add(
-                `${items.length} component(s) added. They will be reflected in the cost report.`,
-                { type: "success" }
-            );
-            this.closeCatalogModal();
-            await this.loadMOs(this.state.selectedWorkcenter);
-        } catch (e) {
-            console.error(e);
-            this.notification.add("Failed to add components: " + (e.message || e), { type: "danger" });
-        }
+        const { catalogMoId, catalogWoId } = this.state;
+        await this.orm.call("mrp.production", "shopfloor_add_components", [
+            [catalogMoId],
+            items.map(item => ({ product_id: item.productId, qty: item.qty })),
+            catalogWoId || false,
+        ]);
+        this.notification.add(`${items.length} component(s) added.`, { type: "success" });
+        this.closeCatalogModal();
+        await this.reload();
     }
 
     // =========================================================
@@ -627,27 +889,20 @@ export class ShopFloorApp extends Component {
 
     async openAddWorkOrderModal(moId) {
         this.closeOptionsModal();
-        const mo = this.state.mos.find(m => m.id === moId);
+        const workorders = await this.orm.searchRead(
+            "mrp.workorder", [["production_id", "=", moId]], ["id", "name", "sequence"], { order: "sequence, id" }
+        );
 
         this.state.addWorkOrderMoId = moId;
         this.state.addWorkOrderTitle = "";
         this.state.addWorkOrderWorkcenterId = null;
         this.state.addWorkOrderDurationMin = 0;
         this.state.addWorkOrderDateStart = "";
-        this.state.addWorkOrderEmployeeId = null;
-        this.state.addWorkOrderOperations = mo ? mo.workorders : [];
-        this.state.addWorkOrderInsertAfterId = (mo && mo.workorders.length > 0)
-            ? mo.workorders[mo.workorders.length - 1].id
-            : null;
-
-        const wcs = this.state.workcenters.filter(wc => wc.id !== "overview");
-        this.state.addWorkOrderWorkcentersList = wcs.length > 0 ? wcs
-            : await this.orm.searchRead("mrp.workcenter", [], ["id", "name"]);
-
-        this.state.addWorkOrderEmployeesList = await this.orm.searchRead(
-            "hr.employee", [], ["id", "name"], { limit: 100 }
+        this.state.addWorkOrderOperations = workorders;
+        this.state.addWorkOrderInsertAfterId = workorders.length ? workorders[workorders.length - 1].id : null;
+        this.state.addWorkOrderWorkcentersList = await this.orm.searchRead(
+            "mrp.workcenter", [], ["id", "name"], { order: "sequence, id" }
         );
-
         this.state.showAddWorkOrderModal = true;
     }
 
@@ -656,19 +911,8 @@ export class ShopFloorApp extends Component {
         this.state.addWorkOrderMoId = null;
     }
 
-    get addWorkOrderDurationDisplay() {
-        const total = parseInt(this.state.addWorkOrderDurationMin) || 0;
-        const h = Math.floor(total / 60);
-        const m = total % 60;
-        return `${h}h ${m}m`;
-    }
-
     onAddWorkOrderWcChange(ev) {
         this.state.addWorkOrderWorkcenterId = parseInt(ev.target.value) || null;
-    }
-
-    onAddWorkOrderEmpChange(ev) {
-        this.state.addWorkOrderEmployeeId = parseInt(ev.target.value) || null;
     }
 
     onAddWorkOrderInsertAfterChange(ev) {
@@ -684,38 +928,22 @@ export class ShopFloorApp extends Component {
             this.notification.add("Please select a work center", { type: "warning" });
             return;
         }
-        try {
-            const moId = this.state.addWorkOrderMoId;
-            // In Odoo 20, mrp.production quantity field is 'product_qty'
-            const moData = await this.orm.read("mrp.production", [moId],
-                ["product_id", "company_id", "product_qty"]);
-            const mo = moData[0];
-
-            const vals = {
-                name: this.state.addWorkOrderTitle.trim(),
-                production_id: moId,
-                workcenter_id: this.state.addWorkOrderWorkcenterId,
-                product_id: mo.product_id[0],
-                qty_production: mo.product_qty,
-                company_id: mo.company_id[0],
-                state: "ready",
-                duration_expected: parseInt(this.state.addWorkOrderDurationMin) || 0,
-            };
-            if (this.state.addWorkOrderDateStart) {
-                vals.date_start = this.state.addWorkOrderDateStart;
-            }
-            if (this.state.addWorkOrderEmployeeId) {
-                vals.employee_id = this.state.addWorkOrderEmployeeId;
-            }
-            await this.orm.create("mrp.workorder", [vals]);
-
-            this.notification.add("Work order added successfully", { type: "success" });
-            this.closeAddWorkOrderModal();
-            await this.loadMOs(this.state.selectedWorkcenter);
-        } catch (e) {
-            console.error(e);
-            this.notification.add("Failed to add work order: " + (e.message || e), { type: "danger" });
+        const after = this.state.addWorkOrderOperations.find(wo => wo.id === this.state.addWorkOrderInsertAfterId);
+        const vals = {
+            name: this.state.addWorkOrderTitle.trim(),
+            production_id: this.state.addWorkOrderMoId,
+            workcenter_id: this.state.addWorkOrderWorkcenterId,
+            duration_expected: parseInt(this.state.addWorkOrderDurationMin) || 0,
+            sequence: after ? after.sequence + 1 : 0,
+        };
+        if (this.state.addWorkOrderDateStart) {
+            // datetime-local is in the browser's timezone, the server expects UTC
+            vals.date_start = new Date(this.state.addWorkOrderDateStart).toISOString().replace("T", " ").slice(0, 19);
         }
+        await this.orm.create("mrp.workorder", [vals]);
+        this.notification.add("Work order added", { type: "success" });
+        this.closeAddWorkOrderModal();
+        await this.reload();
     }
 
     // =========================================================
@@ -740,17 +968,13 @@ export class ShopFloorApp extends Component {
             this.notification.add("Please enter a note", { type: "warning" });
             return;
         }
-        try {
-            await this.orm.call("mrp.production", "message_post", [[this.state.logNoteMoId]], {
-                body: this.state.logNoteText.trim(),
-                message_type: "comment",
-                subtype_xmlid: "mail.mt_note",
-            });
-            this.notification.add("Note logged successfully", { type: "success" });
-            this.closeLogNoteModal();
-        } catch (e) {
-            this.notification.add("Failed to log note: " + (e.message || e), { type: "danger" });
-        }
+        await this.orm.call("mrp.production", "message_post", [[this.state.logNoteMoId]], {
+            body: this.state.logNoteText.trim(),
+            message_type: "comment",
+            subtype_xmlid: "mail.mt_note",
+        });
+        this.notification.add("Note logged", { type: "success" });
+        this.closeLogNoteModal();
     }
 }
 

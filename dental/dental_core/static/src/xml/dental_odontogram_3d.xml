@@ -1,0 +1,900 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-name="dental_core.OdontogramField">
+        <div class="o_dental_odontogram_wrapper w-100">
+            <!-- Header Bar -->
+            <div class="odontogram-header">
+                <div class="header-title-box">
+                    <div class="title-icon">
+                        <i class="oi" data-icon="medical_services"/>
+                    </div>
+                    <div>
+                        <h4 class="title-text">Clinical 3D Odontogram</h4>
+                        <div class="patient-badge" t-if="this.state.patientName">
+                            Patient: <strong class="text-dark"><t t-out="this.state.patientName"/></strong>
+                            <t t-if="this.state.patientRef"> (<t t-out="this.state.patientRef"/>)</t>
+                            <t t-if="this.state.patientAge !== undefined &amp;&amp; this.state.patientAge !== null">
+                                • Age: <strong class="text-primary"><t t-out="this.state.patientAge"/> yrs</strong>
+                            </t>
+                            <t t-if="this.state.patientDob"> (DOB: <t t-out="this.state.patientDob"/>)</t>
+                            • Case: <strong class="text-primary"><t t-out="this.state.caseName || 'New'"/></strong>
+                        </div>
+                        <div class="patient-badge text-muted" t-else="">
+                            <i class="oi me-1 text-primary" data-icon="info"/> Please select a patient on the Dental Case form.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="stats-pill-group">
+                    <div class="stat-pill pill-sound" title="Sound / Healthy Teeth">
+                        <span class="pill-dot"/> Sound: <strong class="ms-1"><t t-out="this.state.stats.sound || 0"/></strong>
+                    </div>
+                    <div class="stat-pill pill-caries" title="Caries / Decay">
+                        <span class="pill-dot"/> Caries: <strong class="ms-1"><t t-out="this.state.stats.caries || 0"/></strong>
+                    </div>
+                    <div class="stat-pill pill-restoration" title="Restoration / Fillings">
+                        <span class="pill-dot"/> Filled: <strong class="ms-1"><t t-out="this.state.stats.restoration || 0"/></strong>
+                    </div>
+                    <div class="stat-pill pill-crown" title="Crowns / Caps">
+                        <span class="pill-dot"/> Crown: <strong class="ms-1"><t t-out="this.state.stats.crown || 0"/></strong>
+                    </div>
+                    <div class="stat-pill pill-root-canal" title="Root Canal Treated">
+                        <span class="pill-dot"/> Endo: <strong class="ms-1"><t t-out="this.state.stats.root_canal || 0"/></strong>
+                    </div>
+                    <div class="stat-pill pill-missing" title="Missing Teeth">
+                        <span class="pill-dot"/> Missing: <strong class="ms-1"><t t-out="this.state.stats.missing || 0"/></strong>
+                    </div>
+                    <div class="stat-pill pill-dummy-perm" title="Permanent Dummy Teeth (Porcelain Teal)">
+                        <span class="pill-dot"/> Perm Dummy: <strong class="ms-1"><t t-out="this.state.stats.dummy_permanent || 0"/></strong>
+                    </div>
+                    <div class="stat-pill pill-dummy-temp" title="Temporary Dummy Teeth (Provisional Orange)">
+                        <span class="pill-dot"/> Temp Dummy: <strong class="ms-1"><t t-out="this.state.stats.dummy_temporary || 0"/></strong>
+                    </div>
+                </div>
+
+                <!-- Header Actions: Explicit Save & Auto-Save Sync Button -->
+                <div class="header-actions-group ms-auto d-flex align-items-center gap-2">
+                    <button type="button" 
+                            class="btn btn-primary btn-save-odontogram d-inline-flex align-items-center gap-2" 
+                            t-on-click="() => this.onSaveAll()"
+                            t-att-disabled="this.state.isSaving"
+                            title="Save odontogram findings &amp; dental case changes">
+                        <i class="oi" data-icon="save" t-if="!this.state.isSaving"/>
+                        <span class="spinner-border spinner-border-sm" role="status" t-if="this.state.isSaving"/>
+                        <span class="btn-text fw-bold">Save Changes</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Age-Based Dentition Mode Selection Bar -->
+            <div class="dentition-selector-bar">
+                <div class="dentition-options-group">
+                    <button type="button" 
+                            class="dentition-btn" 
+                            t-att-class="{ 
+                                'active': this.state.dentitionType === 'primary',
+                                'disabled': this.isDentitionDisabled('primary'),
+                                'locked': this.isDentitionDisabled('primary')
+                            }" 
+                            t-att-disabled="this.isDentitionDisabled('primary') ? 'disabled' : undefined"
+                            t-on-click="() => this.setDentitionType('primary')"
+                            t-att-title="this.getDentitionTooltip('primary')">
+                        <span class="dentition-icon"><i class="oi" data-icon="child_care"/></span>
+                        <div class="dentition-text-group">
+                            <span class="dentition-title">Primary Dentition</span>
+                            <span class="dentition-meta">20 teeth • Ages 0–5</span>
+                        </div>
+                        <span class="locked-badge" t-if="this.isDentitionDisabled('primary')" title="Locked: Patient has received treatments on permanent teeth">
+                            <i class="oi" data-icon="lock"/> Locked
+                        </span>
+                    </button>
+
+                    <button type="button" 
+                            class="dentition-btn" 
+                            t-att-class="{ 
+                                'active': this.state.dentitionType === 'mixed',
+                                'disabled': this.isDentitionDisabled('mixed'),
+                                'locked': this.isDentitionDisabled('mixed')
+                            }" 
+                            t-att-disabled="this.isDentitionDisabled('mixed') ? 'disabled' : undefined"
+                            t-on-click="() => this.setDentitionType('mixed')"
+                            t-att-title="this.getDentitionTooltip('mixed')">
+                        <span class="dentition-icon"><i class="oi" data-icon="group"/></span>
+                        <div class="dentition-text-group">
+                            <span class="dentition-title">Mixed Dentition</span>
+                            <span class="dentition-meta">Primary &amp; Permanent • Ages 6–12</span>
+                        </div>
+                        <span class="locked-badge" t-if="this.isDentitionDisabled('mixed')" title="Locked: Teeth have been treated under permanent dentition">
+                            <i class="oi" data-icon="lock"/> Locked
+                        </span>
+                    </button>
+
+                    <button type="button" 
+                            class="dentition-btn" 
+                            t-att-class="{ 
+                                'active': this.state.dentitionType === 'permanent',
+                                'disabled': this.isDentitionDisabled('permanent'),
+                                'locked': this.isDentitionDisabled('permanent')
+                            }" 
+                            t-att-disabled="this.isDentitionDisabled('permanent') ? 'disabled' : undefined"
+                            t-on-click="() => this.setDentitionType('permanent')"
+                            t-att-title="this.getDentitionTooltip('permanent')">
+                        <span class="dentition-icon"><i class="oi" data-icon="person"/></span>
+                        <div class="dentition-text-group">
+                            <span class="dentition-title">Permanent Dentition</span>
+                            <span class="dentition-meta">Up to 32 teeth • Ages 13+</span>
+                        </div>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Full-Arch 2D Quick Selector Strip (Upper Maxilla & Lower Mandible) -->
+            <div class="odontogram-teeth-bar">
+                <div class="arch-strip-row">
+                    <span class="arch-badge">Upper:</span>
+                    <div class="quadrant-chips">
+                        <t t-foreach="this.upperRightTeeth" t-as="tNum" t-key="tNum">
+                            <button type="button" class="tooth-chip" t-att-class="this.getToothStripClasses(tNum)" t-on-click="() => this.selectTooth(tNum)" t-att-title="'Tooth ' + tNum + ' • ' + this.getConditionLabel(this.state.teeth[tNum]?.condition)">
+                                <span class="chip-num-label" t-att-class="{ 'strikethrough-num': this.isMissingTooth(tNum) }"><t t-out="tNum"/></span>
+                                <span class="chip-missing-x" t-if="this.isMissingTooth(tNum)">✕</span>
+                                <span class="chip-dummy-icon perm" t-if="this.state.teeth[tNum]?.condition === 'dummy_permanent'">💎</span>
+                                <span class="chip-dummy-icon temp" t-if="this.state.teeth[tNum]?.condition === 'dummy_temporary'">⏳</span>
+                            </button>
+                        </t>
+                    </div>
+                    <div class="midline-separator"/>
+                    <div class="quadrant-chips">
+                        <t t-foreach="this.upperLeftTeeth" t-as="tNum" t-key="tNum">
+                            <button type="button" class="tooth-chip" t-att-class="this.getToothStripClasses(tNum)" t-on-click="() => this.selectTooth(tNum)" t-att-title="'Tooth ' + tNum + ' • ' + this.getConditionLabel(this.state.teeth[tNum]?.condition)">
+                                <span class="chip-num-label" t-att-class="{ 'strikethrough-num': this.isMissingTooth(tNum) }"><t t-out="tNum"/></span>
+                                <span class="chip-missing-x" t-if="this.isMissingTooth(tNum)">✕</span>
+                                <span class="chip-dummy-icon perm" t-if="this.state.teeth[tNum]?.condition === 'dummy_permanent'">💎</span>
+                                <span class="chip-dummy-icon temp" t-if="this.state.teeth[tNum]?.condition === 'dummy_temporary'">⏳</span>
+                            </button>
+                        </t>
+                    </div>
+                </div>
+                <div class="arch-strip-row mt-1">
+                    <span class="arch-badge">Lower:</span>
+                    <div class="quadrant-chips">
+                        <t t-foreach="this.lowerRightTeeth" t-as="tNum" t-key="tNum">
+                            <button type="button" class="tooth-chip" t-att-class="this.getToothStripClasses(tNum)" t-on-click="() => this.selectTooth(tNum)" t-att-title="'Tooth ' + tNum + ' • ' + this.getConditionLabel(this.state.teeth[tNum]?.condition)">
+                                <span class="chip-num-label" t-att-class="{ 'strikethrough-num': this.isMissingTooth(tNum) }"><t t-out="tNum"/></span>
+                                <span class="chip-missing-x" t-if="this.isMissingTooth(tNum)">✕</span>
+                                <span class="chip-dummy-icon perm" t-if="this.state.teeth[tNum]?.condition === 'dummy_permanent'">💎</span>
+                                <span class="chip-dummy-icon temp" t-if="this.state.teeth[tNum]?.condition === 'dummy_temporary'">⏳</span>
+                            </button>
+                        </t>
+                    </div>
+                    <div class="midline-separator"/>
+                    <div class="quadrant-chips">
+                        <t t-foreach="this.lowerLeftTeeth" t-as="tNum" t-key="tNum">
+                            <button type="button" class="tooth-chip" t-att-class="this.getToothStripClasses(tNum)" t-on-click="() => this.selectTooth(tNum)" t-att-title="'Tooth ' + tNum + ' • ' + this.getConditionLabel(this.state.teeth[tNum]?.condition)">
+                                <span class="chip-num-label" t-att-class="{ 'strikethrough-num': this.isMissingTooth(tNum) }"><t t-out="tNum"/></span>
+                                <span class="chip-missing-x" t-if="this.isMissingTooth(tNum)">✕</span>
+                                <span class="chip-dummy-icon perm" t-if="this.state.teeth[tNum]?.condition === 'dummy_permanent'">💎</span>
+                                <span class="chip-dummy-icon temp" t-if="this.state.teeth[tNum]?.condition === 'dummy_temporary'">⏳</span>
+                            </button>
+                        </t>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Body Layout: Split between Central 3D Viewport and Right Clinical Panel -->
+            <div class="odontogram-body">
+                <!-- Center: Spacious 3D Viewport Card -->
+                <div class="odontogram-viewport-card">
+                    <!-- Dedicated Toolbar (Never Overlaps the Teeth!) -->
+                    <div class="viewport-header-toolbar">
+                        <!-- View Mode Switcher: 3D Full Jaw vs Tooth-by-Tooth Chart -->
+                        <div class="toolbar-section view-mode-switcher">
+                            <div class="view-mode-toggle-group">
+                                <button type="button" 
+                                        class="btn-view-mode" 
+                                        t-att-class="{ 'active': this.state.viewMode !== 'chart' }" 
+                                        t-on-click="() => this.setViewMode('jaw')" 
+                                        title="Overall 3D Mouth / Bite View">
+                                    <i class="oi" data-icon="view_in_ar"/> 3D Full Jaw View
+                                </button>
+                                <button type="button" 
+                                        class="btn-view-mode" 
+                                        t-att-class="{ 'active': this.state.viewMode === 'chart' }" 
+                                        t-on-click="() => this.setViewMode('chart')" 
+                                        title="Tooth-by-Tooth 3D Frontal Chart View">
+                                    <i class="oi" data-icon="view_column"/> Tooth-by-Tooth View
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Jaw Camera Presets (shown in 3D Full Jaw mode) -->
+                        <div class="toolbar-section camera-presets" t-if="this.state.viewMode !== 'chart'">
+                            <span class="toolbar-label"><i class="oi me-1" data-icon="photo_camera"/> View:</span>
+                            <div class="preset-btn-group">
+                                <button type="button" class="btn-preset" t-att-class="{ 'active': this.state.currentView === 'front' }" t-on-click="() => this.setView('front')" title="Anterior Front Bite Overview">
+                                    <i class="oi" data-icon="view_in_ar"/> Front Bite
+                                </button>
+                                <button type="button" class="btn-preset" t-att-class="{ 'active': this.state.currentView === 'upper' }" t-on-click="() => this.setView('upper')" title="Maxillary Arch (Palatal View)">
+                                    <i class="oi" data-icon="keyboard_arrow_up"/> Upper Arch
+                                </button>
+                                <button type="button" class="btn-preset" t-att-class="{ 'active': this.state.currentView === 'lower' }" t-on-click="() => this.setView('lower')" title="Mandibular Arch (Occlusal View)">
+                                    <i class="oi" data-icon="keyboard_arrow_down"/> Lower Arch
+                                </button>
+                                <button type="button" class="btn-preset" t-att-class="{ 'active': this.state.currentView === 'occlusal' }" t-on-click="() => this.setView('occlusal')" title="Angled Occlusal Table View">
+                                    <i class="oi" data-icon="visibility"/> Occlusal
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Jaw Camera Tools (shown in 3D Full Jaw mode) -->
+                        <div class="toolbar-section camera-actions" t-if="this.state.viewMode !== 'chart'">
+                            <div class="action-btn-group">
+                                <button type="button" class="btn-tool-action" title="Rotate Left (-15°)" t-on-click="() => this.rotateCamera(-0.26)">
+                                    <i class="oi" data-icon="undo"/>
+                                </button>
+                                <button type="button" class="btn-tool-action" title="Rotate Right (+15°)" t-on-click="() => this.rotateCamera(0.26)">
+                                    <i class="oi" data-icon="rotate_right"/>
+                                </button>
+                                <button type="button" class="btn-tool-action" title="Pan Left" t-on-click="() => this.panCamera(-0.4, 0)">
+                                    <i class="oi" data-icon="arrow_back"/>
+                                </button>
+                                <button type="button" class="btn-tool-action" title="Pan Right" t-on-click="() => this.panCamera(0.4, 0)">
+                                    <i class="oi" data-icon="arrow_forward"/>
+                                </button>
+                                <button type="button" class="btn-tool-action" title="Zoom In (+)" t-on-click="() => this.zoomCamera(-2)">
+                                    <i class="oi" data-icon="zoom_in"/>
+                                </button>
+                                <button type="button" class="btn-tool-action" title="Zoom Out (-)" t-on-click="() => this.zoomCamera(2)">
+                                    <i class="oi" data-icon="zoom_out"/>
+                                </button>
+                                <button type="button" class="btn-tool-action" t-att-class="{ 'active': this.state.showSeparations }" title="Toggle Tooth Separation Lines" t-on-click="() => this.toggleSeparations()">
+                                    <i class="oi" data-icon="grid_view"/>
+                                </button>
+                                <button type="button" class="btn-tool-action" title="Reset Camera View" t-on-click="() => this.resetCamera()">
+                                    <i class="oi" data-icon="refresh"/>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Chart Actions & Information (shown in Tooth-by-Tooth Chart mode) -->
+                        <div class="toolbar-section chart-info ms-auto" t-if="this.state.viewMode === 'chart'">
+                            <span class="toolbar-hint text-muted small me-2">
+                                <i class="oi me-1 text-primary" data-icon="info"/> Click any tooth or number badge to inspect
+                            </span>
+                            <div class="action-btn-group">
+                                <button type="button" class="btn-tool-action" t-att-class="{ 'active': this.state.showSeparations }" title="Toggle Tooth Separation Lines" t-on-click="() => this.toggleSeparations()">
+                                    <i class="oi" data-icon="grid_view"/>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 3D Canvas Box -->
+                    <div class="viewport-canvas-wrapper" t-ref="this.viewportRef" t-att-class="{ 'mode-chart': this.state.viewMode === 'chart' }">
+                        <div class="three-canvas-box" t-ref="this.canvasContainerRef"/>
+
+                        <!-- Loading Indicator Overlay -->
+                        <div class="odontogram-loading-overlay" t-if="this.state.isLoadingModel">
+                            <div class="spinner-border text-primary mb-2" role="status"/>
+                            <div class="text-dark fw-bold small">Loading Anatomical 3D Jaw Model...</div>
+                        </div>
+
+                        <!-- Tooth-by-Tooth Chart Interactive Midline Number Strip & Status Overlays (Overlay in Chart Mode) -->
+                        <div class="chart-number-strip-overlay" t-if="this.state.viewMode === 'chart'">
+                            <!-- Upper Teeth Status Cross / Badge Row (Overlaid on Maxillary Teeth) -->
+                            <div class="chart-status-row chart-status-row-upper">
+                                <div class="chart-quadrant-nums chart-quadrant-right">
+                                    <t t-foreach="this.upperRightTeeth" t-as="tNum" t-key="tNum">
+                                        <div class="chart-status-cell" t-att-data-tooth-num="tNum" t-att-class="{ 'is-missing': this.isMissingTooth(tNum), 'is-dummy-perm': this.state.teeth[tNum]?.condition === 'dummy_permanent', 'is-dummy-temp': this.state.teeth[tNum]?.condition === 'dummy_temporary' }" t-on-click="() => this.selectTooth(tNum)">
+                                            <div class="status-cross-mark" t-if="this.isMissingTooth(tNum)" title="Missing Tooth (Extracted or Absent)">
+                                                <svg viewBox="0 0 36 36" class="svg-cross">
+                                                    <line x1="6" y1="6" x2="30" y2="30" stroke="#ef4444" stroke-width="4.5" stroke-linecap="round"/>
+                                                    <line x1="30" y1="6" x2="6" y2="30" stroke="#ef4444" stroke-width="4.5" stroke-linecap="round"/>
+                                                </svg>
+                                            </div>
+                                            <div class="status-dummy-badge perm" t-if="this.state.teeth[tNum]?.condition === 'dummy_permanent'" title="Permanent Dummy Tooth (Porcelain Teal)">
+                                                <span class="dummy-sym">💎</span>
+                                                <span class="dummy-lbl">Perm</span>
+                                            </div>
+                                            <div class="status-dummy-badge temp" t-if="this.state.teeth[tNum]?.condition === 'dummy_temporary'" title="Temporary Dummy Tooth (Provisional Orange)">
+                                                <span class="dummy-sym">⏳</span>
+                                                <span class="dummy-lbl">Temp</span>
+                                            </div>
+                                        </div>
+                                    </t>
+                                </div>
+                                <div class="chart-midline-spacer"/>
+                                <div class="chart-quadrant-nums chart-quadrant-left">
+                                    <t t-foreach="this.upperLeftTeeth" t-as="tNum" t-key="tNum">
+                                        <div class="chart-status-cell" t-att-data-tooth-num="tNum" t-att-class="{ 'is-missing': this.isMissingTooth(tNum), 'is-dummy-perm': this.state.teeth[tNum]?.condition === 'dummy_permanent', 'is-dummy-temp': this.state.teeth[tNum]?.condition === 'dummy_temporary' }" t-on-click="() => this.selectTooth(tNum)">
+                                            <div class="status-cross-mark" t-if="this.isMissingTooth(tNum)" title="Missing Tooth (Extracted or Absent)">
+                                                <svg viewBox="0 0 36 36" class="svg-cross">
+                                                    <line x1="6" y1="6" x2="30" y2="30" stroke="#ef4444" stroke-width="4.5" stroke-linecap="round"/>
+                                                    <line x1="30" y1="6" x2="6" y2="30" stroke="#ef4444" stroke-width="4.5" stroke-linecap="round"/>
+                                                </svg>
+                                            </div>
+                                            <div class="status-dummy-badge perm" t-if="this.state.teeth[tNum]?.condition === 'dummy_permanent'" title="Permanent Dummy Tooth (Porcelain Teal)">
+                                                <span class="dummy-sym">💎</span>
+                                                <span class="dummy-lbl">Perm</span>
+                                            </div>
+                                            <div class="status-dummy-badge temp" t-if="this.state.teeth[tNum]?.condition === 'dummy_temporary'" title="Temporary Dummy Tooth (Provisional Orange)">
+                                                <span class="dummy-sym">⏳</span>
+                                                <span class="dummy-lbl">Temp</span>
+                                            </div>
+                                        </div>
+                                    </t>
+                                </div>
+                            </div>
+
+                            <!-- Upper Arch Number Row -->
+                            <div class="chart-num-row chart-num-row-upper">
+                                <div class="chart-quadrant-nums chart-quadrant-right">
+                                    <t t-foreach="this.upperRightTeeth" t-as="tNum" t-key="tNum">
+                                        <button type="button" 
+                                                class="chart-num-btn" 
+                                                t-att-data-tooth-num="tNum" 
+                                                t-att-class="this.getToothChartClasses(tNum)" 
+                                                t-on-click="() => this.selectTooth(tNum)" 
+                                                t-att-title="'Tooth ' + tNum + ' • ' + this.getConditionLabel(this.state.teeth[tNum]?.condition)">
+                                            <span class="chart-num-text" t-att-class="{ 'strikethrough-num': this.isMissingTooth(tNum) }"><t t-out="tNum"/></span>
+                                            <span class="chart-missing-cross-sm" t-if="this.isMissingTooth(tNum)">✕</span>
+                                            <span class="chart-dummy-icon perm" t-if="this.state.teeth[tNum]?.condition === 'dummy_permanent'">💎</span>
+                                            <span class="chart-dummy-icon temp" t-if="this.state.teeth[tNum]?.condition === 'dummy_temporary'">⏳</span>
+                                            <span class="chart-cond-dot" t-if="this.hasToothCondition(tNum) &amp;&amp; !this.isMissingTooth(tNum) &amp;&amp; !this.isDummyTooth(tNum)"/>
+                                        </button>
+                                    </t>
+                                </div>
+                                <div class="chart-midline-spacer"/>
+                                <div class="chart-quadrant-nums chart-quadrant-left">
+                                    <t t-foreach="this.upperLeftTeeth" t-as="tNum" t-key="tNum">
+                                        <button type="button" 
+                                                class="chart-num-btn" 
+                                                t-att-data-tooth-num="tNum" 
+                                                t-att-class="this.getToothChartClasses(tNum)" 
+                                                t-on-click="() => this.selectTooth(tNum)" 
+                                                t-att-title="'Tooth ' + tNum + ' • ' + this.getConditionLabel(this.state.teeth[tNum]?.condition)">
+                                            <span class="chart-num-text" t-att-class="{ 'strikethrough-num': this.isMissingTooth(tNum) }"><t t-out="tNum"/></span>
+                                            <span class="chart-missing-cross-sm" t-if="this.isMissingTooth(tNum)">✕</span>
+                                            <span class="chart-dummy-icon perm" t-if="this.state.teeth[tNum]?.condition === 'dummy_permanent'">💎</span>
+                                            <span class="chart-dummy-icon temp" t-if="this.state.teeth[tNum]?.condition === 'dummy_temporary'">⏳</span>
+                                            <span class="chart-cond-dot" t-if="this.hasToothCondition(tNum) &amp;&amp; !this.isMissingTooth(tNum) &amp;&amp; !this.isDummyTooth(tNum)"/>
+                                        </button>
+                                    </t>
+                                </div>
+                            </div>
+
+                            <!-- Lower Arch Number Row -->
+                            <div class="chart-num-row chart-num-row-lower">
+                                <div class="chart-quadrant-nums chart-quadrant-right">
+                                    <t t-foreach="this.lowerRightTeeth" t-as="tNum" t-key="tNum">
+                                        <button type="button" 
+                                                class="chart-num-btn" 
+                                                t-att-data-tooth-num="tNum" 
+                                                t-att-class="this.getToothChartClasses(tNum)" 
+                                                t-on-click="() => this.selectTooth(tNum)" 
+                                                t-att-title="'Tooth ' + tNum + ' • ' + this.getConditionLabel(this.state.teeth[tNum]?.condition)">
+                                            <span class="chart-num-text" t-att-class="{ 'strikethrough-num': this.isMissingTooth(tNum) }"><t t-out="tNum"/></span>
+                                            <span class="chart-missing-cross-sm" t-if="this.isMissingTooth(tNum)">✕</span>
+                                            <span class="chart-dummy-icon perm" t-if="this.state.teeth[tNum]?.condition === 'dummy_permanent'">💎</span>
+                                            <span class="chart-dummy-icon temp" t-if="this.state.teeth[tNum]?.condition === 'dummy_temporary'">⏳</span>
+                                            <span class="chart-cond-dot" t-if="this.hasToothCondition(tNum) &amp;&amp; !this.isMissingTooth(tNum) &amp;&amp; !this.isDummyTooth(tNum)"/>
+                                        </button>
+                                    </t>
+                                </div>
+                                <div class="chart-midline-spacer"/>
+                                <div class="chart-quadrant-nums chart-quadrant-left">
+                                    <t t-foreach="this.lowerLeftTeeth" t-as="tNum" t-key="tNum">
+                                        <button type="button" 
+                                                class="chart-num-btn" 
+                                                t-att-data-tooth-num="tNum" 
+                                                t-att-class="this.getToothChartClasses(tNum)" 
+                                                t-on-click="() => this.selectTooth(tNum)" 
+                                                t-att-title="'Tooth ' + tNum + ' • ' + this.getConditionLabel(this.state.teeth[tNum]?.condition)">
+                                            <span class="chart-num-text" t-att-class="{ 'strikethrough-num': this.isMissingTooth(tNum) }"><t t-out="tNum"/></span>
+                                            <span class="chart-missing-cross-sm" t-if="this.isMissingTooth(tNum)">✕</span>
+                                            <span class="chart-dummy-icon perm" t-if="this.state.teeth[tNum]?.condition === 'dummy_permanent'">💎</span>
+                                            <span class="chart-dummy-icon temp" t-if="this.state.teeth[tNum]?.condition === 'dummy_temporary'">⏳</span>
+                                            <span class="chart-cond-dot" t-if="this.hasToothCondition(tNum) &amp;&amp; !this.isMissingTooth(tNum) &amp;&amp; !this.isDummyTooth(tNum)"/>
+                                        </button>
+                                    </t>
+                                </div>
+                            </div>
+
+                            <!-- Lower Teeth Status Cross / Badge Row (Overlaid on Mandibular Teeth) -->
+                            <div class="chart-status-row chart-status-row-lower">
+                                <div class="chart-quadrant-nums chart-quadrant-right">
+                                    <t t-foreach="this.lowerRightTeeth" t-as="tNum" t-key="tNum">
+                                        <div class="chart-status-cell" t-att-data-tooth-num="tNum" t-att-class="{ 'is-missing': this.isMissingTooth(tNum), 'is-dummy-perm': this.state.teeth[tNum]?.condition === 'dummy_permanent', 'is-dummy-temp': this.state.teeth[tNum]?.condition === 'dummy_temporary' }" t-on-click="() => this.selectTooth(tNum)">
+                                            <div class="status-cross-mark" t-if="this.isMissingTooth(tNum)" title="Missing Tooth (Extracted or Absent)">
+                                                <svg viewBox="0 0 36 36" class="svg-cross">
+                                                    <line x1="6" y1="6" x2="30" y2="30" stroke="#ef4444" stroke-width="4.5" stroke-linecap="round"/>
+                                                    <line x1="30" y1="6" x2="6" y2="30" stroke="#ef4444" stroke-width="4.5" stroke-linecap="round"/>
+                                                </svg>
+                                            </div>
+                                            <div class="status-dummy-badge perm" t-if="this.state.teeth[tNum]?.condition === 'dummy_permanent'" title="Permanent Dummy Tooth (Porcelain Teal)">
+                                                <span class="dummy-sym">💎</span>
+                                                <span class="dummy-lbl">Perm</span>
+                                            </div>
+                                            <div class="status-dummy-badge temp" t-if="this.state.teeth[tNum]?.condition === 'dummy_temporary'" title="Temporary Dummy Tooth (Provisional Orange)">
+                                                <span class="dummy-sym">⏳</span>
+                                                <span class="dummy-lbl">Temp</span>
+                                            </div>
+                                        </div>
+                                    </t>
+                                </div>
+                                <div class="chart-midline-spacer"/>
+                                <div class="chart-quadrant-nums chart-quadrant-left">
+                                    <t t-foreach="this.lowerLeftTeeth" t-as="tNum" t-key="tNum">
+                                        <div class="chart-status-cell" t-att-data-tooth-num="tNum" t-att-class="{ 'is-missing': this.isMissingTooth(tNum), 'is-dummy-perm': this.state.teeth[tNum]?.condition === 'dummy_permanent', 'is-dummy-temp': this.state.teeth[tNum]?.condition === 'dummy_temporary' }" t-on-click="() => this.selectTooth(tNum)">
+                                            <div class="status-cross-mark" t-if="this.isMissingTooth(tNum)" title="Missing Tooth (Extracted or Absent)">
+                                                <svg viewBox="0 0 36 36" class="svg-cross">
+                                                    <line x1="6" y1="6" x2="30" y2="30" stroke="#ef4444" stroke-width="4.5" stroke-linecap="round"/>
+                                                    <line x1="30" y1="6" x2="6" y2="30" stroke="#ef4444" stroke-width="4.5" stroke-linecap="round"/>
+                                                </svg>
+                                            </div>
+                                            <div class="status-dummy-badge perm" t-if="this.state.teeth[tNum]?.condition === 'dummy_permanent'" title="Permanent Dummy Tooth (Porcelain Teal)">
+                                                <span class="dummy-sym">💎</span>
+                                                <span class="dummy-lbl">Perm</span>
+                                            </div>
+                                            <div class="status-dummy-badge temp" t-if="this.state.teeth[tNum]?.condition === 'dummy_temporary'" title="Temporary Dummy Tooth (Provisional Orange)">
+                                                <span class="dummy-sym">⏳</span>
+                                                <span class="dummy-lbl">Temp</span>
+                                            </div>
+                                        </div>
+                                    </t>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Hover Tooltip -->
+                        <div class="odontogram-3d-tooltip" t-if="this.state.hoveredTooth" t-att-style="'left: ' + this.state.tooltipX + 'px; top: ' + this.state.tooltipY + 'px;'">
+                            <t t-out="this.state.hoveredToothInfo"/>
+                        </div>
+
+                        <!-- Discreet Anatomical Arch Orientation Tags in Corners -->
+                        <div class="arch-indicator upper-arch">
+                            <t t-if="this.state.viewMode === 'chart'">MAXILLARY TEETH (UPPER ARCH)</t>
+                            <t t-else="">MAXILLARY ARCH (UPPER)</t>
+                        </div>
+                        <div class="arch-indicator lower-arch">
+                            <t t-if="this.state.viewMode === 'chart'">MANDIBULAR TEETH (LOWER ARCH)</t>
+                            <t t-else="">MANDIBULAR ARCH (LOWER)</t>
+                        </div>
+
+                        <!-- Floating Navigation Help Bar -->
+                        <div class="viewport-nav-hint" t-if="this.state.viewMode === 'chart'">
+                            <span><i class="oi me-1 text-primary" data-icon="touch_app"/> Click any tooth or number badge to select</span>
+                            <span class="hint-divider">•</span>
+                            <span>Recorded findings reflect instantaneously across both views</span>
+                        </div>
+                        <div class="viewport-nav-hint" t-else="">
+                            <span><i class="oi me-1 text-primary" data-icon="touch_app"/> Left click to rotate</span>
+                            <span class="hint-divider">•</span>
+                            <span>Right click to pan</span>
+                            <span class="hint-divider">•</span>
+                            <span>Use +/- buttons to zoom</span>
+                            <span class="hint-divider">•</span>
+                            <span>Click any tooth to inspect</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Side: Inspection & Clinical Recording Panel -->
+                <div class="odontogram-panel">
+                    <!-- Persistent FDI Tooth Selector (Always Available & Synchronized) -->
+                    <div class="panel-fdi-quick-picker">
+                        <label class="form-label text-muted small fw-bold mb-1">
+                            <i class="oi me-1 text-primary" data-icon="search"/> Select Tooth by FDI:
+                        </label>
+                        <select class="form-select form-select-sm border-secondary-subtle" 
+                                t-att-value="this.state.selectedTooth || ''" 
+                                t-on-change="(ev) => this.selectTooth(ev.target.value)">
+                            <option value="">-- Choose Tooth to Inspect --</option>
+                            <t t-foreach="this.allTeethList" t-as="item" t-key="item.number">
+                                <option t-att-value="item.number">
+                                    Tooth <t t-out="item.number"/> - <t t-out="item.name"/> (<t t-out="this.getConditionLabel(item.condition)"/>)
+                                </option>
+                            </t>
+                        </select>
+                    </div>
+
+                    <!-- State A: No tooth selected -->
+                    <div class="panel-empty-state" t-if="!this.state.selectedTooth">
+                        <div class="empty-icon">
+                            <i class="oi" data-icon="medical_services"/>
+                        </div>
+                        <h5>Select a Tooth</h5>
+                        <p class="empty-desc">Click any tooth on the 3D anatomical model or the selector strip above to inspect conditions, view clinical history, or record findings.</p>
+                        
+                        <div class="mt-2 w-100">
+                            <label class="form-label text-muted small fw-bold">Quick FDI Tooth Selector:</label>
+                            <select class="form-select form-select-sm border-secondary-subtle" t-on-change="(ev) => this.selectTooth(ev.target.value)">
+                                <option value="">-- Choose Tooth to Inspect --</option>
+                                <t t-foreach="this.allTeethList" t-as="item" t-key="item.number">
+                                    <option t-att-value="item.number">Tooth <t t-out="item.number"/> - <t t-out="item.name"/></option>
+                                </t>
+                            </select>
+                        </div>
+
+                        <div class="mt-4 p-3 rounded clinical-guide-card">
+                            <div class="fw-bold text-dark mb-2"><i class="oi me-1 text-primary" data-icon="healing"/> Clinical Odontogram Guide:</div>
+                            <div class="guide-item"><span class="badge-dot dot-sound"/> <strong>Sound:</strong> Intact, healthy natural enamel</div>
+                            <div class="guide-item"><span class="badge-dot dot-caries"/> <strong>Caries:</strong> Active decay / cavitated lesion</div>
+                            <div class="guide-item"><span class="badge-dot dot-restoration"/> <strong>Filled:</strong> Composite or amalgam restoration</div>
+                            <div class="guide-item"><span class="badge-dot dot-crown"/> <strong>Crown:</strong> Full coverage prosthetic cap</div>
+                            <div class="guide-item"><span class="badge-dot dot-root-canal"/> <strong>Endo:</strong> Root canal obturated tooth</div>
+                            <div class="guide-item"><span class="badge-dot dot-missing"/> <strong>Missing:</strong> Edentulous space / removed tooth</div>
+                            <div class="guide-item"><span class="badge-dot dot-dummy-perm"/> <strong>Perm Dummy:</strong> Permanent porcelain dummy tooth (Teal)</div>
+                            <div class="guide-item"><span class="badge-dot dot-dummy-temp"/> <strong>Temp Dummy:</strong> Temporary acrylic dummy tooth (Orange)</div>
+                        </div>
+                    </div>
+
+                    <!-- State B: Tooth selected -->
+                    <div class="panel-tooth-detail" t-if="this.state.selectedTooth">
+                        <!-- Hero Card -->
+                        <div class="tooth-hero-card">
+                            <div class="tooth-hero-top">
+                                <div>
+                                    <div class="tooth-fdi-tag">
+                                        Tooth <t t-out="this.state.selectedTooth"/>
+                                    </div>
+                                    <div class="tooth-anatomy-name">
+                                        <t t-out="this.selectedToothData.tooth_name"/>
+                                    </div>
+                                </div>
+                                <div class="condition-badge" t-att-class="'cond-' + (this.selectedToothData.condition || 'sound')">
+                                    <t t-out="this.getConditionLabel(this.selectedToothData.condition)"/>
+                                </div>
+                            </div>
+
+                            <div class="notations-row">
+                                <span>FDI: <strong><t t-out="this.state.selectedTooth"/></strong></span>
+                                <span>Universal: <strong>#<t t-out="this.selectedToothData.universal_number"/></strong></span>
+                                <span>Palmer: <strong><t t-out="this.selectedToothData.palmer_notation"/></strong></span>
+                            </div>
+
+                            <!-- Missing Tooth Status & 1-Click Correction Banner -->
+                            <div class="missing-status-alert-banner" t-if="this.selectedToothData.condition === 'missing'">
+                                <div class="alert-banner-header">
+                                    <span class="alert-cross-badge">✕</span>
+                                    <div class="alert-text">
+                                        <strong>Missing Tooth (Extracted or Absent)</strong>
+                                        <span>Removed from mouth view • Crossed in tooth chart</span>
+                                    </div>
+                                </div>
+                                <div class="alert-banner-actions" t-if="this.state.canEdit">
+                                    <button type="button" class="btn-restore-tooth" t-on-click="() => this.quickApplyCondition('sound')" title="Accidentally marked as missing? Click to restore this tooth to healthy condition.">
+                                        <i class="oi me-1" data-icon="refresh"/> Restore Tooth / Mark as Healthy
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Dummy Tooth Status Banner & Toggles -->
+                            <div class="dummy-status-alert-banner" t-att-class="this.selectedToothData.condition === 'dummy_permanent' ? 'banner-dummy-perm' : 'banner-dummy-temp'" t-if="this.selectedToothData.condition === 'dummy_permanent' || this.selectedToothData.condition === 'dummy_temporary'">
+                                <div class="alert-banner-header">
+                                    <span class="dummy-banner-icon" t-if="this.selectedToothData.condition === 'dummy_permanent'">💎</span>
+                                    <span class="dummy-banner-icon" t-else="">⏳</span>
+                                    <div class="alert-text">
+                                        <strong t-if="this.selectedToothData.condition === 'dummy_permanent'">Permanent Dummy Tooth (Fixed Prosthetic)</strong>
+                                        <strong t-else="">Temporary Dummy Tooth (Provisional Pontic)</strong>
+                                        <span>Color-coded in 3D views for immediate clinical recognition.</span>
+                                    </div>
+                                </div>
+                                <div class="dummy-banner-actions" t-if="this.state.canEdit">
+                                    <button type="button" class="btn-dummy-toggle" t-att-class="{ 'active': this.selectedToothData.condition === 'dummy_permanent' }" t-on-click="() => this.quickApplyCondition('dummy_permanent')">
+                                        💎 Permanent
+                                    </button>
+                                    <button type="button" class="btn-dummy-toggle" t-att-class="{ 'active': this.selectedToothData.condition === 'dummy_temporary' }" t-on-click="() => this.quickApplyCondition('dummy_temporary')">
+                                        ⏳ Temporary
+                                    </button>
+                                    <button type="button" class="btn-dummy-remove" t-on-click="() => this.quickApplyCondition('sound')" title="Remove Dummy Status">
+                                        ✕ Remove
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- 1-Click Quick Problem Indication Buttons (Instant 3D Color Update) -->
+                            <div class="quick-condition-palette" t-if="this.state.canEdit">
+                                <span class="palette-label"><i class="oi me-1 text-primary" data-icon="brush"/> Quick Mark Condition / Status:</span>
+                                <div class="quick-condition-grid">
+                                    <button type="button" class="btn-quick-cond qcond-caries" 
+                                            t-att-class="{ 'active': this.selectedToothData.condition === 'caries' || this.state.newFinding.condition === 'caries' }"
+                                            t-on-click="() => this.quickApplyCondition('caries')" title="Mark Cavity / Caries (Red)">
+                                        <span class="dot-indicator dot-caries"/> Caries
+                                    </button>
+                                    <button type="button" class="btn-quick-cond qcond-restoration" 
+                                            t-att-class="{ 'active': this.selectedToothData.condition === 'restoration' || this.state.newFinding.condition === 'restoration' }"
+                                            t-on-click="() => this.quickApplyCondition('restoration')" title="Mark Filling / Restoration (Blue)">
+                                        <span class="dot-indicator dot-restoration"/> Filled
+                                    </button>
+                                    <button type="button" class="btn-quick-cond qcond-crown" 
+                                            t-att-class="{ 'active': this.selectedToothData.condition === 'crown' || this.state.newFinding.condition === 'crown' }"
+                                            t-on-click="() => this.quickApplyCondition('crown')" title="Mark Prosthetic Crown (Gold)">
+                                        <span class="dot-indicator dot-crown"/> Crown
+                                    </button>
+                                    <button type="button" class="btn-quick-cond qcond-root_canal" 
+                                            t-att-class="{ 'active': this.selectedToothData.condition === 'root_canal' || this.state.newFinding.condition === 'root_canal' }"
+                                            t-on-click="() => this.quickApplyCondition('root_canal')" title="Mark Root Canal (Purple)">
+                                        <span class="dot-indicator dot-root-canal"/> Endo / RCT
+                                    </button>
+                                    <button type="button" class="btn-quick-cond qcond-missing" 
+                                            t-att-class="{ 'active': this.selectedToothData.condition === 'missing' || this.state.newFinding.condition === 'missing' }"
+                                            t-on-click="() => this.quickApplyCondition('missing')" title="Mark Missing Tooth (Crossed in chart, gap in mouth)">
+                                        <span class="dot-indicator dot-missing">✕</span> Missing
+                                    </button>
+                                    <button type="button" class="btn-quick-cond qcond-dummy-perm" 
+                                            t-att-class="{ 'active': this.selectedToothData.condition === 'dummy_permanent' || this.state.newFinding.condition === 'dummy_permanent' }"
+                                            t-on-click="() => this.quickApplyCondition('dummy_permanent')" title="Mark Permanent Dummy Tooth (Porcelain Teal)">
+                                        <span class="dot-indicator dot-dummy-perm">💎</span> Perm Dummy
+                                    </button>
+                                    <button type="button" class="btn-quick-cond qcond-dummy-temp" 
+                                            t-att-class="{ 'active': this.selectedToothData.condition === 'dummy_temporary' || this.state.newFinding.condition === 'dummy_temporary' }"
+                                            t-on-click="() => this.quickApplyCondition('dummy_temporary')" title="Mark Temporary Dummy Tooth (Provisional Orange)">
+                                        <span class="dot-indicator dot-dummy-temp">⏳</span> Temp Dummy
+                                    </button>
+                                    <button type="button" class="btn-quick-cond qcond-sound" 
+                                            t-att-class="{ 'active': (this.selectedToothData.condition || 'sound') === 'sound' }"
+                                            t-on-click="() => this.quickApplyCondition('sound')" title="Reset to Sound / Healthy (Natural Enamel)">
+                                        <span class="dot-indicator dot-sound"/> Healthy
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Current Findings Specs -->
+                            <div class="current-specs-row" t-if="this.selectedToothData.condition !== 'sound'">
+                                <span class="spec-chip" t-if="this.selectedToothData.surfaces">
+                                    Surfaces: <strong><t t-out="this.selectedToothData.surfaces"/></strong>
+                                </span>
+                                <span class="spec-chip" t-if="this.selectedToothData.severity">
+                                    Severity: <strong><t t-out="this.selectedToothData.severity"/></strong>
+                                </span>
+                                <span class="spec-chip" t-if="this.selectedToothData.latest_date">
+                                    Last Exam: <strong><t t-out="this.selectedToothData.latest_date"/></strong>
+                                </span>
+                            </div>
+
+                            <!-- 5-Surface Anatomical Diagram (Cross) -->
+                            <div class="surface-diagram-container">
+                                <span class="diagram-label">Tooth Surface Anatomy:</span>
+                                <div class="surface-cross-box">
+                                    <button type="button" class="surf-cell surf-buccal" t-att-class="{ 'affected': this.isSurfaceAffected('B'), 'active': this.hasSurface('B') }" t-on-click="() => this.toggleSurface('B')" title="Buccal / Facial">
+                                        <span>B</span>
+                                    </button>
+                                    <div class="surf-mid-row">
+                                        <button type="button" class="surf-cell surf-mesial" t-att-class="{ 'affected': this.isSurfaceAffected('M'), 'active': this.hasSurface('M') }" t-on-click="() => this.toggleSurface('M')" title="Mesial">
+                                            <span>M</span>
+                                        </button>
+                                        <button type="button" class="surf-cell surf-occlusal" t-att-class="{ 'affected': this.isSurfaceAffected('O') || this.isSurfaceAffected('I'), 'active': this.hasSurface('O') || this.hasSurface('I') }" t-on-click="() => this.toggleSurface('O')" title="Occlusal / Incisal">
+                                            <span>O</span>
+                                        </button>
+                                        <button type="button" class="surf-cell surf-distal" t-att-class="{ 'affected': this.isSurfaceAffected('D'), 'active': this.hasSurface('D') }" t-on-click="() => this.toggleSurface('D')" title="Distal">
+                                            <span>D</span>
+                                        </button>
+                                    </div>
+                                    <button type="button" class="surf-cell surf-lingual" t-att-class="{ 'affected': this.isSurfaceAffected('L'), 'active': this.hasSurface('L') }" t-on-click="() => this.toggleSurface('L')" title="Lingual / Palatal">
+                                        <span>L</span>
+                                    </button>
+                                </div>
+                                <span class="diagram-subtext">B: Buccal • L: Lingual • M: Mesial • D: Distal • O: Occlusal</span>
+                            </div>
+                        </div>
+
+                        <!-- Panel Tab Navigation -->
+                        <div class="panel-tabs-nav">
+                            <button type="button" class="panel-tab-btn" t-att-class="{ 'active': this.state.activePanelTab === 'record' }" t-if="this.state.canEdit" t-on-click="() => this.setPanelTab('record')">
+                                <i class="oi me-1" data-icon="edit"/> Detailed Finding
+                            </button>
+                            <button type="button" class="panel-tab-btn" t-att-class="{ 'active': this.state.activePanelTab === 'history' }" t-on-click="() => this.setPanelTab('history')">
+                                <i class="oi me-1" data-icon="history"/> History (<t t-out="this.selectedToothHistory.length"/>)
+                            </button>
+                            <button type="button" class="panel-tab-btn" t-att-class="{ 'active': this.state.activePanelTab === 'diagnoses' }" t-on-click="() => this.setPanelTab('diagnoses')">
+                                <i class="oi me-1" data-icon="healing"/> Diagnoses (<t t-out="this.selectedToothDiagnoses.length"/>)
+                            </button>
+                            <button type="button" class="panel-tab-btn" t-att-class="{ 'active': this.state.activePanelTab === 'treatments' }" t-on-click="() => this.setPanelTab('treatments')">
+                                <i class="oi me-1" data-icon="medical_services"/> Plans (<t t-out="this.selectedToothTreatments.length + this.selectedToothCompletedTreatments.length"/>)
+                            </button>
+                        </div>
+
+                        <!-- Tab 1: Record New Finding -->
+                        <div class="record-finding-form" t-if="this.state.activePanelTab === 'record' &amp;&amp; this.state.canEdit">
+                            <!-- Clinical Condition -->
+                            <div class="form-group-custom">
+                                <label><i class="fa fa-dot-circle-o me-1 text-primary"/> Condition Category</label>
+                                <select class="form-select" t-att-value="this.state.newFinding.condition" t-on-change="(ev) => this.setCondition(ev.target.value)">
+                                    <option value="sound">Sound / Healthy (Ivory)</option>
+                                    <option value="caries">Caries / Cavity (Red)</option>
+                                    <option value="restoration">Restoration / Filling (Blue)</option>
+                                    <option value="crown">Crown / Cap (Gold)</option>
+                                    <option value="root_canal">Root Canal Treated (Purple)</option>
+                                    <option value="implant">Dental Implant (Cyan)</option>
+                                    <option value="missing">Missing Tooth (Extracted / Absent)</option>
+                                    <option value="dummy_permanent">Permanent Dummy Tooth (Porcelain Teal)</option>
+                                    <option value="dummy_temporary">Temporary Dummy Tooth (Acrylic Amber/Coral)</option>
+                                    <option value="fracture">Fracture / Chipped (Orange)</option>
+                                    <option value="impacted">Impacted (Pink)</option>
+                                    <option value="extraction_indicated">Extraction Indicated (Crimson)</option>
+                                    <option value="bridge">Bridge Pontic / Abutment (Indigo)</option>
+                                    <option value="other">Other Finding (Grey)</option>
+                                </select>
+                            </div>
+
+                            <!-- Linked Clinical Diagnosis (ICD) -->
+                            <div class="form-group-custom" t-if="this.state.diagnosisMasters and this.state.diagnosisMasters.length">
+                                <label>Linked Clinical Diagnosis (Optional)</label>
+                                <select class="form-select" t-att-value="this.state.newFinding.diagnosis_id" t-on-change="(ev) => this.setDiagnosis(ev.target.value)">
+                                    <option value="">-- No Diagnosis Linked --</option>
+                                    <t t-foreach="this.state.diagnosisMasters" t-as="diag" t-key="diag.id">
+                                        <option t-att-value="diag.id">
+                                            <t t-if="diag.code">[<t t-out="diag.code"/>] </t><t t-out="diag.name"/>
+                                        </option>
+                                    </t>
+                                </select>
+                            </div>
+
+                            <!-- Affected Surfaces (if not sound/missing/dummy) -->
+                            <div class="form-group-custom" t-if="this.state.newFinding.condition !== 'sound' &amp;&amp; this.state.newFinding.condition !== 'missing' &amp;&amp; this.state.newFinding.condition !== 'dummy_permanent' &amp;&amp; this.state.newFinding.condition !== 'dummy_temporary'">
+                                <label>Affected Surfaces (Click to toggle)</label>
+                                <div class="surfaces-chips-group">
+                                    <button type="button" class="surface-btn" t-att-class="{ 'active': this.hasSurface('M') }" t-on-click="() => this.toggleSurface('M')" title="Mesial">M</button>
+                                    <button type="button" class="surface-btn" t-att-class="{ 'active': this.hasSurface('O') }" t-on-click="() => this.toggleSurface('O')" title="Occlusal">O</button>
+                                    <button type="button" class="surface-btn" t-att-class="{ 'active': this.hasSurface('D') }" t-on-click="() => this.toggleSurface('D')" title="Distal">D</button>
+                                    <button type="button" class="surface-btn" t-att-class="{ 'active': this.hasSurface('B') }" t-on-click="() => this.toggleSurface('B')" title="Buccal / Facial">B</button>
+                                    <button type="button" class="surface-btn" t-att-class="{ 'active': this.hasSurface('L') }" t-on-click="() => this.toggleSurface('L')" title="Lingual / Palatal">L</button>
+                                    <button type="button" class="surface-btn" t-att-class="{ 'active': this.hasSurface('I') }" t-on-click="() => this.toggleSurface('I')" title="Incisal Edge">I</button>
+                                </div>
+                            </div>
+
+                            <!-- Severity -->
+                            <div class="form-group-custom" t-if="this.state.newFinding.condition !== 'sound'">
+                                <label>Severity Level</label>
+                                <div class="severity-buttons-group">
+                                    <button type="button" class="btn-sev" t-att-class="{ 'active': this.state.newFinding.severity === 'mild' }" t-on-click="() => this.setSeverity('mild')">Mild</button>
+                                    <button type="button" class="btn-sev" t-att-class="{ 'active': this.state.newFinding.severity === 'moderate' }" t-on-click="() => this.setSeverity('moderate')">Moderate</button>
+                                    <button type="button" class="btn-sev" t-att-class="{ 'active': this.state.newFinding.severity === 'severe' }" t-on-click="() => this.setSeverity('severe')">Severe</button>
+                                </div>
+                            </div>
+
+                            <!-- Proposed Treatment -->
+                            <div class="form-group-custom">
+                                <label>Proposed Treatment / Procedure</label>
+                                <input type="text" class="form-control" t-att-value="this.state.newFinding.treatment_indicated" t-on-input="(ev) => this.setTreatmentIndicated(ev.target.value)" placeholder="E.g., Composite restoration, Crown prep, Extraction..."/>
+                            </div>
+
+                            <!-- Clinical Observation Notes -->
+                            <div class="form-group-custom">
+                                <label>Clinical Notes</label>
+                                <textarea class="form-control" rows="2" t-att-value="this.state.newFinding.notes" t-on-input="(ev) => this.setNotes(ev.target.value)" placeholder="Detailed clinical observation, vitality, sensitivity..."/>
+                            </div>
+
+                            <!-- Record Finding and Clear Actions Row -->
+                            <div class="finding-actions-row mt-2">
+                                <button type="button" class="btn-save-finding" t-att-disabled="this.state.isSaving" t-on-click="() => this.onSaveFinding()">
+                                    <i t-if="!this.state.isSaving" class="oi me-1" data-icon="check"/>
+                                    <i t-if="this.state.isSaving" class="oi oi-spin me-1" data-icon="refresh"/>
+                                    <t t-out="this.state.isSaving ? 'Saving Finding...' : 'Record Finding'"/>
+                                </button>
+                                <button type="button" class="btn-clear-finding" t-att-disabled="this.state.isSaving" t-on-click="() => this.onClearFinding()" title="Mark tooth as sound / clear findings">
+                                    <i class="oi me-1" data-icon="delete"/> Clear / Sound
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Tab 2: Clinical History Timeline -->
+                        <div class="history-timeline" t-if="this.state.activePanelTab === 'history'">
+                            <div class="timeline-empty" t-if="this.selectedToothHistory.length === 0">
+                                <i class="fa fa-folder-open-o mb-2 d-block text-muted" style="font-size: 1.5rem;"/>
+                                No prior recorded findings for Tooth <t t-out="this.state.selectedTooth"/>.
+                            </div>
+                            <t t-foreach="this.selectedToothHistory" t-as="item" t-key="item.id">
+                                <div class="timeline-card" t-att-class="{ 'is-current': item.is_current_case }">
+                                    <div class="timeline-card-header">
+                                        <span class="card-cond-title" t-out="item.condition_label"/>
+                                        <span class="card-date" t-out="item.date"/>
+                                    </div>
+                                    <div class="timeline-meta">
+                                        <span class="badge-case" t-if="item.case_name">
+                                            <i class="fa fa-folder-open-o me-1"/> <t t-out="item.case_name"/>
+                                        </span>
+                                        <span class="badge-case" t-if="item.doctor_name">
+                                            <i class="fa fa-user-md me-1"/> Dr. <t t-out="item.doctor_name"/>
+                                        </span>
+                                        <span class="badge-case badge-surf" t-if="item.surfaces">
+                                            Surf: <t t-out="item.surfaces"/>
+                                        </span>
+                                    </div>
+                                    <div class="timeline-diag" t-if="item.diagnosis_name">
+                                        <i class="fa fa-stethoscope me-1 text-primary"/> Diagnosis: <strong t-out="item.diagnosis_name"/>
+                                    </div>
+                                    <div class="timeline-notes" t-if="item.notes">
+                                        "<t t-out="item.notes"/>"
+                                    </div>
+                                    <div class="timeline-treatment" t-if="item.treatment_indicated">
+                                        <i class="fa fa-wrench me-1 text-primary"/> Proposed: <t t-out="item.treatment_indicated"/>
+                                    </div>
+                                </div>
+                            </t>
+                        </div>
+
+                        <!-- Tab 3: Linked Diagnoses -->
+                        <div class="diagnoses-list" t-if="this.state.activePanelTab === 'diagnoses'">
+                            <div class="timeline-empty" t-if="this.selectedToothDiagnoses.length === 0">
+                                <i class="fa fa-stethoscope mb-2 d-block text-muted" style="font-size: 1.5rem;"/>
+                                No clinical diagnoses currently linked to Tooth <t t-out="this.state.selectedTooth"/>.
+                            </div>
+                            <t t-foreach="this.selectedToothDiagnoses" t-as="diag" t-key="diag.id">
+                                <div class="diagnosis-card">
+                                    <div class="diag-header">
+                                        <span class="diag-title">
+                                            <i class="fa fa-stethoscope me-1 text-primary"/>
+                                            <t t-out="diag.diagnosis_name"/>
+                                        </span>
+                                        <span class="diag-status" t-att-class="'status-' + (diag.status || 'confirmed')">
+                                            <t t-out="diag.status_label || 'Confirmed'"/>
+                                        </span>
+                                    </div>
+                                    <div class="diag-meta">
+                                        <span class="badge-case" t-if="diag.diagnosis_code">
+                                            Code: <strong t-out="diag.diagnosis_code"/>
+                                        </span>
+                                        <span class="badge-case" t-if="diag.date">
+                                            <i class="fa fa-calendar me-1"/> <t t-out="diag.date"/>
+                                        </span>
+                                        <span class="badge-case" t-if="diag.doctor_name">
+                                            <i class="fa fa-user-md me-1"/> Dr. <t t-out="diag.doctor_name"/>
+                                        </span>
+                                    </div>
+                                    <div class="diag-notes" t-if="diag.notes">
+                                        <t t-out="diag.notes"/>
+                                    </div>
+                                </div>
+                            </t>
+                        </div>
+
+                        <!-- Tab 4: Proposed Treatments & Completed Sessions -->
+                        <div class="treatments-list" t-if="this.state.activePanelTab === 'treatments'">
+                            <div class="timeline-empty" t-if="this.selectedToothTreatments.length === 0 &amp;&amp; this.selectedToothCompletedTreatments.length === 0">
+                                <i class="fa fa-medkit mb-2 d-block text-muted" style="font-size: 1.5rem;"/>
+                                No treatment plan procedures or completed sessions linked to Tooth <t t-out="this.state.selectedTooth"/>.
+                            </div>
+                            
+                            <!-- Proposed Treatment Plans -->
+                            <div class="treatments-section" t-if="this.selectedToothTreatments.length > 0">
+                                <div class="section-subheading">Proposed Treatment Procedures</div>
+                                <t t-foreach="this.selectedToothTreatments" t-as="plan" t-key="plan.id">
+                                    <div class="treatment-card proposed">
+                                        <div class="t-name">
+                                            <i class="fa fa-clock-o me-1 text-warning"/>
+                                            <t t-out="plan.treatment_name"/>
+                                        </div>
+                                        <div class="t-plan">Plan: <strong t-out="plan.plan_name"/></div>
+                                        <span class="t-state" t-out="plan.state_label"/>
+                                    </div>
+                                </t>
+                            </div>
+
+                            <!-- Completed Treatments & Sessions -->
+                            <div class="treatments-section mt-3" t-if="this.selectedToothCompletedTreatments.length > 0">
+                                <div class="section-subheading">Completed Treatments &amp; Sessions</div>
+                                <t t-foreach="this.selectedToothCompletedTreatments" t-as="sess" t-key="sess.id">
+                                    <div class="treatment-card completed">
+                                        <div class="t-name">
+                                            <i class="fa fa-check-circle me-1 text-success"/>
+                                            <t t-out="sess.treatment_name || sess.name"/>
+                                        </div>
+                                        <div class="t-plan">
+                                            Date: <t t-out="sess.date"/>
+                                            <t t-if="sess.doctor_name"> • Dr. <t t-out="sess.doctor_name"/></t>
+                                        </div>
+                                        <div class="t-notes small text-muted" t-if="sess.procedure_notes">
+                                            <t t-out="sess.procedure_notes"/>
+                                        </div>
+                                        <span class="t-state status-completed" t-out="sess.state_label"/>
+                                    </div>
+                                </t>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </t>
+</templates>

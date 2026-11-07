@@ -7,7 +7,7 @@ class HudsonInventoryValuationWizard(models.TransientModel):
     _description = 'Inventory Valuation'
     _rec_name = 'display_name'
 
-    display_name = fields.Char(compute='_compute_display_name')
+    display_name = fields.Char(string='Name', default='Inventory Valuation', compute='_compute_display_name')
     company_id = fields.Many2one('res.company', default=lambda self: self.env.company)
     as_of_date = fields.Date(string='As of', default=fields.Date.context_today, required=True)
     
@@ -45,16 +45,17 @@ class HudsonInventoryValuationWizard(models.TransientModel):
             lines = self.env['account.move.line'].search_read(domain, ['balance'])
             wiz.initial_balance = sum(l['balance'] for l in lines)
             
-            # Ending Stock: If stock.valuation.layer exists, compute physical stock up to date
-            ending_stock = 0.0
-            if 'stock.valuation.layer' in self.env:
-                svl_domain = [
-                    ('company_id', '=', wiz.company_id.id),
-                    ('create_date', '<=', wiz.as_of_date)
-                ]
-                layers = self.env['stock.valuation.layer'].search_read(svl_domain, ['value'])
-                ending_stock = sum(l['value'] for l in layers)
-            
+            # Ending Stock: stock value at the end of the as-of day. Odoo 20 has no
+            # stock.valuation.layer anymore; product.total_value computes it with `to_date`.
+            company = wiz.company_id
+            Product = self.env['product.product'].with_company(company).with_context(
+                allowed_company_ids=company.ids, to_date=wiz.as_of_date)
+            products = Product.search([
+                ('is_storable', '=', True),
+                *Product._check_company_domain(company),
+            ])
+            ending_stock = sum(products.mapped('total_value'))
+
             wiz.ending_stock = ending_stock
             wiz.stock_variation = ending_stock - wiz.initial_balance
 
@@ -179,3 +180,26 @@ class HudsonInventoryValuationWizard(models.TransientModel):
             'res_id': move.id,
             'view_mode': 'form',
         }
+
+    @api.model
+    def action_open_inventory_valuation(self):
+        wiz = self.search([
+            ('company_id', '=', self.env.company.id)
+        ], limit=1, order='id desc')
+        if not wiz:
+            wiz = self.create({
+                'company_id': self.env.company.id,
+                'as_of_date': fields.Date.context_today(self),
+            })
+        else:
+            wiz.write({'as_of_date': fields.Date.context_today(self)})
+        return {
+            'name': _('Inventory Valuation'),
+            'type': 'ir.actions.act_window',
+            'res_model': 'hudson.inventory.valuation.wizard',
+            'res_id': wiz.id,
+            'view_mode': 'form',
+            'target': 'current',
+            'context': {'create': False, 'delete': False, 'duplicate': False},
+        }
+

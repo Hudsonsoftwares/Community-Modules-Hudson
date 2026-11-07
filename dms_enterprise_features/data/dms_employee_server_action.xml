@@ -11,4 +11,8 @@
                 records.action_setup_dms_folders()
         </field>
     </record>
+
+    <!-- On install and every upgrade: create folders for employees that
+         existed before the module (idempotent, skips employees with one). -->
+    <function model="hr.employee" name="_dms_backfill_folders"/>
 </odoo>

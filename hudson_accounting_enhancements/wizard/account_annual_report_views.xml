@@ -74,7 +74,7 @@
                        decoration-warning="state == 'draft'"
                        decoration-success="state == 'confirmed'"/>
                 <button name="action_print_report" type="object"
-                        string="Print" icon="fa-print" class="btn-sm btn-secondary"/>
+                        string="Print" icon="print" class="btn-sm btn-secondary"/>
             </list>
         </field>
     </record>
@@ -98,7 +98,7 @@
                         </group>
                         <group string="Options">
                             <field name="user_ids" widget="many2many_avatar_user" string="Responsibles"/>
-                            <field name="company_id" groups="base.group_multi_company"/>
+                            <field name="company_id" groups="base.group_multi_company" options="{'no_create': True, 'no_open': True}"/>
                             <field name="target_move" widget="radio"/>
                         </group>
                     </group>

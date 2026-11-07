@@ -16,7 +16,7 @@
                   sequence="10"/>
 
         <menuitem id="menu_rental_order_all"
-                  name="All Orders"
+                  name="Rental Orders"
                   parent="menu_rental_orders"
                   action="action_rental_order"
                   sequence="10"/>
@@ -37,13 +37,8 @@
         <menuitem id="menu_rental_products"
                   name="Products"
                   parent="menu_rental_root"
-                  sequence="30"/>
-
-        <menuitem id="menu_rental_products_all"
-                  name="Rental Products"
-                  parent="menu_rental_products"
                   action="action_rental_products"
-                  sequence="10"/>
+                  sequence="30"/>
 
         <!-- Reporting Menu -->
         <menuitem id="menu_rental_reporting"
@@ -64,10 +59,23 @@
                   sequence="100"
                   groups="group_rental_manager"/>
 
-        <menuitem id="menu_rental_pricing"
-                  name="Pricing Rules"
+        <menuitem id="menu_rental_settings"
+                  name="Settings"
                   parent="menu_rental_configuration"
-                  action="action_rental_pricing"
+                  action="action_rental_config_settings"
+                  sequence="1"/>
+
+        <!-- Same entries as Sales > Configuration (like Odoo Online Rental) -->
+        <menuitem id="menu_rental_quotation_templates"
+                  name="Quotation Templates"
+                  parent="menu_rental_configuration"
+                  action="sale_management.sale_order_template_action"
+                  sequence="10"/>
+
+        <menuitem id="menu_rental_quotation_documents"
+                  name="Headers/Footers"
+                  parent="menu_rental_configuration"
+                  action="sale_pdf_quote_builder.quotation_document_action"
                   sequence="20"/>
 
     </data>

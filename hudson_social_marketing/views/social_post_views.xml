@@ -137,11 +137,11 @@
                     <field name="remote_id" string="Remote ID"/>
                     <field name="last_sync"/>
                     <button name="action_publish_now" type="object"
-                            string="Publish" icon="fa-send"
+                            string="Publish" icon="send"
                             invisible="state != 'draft'"
                             class="btn-link"/>
                     <button name="action_sync_to_remote" type="object"
-                            string="Sync" icon="fa-refresh"
+                            string="Sync" icon="refresh"
                             class="btn-link"/>
                 </list>
             </field>
@@ -166,13 +166,13 @@
                                 invisible="state != 'draft'"/>
                         <button name="action_check_remote_status" type="object"
                                 string="Check Status"
-                                icon="fa-refresh"
+                                icon="refresh"
                                 class="btn-secondary"
                                 invisible="not remote_id"
                                 title="Pull the latest publish status from the remote Odoo Enterprise server"/>
                         <button name="action_sync_comments" type="object"
                                 string="Sync Comments"
-                                icon="fa-comments"
+                                icon="forum"
                                 class="btn-secondary"
                                 invisible="1"
                                 title="Fetch comments from social media platforms"/>

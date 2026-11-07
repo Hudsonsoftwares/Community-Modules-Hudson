@@ -1,0 +1,507 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-name="dental_appointment.BookAppointmentFlow">
+        <div class="o_action o_dental_booking_flow_wrapper" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; height: 100%; max-height: 100%; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; background-color: #f8fafc; padding: 24px 20px 120px 20px; box-sizing: border-box;">
+            <div class="flow-main-container">
+
+                <!-- TOP PROGRESS TRACKER (Steps 1 to 5) -->
+                <div t-if="this.state.step &lt; 6" class="flow-stepper-header">
+                    <div class="d-flex align-items-center">
+                        <button t-if="this.state.isStaff" class="btn btn-sm btn-outline-secondary me-3" t-on-click="() => this.backToAppointmentsList()">
+                            <i class="fa fa-arrow-left me-1"/> Back to List
+                        </button>
+                        <a t-else="" href="/" class="btn btn-sm btn-outline-secondary me-3">
+                            <i class="fa fa-home me-1"/> Home
+                        </a>
+                        <h4 class="mb-0 fw-bold text-dark">Dental Appointment Booking</h4>
+                    </div>
+
+                    <div class="stepper-progress">
+                        <div class="step-dot" t-att-class="{ 'active': this.state.step === 1, 'completed': this.state.step &gt; 1 }">1</div>
+                        <div class="step-line" t-att-class="{ 'active': this.state.step &gt; 1 }"/>
+                        <div class="step-dot" t-att-class="{ 'active': this.state.step === 2, 'completed': this.state.step &gt; 2 }">2</div>
+                        <div class="step-line" t-att-class="{ 'active': this.state.step &gt; 2 }"/>
+                        <div class="step-dot" t-att-class="{ 'active': this.state.step === 3, 'completed': this.state.step &gt; 3 }">3</div>
+                        <div class="step-line" t-att-class="{ 'active': this.state.step &gt; 3 }"/>
+                        <div class="step-dot" t-att-class="{ 'active': this.state.step === 4, 'completed': this.state.step &gt; 4 }">4</div>
+                        <div class="step-line" t-att-class="{ 'active': this.state.step &gt; 4 }"/>
+                        <div class="step-dot" t-att-class="{ 'active': this.state.step === 5, 'completed': this.state.step &gt; 5 }">5</div>
+                    </div>
+                </div>
+
+                <!-- SUMMARY PILLS (visible on steps 2 to 5) -->
+                <div t-if="this.state.step &gt; 1 and this.state.step &lt; 6" class="summary-pills-bar">
+                    <div class="summary-item">
+                        <i class="fa fa-user"/>
+                        <span><t t-out="this.state.patientType === 'returning' ? 'Existing Patient' : 'New Patient'"/></span>
+                    </div>
+                    <div t-if="this.state.selectedTypeName" class="summary-item">
+                        <i class="fa fa-stethoscope"/>
+                        <span><t t-out="this.state.selectedTypeName"/></span>
+                    </div>
+                    <div t-if="this.state.step &gt; 3" class="summary-item">
+                        <i class="fa fa-user-md"/>
+                        <span><t t-out="this.state.selectedDoctorName"/></span>
+                    </div>
+                    <div t-if="this.state.selectedSlotTime" class="summary-item">
+                        <i class="fa fa-calendar-check-o"/>
+                        <span><t t-out="this.state.selectedDate"/> at <t t-out="this.state.selectedSlotLabel"/></span>
+                    </div>
+                </div>
+
+                <!-- ERROR ALERT -->
+                <div t-if="this.state.errorMessage" class="alert alert-danger py-2 px-3 mb-4 rounded-3 d-flex align-items-center">
+                    <i class="fa fa-exclamation-triangle me-2 fs-5"/>
+                    <span><t t-out="this.state.errorMessage"/></span>
+                </div>
+
+                <!-- ============================================================= -->
+                <!-- STEP 1: PATIENT SELECTION (New vs Existing)                   -->
+                <!-- ============================================================= -->
+                <div t-if="this.state.step === 1" class="step-pane">
+                    <h2 class="flow-title text-center">Welcome!</h2>
+                    <p class="flow-subtitle text-center">Select whether the patient has visited the clinic before or is a new registration.</p>
+
+                    <div class="row g-4 mb-4">
+                        <div class="col-md-6">
+                            <div class="choice-card-btn" 
+                                 t-att-class="{ 'selected': this.state.patientType === 'new' }"
+                                 t-on-click="() => this.setPatientType('new')">
+                                <i class="fa fa-user-plus choice-icon"/>
+                                <span class="choice-label">New Patient</span>
+                                <span class="choice-desc">First-time visitor to our dental clinic</span>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="choice-card-btn"
+                                 t-att-class="{ 'selected': this.state.patientType === 'returning' }"
+                                 t-on-click="() => this.setPatientType('returning')">
+                                <i class="fa fa-id-card-o choice-icon"/>
+                                <span class="choice-label">Existing Patient</span>
+                                <span class="choice-desc">Already registered in patient records</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Existing Patient Search -->
+                    <div t-if="this.state.patientType === 'returning'" class="returning-patient-box">
+                        <label class="form-label fw-bold text-secondary mb-2">Look Up Existing Patient Record:</label>
+                        <div class="input-group">
+                            <input type="text" 
+                                   class="form-control" 
+                                   placeholder="Enter Mobile Number, Email, or Patient ID..."
+                                   t-att-value="this.state.searchIdentifier"
+                                   t-on-input="(ev) => this.state.searchIdentifier = ev.target.value"
+                                   t-on-keyup="(ev) => ev.key === 'Enter' and this.lookupPatient()"/>
+                            <button class="btn btn-primary px-4 fw-bold" 
+                                    t-att-disabled="this.state.searchingPatient"
+                                    t-on-click="() => this.lookupPatient()">
+                                <i t-if="this.state.searchingPatient" class="fa fa-spinner fa-spin me-1"/>
+                                <i t-else="" class="fa fa-search me-1"/>
+                                Search
+                            </button>
+                        </div>
+                        <div t-if="this.state.searchMessage" class="small mt-2" 
+                             t-att-class="{ 'text-success fw-bold': this.state.foundPatient, 'text-muted': !this.state.foundPatient }">
+                            <t t-out="this.state.searchMessage"/>
+                        </div>
+
+                        <!-- Found Patient Card Preview -->
+                        <div t-if="this.state.foundPatient" class="patient-preview-card">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="fw-bold text-dark mb-1"><t t-out="this.state.foundPatient.name"/></h6>
+                                    <div class="small text-muted">
+                                        <span class="badge bg-primary-subtle text-primary me-2"><t t-out="this.state.foundPatient.dental_patient_id || 'Registered'"/></span>
+                                        <i class="fa fa-phone me-1"/> <t t-out="this.state.foundPatient.phone"/>
+                                        <span t-if="this.state.foundPatient.email" class="ms-3"><i class="fa fa-envelope me-1"/> <t t-out="this.state.foundPatient.email"/></span>
+                                    </div>
+                                </div>
+                                <span class="badge bg-success-subtle text-success py-2 px-3 fw-bold">Verified</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Clinic Location Info -->
+                    <div class="mt-4 p-3 bg-light rounded-3 text-center border">
+                        <div class="text-primary fs-5 mb-1"><i class="fa fa-hospital-o"/> <strong t-out="this.state.company.name"/></div>
+                        <div class="text-muted small" t-out="this.state.company.address"/>
+                        <div t-if="this.state.company.phone" class="text-secondary small mt-1">
+                            <i class="fa fa-phone me-1"/> <t t-out="this.state.company.phone"/>
+                        </div>
+                    </div>
+
+                    <div class="flow-footer-nav justify-content-end">
+                        <button class="btn-next" t-on-click="() => this.goToStep(2)">
+                            Continue to Services <i class="fa fa-arrow-right ms-2"/>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- ============================================================= -->
+                <!-- STEP 2: APPOINTMENT TYPE SELECTION                            -->
+                <!-- ============================================================= -->
+                <div t-if="this.state.step === 2" class="step-pane">
+                    <h2 class="flow-title">Choose Service / Appointment Type</h2>
+                    <p class="flow-subtitle">Select the dental procedure or consultation needed for this visit.</p>
+
+                    <div class="row g-3">
+                        <t t-foreach="this.state.types" t-as="type" t-key="type.id">
+                            <div class="col-md-6 col-lg-4">
+                                <div class="type-grid-card"
+                                     t-att-class="{ 'selected': this.state.selectedTypeId === type.id }"
+                                     t-on-click="() => this.selectType(type)">
+                                    <div>
+                                        <div class="type-icon" t-att-class="this.getTypeClass(type)">
+                                            <t t-out="this.getTypeIconMarkup(type)"/>
+                                        </div>
+                                        <div class="type-name"><t t-out="type.name"/></div>
+                                        <p class="small text-muted mb-2 line-clamp-2" style="font-size:0.82rem;">
+                                            <t t-out="type.description || 'Standard dental visit and assessment.'"/>
+                                        </p>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center mt-2 pt-2 border-top">
+                                        <span class="type-duration-badge">
+                                            <i class="fa fa-clock-o me-1"/> <t t-out="type.duration || 30"/> min
+                                        </span>
+                                        <span t-if="type.price" class="fw-bold text-primary">₹<t t-out="type.price"/></span>
+                                    </div>
+                                </div>
+                            </div>
+                        </t>
+                    </div>
+
+                    <div class="flow-footer-nav">
+                        <button class="btn-prev" t-on-click="() => this.goToStep(1)">
+                            <i class="fa fa-arrow-left me-2"/> Back
+                        </button>
+                        <button class="btn-next" t-on-click="() => this.goToStep(3)">
+                            Choose Dentist <i class="fa fa-arrow-right ms-2"/>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- ============================================================= -->
+                <!-- STEP 3: DENTIST / PROVIDER SELECTION                          -->
+                <!-- ============================================================= -->
+                <div t-if="this.state.step === 3" class="step-pane">
+                    <h2 class="flow-title">Select Dental Specialist</h2>
+                    <p class="flow-subtitle">Pick a specific dental practitioner or select any available specialist.</p>
+
+                    <div class="row g-3">
+                        <!-- Any Specialist Card -->
+                        <div class="col-md-6 col-lg-4">
+                            <div class="doctor-choice-card"
+                                 t-att-class="{ 'selected': this.state.selectedDoctorId === null }"
+                                 t-on-click="() => this.selectDoctor(null)">
+                                <div class="doctor-avatar-circle" style="background: #e0e7ff; color: #4338ca;">
+                                    <i class="fa fa-users"/>
+                                </div>
+                                <div class="doctor-name">Any Specialist</div>
+                                <div class="doctor-spec">Next Available Doctor</div>
+                                <div class="badge bg-primary-subtle text-primary mt-2">Fastest Scheduling</div>
+                            </div>
+                        </div>
+
+                        <!-- Specific Doctors -->
+                        <t t-foreach="this.state.doctors" t-as="doc" t-key="doc.id">
+                            <div class="col-md-6 col-lg-4">
+                                <div class="doctor-choice-card"
+                                     t-att-class="{ 'selected': this.state.selectedDoctorId === doc.id }"
+                                     t-on-click="() => this.selectDoctor(doc)">
+                                    <div class="doctor-avatar-circle">
+                                        <i class="fa fa-user-md"/>
+                                    </div>
+                                    <div class="doctor-name"><t t-out="doc.name"/></div>
+                                    <div class="doctor-spec"><t t-out="doc.job_title || 'Dental Specialist'"/></div>
+                                    <div class="small text-muted mt-2">
+                                        <i class="fa fa-check-circle text-success me-1"/> Available
+                                    </div>
+                                </div>
+                            </div>
+                        </t>
+                    </div>
+
+                    <div class="flow-footer-nav">
+                        <button class="btn-prev" t-on-click="() => this.goToStep(2)">
+                            <i class="fa fa-arrow-left me-2"/> Back
+                        </button>
+                        <button class="btn-next" t-on-click="() => this.goToStep(4)">
+                            Select Schedule <i class="fa fa-arrow-right ms-2"/>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- ============================================================= -->
+                <!-- STEP 4: DATE & REAL-TIME SLOTS                                -->
+                <!-- ============================================================= -->
+                <div t-if="this.state.step === 4" class="step-pane">
+                    <h2 class="flow-title">Select Appointment Date &amp; Time</h2>
+                    <p class="flow-subtitle">Pick an available time slot for <strong class="text-primary" t-out="this.state.selectedDoctorName"/>.</p>
+
+                    <div class="card p-3 bg-light border-0 mb-4">
+                        <div class="row align-items-center">
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold text-dark mb-1">Appointment Date:</label>
+                                <input type="date" 
+                                       class="form-control form-control-lg bg-white" 
+                                       t-att-value="this.state.selectedDate"
+                                       t-on-change="(ev) => this.onDateChange(ev)"/>
+                            </div>
+                            <div class="col-md-6 mt-3 mt-md-0">
+                                <div class="small text-muted">Selected Provider:</div>
+                                <div class="fw-bold fs-6 text-dark"><i class="fa fa-user-md text-primary me-2"/><t t-out="this.state.selectedDoctorName"/></div>
+                                <div class="small text-muted">Duration: <strong t-out="this.state.selectedTypeDuration"/> minutes</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Slots Loader -->
+                    <div t-if="this.state.loadingSlots" class="text-center py-5">
+                        <i class="fa fa-spinner fa-spin fa-2x text-primary mb-2"/>
+                        <div class="text-muted small">Checking doctor availability and schedule...</div>
+                    </div>
+
+                    <!-- Available Slots Grid -->
+                    <div t-else="" class="slots-container">
+                        <div t-if="this.state.slots.length === 0" class="text-center py-4 text-muted">
+                            <i class="fa fa-calendar-times-o fa-2x mb-2 text-secondary"/>
+                            <div>No available slots found for this date. Please pick another date.</div>
+                        </div>
+
+                        <div t-else="">
+                            <!-- Morning Slots -->
+                            <div class="slots-section-title">
+                                <i class="fa fa-sun-o text-warning"/> Morning Slots (9:00 AM – 1:00 PM)
+                            </div>
+                            <div class="d-flex flex-wrap gap-2 mb-4">
+                                <t t-foreach="this.state.slots" t-as="slot" t-key="slot.time">
+                                    <button t-if="slot.period === 'morning'"
+                                            type="button"
+                                            class="slot-bubble-btn"
+                                            t-att-class="{ 'selected': this.state.selectedSlotTime === slot.time }"
+                                            t-att-disabled="!slot.available"
+                                            t-on-click="() => this.selectSlot(slot)">
+                                        <t t-out="slot.label"/>
+                                    </button>
+                                </t>
+                            </div>
+
+                            <!-- Afternoon Slots -->
+                            <div class="slots-section-title">
+                                <i class="fa fa-moon-o text-primary"/> Afternoon Slots (2:00 PM – 6:00 PM)
+                            </div>
+                            <div class="d-flex flex-wrap gap-2 mb-4">
+                                <t t-foreach="this.state.slots" t-as="slot" t-key="slot.time">
+                                    <button t-if="slot.period === 'afternoon'"
+                                            type="button"
+                                            class="slot-bubble-btn"
+                                            t-att-class="{ 'selected': this.state.selectedSlotTime === slot.time }"
+                                            t-att-disabled="!slot.available"
+                                            t-on-click="() => this.selectSlot(slot)">
+                                        <t t-out="slot.label"/>
+                                    </button>
+                                </t>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flow-footer-nav">
+                        <button class="btn-prev" t-on-click="() => this.goToStep(3)">
+                            <i class="fa fa-arrow-left me-2"/> Back
+                        </button>
+                        <button class="btn-next" 
+                                t-att-disabled="!this.state.selectedSlotTime"
+                                t-on-click="() => this.goToStep(5)">
+                            Patient Details <i class="fa fa-arrow-right ms-2"/>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- ============================================================= -->
+                <!-- STEP 5: PATIENT DETAILS & CONFIRM                             -->
+                <!-- ============================================================= -->
+                <div t-if="this.state.step === 5" class="step-pane">
+                    <h2 class="flow-title">Patient Details &amp; Confirmation</h2>
+                    <p class="flow-subtitle">Please verify patient information and complete the appointment booking.</p>
+
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold text-secondary">First Name *</label>
+                            <input type="text" class="form-control" 
+                                   t-att-value="this.state.firstName"
+                                   t-on-input="(ev) => this.state.firstName = ev.target.value" 
+                                   placeholder="First Name"/>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold text-secondary">Last Name</label>
+                            <input type="text" class="form-control" 
+                                   t-att-value="this.state.lastName"
+                                   t-on-input="(ev) => this.state.lastName = ev.target.value" 
+                                   placeholder="Last Name"/>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold text-secondary">Mobile Phone Number *</label>
+                            <input type="tel" class="form-control" 
+                                   t-att-value="this.state.phone"
+                                   t-on-input="(ev) => this.state.phone = ev.target.value" 
+                                   placeholder="e.g. 9876543210"/>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold text-secondary">Email Address</label>
+                            <input type="email" class="form-control" 
+                                   t-att-value="this.state.email"
+                                   t-on-input="(ev) => this.state.email = ev.target.value" 
+                                   placeholder="patient@example.com"/>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold text-secondary">Date of Birth</label>
+                            <input type="date" class="form-control" 
+                                   t-att-value="this.state.dob"
+                                   t-on-change="(ev) => this.state.dob = ev.target.value"/>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold text-secondary">Gender</label>
+                            <select class="form-select" 
+                                    t-att-value="this.state.gender"
+                                    t-on-change="(ev) => this.state.gender = ev.target.value">
+                                <option value="male">Male</option>
+                                <option value="female">Female</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold text-secondary">Zip / Postal Code</label>
+                            <input type="text" class="form-control" 
+                                   t-att-value="this.state.zipCode"
+                                   t-on-input="(ev) => this.state.zipCode = ev.target.value" 
+                                   placeholder="Postal Code"/>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold text-secondary">Priority</label>
+                            <select class="form-select" 
+                                    t-att-value="this.state.priority"
+                                    t-on-change="(ev) => this.state.priority = ev.target.value">
+                                <option value="0">Low</option>
+                                <option value="1">Normal</option>
+                                <option value="2">High</option>
+                                <option value="3">Emergency / Very High</option>
+                            </select>
+                        </div>
+
+                        <!-- Insurance Toggle -->
+                        <div class="col-12 mt-3">
+                            <label class="form-label fw-semibold text-secondary d-block">Dental Insurance Coverage?</label>
+                            <div class="btn-group" role="group">
+                                <button type="button" 
+                                        class="btn btn-outline-primary" 
+                                        t-att-class="{ 'active': this.state.hasInsurance === 'no' }"
+                                        t-on-click="() => this.setInsurance('no')">
+                                    No Insurance
+                                </button>
+                                <button type="button" 
+                                        class="btn btn-outline-primary"
+                                        t-att-class="{ 'active': this.state.hasInsurance === 'yes' }"
+                                        t-on-click="() => this.setInsurance('yes')">
+                                    Yes, Has Insurance
+                                </button>
+                            </div>
+                        </div>
+
+                        <div t-if="this.state.hasInsurance === 'yes'" class="col-12">
+                            <input type="text" class="form-control" 
+                                   t-att-value="this.state.insuranceInfo"
+                                   t-on-input="(ev) => this.state.insuranceInfo = ev.target.value" 
+                                   placeholder="Insurance Provider / Policy Number"/>
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label fw-semibold text-secondary">Chief Complaint / Special Notes</label>
+                            <textarea class="form-control" rows="2" 
+                                      t-att-value="this.state.notes"
+                                      t-on-input="(ev) => this.state.notes = ev.target.value" 
+                                      placeholder="Reason for visit, symptoms, or special instructions..."/>
+                        </div>
+                    </div>
+
+                    <div t-if="this.state.errorMessage" class="alert alert-danger py-2 px-3 mt-3 rounded-3 d-flex align-items-center">
+                        <i class="fa fa-exclamation-triangle me-2 text-danger fs-5"/>
+                        <span class="fw-semibold"><t t-out="this.state.errorMessage"/></span>
+                    </div>
+
+                    <div class="flow-footer-nav">
+                        <button class="btn-prev" t-on-click="() => this.goToStep(4)">
+                            <i class="fa fa-arrow-left me-2"/> Back
+                        </button>
+                        <button class="btn-next btn-lg" 
+                                t-att-disabled="this.state.submitting"
+                                t-on-click="() => this.submitBooking()">
+                            <i t-if="this.state.submitting" class="fa fa-spinner fa-spin me-2"/>
+                            <i t-else="" class="fa fa-check-circle me-2"/>
+                            Confirm &amp; Schedule Appointment
+                        </button>
+                    </div>
+                </div>
+
+                <!-- ============================================================= -->
+                <!-- STEP 6: SUCCESS CONFIRMATION                                  -->
+                <!-- ============================================================= -->
+                <div t-if="this.state.step === 6" class="step-pane text-center py-4">
+                    <div class="success-badge-circle">
+                        <i class="fa fa-check"/>
+                    </div>
+                    <h2 class="fw-bold text-dark mb-1">Appointment Confirmed!</h2>
+                    <p class="text-muted mb-4">The appointment record has been generated in the system.</p>
+
+                    <div class="success-card-info" t-if="this.state.createdAppointment">
+                        <div class="d-flex justify-content-between align-items-center mb-3 pb-3 border-bottom">
+                            <span class="text-muted">Appointment Ref:</span>
+                            <span class="fw-bold fs-5 text-primary"><t t-out="this.state.createdAppointment.appointment_name"/></span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="text-muted">Patient Name:</span>
+                            <span class="fw-bold text-dark"><t t-out="this.state.createdAppointment.patient_name"/> (<t t-out="this.state.createdAppointment.patient_id"/>)</span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="text-muted">Dentist:</span>
+                            <span class="fw-bold text-dark"><t t-out="this.state.createdAppointment.doctor_name"/></span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="text-muted">Service:</span>
+                            <span class="fw-bold text-dark"><t t-out="this.state.createdAppointment.service_name"/></span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="text-muted">Date &amp; Time:</span>
+                            <span class="fw-bold text-success"><t t-out="this.state.createdAppointment.date_formatted"/> at <t t-out="this.state.createdAppointment.time_formatted"/></span>
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-center flex-wrap gap-3 mt-4">
+                        <!-- Only visible to Receptionist / Clinic Staff -->
+                        <button t-if="this.state.isStaff" class="btn btn-primary px-4 py-2 fw-bold" t-on-click="() => this.openCreatedAppointment()">
+                            <i class="fa fa-file-text-o me-2"/> Open Appointment Record
+                        </button>
+
+                        <button class="btn btn-outline-secondary px-4 py-2 fw-semibold" t-on-click="() => this.bookAnother()">
+                            <i class="fa fa-plus me-2"/> Book Another
+                        </button>
+
+                        <!-- Only visible to Receptionist / Clinic Staff -->
+                        <button t-if="this.state.isStaff" class="btn btn-outline-primary px-4 py-2 fw-semibold" t-on-click="() => this.backToAppointmentsList()">
+                            <i class="fa fa-list me-2"/> All Appointments
+                        </button>
+
+                        <!-- Visible to Patients / Public Users -->
+                        <a t-if="!this.state.isStaff" href="/" class="btn btn-primary px-4 py-2 fw-bold">
+                            <i class="fa fa-home me-2"/> Back to Home
+                        </a>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </t>
+</templates>

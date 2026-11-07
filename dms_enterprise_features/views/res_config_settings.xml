@@ -168,6 +168,25 @@
             <!-- Hide the Storages setting block from File Upload block -->
             <xpath expr="//button[@name='%(dms.action_dms_storage)d']/.." position="replace">
             </xpath>
+
+            <!-- Replace manual file extensions text input with multi-select tags dropdown and security badge -->
+            <xpath expr="//field[@name='documents_forbidden_extensions']/.." position="replace">
+                <setting string="Forbidden Extensions" help="Select document-related file extensions to forbid from being uploaded in Document Controller.">
+                    <field name="documents_forbidden_extensions" invisible="1"/>
+                    <div class="content-group">
+                        <div class="mt8">
+                            <field name="documents_forbidden_extension_ids"
+                                   widget="many2many_tags"
+                                   options="{'no_create_edit': False, 'color_field': 'color'}"
+                                   placeholder="Select or search extensions to forbid (e.g. .xlsx, .csv, .zip)..."/>
+                        </div>
+                        <div class="text-muted small mt-2 p-2 rounded bg-light border">
+                            <i class="fa fa-shield me-1 text-primary"/>
+                            <strong>Protected by Default:</strong> Executables, scripts, and system binary files (<code class="text-danger">.exe</code>, <code class="text-danger">.msi</code>, <code class="text-danger">.bat</code>, <code class="text-danger">.cmd</code>, <code class="text-danger">.sh</code>, <code class="text-danger">.dll</code>, etc.) are permanently blocked by default in Document Controller.
+                        </div>
+                    </div>
+                </setting>
+            </xpath>
         </field>
     </record>
 </odoo>

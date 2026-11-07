@@ -1,5 +1,8 @@
 from odoo import models, fields, api, _
 from odoo.exceptions import UserError
+import logging
+
+_logger = logging.getLogger(__name__)
 
 class HudsonAutoReconcileWizard(models.TransientModel):
     _name = 'hudson.auto.reconcile.wizard'
@@ -36,6 +39,7 @@ class HudsonAutoReconcileWizard(models.TransientModel):
             ('reconciled', '=', False),
             ('account_id.reconcile', '=', True),
             ('amount_residual', '!=', 0),
+            ('company_id', 'in', self.env.companies.ids),
         ]
         
         if self.account_ids:
@@ -62,46 +66,52 @@ class HudsonAutoReconcileWizard(models.TransientModel):
             }
         reconciled_count = 0
 
-        # Group lines by Account and Partner
+        def _try_reconcile(amls):
+            # Savepoint: a failed reconcile must not abort the whole transaction
+            try:
+                with self.env.cr.savepoint():
+                    amls.reconcile()
+                return True
+            except UserError as e:
+                _logger.info("Auto-reconcile skipped lines %s: %s", amls.ids, e)
+                return False
+
+        # Group lines by Account, Partner and Currency (residuals of different
+        # currencies cannot be summed or matched against each other)
         grouped_lines = {}
         for line in lines:
-            key = (line.account_id.id, line.partner_id.id)
+            key = (line.account_id.id, line.partner_id.id, line.currency_id.id)
             if key not in grouped_lines:
                 grouped_lines[key] = self.env['account.move.line']
             grouped_lines[key] |= line
 
-        for (account_id, partner_id), group in grouped_lines.items():
+        for (account_id, partner_id, currency_id), group in grouped_lines.items():
+            currency = group[:1].currency_id
             if self.reconcile_mode == 'clear':
-                # Reconcile all lines in the group if sum of residual is 0
-                # Odoo's reconcile() standardly checks if sum is 0, but we can double check
-                if group.currency_id.is_zero(sum(group.mapped('amount_residual_currency'))):
-                    try:
-                        group.reconcile()
+                # Reconcile all lines in the group if the sum of residuals is 0
+                if currency.is_zero(sum(group.mapped('amount_residual_currency'))):
+                    if _try_reconcile(group):
                         reconciled_count += len(group)
-                    except Exception:
-                        pass
             elif self.reconcile_mode == 'perfect':
-                # Find exact matching debit and credit pairs
-                unreconciled_group = group
-                while len(unreconciled_group) >= 2:
-                    found_match = False
-                    for line1 in unreconciled_group:
-                        for line2 in unreconciled_group:
-                            if line1.id != line2.id and line1.currency_id == line2.currency_id:
-                                if line1.amount_residual_currency == -line2.amount_residual_currency:
-                                    try:
-                                        (line1 | line2).reconcile()
-                                        reconciled_count += 2
-                                        found_match = True
-                                        # Remove from unreconciled set
-                                        unreconciled_group -= (line1 | line2)
-                                        break
-                                    except Exception:
-                                        pass
-                        if found_match:
-                            break
-                    if not found_match:
-                        break # No more perfect matches in this group
+                # Pair each line with an opposite line of exactly the same residual
+                open_by_amount = {}
+                for line in group.sorted('date'):
+                    amount = currency.round(line.amount_residual_currency)
+                    candidates = open_by_amount.get(-amount)
+                    if candidates:
+                        other = candidates.pop(0)
+                        if _try_reconcile(line | other):
+                            reconciled_count += 2
+                            continue
+                        candidates.insert(0, other)
+                    open_by_amount.setdefault(amount, []).append(line)
+
+        # Refresh payment_state on all affected invoice moves
+        reconciled_moves = lines.move_id.filtered(lambda m: m.is_invoice(True))
+        if reconciled_moves:
+            reconciled_moves.invalidate_recordset(['payment_state', 'status_in_payment', 'amount_residual'])
+            reconciled_moves._compute_payment_state()
+
 
         if reconciled_count == 0:
             message = _('Nothing to reconcile.')

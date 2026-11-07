@@ -94,30 +94,16 @@ class FsShiftTemplateApplyWizard(models.TransientModel):
                 
                 # Apply each template
                 for template in self.template_ids:
-                    # Calculate start and end datetimes
-                    start_hours, start_mins = divmod(template.start_time * 60, 60)
-                    end_hours, end_mins = divmod(template.end_time * 60, 60)
-                    
-                    # Localize to employee timezone and convert to UTC
-                    dt_start_local = emp_tz.localize(datetime.datetime.combine(current_date, datetime.time(int(start_hours), int(start_mins))))
-                    dt_start = dt_start_local.astimezone(pytz.utc).replace(tzinfo=None)
-                    
-                    dt_end_local = emp_tz.localize(datetime.datetime.combine(current_date, datetime.time(int(end_hours), int(end_mins))))
-                    dt_end = dt_end_local.astimezone(pytz.utc).replace(tzinfo=None)
-                    
-                    if dt_end <= dt_start:
-                        dt_end = dt_end + timedelta(days=1)
-                        
+                    dt_start, dt_end = template._get_interval(current_date, emp_tz, employee.resource_calendar_id)
                     slots_to_create.append({
                         'resource_id': employee.id,
-                        'role_id': template.role_id.id if template.role_id else False,
-                        'project_id': template.project_id.id if template.project_id else False,
-                        'task_id': template.task_id.id if template.task_id else False,
-                        'partner_id': template.partner_id.id if template.partner_id else False,
+                        'role_id': template.role_id.id,
+                        'project_id': template.project_id.id,
+                        'task_id': template.task_id.id,
+                        'shift_template_id': template.id,
                         'date_start': dt_start,
                         'date_end': dt_end,
                         'state': 'draft',
-                        'name': template.name,
                     })
             current_date += timedelta(days=1)
             

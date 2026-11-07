@@ -1,0 +1,140 @@
+2026-10-31 06:42:47,995 27368 WARNING ? odoo.tools.config: option addons_path, no such directory 'c:\\odoo-custom-addons\\dental_addons', skipped
+2026-10-31 06:42:47,995 27368 WARNING ? odoo.tools.config: option addons_path, no such directory 'c:\\odoo-custom-addons\\dental_addons', skipped
+2026-10-31 06:42:47,995 27368 INFO ? odoo: Odoo version 20.0-20260927
+2026-10-31 06:42:47,995 27368 INFO ? odoo: Using configuration file at c:\program files\odoo 20.0.20260927\server\odoo.conf
+2026-10-31 06:42:47,995 27368 INFO ? odoo: addons paths: _NamespacePath(['C:\\Program Files\\Odoo 20.0.20260927\\server\\odoo\\addons', 'C:\\Users\\nandu\\AppData\\Local\\OpenERP S.A.\\Odoo\\addons\\20.0', 'c:\\program files\\odoo 20.0.20260927\\server\\odoo\\addons', 'c:\\odoo-custom-addons', 'c:\\odoo-custom-addons\\om_account_accountant-20.0.1.3.1', 'c:\\odoo-custom-addons\\dms_20.0', 'c:\\program files\\odoo 20.0.20260927\\server\\addons'])
+2026-10-31 06:42:47,995 27368 INFO ? odoo: database: odoo@localhost:5432
+2026-10-31 06:42:49,792 27368 INFO ? odoo.service.server.ThreadedServer: Initiating shutdown
+2026-10-31 06:42:49,792 27368 INFO ? odoo.service.server.ThreadedServer: Hit CTRL-C again or send a second signal to force the shutdown.
+2026-10-31 06:42:50,036 27368 INFO HudsonTest odoo.modules.loading: loading 1 modules...
+2026-10-31 06:42:50,042 27368 INFO HudsonTest odoo.modules.loading: 1 modules loaded in 0.01s, 0 queries (+0 extra)
+2026-10-31 06:42:50,061 27368 WARNING HudsonTest odoo.modules.module_graph: module dental_service_reloader: not installable, skipped
+2026-10-31 06:42:50,069 27368 WARNING HudsonTest odoo.modules.module: Missing `author` key in manifest for 'hudson_plm', defaulting to ''
+2026-10-31 06:42:50,202 27368 INFO HudsonTest odoo.modules.loading: loading 204 modules...
+2026-10-31 06:42:51,093 27368 WARNING HudsonTest odoo.addons.mail.controllers.attachment: markdown2 is not installed, markdown will not be rendered
+2026-10-31 06:42:52,015 27368 WARNING HudsonTest py.warnings: c:\odoo-custom-addons\dms_20.0\dms\controllers\main.py:14: DeprecationWarning: Since 19.0, @route(type='json') is a deprecated alias to @route(type='jsonrpc')
+  File "C:\Program Files\Odoo 20.0.20260927\server\odoo-bin", line 6, in <module>
+    odoo.cli.main()
+  File "C:\Program Files\Odoo 20.0.20260927\server\odoo\cli\command.py", line 139, in main
+    command().run(args)
+  File "C:\Program Files\Odoo 20.0.20260927\server\odoo\cli\shell.py", line 161, in run
+    self.shell(dbnames[0])
+  File "C:\Program Files\Odoo 20.0.20260927\server\odoo\cli\shell.py", line 136, in shell
+    registry = Registry(dbname)
+  File "C:\Program Files\Odoo 20.0.20260927\server\odoo\orm\registry.py", line 111, in __new__
+    return cls.new(db_name)
+  File "C:\Program Files\Odoo 20.0.20260927\server\odoo\tools\func.py", line 67, in locked
+    return func(inst, *args, **kwargs)
+  File "C:\Program Files\Odoo 20.0.20260927\server\odoo\orm\registry.py", line 222, in new
+    contextvars.Context().run(
+  File "C:\Program Files\Odoo 20.0.20260927\server\odoo\modules\loading.py", line 449, in load_modules
+    load_module_graph(
+  File "C:\Program Files\Odoo 20.0.20260927\server\odoo\modules\loading.py", line 172, in load_module_graph
+    load_openerp_module(package.name)
+  File "C:\Program Files\Odoo 20.0.20260927\server\odoo\modules\module.py", line 541, in load_openerp_module
+    __import__(qualname)
+  File "c:\odoo-custom-addons\dms_20.0\dms\__init__.py", line 1, in <module>
+    from . import controllers
+  File "c:\odoo-custom-addons\dms_20.0\dms\controllers\__init__.py", line 1, in <module>
+    from . import main
+  File "c:\odoo-custom-addons\dms_20.0\dms\controllers\main.py", line 14, in <module>
+    class OnboardingController(http.Controller):
+
+2026-10-31 06:42:52,052 27368 WARNING HudsonTest py.warnings: c:\odoo-custom-addons\dms_20.0\dms\models\ir_attachment.py:4: DeprecationWarning: Since 20.0 import ormcache from odoo.api
+  File "C:\Program Files\Odoo 20.0.20260927\server\odoo-bin", line 6, in <module>
+    odoo.cli.main()
+  File "C:\Program Files\Odoo 20.0.20260927\server\odoo\cli\command.py", line 139, in main
+    command().run(args)
+  File "C:\Program Files\Odoo 20.0.20260927\server\odoo\cli\shell.py", line 161, in run
+    self.shell(dbnames[0])
+  File "C:\Program Files\Odoo 20.0.20260927\server\odoo\cli\shell.py", line 136, in shell
+    registry = Registry(dbname)
+  File "C:\Program Files\Odoo 20.0.20260927\server\odoo\orm\registry.py", line 111, in __new__
+    return cls.new(db_name)
+  File "C:\Program Files\Odoo 20.0.20260927\server\odoo\tools\func.py", line 67, in locked
+    return func(inst, *args, **kwargs)
+  File "C:\Program Files\Odoo 20.0.20260927\server\odoo\orm\registry.py", line 222, in new
+    contextvars.Context().run(
+  File "C:\Program Files\Odoo 20.0.20260927\server\odoo\modules\loading.py", line 449, in load_modules
+    load_module_graph(
+  File "C:\Program Files\Odoo 20.0.20260927\server\odoo\modules\loading.py", line 172, in load_module_graph
+    load_openerp_module(package.name)
+  File "C:\Program Files\Odoo 20.0.20260927\server\odoo\modules\module.py", line 541, in load_openerp_module
+    __import__(qualname)
+  File "c:\odoo-custom-addons\dms_20.0\dms\__init__.py", line 2, in <module>
+    from . import models
+  File "c:\odoo-custom-addons\dms_20.0\dms\models\__init__.py", line 25, in <module>
+    from . import ir_attachment
+  File "c:\odoo-custom-addons\dms_20.0\dms\models\ir_attachment.py", line 4, in <module>
+    from odoo.tools import ormcache
+
+2026-10-31 06:42:52,063 27368 WARNING HudsonTest odoo.registry: Model attribute '_sql_constraints' is no longer supported, please define models.Constraint on the model.
+2026-10-31 06:42:52,070 27368 WARNING HudsonTest odoo.registry: Model attribute '_sql_constraints' is no longer supported, please define models.Constraint on the model.
+2026-10-31 06:42:52,070 27368 WARNING HudsonTest odoo.registry: Model attribute '_sql_constraints' is no longer supported, please define models.Constraint on the model.
+2026-10-31 06:42:52,086 27368 WARNING HudsonTest odoo.registry: Model attribute '_sql_constraints' is no longer supported, please define models.Constraint on the model.
+2026-10-31 06:42:53,236 27368 INFO HudsonTest odoo.addons.dms_enterprise_features.http_patch: Successfully installed DMS _set_session_and_dbname router patch.
+2026-10-31 06:42:53,375 27368 WARNING HudsonTest py.warnings: c:\odoo-custom-addons\dms_enterprise_features\controllers\portal.py:11: DeprecationWarning: Since 19.0, @route(type='json') is a deprecated alias to @route(type='jsonrpc')
+  File "C:\Program Files\Odoo 20.0.20260927\server\odoo-bin", line 6, in <module>
+    odoo.cli.main()
+  File "C:\Program Files\Odoo 20.0.20260927\server\odoo\cli\command.py", line 139, in main
+    command().run(args)
+  File "C:\Program Files\Odoo 20.0.20260927\server\odoo\cli\shell.py", line 161, in run
+    self.shell(dbnames[0])
+  File "C:\Program Files\Odoo 20.0.20260927\server\odoo\cli\shell.py", line 136, in shell
+    registry = Registry(dbname)
+  File "C:\Program Files\Odoo 20.0.20260927\server\odoo\orm\registry.py", line 111, in __new__
+    return cls.new(db_name)
+  File "C:\Program Files\Odoo 20.0.20260927\server\odoo\tools\func.py", line 67, in locked
+    return func(inst, *args, **kwargs)
+  File "C:\Program Files\Odoo 20.0.20260927\server\odoo\orm\registry.py", line 222, in new
+    contextvars.Context().run(
+  File "C:\Program Files\Odoo 20.0.20260927\server\odoo\modules\loading.py", line 449, in load_modules
+    load_module_graph(
+  File "C:\Program Files\Odoo 20.0.20260927\server\odoo\modules\loading.py", line 172, in load_module_graph
+    load_openerp_module(package.name)
+  File "C:\Program Files\Odoo 20.0.20260927\server\odoo\modules\module.py", line 541, in load_openerp_module
+    __import__(qualname)
+  File "c:\odoo-custom-addons\dms_enterprise_features\__init__.py", line 7, in <module>
+    from . import controllers
+  File "c:\odoo-custom-addons\dms_enterprise_features\controllers\__init__.py", line 4, in <module>
+    from . import portal
+  File "c:\odoo-custom-addons\dms_enterprise_features\controllers\portal.py", line 11, in <module>
+    class DMSPortal(CustomerPortal):
+
+2026-10-31 06:42:55,776 27368 WARNING HudsonTest odoo.models: Class FsPlanningSlot has no _name, please make it explicit: _name = 'fs.planning.slot'
+2026-10-31 06:42:55,801 27368 WARNING HudsonTest py.warnings: c:\odoo-custom-addons\hudson_field_service\controllers\portal.py:9: DeprecationWarning: Since 19.0, @route(type='json') is a deprecated alias to @route(type='jsonrpc')
+  File "C:\Program Files\Odoo 20.0.20260927\server\odoo-bin", line 6, in <module>
+    odoo.cli.main()
+  File "C:\Program Files\Odoo 20.0.20260927\server\odoo\cli\command.py", line 139, in main
+    command().run(args)
+  File "C:\Program Files\Odoo 20.0.20260927\server\odoo\cli\shell.py", line 161, in run
+    self.shell(dbnames[0])
+  File "C:\Program Files\Odoo 20.0.20260927\server\odoo\cli\shell.py", line 136, in shell
+    registry = Registry(dbname)
+  File "C:\Program Files\Odoo 20.0.20260927\server\odoo\orm\registry.py", line 111, in __new__
+    return cls.new(db_name)
+  File "C:\Program Files\Odoo 20.0.20260927\server\odoo\tools\func.py", line 67, in locked
+    return func(inst, *args, **kwargs)
+  File "C:\Program Files\Odoo 20.0.20260927\server\odoo\orm\registry.py", line 222, in new
+    contextvars.Context().run(
+  File "C:\Program Files\Odoo 20.0.20260927\server\odoo\modules\loading.py", line 449, in load_modules
+    load_module_graph(
+  File "C:\Program Files\Odoo 20.0.20260927\server\odoo\modules\loading.py", line 172, in load_module_graph
+    load_openerp_module(package.name)
+  File "C:\Program Files\Odoo 20.0.20260927\server\odoo\modules\module.py", line 541, in load_openerp_module
+    __import__(qualname)
+  File "c:\odoo-custom-addons\hudson_field_service\__init__.py", line 6, in <module>
+    from . import controllers
+  File "c:\odoo-custom-addons\hudson_field_service\controllers\__init__.py", line 1, in <module>
+    from . import portal
+  File "c:\odoo-custom-addons\hudson_field_service\controllers\portal.py", line 9, in <module>
+    class FieldServicePortal(CustomerPortal):
+
+2026-10-31 06:42:56,111 27368 WARNING HudsonTest odoo.registry: Model attribute '_sql_constraints' is no longer supported, please define models.Constraint on the model.
+2026-10-31 06:42:56,573 27368 INFO HudsonTest odoo.modules.loading: 204 modules loaded in 6.37s, 0 queries (+0 extra)
+2026-10-31 06:42:56,980 27368 WARNING HudsonTest odoo.fields: Field knowledge.management.article.parent_path: unknown parameter 'unaccent', if this is an actual parameter you may want to override the method _valid_field_parameter on the relevant model in order to allow it
+2026-10-31 06:42:57,029 27368 WARNING HudsonTest odoo.fields: Field dms.file.reject.wizard.reason: unknown parameter 'placeholder', if this is an actual parameter you may want to override the method _valid_field_parameter on the relevant model in order to allow it
+2026-10-31 06:42:57,208 27368 ERROR HudsonTest odoo.modules.loading: Some modules are not loaded, some dependencies or manifest may be missing: ['dental_service_reloader']
+2026-10-31 06:42:57,208 27368 INFO HudsonTest odoo.modules.loading: Modules loaded.
+2026-10-31 06:42:57,410 27368 INFO HudsonTest odoo.registry: Caches invalidated, signaling through the database: ['default']
+2026-10-31 06:42:57,562 27368 INFO HudsonTest odoo.registry: Registry loaded in 7.746s

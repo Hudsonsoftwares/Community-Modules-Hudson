@@ -4,8 +4,10 @@ import { Component, onWillStart, proxy, useProps } from "@odoo/owl";
 import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
 import { standardActionServiceProps } from "@web/webclient/actions/action_plugin";
+import { SignIcon } from "@hudson_sign/js/sign_editor";
 
 export class GreenSavings extends Component {
+    static components = { SignIcon };
     props = useProps({
         ...standardActionServiceProps,
     });

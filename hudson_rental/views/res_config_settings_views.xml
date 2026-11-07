@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
     <data>
-        
-        <!-- Settings View -->
+
+        <!-- Settings View, laid out like Odoo's Rental app. The Products and Quotations
+             options are the Sales settings themselves: changing them here changes them there. -->
         <record id="res_config_settings_view_form_rental" model="ir.ui.view">
             <field name="name">res.config.settings.view.form.inherit.rental</field>
             <field name="model">res.config.settings</field>
@@ -10,62 +11,75 @@
             <field name="arch" type="xml">
                 <xpath expr="//form" position="inside">
                     <app string="Rental" data-string="Rental" name="hudson_rental" groups="hudson_rental.group_rental_manager">
-                        <block title="Pick up &amp; Returns" name="rental_setting_pickup_returns">
-                            <setting string="Unavailability days" help="Days on which pickup and return are not possible">
-                                <div class="content-group">
-                                    <div class="row">
-                                        <div class="col-12 col-md-6">
-                                            <field name="rental_unavailability_monday"/> <label for="rental_unavailability_monday"/>
-                                            <br/>
-                                            <field name="rental_unavailability_tuesday"/> <label for="rental_unavailability_tuesday"/>
-                                            <br/>
-                                            <field name="rental_unavailability_wednesday"/> <label for="rental_unavailability_wednesday"/>
-                                            <br/>
-                                            <field name="rental_unavailability_thursday"/> <label for="rental_unavailability_thursday"/>
-                                            <br/>
-                                        </div>
-                                        <div class="col-12 col-md-6">
-                                            <field name="rental_unavailability_friday"/> <label for="rental_unavailability_friday"/>
-                                            <br/>
-                                            <field name="rental_unavailability_saturday"/> <label for="rental_unavailability_saturday"/>
-                                            <br/>
-                                            <field name="rental_unavailability_sunday"/> <label for="rental_unavailability_sunday"/>
-                                            <br/>
-                                        </div>
+                        <block title="Rental" name="rental_setting_container">
+                            <setting id="rental_availabilities" company_dependent="1"
+                                     help="Days during which pickup and return are possible.">
+                                <field name="rental_calendar_id" placeholder="Every day" class="oe_inline"/>
+                            </setting>
+                        </block>
+
+                        <block title="Products" name="rental_products_setting_container">
+                            <setting id="rental_variant_options" help="Sell variants of a product using attributes (size, color, etc.)">
+                                <field name="group_product_variant"/>
+                                <div class="content-group" invisible="not group_product_variant">
+                                    <div class="mt8">
+                                        <button name="%(product.attribute_action)d" icon="east" type="action" string="Attributes" class="btn-link"/>
                                     </div>
                                 </div>
                             </setting>
+                            <setting id="rental_coupon_settings" string="Promotions, Loyalty &amp; Gift Card"
+                                     help="Manage Promotions, Coupons, Loyalty cards, Gift cards &amp; eWallet">
+                                <field name="module_loyalty"/>
+                            </setting>
+                            <setting id="rental_pricelist_configuration" help="Set multiple prices per product, automated discounts, etc.">
+                                <field name="group_product_pricelist"/>
+                                <div class="content-group" invisible="not group_product_pricelist">
+                                    <div class="mt16">
+                                        <button name="%(product.product_pricelist_action2)d" icon="east" type="action" string="Pricelists" groups="product.group_product_pricelist" class="btn-link"/>
+                                    </div>
+                                </div>
+                            </setting>
+                            <setting id="rental_discount_sale_order_lines" help="Grant discounts on sales order lines.">
+                                <field name="group_discount_per_so_line"/>
+                            </setting>
                         </block>
 
-                        <block title="Inventory &amp; Delivery" name="rental_setting_inventory">
-                            <setting id="rental_transfers" string="Rental Transfers" help="Activate to use stock deliveries and receipts for rental orders.">
+                        <block title="Quotations" name="rental_quotations_setting_container">
+                            <setting id="rental_pdf_quote_builder" string="PDF Quote builder"
+                                     help="Make your quote attractive by adding header pages, product descriptions and footer pages to your quote.">
+                                <field name="module_sale_pdf_quote_builder"/>
+                            </setting>
+                            <setting id="rental_quotation_templates" help="Create standardized offers with default products.">
+                                <field name="module_sale_management" readonly="1"/>
+                                <div class="content-group">
+                                    <div class="mt8">
+                                        <button name="%(sale_management.sale_order_template_action)d" icon="east" type="action" string="Quotation Templates" class="btn-link"/>
+                                    </div>
+                                </div>
+                            </setting>
+                            <setting id="rental_mandatory_product" help="Prevent selling without a linked product">
+                                <field name="sale_order_mandatory_product"/>
+                            </setting>
+                        </block>
+
+                        <block title="Inventory" name="rental_inventory_setting_container">
+                            <setting id="rental_transfers" company_dependent="1"
+                                     help="Activate to use stock deliveries and receipts for rental orders.">
                                 <field name="rental_use_transfers"/>
-                            </setting>
-                            <setting string="Rental Location" help="Location where rental products are stored" invisible="not rental_use_transfers">
-                                <field name="rental_location_id" domain="[('usage', '=', 'internal')]"/>
-                            </setting>
-                            <setting string="Picking Type" help="Picking type for rental deliveries" invisible="not rental_use_transfers">
-                                <field name="rental_picking_type_id"/>
-                            </setting>
-                        </block>
-
-                        <block title="Invoicing &amp; Financials" name="rental_setting_financials">
-                            <setting string="Auto Invoice" help="Automatically create invoice when rental is returned">
-                                <field name="rental_auto_invoice"/>
-                            </setting>
-                            <setting string="Security Deposit" help="Require security deposit for all rentals">
-                                <field name="rental_require_deposit"/>
-                            </setting>
-                            <setting string="Late Fee Product" help="Product used for billing late return fees">
-                                <field name="rental_late_fee_product_id"/>
-                            </setting>
-                            <setting string="Deposit Product" help="Product used for security deposit lines">
-                                <field name="rental_deposit_product_id"/>
                             </setting>
                         </block>
                     </app>
                 </xpath>
             </field>
+        </record>
+
+        <!-- Rental > Configuration > Settings -->
+        <record id="action_rental_config_settings" model="ir.actions.act_window">
+            <field name="name">Settings</field>
+            <field name="res_model">res.config.settings</field>
+            <field name="view_id" ref="res_config_settings_view_form_rental"/>
+            <field name="view_mode">form</field>
+            <field name="context">{'module': 'hudson_rental'}</field>
         </record>
 
     </data>

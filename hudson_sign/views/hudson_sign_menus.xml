@@ -34,6 +34,8 @@
         <menuitem id="menu_hudson_sign_settings"
                   name="Settings"
                   parent="menu_hudson_sign_configuration"
+                  action="action_hudson_sign_config_settings"
+                  groups="base.group_system"
                   sequence="10"/>
                   
         <menuitem id="menu_hudson_sign_tags"

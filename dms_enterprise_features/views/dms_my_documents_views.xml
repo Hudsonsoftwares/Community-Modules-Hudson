@@ -6,29 +6,15 @@
         <field name="res_model">dms.file</field>
         <field name="view_mode">kanban,list,activity,form</field>
         <field name="search_view_id" ref="dms.search_dms_file"/>
-        <field name="context">{'search_default_filter_user': 1}</field>
+        <field name="context">{}</field>
         <field name="help" type="html">
             <p class="o_view_nocontent_smiling_face">
                 No documents found.
             </p>
             <p>
-                Documents assigned to you or owned by you will appear here.
+                Documents you own, and documents shared with you directly or through a folder, will appear here.
             </p>
         </field>
-    </record>
-
-    <!-- My Signature Requests Action -->
-    <record id="action_dms_my_signature_requests" model="ir.actions.act_window">
-        <field name="name">Signature Requests</field>
-        <field name="res_model">dms.file.signature.request</field>
-        <field name="view_mode">list,form</field>
-        <field name="domain" eval="False"/>
-        <field name="search_view_id" ref="dms_enterprise_features.view_dms_signature_request_search"/>
-        <field name="context">{'create': False}</field>
-        <field name="view_ids" eval="[(5, 0, 0),
-            (0, 0, {'view_mode': 'list', 'view_id': ref('dms_enterprise_features.view_dms_signature_request_tree')}),
-            (0, 0, {'view_mode': 'form', 'view_id': ref('dms_enterprise_features.view_dms_signature_request_form')})
-        ]"/>
     </record>
 
     <!-- My Approvals Action -->
@@ -70,10 +56,4 @@
               action="action_dms_my_approvals" 
               parent="menu_dms_my_documents_root" 
               sequence="15"/>
-
-    <menuitem id="menu_dms_my_signature_requests" 
-              name="Signature Requests" 
-              action="action_dms_my_signature_requests" 
-              parent="menu_dms_my_documents_root" 
-              sequence="20"/>
 </odoo>

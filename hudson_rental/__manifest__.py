@@ -3,7 +3,7 @@
 
 {
     'name': 'Hudson Rental Management',
-    'version': '20.0.1.0.0',
+    'version': '20.0.2.3.0',
     'category': 'Sales/Rental',
     'sequence': 60,
     'summary': 'Rent products to customers with flexible pricing and scheduling',
@@ -30,44 +30,39 @@ Complete rental management solution for renting products to customers:
         'base',
         'web',
         'sale_management',
+        'sale_pdf_quote_builder',
         'sale_stock',
         'stock',
         'product',
         'account',
         'portal',
         'website_sale',
+        'resource',
+        'sales_team',
     ],
     'data': [
         # Security
         'security/rental_security.xml',
         'security/ir.access.csv',
-        
+
         # Data
-        'data/rental_sequence.xml',
-        'data/rental_status_data.xml',
-        'data/rental_pricing_data.xml',
-        'data/rental_mail_template.xml',
-        
+        'data/rental_data.xml',
+
         # Views
         'views/product_template_views.xml',
-        'views/rental_order_views.xml',
+        'views/sale_order_views.xml',
         'views/rental_pricing_views.xml',
         'views/rental_order_line_views.xml',
-        'views/sale_order_views.xml',
         'views/res_config_settings_views.xml',
         # Website
-        'views/rental_portal_templates.xml',
         'views/rental_website_templates.xml',
-        
+
         # Wizard
-        'wizard/rental_return_wizard_views.xml',
-        'wizard/rental_extend_wizard_views.xml',
-        'wizard/rental_pickup_wizard_views.xml',
-        
+        'wizard/rental_order_wizard_views.xml',
+
         # Reports
         'report/rental_report_views.xml',
-        'report/rental_report_templates.xml',
-        
+
         # Menus (must be loaded last after all actions are defined)
         'views/rental_menu.xml',
     ],
@@ -76,11 +71,15 @@ Complete rental management solution for renting products to customers:
             'hudson_rental/static/src/js/rental_calendar.js',
             'hudson_rental/static/src/xml/rental_calendar.xml',
             'hudson_rental/static/src/css/rental_backend.css',
+            'hudson_rental/static/src/views/rental_dashboard_list.js',
+            'hudson_rental/static/src/views/rental_dashboard_list.xml',
+            'hudson_rental/static/src/views/rental_dashboard_list.scss',
+            'hudson_rental/static/src/views/rental_gantt/*',
         ],
         'web.assets_frontend': [
-            'hudson_rental/static/src/js/rental_configurator.js',
-            'hudson_rental/static/src/js/rental_portal.js',
-            'hudson_rental/static/src/css/rental_frontend.css',
+            'hudson_rental/static/src/js/rental_period.js',
+            'hudson_rental/static/src/xml/rental_frontend.xml',
+            'hudson_rental/static/src/css/rental_frontend.scss',
         ],
     },
     'demo': [

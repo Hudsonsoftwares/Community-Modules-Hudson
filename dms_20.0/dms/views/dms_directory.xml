@@ -11,7 +11,7 @@
     <record id="action_dms_directories_directory" model="ir.actions.act_window">
         <field name="name">Subdirectories</field>
         <field name="res_model">dms.directory</field>
-        <field name="view_mode">kanban,list,form</field>
+        <field name="view_mode">kanban,list,activity,form</field>
         <field name="domain">
             [
                 ("is_hidden", "=", False),
@@ -141,10 +141,10 @@
                     date="write_date"
                 />
 
-                <searchpanel>
+                <searchpanel view_types="kanban,list,activity">
                     <field
                         name="parent_id"
-                        icon="fa-folder"
+                        icon="folder"
                         limit="0"
                         enable_counters="1"
                     />
@@ -152,13 +152,13 @@
                         name="category_id"
                         select="multi"
                         groupby="parent_id"
-                        icon="fa-users"
+                        icon="group"
                         limit="0"
                     />
                     <field
                         name="tag_ids"
                         select="multi"
-                        icon="fa-tag"
+                        icon="tag"
                         groupby="category_id"
                         limit="0"
                         enable_counters="1"
@@ -378,7 +378,7 @@
                             type="object"
                             name="action_dms_directories_all_directory"
                             class="oe_stat_button"
-                            icon="fa-folder-open-o"
+                            icon="folder"
                         >
                             <field
                                 string="Subdirectories"
@@ -390,7 +390,7 @@
                             type="object"
                             name="action_dms_files_all_directory"
                             class="oe_stat_button"
-                            icon="fa-file-text-o"
+                            icon="description"
                         >
                             <field
                                 string="Files"
@@ -624,7 +624,7 @@
     <record id="action_dms_directory" model="ir.actions.act_window">
         <field name="name">Directories</field>
         <field name="res_model">dms.directory</field>
-        <field name="view_mode">kanban,list,form</field>
+        <field name="view_mode">kanban,list,activity,form</field>
         <field name="domain">[("is_hidden", "=", False)]</field>
         <field name="help" type="html">
             <p class="o_view_nocontent_smiling_face">

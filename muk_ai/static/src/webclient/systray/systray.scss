@@ -1,0 +1,52 @@
+.btn.mk_systray_btn {
+    padding: 7px 2px;
+    color: inherit;
+    font-size: 20px;
+    &:hover {
+        opacity: 0.85;
+    }
+    .mk_systray_running {
+        top: -3px;
+        left: -3px;
+        width: 8px;
+        height: 8px;
+        background: var(--mk-accent);
+        box-shadow: 0 0 0 2px var(--body-bg);
+        animation: mk-pulse 1.2s ease-in-out infinite;
+    }
+}
+.mk_systray_menu {
+    min-width: 280px;
+    max-width: 340px;
+    padding: 0.25rem 0 !important;
+    > :is(.mk_systray_header, .mk_systray_heading, .mk_systray_item) {
+        padding: 0.5rem 0.9rem !important;
+    }
+    .mk_systray_heading {
+        padding: 0.4rem 0.9rem 0.15rem !important;
+        font-size: 0.68rem;
+        letter-spacing: 0.06em;
+    }
+    .mk_systray_item {
+        padding-block: 0.45rem !important;
+        font-size: 0.875rem;
+        kbd {
+            padding: 0.1rem 0.35rem;
+            color: var(--secondary-color);
+            background: rgba(var(--emphasis-color-rgb), 0.05);
+            box-shadow: none;
+            font-size: 0.7rem;
+        }
+        &.mk_systray_unread {
+            background: rgba(var(--primary-rgb), 0.12);
+        }
+    }
+    .mk_systray_dot {
+        width: 8px;
+        height: 8px;
+        background: var(--mk-state);
+        &.mk_state_running {
+            animation: mk-pulse 1.2s ease-in-out infinite;
+        }
+    }
+}

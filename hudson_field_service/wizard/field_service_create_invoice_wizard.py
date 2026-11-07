@@ -135,6 +135,16 @@ class FieldServiceCreateInvoiceWizard(models.TransientModel):
                     'product_uom_id': line.uom_id.id if line.uom_id else False,
                 }))
 
+        # Settings > Travel Fees: round-trip travel time
+        travel_product = order._get_travel_product()
+        if travel_product:
+            invoice_lines.append((0, 0, {
+                'name': _('Travel to %(customer)s (%(distance)s km)', customer=order.partner_id.display_name, distance=order.travel_distance),
+                'product_id': travel_product.id,
+                'quantity': order.travel_duration,
+                'price_unit': travel_product.lst_price,
+            }))
+
         if not invoice_lines:
             raise UserError(_('Nothing to invoice. Add time entries or products first.'))
 

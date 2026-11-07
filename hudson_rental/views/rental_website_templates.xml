@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
     <data>
-        
+
         <!-- Rental Products Page -->
         <template id="rental_products_template" name="Rental Products">
             <t t-call="website.layout">
@@ -12,42 +12,36 @@
                                 <h1 class="text-center mb-4">Available Rentals</h1>
                             </div>
                         </div>
-                        
+
                         <div class="row">
                             <t t-foreach="products" t-as="product">
                                 <div class="col-lg-3 col-md-4 col-sm-6 mb-4">
                                     <div class="card h-100">
-                                        <t t-if="product.image_1920">
-                                            <img t-attf-src="data:image/png;base64,#{product.image_1920.decode()}" 
-                                                 class="card-img-top" alt="Product Image"/>
-                                        </t>
+                                        <img t-if="product.image_1920" t-attf-src="/web/image/product.template/#{product.id}/image_512"
+                                             class="card-img-top" t-att-alt="product.name"/>
                                         <div class="card-body d-flex flex-column">
                                             <h5 class="card-title">
-                                                <a t-attf-href="/rental/product/#{product.id}" t-out="product.name"/>
+                                                <a t-att-href="product.website_url" t-out="product.name"/>
                                             </h5>
                                             <p class="card-text text-muted small flex-grow-1" t-if="product.description_sale">
                                                 <t t-out="product.description_sale[:100]"/>...
                                             </p>
                                             <div class="mt-auto">
-                                                <t t-if="product.rental_pricing_ids">
-                                                    <p class="mb-1">
-                                                        <strong>Starting from:</strong><br/>
-                                                        <span class="text-primary h5">
-                                                            <t t-out="product.rental_pricing_ids[0].price"/> 
-                                                            <t t-out="product.currency_id.symbol"/>
-                                                        </span>
-                                                        / <t t-out="product.rental_pricing_ids[0].duration_unit"/>
-                                                    </p>
-                                                </t>
-                                                <a t-attf-href="/rental/product/#{product.id}" 
-                                                   class="btn btn-primary btn-sm w-100">View Details</a>
+                                                <p class="mb-1">
+                                                    <span class="text-primary h5"
+                                                          t-out="product.list_price"
+                                                          t-options="{'widget': 'monetary', 'display_currency': product.currency_id}"/>
+                                                    / <t t-out="product.rental_period_label"/>
+                                                </p>
+                                                <a t-att-href="product.website_url"
+                                                   class="btn btn-primary btn-sm w-100">Rent</a>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
                             </t>
                         </div>
-                        
+
                         <t t-if="not products">
                             <div class="row">
                                 <div class="col-12 text-center">
@@ -60,137 +54,63 @@
             </t>
         </template>
 
-        <!-- Rental Product Detail Page -->
-        <template id="rental_product_detail_template" name="Rental Product Detail">
-            <t t-call="website.layout">
-                <div id="wrap" class="oe_structure">
-                    <div class="container mt-5">
-                        <div class="row">
-                            <div class="col-md-6">
-                                <t t-if="product.image_1920">
-                                    <img t-attf-src="data:image/png;base64,#{product.image_1920.decode()}" 
-                                         class="img-fluid" alt="Product Image"/>
-                                </t>
-                            </div>
-                            <div class="col-md-6">
-                                <h1 t-out="product.name"/>
-                                <p class="lead" t-if="product.description_sale" t-out="product.description_sale"/>
-                                
-                                <hr/>
-                                
-                                <h4>Rental Pricing</h4>
-                                <div class="list-group mb-4">
-                                    <t t-foreach="pricing_options" t-as="pricing">
-                                        <div class="list-group-item">
-                                            <div class="d-flex justify-content-between align-items-center">
-                                                <span>
-                                                    <t t-out="pricing.duration"/> 
-                                                    <t t-out="dict(pricing._fields['duration_unit'].selection).get(pricing.duration_unit)"/>
-                                                </span>
-                                                <span class="badge bg-primary rounded-pill">
-                                                    <t t-out="pricing.price"/> <t t-out="product.currency_id.symbol"/>
-                                                </span>
-                                            </div>
-                                        </div>
-                                    </t>
-                                </div>
-                                
-                                <h4>Configure Your Rental</h4>
-                                <form id="rental_form" class="mb-4">
-                                    <div class="mb-3">
-                                        <label for="pickup_date" class="form-label">Pickup Date</label>
-                                        <input type="datetime-local" class="form-control" id="pickup_date" required="required"/>
-                                    </div>
-                                    <div class="mb-3">
-                                        <label for="return_date" class="form-label">Return Date</label>
-                                        <input type="datetime-local" class="form-control" id="return_date" required="required"/>
-                                    </div>
-                                    <div class="mb-3">
-                                        <label for="quantity" class="form-label">Quantity</label>
-                                        <input type="number" class="form-control" id="quantity" value="1" min="1" required="required"/>
-                                    </div>
-                                    <div class="alert alert-info" id="rental_calculation" style="display:none;">
-                                        <strong>Duration:</strong> <span id="duration_display"></span><br/>
-                                        <strong>Total Price:</strong> <span id="price_display"></span>
-                                    </div>
-                                    <button type="button" class="btn btn-primary btn-lg w-100" id="add_to_cart_btn">
-                                        <i class="fa fa-shopping-cart"/> Add to Cart
-                                    </button>
-                                </form>
-                                
-                                <div class="alert alert-success" id="success_message" style="display:none;">
-                                    Product added to cart!
-                                </div>
-                            </div>
-                        </div>
+        <!-- Shop: show rental prices "per period", like Odoo's Rental app -->
+        <template id="product_price_rental" inherit_id="website_sale.product_price" name="Rental Price Period">
+            <xpath expr="//span[hasclass('oe_price')]" position="after">
+                <span t-if="product.is_rental" class="text-muted h6 mb-0 o_rental_price_period">
+                    / <t t-out="product.rental_period_label"/>
+                </span>
+            </xpath>
+        </template>
+
+        <template id="products_item_rental" inherit_id="website_sale.products_item" name="Rental Price Period (Shop)">
+            <xpath expr="//div[hasclass('product_price')]" position="inside">
+                <small t-if="product.is_rental" class="text-muted o_rental_price_period">
+                    / <t t-out="product.rental_period_label"/>
+                </small>
+            </xpath>
+        </template>
+
+        <!-- Shop product page: "Rental Period" block above the standard Add to cart, like
+             Odoo's Rental app. The chosen period is sent along when adding to cart. -->
+        <template id="product_rental_configurator" inherit_id="website_sale.product" name="Rental Period">
+            <xpath expr="//div[@id='o_wsale_product_cta_section']" position="before">
+                <div t-if="product.is_rental"
+                     class="o_rental_period o_wsale_product_details_content_section border-top pt-3 mb-4"
+                     t-att-data-periodicity="product.rental_periodicity"
+                     t-att-data-pickup-minutes="round(product.rental_pickup_time * 60)"
+                     t-att-data-return-minutes="round(product.rental_return_time * 60)">
+                    <t t-set="rental_times" t-value="product.get_rental_time_options()"/>
+                    <div class="mb-2">
+                        <span class="fw-bold">Rental Period</span>
+                        <span class="o_rental_tz ms-1"/>
+                    </div>
+                    <div class="d-flex align-items-center gap-2 mb-3">
+                        <input type="date" name="rental_start_date" class="form-control" aria-label="Pickup date" required="required"/>
+                        <i class="oi" data-icon="east" role="img" aria-label="to"/>
+                        <input type="date" name="rental_end_date" class="form-control" aria-label="Return date" required="required"/>
+                    </div>
+                    <!-- Any pickup and return time (the product's own times are proposed for
+                         daily and longer rentals), so a product can be booked by several
+                         customers on the same day at different hours -->
+                    <div class="d-flex flex-wrap align-items-center gap-2">
+                        <label for="rental_pickup_time" class="text-nowrap">Pickup time</label>
+                        <select id="rental_pickup_time" name="rental_pickup_time" class="form-select w-auto flex-grow-1">
+                            <option t-foreach="rental_times" t-as="rental_time" t-att-value="rental_time[0]" t-out="rental_time[1]"/>
+                        </select>
+                        <i class="oi" data-icon="east" role="img" aria-label="to"/>
+                        <label for="rental_return_time" class="text-nowrap">Return time</label>
+                        <select id="rental_return_time" name="rental_return_time" class="form-select w-auto flex-grow-1">
+                            <option t-foreach="rental_times" t-as="rental_time" t-att-value="rental_time[0]" t-out="rental_time[1]"/>
+                        </select>
+                    </div>
+                    <!-- What is wrong with the chosen period (filled when adding to cart) -->
+                    <div class="o_rental_period_error alert alert-danger d-none align-items-start gap-2 mt-3 mb-0" role="alert" aria-live="assertive">
+                        <i class="oi oi-filled flex-shrink-0" data-icon="error" aria-hidden="true"/>
+                        <span class="o_rental_period_error_text"/>
                     </div>
                 </div>
-                
-                <script type="text/javascript">
-                    odoo.define('hudson_rental.product_detail', function (require) {
-                        'use strict';
-                        
-                        var ajax = require('web.ajax');
-                        var core = require('web.core');
-                        
-                        $(document).ready(function() {
-                            var productId = <t t-out="product.product_variant_id.id"/>;
-                            
-                            function calculatePrice() {
-                                var pickupDate = $('#pickup_date').val();
-                                var returnDate = $('#return_date').val();
-                                var quantity = $('#quantity').val();
-                                
-                                if (!pickupDate || !returnDate) return;
-                                
-                                ajax.jsonRpc('/rental/configure', 'call', {
-                                    product_id: productId,
-                                    pickup_date: pickupDate,
-                                    return_date: returnDate,
-                                    quantity: quantity
-                                }).then(function(result) {
-                                    if (result.success) {
-                                        $('#duration_display').text(result.duration_days.toFixed(1) + ' days');
-                                        $('#price_display').text(result.total.toFixed(2) + ' ' + result.currency_symbol);
-                                        $('#rental_calculation').show();
-                                    } else if (result.error) {
-                                        alert(result.error);
-                                    }
-                                });
-                            }
-                            
-                            $('#pickup_date, #return_date, #quantity').on('change', calculatePrice);
-                            
-                            $('#add_to_cart_btn').click(function() {
-                                var pickupDate = $('#pickup_date').val();
-                                var returnDate = $('#return_date').val();
-                                var quantity = $('#quantity').val();
-                                
-                                if (!pickupDate || !returnDate) {
-                                    alert('Please select pickup and return dates');
-                                    return;
-                                }
-                                
-                                ajax.jsonRpc('/rental/add_to_cart', 'call', {
-                                    product_id: productId,
-                                    pickup_date: pickupDate,
-                                    return_date: returnDate,
-                                    quantity: quantity
-                                }).then(function(result) {
-                                    if (result.success) {
-                                        $('#success_message').show();
-                                        setTimeout(function() {
-                                            window.location.href = '/shop/cart';
-                                        }, 1500);
-                                    } else if (result.error) {
-                                        alert(result.error);
-                                    }
-                                });
-                            });
-                        });
-                    });
-                </script>
-            </t>
+            </xpath>
         </template>
 
     </data>

@@ -1,46 +1,69 @@
 # -*- coding: utf-8 -*-
 # Part of Hudson. See LICENSE file for full copyright and licensing details.
 
-from odoo import http, _
-from odoo.http import request
-from odoo.exceptions import AccessError, MissingError
 from markupsafe import Markup
+
+from odoo import fields, http, _
+from odoo.exceptions import AccessError, MissingError
+from odoo.http import request
 from odoo.addons.portal.controllers.portal import CustomerPortal, pager as portal_pager
+
+PORTAL_SUBSCRIPTION_STATES = ['3_progress', '4_paused', '5_renew', '5_renewed', '6_churn']
 
 
 class SubscriptionCustomerPortal(CustomerPortal):
 
-    def _prepare_home_portal_values(self, counters):
-        values = super(SubscriptionCustomerPortal, self)._prepare_home_portal_values(counters)
-        if 'subscription_count' in counters:
-            values['subscription_count'] = request.env['sale.order'].search_count([
-                ('is_subscription', '=', True),
-                ('partner_id', '=', request.env.user.partner_id.id),
-                ('subscription_state', 'in', ['3_progress', '4_paused', '5_renew', '6_churn'])
-            ]) if request.env.user.partner_id else 0
-        return values
+    # ------------------------------------------------------------------
+    # Home card counter (Odoo 20: portal.entry + _prepare_portal_counter_values)
+    # ------------------------------------------------------------------
+
+    def _prepare_subscriptions_domain(self, partner):
+        return [
+            ('is_subscription', '=', True),
+            ('partner_id', 'child_of', [partner.commercial_partner_id.id]),
+            ('state', '=', 'sale'),
+            ('subscription_state', 'in', PORTAL_SUBSCRIPTION_STATES),
+        ]
+
+    def _prepare_portal_counter_values(self, counter):
+        if counter == 'subscription_count':
+            partner = request.env.user.partner_id
+            return 'sale.order', self._prepare_subscriptions_domain(partner), 'read'
+        return super()._prepare_portal_counter_values(counter)
+
+    def _get_portal_subscription(self, order_id, access_token=None):
+        """Return the subscription as sudo if the visitor may access it, else None."""
+        try:
+            order_sudo = self._document_check_access('sale.order', order_id, access_token=access_token)
+        except (AccessError, MissingError):
+            return None
+        if not order_sudo.is_subscription:
+            return None
+        return order_sudo
+
+    def _redirect_to_subscription(self, order_sudo):
+        return request.redirect(order_sudo.get_portal_url())
+
+    # ------------------------------------------------------------------
+    # List & detail
+    # ------------------------------------------------------------------
 
     @http.route(['/my/subscriptions', '/my/subscriptions/page/<int:page>'], type='http', auth="user", website=True)
-    def portal_my_subscriptions(self, page=1, date_begin=None, date_end=None, sortby=None, **kw):
+    def portal_my_subscriptions(self, page=1, **kw):
         values = self._prepare_portal_layout_values()
-        partner = request.env.user.partner_id
         SaleOrder = request.env['sale.order']
-
-        domain = [
-            ('is_subscription', '=', True),
-            ('partner_id', '=', partner.id),
-            ('subscription_state', 'in', ['3_progress', '4_paused', '5_renew', '6_churn'])
-        ]
+        domain = self._prepare_subscriptions_domain(request.env.user.partner_id)
 
         subscription_count = SaleOrder.search_count(domain)
         pager = portal_pager(
             url="/my/subscriptions",
             total=subscription_count,
             page=page,
-            step=10
+            step=10,
         )
-
-        subscriptions = SaleOrder.search(domain, limit=10, offset=pager['offset'], order='id desc')
+        # Records are filtered by the access rules above; sudo only for rendering
+        # related records (plan, ...) that portal users cannot read directly.
+        subscriptions = SaleOrder.search(domain, limit=10, offset=pager['offset'], order='id desc').sudo()
 
         values.update({
             'subscriptions': subscriptions,
@@ -52,180 +75,93 @@ class SubscriptionCustomerPortal(CustomerPortal):
 
     @http.route(['/my/subscriptions/<int:subscription_id>'], type='http', auth="public", website=True)
     def portal_my_subscription_detail(self, subscription_id=None, access_token=None, **kw):
-        try:
-            subscription = self._document_check_access('sale.order', subscription_id, access_token=access_token)
-        except (AccessError, MissingError):
+        # Like Odoo Online, a subscription is managed from its order page,
+        # which carries the subscription sidebar (billing, renew, pause, close...).
+        order_sudo = self._get_portal_subscription(subscription_id, access_token)
+        if not order_sudo:
+            return request.redirect('/my')
+        return self._redirect_to_subscription(order_sudo)
+
+    # ------------------------------------------------------------------
+    # Self-service actions (each one gated by the recurring plan options)
+    # ------------------------------------------------------------------
+
+    @http.route(['/my/subscriptions/<int:order_id>/renew'], type='http', auth="public", methods=['POST'], website=True)
+    def portal_my_subscription_renew(self, order_id=None, access_token=None, **kw):
+        order = self._get_portal_subscription(order_id, access_token)
+        if not order:
+            return request.redirect('/my')
+        if not order.plan_id.user_renew or order.subscription_state not in ('3_progress', '5_renew'):
+            return self._redirect_to_subscription(order)
+
+        pending = order.renewal_order_ids.filtered(lambda r: r.state in ('draft', 'sent'))
+        if pending:
+            return request.redirect(pending[0].get_portal_url())
+
+        renewal_order = order._create_portal_renewal_quote()
+        order.message_post(body=Markup(_("Renewal quotation %s created by the customer from the portal.")) % renewal_order._get_html_link())
+        return request.redirect(renewal_order.get_portal_url())
+
+    @http.route(['/my/subscriptions/<int:order_id>/change_plan'], type='http', auth="public", methods=['POST'], website=True)
+    def portal_my_subscription_change_plan(self, order_id=None, plan_id=None, access_token=None, **kw):
+        order = self._get_portal_subscription(order_id, access_token)
+        if not order:
             return request.redirect('/my')
 
-        has_pending_renewal = bool(subscription.renewal_order_ids.filtered(lambda r: r.state in ['draft', 'sent']))
-        values = {
-            'subscription': subscription,
-            'page_name': 'subscription',
-            'has_pending_renewal': has_pending_renewal,
-            'access_token': access_token,
-        }
-        return request.render("hudson_subscriptions.portal_subscription_page", values)
+        new_plan = order.plan_id.optional_plan_ids.filtered(lambda p: str(p.id) == str(plan_id))
+        if not new_plan:
+            return self._redirect_to_subscription(order)
 
-    @http.route(['/my/subscriptions/<int:subscription_id>/upsell'], type='http', auth="user", website=True)
-    def portal_my_subscription_upsell(self, subscription_id=None, **kw):
-        subscription = request.env['sale.order'].browse(subscription_id)
-        if not subscription.exists() or subscription.partner_id.id != request.env.user.partner_id.id:
-            return request.redirect('/my')
+        if order.state in ('draft', 'sent'):
+            # Still a quotation: simply switch the plan and reprice it.
+            order.plan_id = new_plan
+            order._onchange_plan_id()
+            order.message_post(body=Markup(_("Recurring plan changed to <b>%s</b> by the customer from the portal.")) % new_plan.name)
+            return self._redirect_to_subscription(order)
 
-        if not subscription.plan_id.user_add_products:
-            return request.redirect(f'/my/subscriptions/{subscription.id}')
-
-        pricelist = getattr(request, 'pricelist', False) or request.env['product.pricelist'].sudo().search([('company_id', 'in', (False, subscription.company_id.id))], limit=1)
-        pricing_rules = request.env['product.pricelist.item'].sudo().search([
-            ('subscription_plan_id', '=', subscription.plan_id.id),
-            ('pricelist_id', '=', pricelist.id),
-            ('product_tmpl_id', '!=', False)
-        ])
-        
-        values = {
-            'subscription': subscription,
-            'pricing_rules': pricing_rules,
-            'page_name': 'subscription',
-        }
-        return request.render("hudson_subscriptions.portal_subscription_upsell", values)
-
-    @http.route(['/my/subscriptions/<int:subscription_id>/upsell/submit'], type='http', auth="user", methods=['POST'], website=True)
-    def portal_my_subscription_upsell_submit(self, subscription_id=None, **post):
-        subscription = request.env['sale.order'].browse(subscription_id)
-        if not subscription.exists() or subscription.partner_id.id != request.env.user.partner_id.id:
-            return request.redirect('/my')
-
-        pricelist = getattr(request, 'pricelist', False) or request.env['product.pricelist'].sudo().search([('company_id', 'in', (False, subscription.company_id.id))], limit=1)
-        
-        order_lines = []
-        for key, value in post.items():
-            if key.startswith('product_qty_') and value:
-                try:
-                    qty = float(value)
-                    if qty > 0:
-                        product_id = int(key.replace('product_qty_', ''))
-                        product = request.env['product.product'].sudo().browse(product_id)
-                        if product.exists():
-                            # Find the pricing rule
-                            rule = request.env['product.pricelist.item'].sudo().search([
-                                ('subscription_plan_id', '=', subscription.plan_id.id),
-                                ('pricelist_id', '=', pricelist.id),
-                                ('product_tmpl_id', '=', product.product_tmpl_id.id)
-                            ], limit=1)
-                            price = rule.fixed_price if rule and rule.compute_price == 'fixed' else product.list_price
-                            
-                            order_lines.append((0, 0, {
-                                'product_id': product.id,
-                                'product_uom_qty': qty,
-                                'price_unit': price,
-                            }))
-                except ValueError:
-                    pass
-
-        if order_lines:
-            upsell_order = request.env['sale.order'].sudo().create({
-                'partner_id': subscription.partner_id.id,
-                'origin_order_id': subscription.id,
-                'is_subscription': True,
-                'is_upsell': True,
-                'plan_id': subscription.plan_id.id,
-                'order_line': order_lines,
-            })
-            return request.redirect(f'/my/orders/{upsell_order.id}')
-            
-        return request.redirect(f'/my/subscriptions/{subscription.id}')
-
-    @http.route(['/my/subscriptions/<int:subscription_id>/optional_upsell'], type='http', auth="user", methods=['POST'], website=True)
-    def portal_my_subscription_optional_upsell(self, subscription_id=None, **post):
-        subscription = request.env['sale.order'].browse(subscription_id)
-        if not subscription.exists() or subscription.partner_id.id != request.env.user.partner_id.id:
-            return request.redirect('/my')
-
-        product_qtys = {}
-        for key, value in post.items():
-            if key.startswith('qty_') and value:
-                try:
-                    qty = float(value)
-                    if qty > 0:
-                        line_id = int(key.replace('qty_', ''))
-                        parent_line = request.env['sale.order.line'].sudo().browse(line_id)
-                        if parent_line.exists() and parent_line.order_id.id == subscription.id:
-                            product_id = parent_line.product_id.id
-                            product_qtys[product_id] = product_qtys.get(product_id, 0) + qty
-                except ValueError:
-                    pass
-
-        if product_qtys:
-            action = subscription.sudo().action_upsell_subscription()
-            upsell_order_id = action.get('res_id')
-            if upsell_order_id:
-                upsell_order = request.env['sale.order'].sudo().browse(upsell_order_id)
-                for product_id, qty in product_qtys.items():
-                    existing_line = upsell_order.order_line.filtered(lambda l: l.product_id.id == product_id)
-                    if existing_line:
-                        existing_line[0].product_uom_qty = qty
-                return request.redirect(f'/my/orders/{upsell_order.id}')
-            
-        return request.redirect(f'/my/subscriptions/{subscription.id}')
-
-    @http.route(['/my/subscriptions/<int:order_id>/renew'], type='http', auth="user", website=True)
-    def portal_my_subscription_renew(self, order_id=None, **kw):
-        order = request.env['sale.order'].browse(order_id)
-        if not order.exists() or order.partner_id.id != request.env.user.partner_id.id:
-            return request.redirect('/my')
-
-        # Clone the order into a renewal quotation
-        renewal_order = order.sudo().copy({
-            'origin_order_id': order.id,
-            'is_renewal': True,
-            'is_subscription': True,
-            'subscription_state': 'draft',
-            'plan_id': order.plan_id.id,
-            'start_date': order.end_date or fields.Date.context_today(order),
-            'next_invoice_date': order.end_date or fields.Date.context_today(order),
+        # Running subscription: the new plan starts with a renewal quotation the
+        # customer has to accept, prices being recomputed for that plan.
+        renewal_order = order._create_portal_renewal_quote(plan=new_plan)
+        order.message_post(body=Markup(_("The customer asked to switch to the <b>%(plan)s</b> plan: %(quote)s.")) % {
+            'plan': new_plan.name,
+            'quote': renewal_order._get_html_link(),
         })
-        order.sudo().message_post(body=_("Renewal quotation %s created from the portal.", renewal_order._get_html_link()))
-        
-        return request.redirect(f'/my/orders/{renewal_order.id}')
+        return request.redirect(renewal_order.get_portal_url())
 
-    @http.route(['/my/subscriptions/<int:order_id>/change_plan'], type='http', auth="user", methods=['POST'], website=True)
-    def portal_my_subscription_change_plan(self, order_id=None, plan_id=None, **kw):
-        order = request.env['sale.order'].browse(order_id)
-        if not order.exists() or order.partner_id.id != request.env.user.partner_id.id:
+    @http.route(['/my/subscriptions/<int:order_id>/pause'], type='http', auth="public", methods=['POST'], website=True)
+    def portal_my_subscription_pause(self, order_id=None, access_token=None, **kw):
+        order = self._get_portal_subscription(order_id, access_token)
+        if not order:
             return request.redirect('/my')
+        if order.plan_id.user_pausable and order.subscription_state == '3_progress':
+            order.subscription_state = '4_paused'
+            order.message_post(body=Markup(_("Subscription <b>Paused</b> by the customer from the portal.")))
+        return self._redirect_to_subscription(order)
 
-        if plan_id:
-            new_plan = request.env['sale.subscription.plan'].sudo().browse(int(plan_id))
-            if new_plan.exists():
-                order.sudo().write({'plan_id': new_plan.id})
-                if order.subscription_state in ['3_progress', '4_paused']:
-                    # Recalculate end_date and next_invoice_date if already active
-                    start_date = order.start_date or fields.Date.context_today(order)
-                    order.sudo().write({
-                        'end_date': new_plan.get_next_date(start_date),
-                    })
-                order.sudo().message_post(body=Markup(_("Subscription plan was changed to <b>%s</b> from the portal.") % new_plan.name))
-        
-        # If it's a draft quote, redirect to the quote page. If active, redirect to subscription page.
-        if order.state in ['draft', 'sent']:
-            return request.redirect(f'/my/orders/{order.id}')
-        return request.redirect(f'/my/subscriptions/{order.id}')
-
-    @http.route(['/my/subscriptions/<int:order_id>/close'], type='http', auth="user", methods=['POST'], website=True)
-    def portal_my_subscription_close(self, order_id=None, close_reason_id=None, **kw):
-        order = request.env['sale.order'].browse(order_id)
-        if not order.exists() or order.partner_id.id != request.env.user.partner_id.id:
+    @http.route(['/my/subscriptions/<int:order_id>/resume'], type='http', auth="public", methods=['POST'], website=True)
+    def portal_my_subscription_resume(self, order_id=None, access_token=None, **kw):
+        order = self._get_portal_subscription(order_id, access_token)
+        if not order:
             return request.redirect('/my')
+        if order.plan_id.user_pausable and order.subscription_state == '4_paused':
+            order.subscription_state = '3_progress'
+            order.message_post(body=Markup(_("Subscription <b>Resumed</b> by the customer from the portal.")))
+        return self._redirect_to_subscription(order)
 
-        if close_reason_id:
-            reason = request.env['sale.subscription.close.reason'].sudo().browse(int(close_reason_id))
-            if reason.exists():
-                order.sudo().write({
-                    'subscription_state': '6_churn',
-                    'close_reason_id': reason.id,
-                    'close_date': fields.Date.context_today(order),
-                })
-                order.sudo().message_post(body=Markup(_("Subscription has been <b>Closed / Churned</b> from the portal.<br/>Reason: %s") % reason.name))
+    @http.route(['/my/subscriptions/<int:order_id>/close'], type='http', auth="public", methods=['POST'], website=True)
+    def portal_my_subscription_close(self, order_id=None, close_reason_id=None, access_token=None, **kw):
+        order = self._get_portal_subscription(order_id, access_token)
+        if not order:
+            return request.redirect('/my')
+        if not order.plan_id.user_closable or order.subscription_state in ('5_renewed', '6_churn', 'draft', 'sent'):
+            return self._redirect_to_subscription(order)
 
-        return request.redirect(f'/my/subscriptions/{order.id}')
-
+        reason = request.env['sale.subscription.close.reason'].sudo().browse(int(close_reason_id or 0)).exists()
+        if reason:
+            order.write({
+                'subscription_state': '6_churn',
+                'close_reason_id': reason.id,
+                'close_date': fields.Date.context_today(order),
+            })
+            order.message_post(body=Markup(_("Subscription has been <b>Closed</b> by the customer from the portal.<br/>Reason: %s")) % reason.name)
+        return self._redirect_to_subscription(order)

@@ -119,7 +119,7 @@
                             <field name="manual_breakdown_is_equal" invisible="1"/>
                         </group>
                         <group string="Actions &amp; Balance Status">
-                            <button name="action_auto_balance_remaining" string="Auto Balance Remaining" type="object" class="btn-outline-primary mb-2" icon="fa-calculator"/>
+                            <button name="action_auto_balance_remaining" string="Auto Balance Remaining" type="object" class="btn-outline-primary mb-2" icon="calculate"/>
                             <div class="alert alert-success col-12" role="alert" invisible="not manual_breakdown_is_equal">
                                 ✓ Salary Breakdown Balanced
                             </div>

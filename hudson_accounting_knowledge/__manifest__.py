@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     'name': 'Hudson Accounting Knowledge Integration',
-    'version': '20.0.1.0.0',
+    'version': '20.0.1.0.1',
     'category': 'Accounting/Accounting',
     'summary': 'Insert Accounting Reports into Knowledge Articles',
     'author': 'Hudson Softwares',
@@ -16,5 +16,5 @@
         'wizard/hudson_report_export_knowledge_wizard_views.xml',
     ],
     'installable': True,
-    'auto_install': False,
+    'auto_install': True,
 }

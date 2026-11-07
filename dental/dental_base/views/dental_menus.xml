@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Top-Level Root Menu: Administrative Oversight App (Dental Clinic) -->
+    <!--
+        STRICT SECURITY: Only Clinic Manager and Dental Administrator have access
+        to the administrative Dental Clinic app.
+        Specialist roles have their dedicated single workspaces:
+          - Dentist -> Dentist Workspace
+          - Receptionist -> Reception Desk
+          - Lab -> Dental Lab
+          - Pharmacy -> Pharmacy
+    -->
+    <record id="menu_dental_root" model="ir.ui.menu">
+        <field name="name">Dental Clinic</field>
+        <field name="web_icon">dental_base,static/description/icon.png</field>
+        <field name="sequence" eval="65"/>
+        <field name="group_ids" eval="[(6, 0, [ref('dental_base.group_dental_manager'), ref('dental_base.group_dental_admin')])]"/>
+        <field name="active" eval="True"/>
+    </record>
+
+    <!-- Staff & Doctors Operational Section (Sequence 50) -->
+    <record id="menu_dental_staff_root" model="ir.ui.menu">
+        <field name="name">Staff &amp; Doctors</field>
+        <field name="parent_id" ref="dental_base.menu_dental_root"/>
+        <field name="sequence" eval="50"/>
+        <field name="group_ids" eval="[(6, 0, [ref('dental_base.group_dental_manager'), ref('dental_base.group_dental_admin')])]"/>
+        <field name="active" eval="True"/>
+    </record>
+
+    <!-- Action for Clinic Departments -->
+    <record id="action_dental_departments" model="ir.actions.act_window">
+        <field name="name">Clinic Departments</field>
+        <field name="res_model">hr.department</field>
+        <field name="view_mode">kanban,list,form</field>
+        <field name="domain">['|', ('company_id', '=', False), ('company_id', 'in', allowed_company_ids)]</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Manage dental clinical and administrative departments!
+            </p>
+        </field>
+    </record>
+
+    <!-- Action for Duty Schedules -->
+    <record id="action_dental_duty_schedules" model="ir.actions.act_window">
+        <field name="name">Duty Schedules</field>
+        <field name="res_model">resource.calendar</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">['|', ('company_id', '=', False), ('company_id', 'in', allowed_company_ids)]</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Configure doctor and staff working hours / duty schedules!
+            </p>
+        </field>
+    </record>
+
+    <!-- 1. Staff Directory -->
+    <menuitem
+        id="menu_dental_staff_directory"
+        name="Staff Directory"
+        parent="menu_dental_staff_root"
+        action="action_dental_staff"
+        sequence="10"/>
+
+    <!-- 2. Clinic Departments -->
+    <menuitem
+        id="menu_dental_departments"
+        name="Clinic Departments"
+        parent="menu_dental_staff_root"
+        action="action_dental_departments"
+        sequence="20"/>
+
+    <!-- 3. Duty Schedules / Working Hours -->
+    <menuitem
+        id="menu_dental_duty_schedules"
+        name="Duty Schedules"
+        parent="menu_dental_staff_root"
+        action="action_dental_duty_schedules"
+        sequence="30"/>
+
+    <!-- 4. Staff Attendances -->
+    <menuitem
+        id="menu_dental_attendances"
+        name="Attendances"
+        parent="menu_dental_staff_root"
+        action="hr_attendance.hr_attendance_action"
+        sequence="40"/>
+
+    <!-- 5. Attendance Kiosk Mode -->
+    <menuitem
+        id="menu_dental_attendance_kiosk"
+        name="Attendance Kiosk"
+        parent="menu_dental_staff_root"
+        action="hr_attendance.open_kiosk_url"
+        sequence="50"/>
+
+    <!-- 6. Attendance Analysis -->
+    <menuitem
+        id="menu_dental_attendance_reporting"
+        name="Attendance Analysis"
+        parent="menu_dental_staff_root"
+        action="hr_attendance.hr_attendance_reporting"
+        sequence="60"/>
+
+    <!-- Configuration Menu (Parent for Clinic Settings, Branches, Staff, Users, System) -->
+    <menuitem
+        id="menu_dental_configuration"
+        name="Configuration"
+        parent="dental_base.menu_dental_root"
+        groups="dental_base.group_dental_manager,dental_base.group_dental_admin"
+        sequence="80"/>
+
+    <!-- 1. Clinic Settings -->
+    <menuitem
+        id="menu_dental_settings"
+        name="Clinic Settings"
+        parent="dental_base.menu_dental_configuration"
+        action="action_dental_config_settings"
+        groups="dental_base.group_dental_admin"
+        sequence="10"/>
+
+    <!-- 2. Clinic Branches -->
+    <menuitem
+        id="menu_dental_branches"
+        name="Clinic Branches"
+        parent="dental_base.menu_dental_configuration"
+        action="base.action_res_company_form"
+        groups="dental_base.group_dental_manager,dental_base.group_dental_admin"
+        sequence="20"/>
+
+    <!-- Deactivate duplicate Staff & Doctors entry in Configuration -->
+    <record id="menu_dental_staff" model="ir.ui.menu">
+        <field name="name">Staff &amp; Doctors</field>
+        <field name="active" eval="False"/>
+    </record>
+
+    <!-- 4. User & Role Management -->
+    <menuitem
+        id="menu_dental_users"
+        name="User &amp; Role Management"
+        parent="dental_base.menu_dental_configuration"
+        action="base.action_res_users"
+        groups="dental_base.group_dental_admin"
+        sequence="90"/>
+
+    <!-- 5. Email & Notifications -->
+    <menuitem
+        id="menu_dental_email_notifications"
+        name="Email &amp; Notifications"
+        parent="dental_base.menu_dental_configuration"
+        action="mail.action_view_mail_mail"
+        groups="dental_base.group_dental_admin"
+        sequence="100"/>
+</odoo>

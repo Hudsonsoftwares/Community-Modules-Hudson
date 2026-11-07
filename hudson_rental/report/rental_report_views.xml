@@ -21,10 +21,10 @@
                     <field name="product_id"/>
                     <field name="categ_id"/>
                     <field name="user_id"/>
-                    <filter string="Draft" name="draft" domain="[('state', '=', 'draft')]"/>
-                    <filter string="Confirmed" name="confirmed" domain="[('state', '=', 'confirmed')]"/>
-                    <filter string="In Progress" name="in_progress" domain="[('state', 'in', ['reserved', 'picked_up'])]"/>
-                    <filter string="Completed" name="completed" domain="[('state', 'in', ['returned', 'done'])]"/>
+                    <filter string="Quotations" name="draft" domain="[('state', 'in', ['draft', 'sent'])]"/>
+                    <filter string="Reserved" name="reserved" domain="[('state', '=', 'pickup')]"/>
+                    <filter string="Picked-up" name="in_progress" domain="[('state', '=', 'return')]"/>
+                    <filter string="Returned" name="completed" domain="[('state', '=', 'returned')]"/>
                     <separator/>
                     <filter string="Order Date" name="order_date" date="date_order"/>
                     <filter string="Pickup Date" name="pickup_date" date="pickup_date"/>

@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Clinical Main Menu (inside the "Dental Clinic" admin app) -->
+    <!--
+        ROLE RULE: Clinical menus in the Dental Clinic app are visible to:
+          - Dentists   → their primary workspace for case management
+          - Managers   → oversight of clinical operations
+          - Admins     → administrative oversight
+        These are NOT the same as the standalone "Dentist Workspace" app.
+        The Dentist Workspace (personal portal) is Dentist-only.
+        The Clinical section here is for case/examination/plan management across the clinic.
+    -->
+    <record id="menu_dental_clinical" model="ir.ui.menu">
+        <field name="name">Clinical</field>
+        <field name="parent_id" ref="dental_base.menu_dental_root"/>
+        <field name="sequence" eval="40"/>
+        <field name="group_ids" eval="[(6, 0, [ref('dental_base.group_dental_dentist'), ref('dental_base.group_dental_manager'), ref('dental_base.group_dental_admin')])]"/>
+        <field name="active" eval="True"/>
+    </record>
+
+    <!-- Action for Clinical X-rays & Diagnostic Imaging -->
+    <record id="action_dental_clinical_images" model="ir.actions.act_window">
+        <field name="name">X-ray / Images</field>
+        <field name="res_model">ir.attachment</field>
+        <field name="view_mode">kanban,list,form</field>
+        <field name="domain">[('res_model', 'in', ('dental.case', 'dental.clinical.examination', 'dental.treatment.plan', 'res.partner'))]</field>
+        <field name="context">{'default_res_model': 'dental.case'}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Upload dental X-rays, intraoral scans, and clinical photographs.
+            </p>
+        </field>
+    </record>
+
+    <!-- Clinical Sub-Menus -->
+    <menuitem
+        id="menu_dental_case"
+        name="Dental Cases"
+        parent="menu_dental_clinical"
+        action="action_dental_case"
+        sequence="10"
+        groups="dental_base.group_dental_dentist,dental_base.group_dental_manager,dental_base.group_dental_admin"/>
+
+    <menuitem
+        id="menu_dental_clinical_examination"
+        name="Clinical Examinations"
+        parent="menu_dental_clinical"
+        action="action_dental_clinical_examination"
+        sequence="20"
+        groups="dental_base.group_dental_dentist,dental_base.group_dental_manager,dental_base.group_dental_admin"/>
+
+    <menuitem
+        id="menu_dental_tooth_finding"
+        name="Tooth Findings"
+        parent="menu_dental_clinical"
+        action="action_dental_tooth_finding"
+        sequence="25"
+        groups="dental_base.group_dental_dentist,dental_base.group_dental_manager,dental_base.group_dental_admin"/>
+
+    <menuitem
+        id="menu_dental_patient_diagnosis"
+        name="Diagnoses"
+        parent="menu_dental_clinical"
+        action="action_dental_patient_diagnosis"
+        sequence="30"
+        groups="dental_base.group_dental_dentist,dental_base.group_dental_manager,dental_base.group_dental_admin"/>
+
+    <menuitem
+        id="menu_dental_treatment_plan"
+        name="Treatment Plans"
+        parent="menu_dental_clinical"
+        action="action_dental_treatment_plan"
+        sequence="40"
+        groups="dental_base.group_dental_dentist,dental_base.group_dental_manager,dental_base.group_dental_admin"/>
+
+    <menuitem
+        id="menu_dental_treatment_session"
+        name="Treatment Sessions"
+        parent="menu_dental_clinical"
+        action="action_dental_treatment_session"
+        sequence="50"
+        groups="dental_base.group_dental_dentist,dental_base.group_dental_manager,dental_base.group_dental_admin"/>
+
+    <menuitem
+        id="menu_dental_clinical_images"
+        name="X-ray / Images"
+        parent="menu_dental_clinical"
+        action="action_dental_clinical_images"
+        sequence="60"
+        groups="dental_base.group_dental_dentist,dental_base.group_dental_manager,dental_base.group_dental_admin"/>
+
+    <!-- Configuration Menu Items -->
+    <menuitem
+        id="menu_dental_diagnosis_config"
+        name="Diagnosis Master"
+        parent="dental_base.menu_dental_configuration"
+        action="action_dental_diagnosis"
+        sequence="60"
+        groups="dental_base.group_dental_admin"/>
+</odoo>

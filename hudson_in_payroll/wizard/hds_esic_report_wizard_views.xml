@@ -10,12 +10,12 @@
                             string="Print PDF"
                             type="object"
                             class="btn-primary"
-                            icon="fa-print"/>
+                            icon="print"/>
                     <button name="action_generate_xlsx"
                             string="Export XLSX File"
                             type="object"
                             class="btn-success"
-                            icon="fa-file-excel-o"/>
+                            icon="table_chart"/>
                     <field name="state" widget="statusbar" statusbar_visible="draft,generated"/>
                 </header>
                 <sheet>

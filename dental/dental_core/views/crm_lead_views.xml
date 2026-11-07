@@ -1,0 +1,199 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- ========================================================================= -->
+    <!-- 1. FORM VIEW INHERITANCE: DENTAL CLINIC CRM LEAD                          -->
+    <!-- ========================================================================= -->
+    <record id="view_crm_lead_form_inherit_dental" model="ir.ui.view">
+        <field name="name">crm.lead.form.inherit.dental</field>
+        <field name="model">crm.lead</field>
+        <field name="inherit_id" ref="crm.crm_lead_view_form"/>
+        <field name="priority">25</field>
+        <field name="arch" type="xml">
+            <!-- Header Action Buttons -->
+            <header position="inside">
+                <button name="action_book_appointment" 
+                        string="Book Appointment" 
+                        type="object" 
+                        class="oe_highlight btn-primary"
+                        icon="fa-calendar-plus-o"
+                        invisible="appointment_id"/>
+                <button name="action_match_patient" 
+                        string="Link Matching Patient" 
+                        type="object" 
+                        class="btn-secondary"
+                        icon="fa-link"
+                        invisible="patient_id or not has_matching_patient"/>
+                <button name="action_schedule_followup" 
+                        string="Schedule Follow-up" 
+                        type="object" 
+                        class="btn-secondary"
+                        icon="fa-clock-o"/>
+            </header>
+
+            <!-- Stat Button Box -->
+            <div name="button_box" position="inside">
+                <button name="action_view_appointments" 
+                        type="object" 
+                        class="oe_stat_button" 
+                        icon="fa-calendar"
+                        invisible="appointment_count == 0">
+                    <field name="appointment_count" widget="statinfo" string="Appointments"/>
+                </button>
+            </div>
+
+            <!-- Suggestion Alert if patient match found -->
+            <xpath expr="//div[hasclass('oe_title')]" position="before">
+                <field name="has_matching_patient" invisible="1"/>
+                <div class="alert alert-info d-flex align-items-center justify-content-between p-3 mb-3 border-0 rounded-3 shadow-sm" 
+                     role="alert" 
+                     invisible="patient_id or not has_matching_patient">
+                    <div class="d-flex align-items-center">
+                        <i class="fa fa-user-circle fa-2x me-3 text-info"/>
+                        <div>
+                            <div class="fw-bold">Matching Patient Found in System</div>
+                            <div class="small text-muted">An existing patient with matching phone or email was detected: <field name="matching_patient_id" readonly="1" class="fw-bold text-dark"/></div>
+                        </div>
+                    </div>
+                    <button name="action_match_patient" 
+                            string="Link Patient" 
+                            type="object" 
+                            class="btn btn-sm btn-info text-white fw-bold shadow-sm"
+                            icon="fa-link"/>
+                </div>
+            </xpath>
+
+            <!-- Dental Enquiry Page in Notebook -->
+            <notebook position="inside">
+                <page string="Dental Hospital Enquiry" name="dental_enquiry_page">
+                    <group>
+                        <group string="Enquiry Requirements">
+                            <field name="treatment_id" options="{'no_create': True}"/>
+                            <field name="preferred_doctor_id" options="{'no_create': True}"/>
+                            <field name="preferred_date"/>
+                            <field name="source_type" widget="badge"/>
+                            <field name="referring_patient_id" invisible="source_type != 'referral'"/>
+                            <field name="enquiry_date"/>
+                        </group>
+                        <group string="Patient &amp; Conversion Link">
+                            <field name="has_matching_patient" invisible="1"/>
+                            <field name="patient_id" options="{'no_create': True}"/>
+                            <field name="conversion_status" widget="badge" 
+                                   decoration-info="conversion_status == 'new'"
+                                   decoration-primary="conversion_status == 'contacted'"
+                                   decoration-warning="conversion_status == 'follow_up'"
+                                   decoration-success="conversion_status in ('appointment_scheduled', 'appointment_completed')"
+                                   decoration-muted="conversion_status == 'cancelled'"/>
+                            <field name="appointment_id" readonly="1" invisible="not appointment_id"/>
+                        </group>
+                    </group>
+                </page>
+            </notebook>
+        </field>
+    </record>
+
+    <!-- ========================================================================= -->
+    <!-- 2. DEDICATED RECEPTIONIST TREE VIEW FOR ENQUIRIES                         -->
+    <!-- ========================================================================= -->
+    <record id="view_crm_lead_reception_tree" model="ir.ui.view">
+        <field name="name">crm.lead.reception.tree</field>
+        <field name="model">crm.lead</field>
+        <field name="arch" type="xml">
+            <list string="Patient Enquiries" decoration-muted="stage_id and stage_id.is_won" sample="1">
+                <field name="enquiry_date" string="Received" widget="remaining_days"/>
+                <field name="name" string="Enquiry Title"/>
+                <field name="contact_name" string="Patient / Contact"/>
+                <field name="phone" widget="phone"/>
+                <field name="email_from" widget="email"/>
+                <field name="source_type" widget="badge"/>
+                <field name="treatment_id"/>
+                <field name="preferred_doctor_id" optional="show"/>
+                <field name="user_id" string="Assigned To" widget="many2one_avatar_user" optional="show"/>
+                <field name="activity_ids" widget="list_activity" optional="show"/>
+                <field name="conversion_status" widget="badge" 
+                       decoration-info="conversion_status == 'new'"
+                       decoration-primary="conversion_status == 'contacted'"
+                       decoration-warning="conversion_status == 'follow_up'"
+                       decoration-success="conversion_status in ('appointment_scheduled', 'appointment_completed')"/>
+                <field name="stage_id" widget="badge" optional="show"/>
+                <field name="patient_id" optional="hide"/>
+                <field name="appointment_id" optional="show"/>
+                <button name="action_book_appointment" 
+                        string="Book" 
+                        type="object" 
+                        icon="fa-calendar-plus-o" 
+                        class="btn-sm btn-primary"
+                        invisible="appointment_id"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- ========================================================================= -->
+    <!-- 3. SEARCH VIEW EXTENSION WITH DENTAL RECEPTION FILTERS                     -->
+    <!-- ========================================================================= -->
+    <record id="view_crm_lead_reception_search_inherit" model="ir.ui.view">
+        <field name="name">crm.lead.reception.search.inherit</field>
+        <field name="model">crm.lead</field>
+        <field name="inherit_id" ref="crm.view_crm_case_opportunities_filter"/>
+        <field name="arch" type="xml">
+            <filter name="assigned_to_me" position="before">
+                <filter string="New Enquiries" name="filter_enquiries_new" domain="[('conversion_status', '=', 'new')]"/>
+                <filter string="Needs Contact" name="filter_needs_contact" domain="[('conversion_status', 'in', ('new', 'contacted')), ('appointment_id', '=', False)]"/>
+                <filter string="Follow-ups Due Today" name="filter_followups_today" domain="[('activity_date_deadline', '=', context_today().strftime('%Y-%m-%d'))]"/>
+                <filter string="Overdue Follow-ups" name="filter_followups_overdue" domain="[('activity_date_deadline', '&lt;', context_today().strftime('%Y-%m-%d'))]"/>
+                <filter string="Converted to Appointment" name="filter_converted_appointments" domain="[('appointment_id', '!=', False)]"/>
+                <separator/>
+            </filter>
+            <group position="inside">
+                <filter string="Enquiry Channel" name="groupby_source_type" context="{'group_by': 'source_type'}"/>
+                <filter string="Interested Treatment" name="groupby_treatment" context="{'group_by': 'treatment_id'}"/>
+                <filter string="Conversion Status" name="groupby_conversion_status" context="{'group_by': 'conversion_status'}"/>
+            </group>
+        </field>
+    </record>
+
+    <!-- ========================================================================= -->
+    <!-- 4. WINDOW ACTIONS FOR RECEPTION DESK CRM                                  -->
+    <!-- ========================================================================= -->
+    <record id="action_reception_crm_enquiries" model="ir.actions.act_window">
+        <field name="name">Patient Enquiries</field>
+        <field name="res_model">crm.lead</field>
+        <field name="view_mode">list,kanban,form,calendar,pivot,graph</field>
+        <field name="views" eval="[(ref('view_crm_lead_reception_tree'), 'list'), (False, 'kanban'), (False, 'form')]"/>
+        <field name="search_view_id" ref="view_crm_lead_reception_search_inherit"/>
+        <field name="domain">[('type', '=', 'opportunity')]</field>
+        <field name="context">{
+            'default_type': 'opportunity',
+            'search_default_open': 1,
+        }</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Register a new prospective patient enquiry!
+            </p>
+            <p>
+                Log phone calls, walk-in queries, website forms, and referrals. 
+                Follow up with patients and convert them directly into scheduled dental appointments.
+            </p>
+        </field>
+    </record>
+
+    <record id="action_reception_crm_followups" model="ir.actions.act_window">
+        <field name="name">Enquiry Follow-ups</field>
+        <field name="res_model">crm.lead</field>
+        <field name="view_mode">list,kanban,form,activity</field>
+        <field name="views" eval="[(ref('view_crm_lead_reception_tree'), 'list'), (False, 'kanban'), (False, 'form')]"/>
+        <field name="domain">[('activity_date_deadline', '!=', False)]</field>
+        <field name="context">{
+            'search_default_filter_followups_today': 1,
+            'search_default_filter_followups_overdue': 1,
+        }</field>
+    </record>
+
+    <record id="action_reception_crm_reports" model="ir.actions.act_window">
+        <field name="name">Enquiry Reporting &amp; Sources</field>
+        <field name="res_model">crm.lead</field>
+        <field name="view_mode">graph,pivot</field>
+        <field name="context">{
+            'group_by': ['source_type', 'treatment_id'],
+        }</field>
+    </record>
+</odoo>
