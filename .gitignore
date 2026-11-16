@@ -105,7 +105,6 @@ desktop.ini
 # Old repo infrastructure (no longer needed)
 # ----------------------------------------------------------
 docker-deploy/
-.github/
 base_territory/
 account-financial-reporting/
 field-service/
