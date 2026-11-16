@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- New views of dms.file used only by the Patient Education Library actions. -->
+
+    <record id="view_dms_file_search_education" model="ir.ui.view">
+        <field name="name">dms.file.search.education</field>
+        <field name="model">dms.file</field>
+        <field name="priority">95</field>
+        <field name="arch" type="xml">
+            <search string="Education Library">
+                <field name="name"/>
+                <field name="category_id" string="Topic"/>
+                <field name="dental_edu_product_ids" string="Treatment"/>
+                <field name="dental_edu_lang_id"/>
+                <filter string="Videos" name="videos" domain="[('dental_edu_media_type', '=', 'video')]"/>
+                <filter string="3D Animations" name="animations" domain="[('dental_edu_media_type', '=', 'animation_3d')]"/>
+                <filter string="Images" name="images" domain="[('dental_edu_media_type', '=', 'image')]"/>
+                <filter string="Leaflets" name="leaflets" domain="[('dental_edu_media_type', '=', 'document')]"/>
+                <separator/>
+                <filter string="Before Treatment" name="pre" domain="[('dental_edu_purpose', 'in', ('pre_treatment', 'procedure'))]"/>
+                <filter string="Post-Treatment Care" name="post" domain="[('dental_edu_purpose', '=', 'post_care')]"/>
+                <separator/>
+                <filter string="Originals" name="originals" domain="[('dental_edu_master_id', '=', False)]"/>
+                <filter string="Not Available for Patients" name="unpublished" domain="[('dental_edu_published', '=', False)]"/>
+                <group>
+                    <filter string="Topic" name="groupby_topic" context="{'group_by': 'category_id'}"/>
+                    <filter string="Language" name="groupby_lang" context="{'group_by': 'dental_edu_lang_id'}"/>
+                    <filter string="Purpose" name="groupby_purpose" context="{'group_by': 'dental_edu_purpose'}"/>
+                </group>
+                <searchpanel view_types="kanban,list">
+                    <field name="category_id" string="Topics" icon="fa-tooth" enable_counters="1"/>
+                    <field name="dental_edu_purpose" string="Purpose" select="multi" enable_counters="1"/>
+                </searchpanel>
+            </search>
+        </field>
+    </record>
+
+    <record id="view_dms_file_kanban_education" model="ir.ui.view">
+        <field name="name">dms.file.kanban.education</field>
+        <field name="model">dms.file</field>
+        <field name="priority">95</field>
+        <field name="arch" type="xml">
+            <kanban create="false" class="o_kanban_mobile">
+                <field name="id"/>
+                <field name="dental_edu_published"/>
+                <templates>
+                    <t t-name="card" class="p-0">
+                        <field name="image_1920" widget="image" options="{'size': [0, 140], 'img_class': 'w-100 object-fit-cover'}"
+                               class="d-block bg-200 text-center" style="height:140px;"/>
+                        <div class="p-2">
+                            <field name="name" class="fw-bold text-truncate d-block"/>
+                            <div class="text-muted small">
+                                <field name="category_id"/>
+                            </div>
+                            <div class="d-flex flex-wrap gap-1 mt-1">
+                                <field name="dental_edu_media_type" widget="badge"/>
+                                <field name="dental_edu_purpose" widget="badge"/>
+                                <field name="dental_edu_lang_id" widget="badge"/>
+                            </div>
+                            <div class="d-flex align-items-center mt-2">
+                                <span class="text-muted small me-auto"><i class="fa fa-eye me-1"/><field name="dental_edu_view_count"/></span>
+                                <button name="action_dental_edu_preview" type="object" class="btn btn-sm btn-primary">
+                                    <i class="fa fa-play me-1"/>Preview
+                                </button>
+                            </div>
+                        </div>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+
+    <record id="view_dms_file_list_education" model="ir.ui.view">
+        <field name="name">dms.file.list.education</field>
+        <field name="model">dms.file</field>
+        <field name="priority">95</field>
+        <field name="arch" type="xml">
+            <list create="false">
+                <field name="name"/>
+                <field name="category_id" string="Topic"/>
+                <field name="dental_edu_media_type"/>
+                <field name="dental_edu_purpose"/>
+                <field name="dental_edu_lang_id"/>
+                <field name="dental_edu_master_id" optional="hide"/>
+                <field name="dental_edu_duration" optional="show"/>
+                <field name="dental_edu_published" optional="show"/>
+                <field name="dental_edu_view_count"/>
+                <field name="company_id" groups="base.group_multi_company" optional="hide"/>
+                <button name="action_dental_edu_preview" type="object" icon="fa-play" title="Preview"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_dms_file_form_education" model="ir.ui.view">
+        <field name="name">dms.file.form.education</field>
+        <field name="model">dms.file</field>
+        <field name="priority">95</field>
+        <field name="arch" type="xml">
+            <form string="Education Media" create="false">
+                <header>
+                    <button name="action_dental_edu_preview" type="object" string="Preview" class="btn-primary" icon="fa-play"/>
+                </header>
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_dental_edu_views" type="object" class="oe_stat_button" icon="fa-eye">
+                            <field name="dental_edu_view_count" widget="statinfo" string="Views"/>
+                        </button>
+                    </div>
+                    <field name="image_1920" widget="image" class="oe_avatar" options="{'preview_image': 'image_1920', 'size': [160, 90]}"/>
+                    <div class="oe_title">
+                        <label for="name"/>
+                        <h1><field name="name" readonly="1"/></h1>
+                    </div>
+                    <group>
+                        <group string="Library">
+                            <field name="category_id" string="Topic" domain="[('dental_is_education_topic', '=', True)]"
+                                   options="{'no_create': True}"/>
+                            <field name="dental_edu_media_type"/>
+                            <field name="dental_edu_purpose"/>
+                            <field name="dental_edu_duration"/>
+                            <field name="dental_edu_published"/>
+                        </group>
+                        <group string="Language">
+                            <field name="dental_edu_lang_id" options="{'no_create': True}"/>
+                            <field name="dental_edu_master_id" options="{'no_create': True}"/>
+                            <field name="dental_edu_variant_ids" readonly="1" widget="many2many_tags"
+                                   invisible="dental_edu_master_id"/>
+                        </group>
+                    </group>
+                    <group>
+                        <field name="dental_edu_product_ids" widget="many2many_tags" options="{'no_create': True}"/>
+                        <field name="dental_edu_description" placeholder="Short text shown to the patient under the video"/>
+                        <field name="directory_id" readonly="1"/>
+                        <field name="human_size"/>
+                        <field name="mimetype"/>
+                        <field name="company_id" groups="base.group_multi_company" readonly="1"/>
+                        <field name="dental_doc_type" invisible="1"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_dental_education_library" model="ir.actions.act_window">
+        <field name="name">Patient Education Library</field>
+        <field name="res_model">dms.file</field>
+        <field name="view_mode">kanban,list,form</field>
+        <field name="domain">[('dental_doc_type', '=', 'education')]</field>
+        <field name="search_view_id" ref="view_dms_file_search_education"/>
+        <field name="context">{'create': False, 'search_default_originals': 1}</field>
+        <field name="view_ids" eval="[(5, 0, 0),
+            (0, 0, {'view_mode': 'kanban', 'view_id': ref('view_dms_file_kanban_education')}),
+            (0, 0, {'view_mode': 'list', 'view_id': ref('view_dms_file_list_education')}),
+            (0, 0, {'view_mode': 'form', 'view_id': ref('view_dms_file_form_education')})]"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_empty_folder">The education library is empty</p>
+            <p>Clinic managers add treatment videos, 3D animations and post-care media with
+               <b>Add Education Media</b>. They are stored in the Document Management System under
+               "Dental Hospital / Patient Education Library".</p>
+        </field>
+    </record>
+</odoo>

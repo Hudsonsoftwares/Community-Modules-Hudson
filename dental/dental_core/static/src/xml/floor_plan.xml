@@ -1,0 +1,340 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+
+    <!-- Dental line icon. Expects `shapes` (from this.iconShapes(key)). -->
+    <t t-name="dental_core.DentalFloorIcon">
+        <svg class="dfp-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <t t-foreach="shapes" t-as="shape" t-key="shape_index">
+                <path t-att-d="shape.d" t-att-transform="shape.transform"/>
+            </t>
+        </svg>
+    </t>
+
+    <!-- Colour swatches + free colour picker. Expects `swatches`, `current` and `onPick`. -->
+    <t t-name="dental_core.DentalFloorSwatches">
+        <div class="dfp-swatches mb-2">
+            <t t-foreach="swatches" t-as="swatch" t-key="swatch">
+                <button type="button" t-attf-class="dfp-swatch #{current === swatch ? 'is-active' : ''}"
+                        t-attf-style="background: #{swatch};" t-att-title="swatch"
+                        t-on-click="() => onPick(swatch)"/>
+            </t>
+            <input type="color" class="dfp-swatch-input" title="Custom colour"
+                   t-att-value="current" t-on-input="(ev) => onPick(ev.target.value)"/>
+        </div>
+    </t>
+
+    <t t-name="dental_core.DentalFloorPlan">
+        <div t-attf-class="dfp #{this.state.editing ? 'dfp-is-editing' : ''} #{this.state.showFixtures ? '' : 'dfp-hide-fixtures'}">
+
+            <!-- Toolbar -->
+            <div class="dfp-toolbar">
+                <div class="dfp-toolbar-title">
+                    <i class="fa fa-th-large me-2"/>Clinic Floor Plan
+                    <span t-if="this.state.editing" class="dfp-edit-badge">Editing</span>
+                </div>
+                <div class="dfp-toolbar-actions">
+                    <t t-if="!this.state.editing">
+                        <button t-if="this.state.data.fixtures.length" class="btn btn-sm btn-light"
+                                t-on-click="() => this.state.showFixtures = !this.state.showFixtures"
+                                title="Show or hide the clinic equipment">
+                            <i t-attf-class="fa #{this.state.showFixtures ? 'fa-eye-slash' : 'fa-eye'} me-1"/>
+                            <t t-out="this.state.showFixtures ? 'Hide Equipment' : 'Show Equipment'"/>
+                        </button>
+                        <t t-if="this.state.data.can_edit">
+                            <button class="btn btn-sm btn-light" t-on-click="() => this.openConfiguration()" title="Clinic hours, chairs, pharmacy, billing">
+                                <i class="fa fa-cog me-1"/>Clinic Configuration
+                            </button>
+                            <button class="btn btn-sm btn-primary" t-on-click="() => this.startEditing()">
+                                <i class="fa fa-pencil me-1"/>Edit Layout
+                            </button>
+                        </t>
+                    </t>
+                    <t t-elif="this.state.data.can_edit">
+                        <button class="btn btn-sm btn-light" t-att-disabled="!this.state.canUndo" t-on-click="() => this.undo()" title="Undo (Ctrl+Z)">
+                            <i class="fa fa-undo me-1"/>Undo
+                        </button>
+                        <button class="btn btn-sm btn-light" t-on-click="() => this.loadDefault()">
+                            <i class="fa fa-magic me-1"/>Standard Layout
+                        </button>
+                        <button class="btn btn-sm btn-light" t-on-click="() => this.addRoom()">
+                            <i class="fa fa-plus-square-o me-1"/>Add Room
+                        </button>
+                        <button class="btn btn-sm btn-light" t-on-click="() => this.cancelEditing()">Discard</button>
+                        <button class="btn btn-sm btn-primary" t-att-disabled="this.state.saving" t-on-click="() => this.save()">
+                            <i class="fa fa-check me-1"/>Save Layout
+                        </button>
+                    </t>
+                </div>
+            </div>
+
+            <div class="dfp-body">
+                <!-- Canvas -->
+                <div class="dfp-canvas" t-ref="this.canvas"
+                     t-att-style="this.state.data.background_url ? 'background-image: url(' + this.state.data.background_url + ')' : ''"
+                     t-on-click="() => this.clearSelection()"
+                     t-on-dragover="(ev) => this.onCanvasDragOver(ev)"
+                     t-on-drop="(ev) => this.onCanvasDrop(ev)">
+
+                    <div t-if="this.state.loading" class="dfp-empty"><i class="fa fa-circle-o-notch fa-spin"/></div>
+
+                    <div t-elif="this.isEmpty and !this.state.editing" class="dfp-empty">
+                        <i class="fa fa-th-large fa-2x mb-2"/>
+                        <div class="fw-bold">No floor plan for this clinic yet</div>
+                        <div t-if="this.state.data.can_edit" class="mt-2">
+                            <button class="btn btn-sm btn-primary me-2" t-on-click="() => this.loadDefault()">Start from Standard Layout</button>
+                            <button class="btn btn-sm btn-light" t-on-click="() => this.startEditing()">Draw from Scratch</button>
+                        </div>
+                        <div t-else="" class="text-muted small mt-1">A Dental Administrator can set it up.</div>
+                    </div>
+
+                    <!-- Rooms -->
+                    <t t-foreach="this.state.data.rooms" t-as="room" t-key="room.uid">
+                        <div t-attf-class="dfp-room #{this.isSelected(room) ? 'is-selected' : ''}"
+                             t-attf-style="left: #{room.x}%; top: #{room.y}%; width: #{room.w}%; height: #{room.h}%; --dfp-room: #{room.color};"
+                             t-on-click="(ev) => this.select('room', room, ev)"
+                             t-on-pointerdown="(ev) => this.startDrag(ev, 'room', room)">
+                            <div class="dfp-room-name"><t t-out="room.name"/></div>
+                            <div class="dfp-room-type"><t t-out="room.type_label"/></div>
+                            <span t-if="this.state.editing" class="dfp-resize" title="Drag to resize"
+                                  t-on-pointerdown="(ev) => this.startDrag(ev, 'room', room, 'resize')"/>
+                        </div>
+                    </t>
+
+                    <!-- Equipment -->
+                    <t t-foreach="this.state.data.fixtures" t-as="fx" t-key="fx.uid">
+                        <div t-attf-class="dfp-fixture #{this.isSelected(fx) ? 'is-selected' : ''} #{!this.state.editing and fx.link_key ? 'is-linked' : ''}"
+                             t-att-style="this.fixtureStyle(fx)"
+                             t-att-title="this.fixtureTitle(fx)"
+                             t-on-click="(ev) => this.onFixtureClick(fx, ev)"
+                             t-on-pointerdown="(ev) => this.startDrag(ev, 'fixture', fx)">
+                            <div class="dfp-fixture-icon" t-attf-style="transform: rotate(#{fx.rotation}deg);">
+                                <t t-set="shapes" t-value="this.iconShapes(fx.key)"/>
+                                <t t-call="dental_core.DentalFloorIcon"/>
+                            </div>
+                            <span t-if="fx.status and !this.state.editing" t-attf-class="dfp-fixture-dot status-#{fx.status}"/>
+                            <div t-if="fx.label" class="dfp-fixture-label"><t t-out="fx.label"/></div>
+                            <t t-if="this.state.editing and this.isSelected(fx)">
+                                <span class="dfp-fx-handle dfp-fx-rotate" title="Drag to rotate (Shift: free angle)"
+                                      t-on-pointerdown="(ev) => this.startDrag(ev, 'fixture', fx, 'rotate')"><i class="fa fa-repeat"/></span>
+                                <span class="dfp-fx-handle dfp-fx-scale" title="Drag to resize"
+                                      t-on-pointerdown="(ev) => this.startDrag(ev, 'fixture', fx, 'scale')"/>
+                            </t>
+                        </div>
+                    </t>
+
+                    <!-- Live elements -->
+                    <t t-foreach="this.state.data.elements" t-as="el" t-key="el.uid">
+                        <div t-attf-class="dfp-element status-#{el.status} #{this.isSelected(el) ? 'is-selected' : ''}"
+                             t-attf-style="left: #{el.x}%; top: #{el.y}%; --dfp-accent: #{el.color};"
+                             t-att-title="this.state.editing ? 'Drag to move' : 'Open ' + el.label"
+                             t-on-click="(ev) => this.state.editing ? this.select('element', el, ev) : this.openElement(el)"
+                             t-on-pointerdown="(ev) => this.startDrag(ev, 'element', el)">
+                            <span class="dfp-element-icon">
+                                <t t-if="el.svg">
+                                    <t t-set="shapes" t-value="this.iconShapes(el.svg)"/>
+                                    <t t-call="dental_core.DentalFloorIcon"/>
+                                </t>
+                                <i t-else="" t-attf-class="fa #{el.icon}"/>
+                            </span>
+                            <span class="dfp-element-text">
+                                <span class="dfp-element-label"><t t-out="el.label"/></span>
+                                <span class="dfp-element-value">
+                                    <t t-out="el.value"/> <small t-if="el.caption"><t t-out="el.caption"/></small>
+                                </span>
+                            </span>
+                            <span class="dfp-dot"/>
+                        </div>
+                    </t>
+                </div>
+
+                <!-- Edit side panel: properties + palettes -->
+                <aside t-if="this.state.editing" class="dfp-panel">
+                    <t t-set="swatches" t-value="this.swatches"/>
+                    <!-- Room properties -->
+                    <t t-if="this.selectedRoom">
+                        <div class="dfp-panel-title">Room</div>
+                        <label class="dfp-label">Name</label>
+                        <input class="form-control form-control-sm mb-2" t-att-value="this.selectedRoom.name"
+                               t-on-input="(ev) => this.onRoomField('name', ev)"/>
+                        <label class="dfp-label">Type</label>
+                        <select class="form-select form-select-sm mb-2" t-on-change="(ev) => this.onRoomField('room_type', ev)">
+                            <t t-foreach="this.state.data.room_types" t-as="type" t-key="type.key">
+                                <option t-att-value="type.key" t-att-selected="type.key === this.selectedRoom.room_type"><t t-out="type.label"/></option>
+                            </t>
+                        </select>
+                        <label class="dfp-label">Colour</label>
+                        <input type="color" class="form-control form-control-color form-control-sm mb-3"
+                               t-att-value="this.selectedRoom.color" t-on-input="(ev) => this.onRoomField('color', ev)"/>
+                        <div class="dfp-btn-row">
+                            <button class="btn btn-sm btn-light" t-on-click="() => this.duplicateSelected()" title="Duplicate (Ctrl+D)">
+                                <i class="fa fa-clone me-1"/>Duplicate
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger" t-on-click="() => this.removeSelected()" title="Remove (Delete)">
+                                <i class="fa fa-trash me-1"/>Remove
+                            </button>
+                        </div>
+                        <hr/>
+                    </t>
+
+                    <!-- Equipment properties -->
+                    <t t-if="this.selectedFixture">
+                        <t t-set="fx" t-value="this.selectedFixture"/>
+                        <div class="dfp-panel-title d-flex align-items-center gap-2">
+                            <span class="dfp-fixture-chip" t-attf-style="--dfp-fx: #{fx.color};">
+                                <t t-set="shapes" t-value="this.iconShapes(fx.key)"/>
+                                <t t-call="dental_core.DentalFloorIcon"/>
+                            </span>
+                            <t t-out="fx.name"/>
+                        </div>
+                        <label class="dfp-label">Label</label>
+                        <input class="form-control form-control-sm mb-2" t-att-value="fx.label" placeholder="e.g. Chair 1"
+                               t-on-input="(ev) => this.onFixtureField('label', ev.target.value)"/>
+                        <label class="dfp-label d-flex justify-content-between">
+                            <span>Colour</span>
+                            <a href="#" class="dfp-link" t-on-click.prevent="() => this.resetFixtureColor()">Reset</a>
+                        </label>
+                        <t t-set="current" t-value="fx.color"/>
+                        <t t-set="onPick" t-value="(c) => this.onFixtureField('color', c)"/>
+                        <t t-call="dental_core.DentalFloorSwatches"/>
+                        <label class="dfp-label d-flex justify-content-between">
+                            <span>Size</span><span><t t-out="fx.size"/>%</span>
+                        </label>
+                        <input type="range" class="form-range mb-2" min="1.5" max="25" step="0.5" t-att-value="fx.size"
+                               t-on-input="(ev) => this.onFixtureField('size', ev.target.value)"/>
+                        <label class="dfp-label d-flex justify-content-between">
+                            <span>Rotation</span><span><t t-out="fx.rotation"/>°</span>
+                        </label>
+                        <div class="d-flex align-items-center gap-1 mb-2">
+                            <button class="btn btn-sm btn-light" title="Rotate left (Shift+R)" t-on-click="() => this.rotateSelected(-90)"><i class="fa fa-rotate-left"/></button>
+                            <input type="range" class="form-range" min="0" max="345" step="15" t-att-value="fx.rotation"
+                                   t-on-input="(ev) => this.onFixtureField('rotation', ev.target.value)"/>
+                            <button class="btn btn-sm btn-light" title="Rotate right (R)" t-on-click="() => this.rotateSelected(90)"><i class="fa fa-rotate-right"/></button>
+                        </div>
+                        <label class="dfp-label">On click, open</label>
+                        <select class="form-select form-select-sm mb-3" t-on-change="(ev) => this.onFixtureField('link_key', ev.target.value)">
+                            <option value="" t-att-selected="!fx.link_key">Nothing</option>
+                            <t t-foreach="this.state.data.palette" t-as="spec" t-key="spec.key">
+                                <option t-att-value="spec.key" t-att-selected="spec.key === fx.link_key"><t t-out="spec.label"/></option>
+                            </t>
+                        </select>
+                        <div class="dfp-btn-row mb-2">
+                            <button class="btn btn-sm btn-light" t-on-click="() => this.reorderSelected(true)" title="Bring to front"><i class="fa fa-arrow-up me-1"/>Front</button>
+                            <button class="btn btn-sm btn-light" t-on-click="() => this.reorderSelected(false)" title="Send to back"><i class="fa fa-arrow-down me-1"/>Back</button>
+                        </div>
+                        <div class="dfp-btn-row">
+                            <button class="btn btn-sm btn-light" t-on-click="() => this.duplicateSelected()" title="Duplicate (Ctrl+D)">
+                                <i class="fa fa-clone me-1"/>Duplicate
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger" t-on-click="() => this.removeSelected()" title="Remove (Delete)">
+                                <i class="fa fa-trash me-1"/>Remove
+                            </button>
+                        </div>
+                        <hr/>
+                    </t>
+
+                    <!-- Live element properties -->
+                    <t t-if="this.selectedElement">
+                        <t t-set="el" t-value="this.selectedElement"/>
+                        <div class="dfp-panel-title">Live Element</div>
+                        <label class="dfp-label">Label</label>
+                        <input class="form-control form-control-sm mb-2" t-att-value="el.custom_label || ''"
+                               t-att-placeholder="el.label" t-on-input="(ev) => this.onElementLabel(ev)"/>
+                        <label class="dfp-label">Icon</label>
+                        <div class="dfp-icon-grid mb-2" t-attf-style="--dfp-accent: #{el.color};">
+                            <button type="button" t-attf-class="dfp-icon-choice #{!el.svg ? 'is-active' : ''}" title="Default icon"
+                                    t-on-click="() => this.setElementIcon(false)">
+                                <i t-attf-class="fa #{el.icon}"/>
+                            </button>
+                            <t t-foreach="this.state.data.fixture_catalog" t-as="spec" t-key="spec.key">
+                                <button type="button" t-attf-class="dfp-icon-choice #{el.svg === spec.key ? 'is-active' : ''}"
+                                        t-att-title="spec.label" t-on-click="() => this.setElementIcon(spec.key)">
+                                    <t t-set="shapes" t-value="this.iconShapes(spec.key)"/>
+                                    <t t-call="dental_core.DentalFloorIcon"/>
+                                </button>
+                            </t>
+                        </div>
+                        <label class="dfp-label d-flex justify-content-between">
+                            <span>Colour</span>
+                            <a href="#" class="dfp-link" t-on-click.prevent="() => this.setElementColor('')">Reset</a>
+                        </label>
+                        <t t-set="current" t-value="el.color"/>
+                        <t t-set="onPick" t-value="(c) => this.setElementColor(c)"/>
+                        <t t-call="dental_core.DentalFloorSwatches"/>
+                        <div class="dfp-btn-row mt-2">
+                            <button class="btn btn-sm btn-light" t-on-click="() => this.duplicateSelected()" title="Duplicate (Ctrl+D)">
+                                <i class="fa fa-clone me-1"/>Duplicate
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger" t-on-click="() => this.removeSelected()" title="Remove (Delete)">
+                                <i class="fa fa-trash me-1"/>Remove
+                            </button>
+                        </div>
+                        <hr/>
+                    </t>
+
+                    <!-- Palettes -->
+                    <div class="dfp-tabs">
+                        <button type="button" t-attf-class="dfp-tab #{this.state.paletteTab === 'equipment' ? 'is-active' : ''}"
+                                t-on-click="() => this.state.paletteTab = 'equipment'">
+                            <i class="fa fa-cubes me-1"/>Equipment
+                        </button>
+                        <button type="button" t-attf-class="dfp-tab #{this.state.paletteTab === 'live' ? 'is-active' : ''}"
+                                t-on-click="() => this.state.paletteTab = 'live'">
+                            <i class="fa fa-bolt me-1"/>Live Data
+                        </button>
+                    </div>
+
+                    <t t-if="this.state.paletteTab === 'equipment'">
+                        <div class="dfp-panel-hint">Drag dental equipment onto the plan, or click to add.</div>
+                        <input type="search" class="form-control form-control-sm mb-2" placeholder="Search equipment..."
+                               t-att-value="this.state.search" t-on-input="(ev) => this.state.search = ev.target.value"/>
+                        <div class="dfp-chips mb-2">
+                            <button type="button" t-attf-class="dfp-chip #{this.state.category === 'all' ? 'is-active' : ''}"
+                                    t-on-click="() => this.state.category = 'all'">All</button>
+                            <t t-foreach="this.state.data.fixture_categories" t-as="cat" t-key="cat.key">
+                                <button type="button" t-attf-class="dfp-chip #{this.state.category === cat.key ? 'is-active' : ''}"
+                                        t-on-click="() => this.state.category = cat.key"><t t-out="cat.label"/></button>
+                            </t>
+                        </div>
+                        <div class="dfp-fixture-grid">
+                            <t t-foreach="this.filteredFixtureCatalog" t-as="spec" t-key="spec.key">
+                                <div class="dfp-fixture-item" draggable="true" t-att-title="spec.label + ' (' + spec.category_label + ')'"
+                                     t-attf-style="--dfp-fx: #{spec.color};"
+                                     t-on-dragstart="(ev) => this.onPaletteDragStart(ev, 'fixture', spec)"
+                                     t-on-click="() => this.addFixture(spec)">
+                                    <span class="dfp-fixture-chip">
+                                        <t t-set="shapes" t-value="this.iconShapes(spec.key)"/>
+                                        <t t-call="dental_core.DentalFloorIcon"/>
+                                    </span>
+                                    <span class="dfp-fixture-name"><t t-out="spec.label"/></span>
+                                </div>
+                            </t>
+                            <div t-if="!this.filteredFixtureCatalog.length" class="dfp-panel-hint">No equipment matches.</div>
+                        </div>
+                    </t>
+
+                    <t t-else="">
+                        <div class="dfp-panel-hint">Drag onto the plan, or click to add. Only installed modules are listed.</div>
+                        <t t-foreach="this.state.data.palette" t-as="spec" t-key="spec.key">
+                            <div class="dfp-palette-item" draggable="true" t-att-title="spec.description"
+                                 t-attf-style="--dfp-accent: #{spec.color};"
+                                 t-on-dragstart="(ev) => this.onPaletteDragStart(ev, 'element', spec)"
+                                 t-on-click="() => this.addElement(spec)">
+                                <span class="dfp-element-icon"><i t-attf-class="fa #{spec.icon}"/></span>
+                                <span class="dfp-palette-text">
+                                    <span class="dfp-element-label"><t t-out="spec.label"/></span>
+                                    <small><t t-out="spec.description"/></small>
+                                </span>
+                            </div>
+                        </t>
+                    </t>
+
+                    <div class="dfp-shortcuts">
+                        <b>Shortcuts:</b> Delete remove · Arrows nudge (Shift ×5) · R rotate · +/− size ·
+                        Ctrl+D duplicate · Ctrl+Z undo · Esc deselect
+                    </div>
+                </aside>
+            </div>
+        </div>
+    </t>
+</templates>

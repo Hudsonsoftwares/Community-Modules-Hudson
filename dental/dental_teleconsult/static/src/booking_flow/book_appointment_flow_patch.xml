@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-inherit="dental_appointment.BookAppointmentFlow" t-inherit-mode="extension">
+        <!-- Step 5: at the clinic or online video -->
+        <xpath expr="//div[@t-if='this.state.step === 5']//textarea/.." position="before">
+            <div t-if="this.teleconsultAllowed" class="col-12 o_dental_tc_flow_mode">
+                <label class="form-label fw-semibold flow-field-label">Consultation Mode</label>
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn flow-toggle-btn w-50"
+                            t-att-class="{ 'active': this.teleconsultMode === 'in_clinic' }"
+                            t-on-click="() => this.setConsultationMode('in_clinic')">
+                        At the Clinic
+                    </button>
+                    <button type="button" class="btn flow-toggle-btn w-50 o_dental_tc_flow_online"
+                            t-att-class="{ 'active': this.teleconsultMode === 'online' }"
+                            t-on-click="() => this.setConsultationMode('online')">
+                        Online Video Call
+                    </button>
+                </div>
+                <div t-if="this.teleconsultMode === 'online'" class="form-text">
+                    The patient receives a secure join link (and the payment link when prepayment is required)
+                    by email once the appointment is booked.
+                </div>
+            </div>
+        </xpath>
+        <!-- Success screen: point out the online visit -->
+        <xpath expr="//div[@t-if='this.state.step === 6']//div[hasclass('success-card-info')]" position="before">
+            <div t-if="this.state.createdAppointment and this.state.createdAppointment.consultation_mode === 'online'"
+                 class="alert alert-info o_dental_tc_flow_success">
+                <t t-out="this.state.createdAppointment.teleconsult_staff_message"/>
+            </div>
+        </xpath>
+    </t>
+</templates>

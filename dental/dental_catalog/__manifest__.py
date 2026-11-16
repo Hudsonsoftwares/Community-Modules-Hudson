@@ -1,6 +1,6 @@
 {
     'name': 'Dental Catalog',
-    'version': '1.0',
+    'version': '1.1',
     'category': 'Healthcare/Dental',
     'summary': 'Dental Treatments and Catalog Management',
     'description': """
@@ -15,6 +15,7 @@
         'views/product_template_views.xml',
         'views/dental_catalog_menus.xml',
         'data/dental_treatment_data.xml',
+        'views/dental_kanban_views.xml',
     ],
     'installable': True,
     'application': False,

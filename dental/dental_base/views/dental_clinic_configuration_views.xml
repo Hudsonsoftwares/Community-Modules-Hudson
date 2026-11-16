@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        Clinic Configuration: settings that differ from clinic to clinic (per company / branch).
+        Opened for the clinic currently selected in the company switcher. Other dental modules
+        add their sections to the "Operations" page (pharmacy, billing, floor plan...).
+    -->
+    <record id="view_res_company_dental_configuration" model="ir.ui.view">
+        <field name="name">res.company.dental.configuration</field>
+        <field name="model">res.company</field>
+        <field name="mode">primary</field>
+        <field name="priority">100</field>
+        <field name="arch" type="xml">
+            <form string="Clinic Configuration" create="false" delete="false" duplicate="false">
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button class="oe_stat_button"
+                                name="action_view_dental_branches"
+                                type="object"
+                                icon="fa-hospital-o">
+                            <field name="dental_branch_count" widget="statinfo" string="Branches"/>
+                        </button>
+                    </div>
+                    <div class="oe_title">
+                        <label for="name" string="Clinic"/>
+                        <h1><field name="name" readonly="1"/></h1>
+                        <div class="text-muted">
+                            These settings apply to this clinic only. Switch the company in the top bar to configure another clinic.
+                        </div>
+                    </div>
+                    <notebook>
+                        <page string="Clinic Hours" name="clinic_hours">
+                            <group>
+                                <group string="Appointments" name="appointment_rules">
+                                    <field name="dental_slot_duration" string="Booking Slot (min)"
+                                           help="0 = use the global default from Clinic Settings."/>
+                                    <field name="dental_warn_outside_hours"/>
+                                </group>
+                                <group string="Week at a Glance" name="hours_summary">
+                                    <field name="dental_hours_summary" nolabel="1" colspan="2" class="text-muted"/>
+                                </group>
+                            </group>
+                            <div class="alert alert-info mb-2" role="status">
+                                Online and front-desk booking only offer slots inside these sessions.
+                                Appointments entered manually outside them are allowed, with an alert.
+                                Add several sessions on the same day for a lunch break; days without a session are closed.
+                            </div>
+                            <button name="action_dental_load_default_hours" type="object" class="btn-secondary mb-2"
+                                    string="Load Standard Timings" icon="fa-clock-o" invisible="dental_clinic_hours_ids"/>
+                            <field name="dental_clinic_hours_ids" context="{'default_company_id': id}">
+                                <list editable="bottom" default_order="dayofweek, hour_from">
+                                    <field name="company_id" column_invisible="1"/>
+                                    <field name="dayofweek"/>
+                                    <field name="name"/>
+                                    <field name="hour_from" widget="float_time"/>
+                                    <field name="hour_to" widget="float_time"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Operations" name="clinic_operations">
+                            <group name="operations_main"/>
+                        </page>
+                        <page string="Clinic Profile" name="clinic_profile">
+                            <group>
+                                <group string="Clinic Details">
+                                    <field name="clinic_manager_id" options="{'no_create': True}"/>
+                                    <field name="clinic_registration_number"/>
+                                    <field name="phone"/>
+                                    <field name="email"/>
+                                </group>
+                            </group>
+                            <group string="Letterhead &amp; Branding">
+                                <field name="letterhead_header"/>
+                                <field name="letterhead_footer"/>
+                            </group>
+                            <group string="Internal Notes">
+                                <field name="clinic_notes" nolabel="1" colspan="2" placeholder="Clinic specific policies..."/>
+                            </group>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_dental_clinic_configuration" model="ir.actions.server">
+        <field name="name">Clinic Configuration</field>
+        <field name="model_id" ref="base.model_res_company"/>
+        <field name="state">code</field>
+        <field name="code">action = model.action_open_dental_configuration()</field>
+    </record>
+</odoo>

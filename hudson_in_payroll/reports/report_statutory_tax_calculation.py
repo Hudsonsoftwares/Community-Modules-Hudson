@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 import logging
+import re
+# pyrefly: ignore [missing-import]
 from odoo import api, fields, models, _
 
 _logger = logging.getLogger(__name__)
@@ -63,6 +65,7 @@ class ReportStatutoryTaxCalculation(models.AbstractModel):
 
             company = rec.company_id if hasattr(rec, 'company_id') and rec.company_id else self.env.company
             if not getattr(company, 'hds_in_tds_applicable', True):
+                # pyrefly: ignore [missing-import]
                 from odoo.exceptions import UserError
                 raise UserError(_("Tax Calculation Report cannot be generated because TDS is disabled in Company Settings for %s.") % company.name)
 
@@ -109,6 +112,10 @@ class ReportStatutoryTaxCalculation(models.AbstractModel):
                 # Overwriting it with the last payslip's date_to would incorrectly place
                 # an April report into March's recalculation window.
                 eval_date = fields.Date.today()
+
+            if employee and not getattr(employee, 'hds_in_tds_applicable', True):
+                from odoo.exceptions import UserError
+                raise UserError(_("Tax Calculation Report cannot be generated because TDS is disabled for employee %s.") % employee.name)
 
                 # ── Payslip display-only lookup (for payroll month panel) ─────
                 # Rule: find the payslip for TODAY's calendar month first.
@@ -187,9 +194,20 @@ class ReportStatutoryTaxCalculation(models.AbstractModel):
             gross_current_salary = float(getattr(sal_proj, 'total_projected_current_salary', 0.0) or 0.0)
             prev_emp_income = float(getattr(prev_emp, 'taxable_salary', 0.0) or 0.0)
             other_income = float(getattr(other_inc, 'total_other_income', 0.0) or 0.0)
+            sec_17_2_vii_perquisite = float(getattr(proj, 'sec_17_2_vii_perquisite', 0.0) or 0.0)
+            total_annual_employer_epf = float(getattr(proj, 'total_annual_employer_epf', 0.0) or 0.0)
+            actual_employer_nps = float(getattr(proj, 'actual_employer_nps', 0.0) or 0.0)
+            combined_employer_contribution = float(getattr(proj, 'combined_employer_contribution', 0.0) or (total_annual_employer_epf + actual_employer_nps))
+            combined_ceiling = float(getattr(proj, 'combined_ceiling', 0.0) or 0.0)
             gross_total_income = float(getattr(proj, 'gross_total_income', 0.0) or 0.0)
 
+            # Safety fallback: if sec_17_2_vii_perquisite == 0 but GTI exceeds the components sum
+            unaccounted_diff = round(gross_total_income - (gross_current_salary + prev_emp_income + other_income + sec_17_2_vii_perquisite), 2)
+            if unaccounted_diff > 0.01:
+                sec_17_2_vii_perquisite += unaccounted_diff
+
             standard_deduction = float(getattr(deduct, 'standard_deduction', 0.0) or 0.0)
+            professional_tax_16iii = float(getattr(deduct, 'professional_tax_16iii', 0.0) or 0.0)
             hra_exemption = float(getattr(deduct, 'hra_exemption', 0.0) or 0.0)
             home_loan_24b = float(getattr(deduct, 'home_loan_interest_24b', 0.0) or 0.0)
             sec_80eea = float(getattr(deduct, 'section_80eea_deduction', 0.0) or 0.0)
@@ -213,7 +231,7 @@ class ReportStatutoryTaxCalculation(models.AbstractModel):
             surcharge_rate = float(getattr(surcharge, 'surcharge_rate', 0.0) or 0.0)
             tax_plus_surcharge = float(getattr(surcharge, 'tax_plus_surcharge', 0.0) or 0.0)
             cess_amount = float(getattr(cess, 'cess_amount', 0.0) or 0.0)
-            cess_rate = float(getattr(cess, 'cess_rate', 4.0) or 4.0)
+            cess_rate = float(getattr(cess, 'cess_rate', 0.0) or 0.0)
             total_annual_tax = float(getattr(cess, 'total_annual_tax_liability', 0.0) or 0.0)
             prev_employer_tds = float(getattr(monthly, 'prev_employer_tds', 0.0) or 0.0)
             ytd_tds = float(getattr(monthly, 'ytd_tds_deducted', 0.0) or 0.0)
@@ -221,12 +239,12 @@ class ReportStatutoryTaxCalculation(models.AbstractModel):
             # Remaining Months = Months AFTER current payroll month according to financial year
             rem_raw = getattr(monthly, 'remaining_payroll_periods', None)
             if rem_raw is not None and int(rem_raw) > 0:
-                remaining_periods = max(0, int(rem_raw) - 1)
+                remaining_periods_incl_current = int(rem_raw)
             else:
                 from ..services.tds.payroll_period_service import PayrollPeriodService
                 period_svc = PayrollPeriodService(self.env)
-                calc_rem = period_svc.calculate_remaining_periods(employee, financial_year, eval_date=eval_date)
-                remaining_periods = max(0, calc_rem - 1)
+                remaining_periods_incl_current = max(0, int(period_svc.calculate_remaining_periods(employee, financial_year, eval_date=eval_date) or 0))
+            remaining_periods = max(0, remaining_periods_incl_current - 1)
             # current_month_tds comes directly from the TDS engine result — DO NOT recompute
             current_month_tds = float(getattr(monthly, 'current_month_tds', 0.0) or 0.0)
             tds_already_deducted = prev_employer_tds + ytd_tds
@@ -317,6 +335,11 @@ class ReportStatutoryTaxCalculation(models.AbstractModel):
 
             # ── Section traces (detailed per-section cards) ──────────────────
             section_traces = self._build_section_traces(decl, employee, financial_year, eval_date, tds_res)
+            if regime_code == 'new':
+                # New Tax Regime (Income-tax Act, 2025 — Section 202(1)): drop the "Old Regime Only" sections
+                # (HRA, 24(b), 80C, 80D, 80CCD(1B), 80E, 80G, 80DD, 80U, ...). The Section 9 totals follow.
+                section_traces = [t for t in section_traces
+                                  if not str(t.get('regime_applicability') or '').startswith('Old Regime')]
 
             # ── Chapter VI-A summary rows ────────────────────────────────────
             chapter6a_rows = [
@@ -331,13 +354,23 @@ class ReportStatutoryTaxCalculation(models.AbstractModel):
                 ('Section 80TTA — Savings Bank Interest', sec_80tta_approved),
             ]
             chapter6a_rows_nonzero = [(k, v) for k, v in chapter6a_rows if v > 0]
-            if not chapter6a_rows_nonzero:
-                chapter6a_rows_nonzero = chapter6a_rows[:1]  # always show at least one line
+            if regime_code == 'new':
+                # New regime allows only Employer NPS [Section 124 / 80CCD(2)] and the Agniveer Corpus [80CCH]
+                chapter6a_display_rows = [(k, v) for k, v in (
+                    ('Employer NPS Contribution — Section 124 [80CCD(2)]', employer_nps_80ccd2),
+                    ('Section 80CCH — Agniveer Corpus Fund', sec_80cch_approved),
+                ) if v > 0] or [('No Chapter VI-A deductions claimed (New Tax Regime)', 0.0)]
+                chapter6a_display_total = sum(v for _label, v in chapter6a_display_rows)
+            else:
+                chapter6a_display_rows = chapter6a_rows_nonzero or chapter6a_rows[:1]  # always show at least one line
+                chapter6a_display_total = total_chapter6a
 
             # ── Deduction breakdown rows (using approved/eligible/capped amounts) ─────
             deduction_breakdown = []
             if standard_deduction > 0:
                 deduction_breakdown.append(('Standard Deduction [u/s 16(ia)]', standard_deduction))
+            if professional_tax_16iii > 0:
+                deduction_breakdown.append(('Professional Tax [u/s 16(iii)]', professional_tax_16iii))
             if hra_exemption > 0:
                 deduction_breakdown.append(('HRA Exemption [Sec 10(13A)]', hra_exemption))
             if home_loan_24b > 0:
@@ -389,18 +422,28 @@ class ReportStatutoryTaxCalculation(models.AbstractModel):
             if other_sources_misc > 0:
                 other_income_breakdown.append(('Other Miscellaneous Income', other_sources_misc))
             if fp_gross > 0:
-                fp_label = f"Family Pension Income [Net u/s 57(iia)]"
+                fp_label = f"Family Pension Income [Net u/s 93(1)(d)]"
                 if fp_ded > 0:
-                    fp_label += f" (Gross: ₹{fp_gross:,.2f} - Ded: ₹{fp_ded:,.2f})"
+                    fp_label += f" (Gross: INR {fp_gross:,.2f} - Ded: INR {fp_ded:,.2f})"
                 other_income_breakdown.append((fp_label, fp_net))
             if net_house_property != 0:
                 other_income_breakdown.append(('Net Income / (Loss) from Let-Out Property', net_house_property))
 
             # ── Statutory Deduction Reconciliation (Excludes Income Items) ───
-            deduction_traces = [t for t in section_traces if not t.get('is_family_pension')]
+            # Family pension (income) and the Section 17(2)(vii) perquisite check (employer contributions)
+            # are not deductions claimed by the employee, so they stay out of the deduction totals
+            deduction_traces = [t for t in section_traces
+                                if not t.get('is_family_pension') and t.get('code') != '17(2)(vii)']
             total_declared_deductions = sum(t['declared'] for t in deduction_traces)
             total_eligible_deductions = sum(t['approved'] for t in deduction_traces)
             total_excess_deductions = max(0.0, total_declared_deductions - total_eligible_deductions)
+            # Detail cards worth printing: sections actually declared or allowed (no "NOT DECLARED" cards);
+            # the 17(2)(vii) perquisite check only when a taxable perquisite arises
+            relevant_traces = [
+                t for t in section_traces
+                if (t.get('approved') or 0.0) > 0
+                or ((t.get('declared') or 0.0) > 0 and t.get('code') != '17(2)(vii)')
+            ]
 
             # ── Declaration state label ──────────────────────────────────────
             state_labels = {
@@ -434,11 +477,11 @@ Recalculation From Month : {recalc_from_month_label}
 Distribution Months      : {dist_m_cfg}
 Recalculation Executed   : {recalc_executed}
 Distribution Source      : {allocation_source}
-Annual Tax Liability     : ₹{sched_annual_tax:,.2f}
-YTD TDS                  : ₹{sched_ytd_tds:,.2f}
-Remaining Liability      : ₹{sched_remaining:,.2f}
-Projected Monthly TDS    : ₹{projected_monthly_tds:,.2f}
-Actual Current Month TDS : ₹{current_month_tds:,.2f}
+Annual Tax Liability     : INR {sched_annual_tax:,.2f}
+YTD TDS                  : INR {sched_ytd_tds:,.2f}
+Remaining Liability      : INR {sched_remaining:,.2f}
+Projected Monthly TDS    : INR {projected_monthly_tds:,.2f}
+Actual Current Month TDS : INR {current_month_tds:,.2f}
 ================================================================================
 """
             _logger.warning(statutory_trace)
@@ -463,7 +506,7 @@ Actual Current Month TDS : ₹{current_month_tds:,.2f}
                     '80gg': 'Section 80GG — Rent Paid (No HRA)',
                     'hra': 'Section 10(13A) — House Rent Exemption',
                     '80ccd2': 'Employer NPS Contribution — Section 124',
-                    '57iia': 'Section 57(iia) — Family Pension Deduction',
+                    '57iia': 'Family Pension — Section 93(1)(d)',
                     '80cch': 'Section 80CCH — Agniveer Corpus Fund',
                 }
                 for line in getattr(decl, 'line_ids', getattr(decl, 'declaration_line_ids', [])):
@@ -503,7 +546,9 @@ Actual Current Month TDS : ₹{current_month_tds:,.2f}
                 'financial_year': financial_year,
                 'assessment_year': self._get_assessment_year(financial_year),
                 'regime_code': regime_code_upper,
-                'regime_label': 'Old Tax Regime' if regime_code == 'old' else 'New Tax Regime Income-tax Act, 2025 — Section 202(1)',
+                # Label of the employee's tax regime selection (no hardcoded text)
+                'regime_label': dict(employee._fields['hds_in_tax_regime']._description_selection(self.env)).get(regime_code, regime_code_upper)
+                if employee and 'hds_in_tax_regime' in employee._fields else regime_code_upper,
                 'eval_date': eval_date.strftime('%d-%b-%Y') if eval_date else 'N/A',
                 'declaration_id': decl.id if decl else 'N/A',
                 'declaration_name': (decl.name or f'DECL-{decl.id}') if decl else 'No Declaration Record',
@@ -519,12 +564,18 @@ Actual Current Month TDS : ₹{current_month_tds:,.2f}
                 # ── Income ────────────────────────────────────────────────────
                 'gross_current_salary': gross_current_salary,
                 'prev_emp_income': prev_emp_income,
+                'sec_17_2_vii_perquisite': sec_17_2_vii_perquisite,
+                'total_annual_employer_epf': total_annual_employer_epf,
+                'actual_employer_nps': actual_employer_nps,
+                'combined_employer_contribution': combined_employer_contribution,
+                'combined_ceiling': combined_ceiling,
                 'other_income': other_income,
                 'other_income_breakdown': other_income_breakdown,
                 'family_pension_declared_income': family_pension_declared_income,
                 'gross_total_income': gross_total_income,
                 # ── Deductions ────────────────────────────────────────────────
                 'standard_deduction': standard_deduction,
+                'professional_tax_16iii': professional_tax_16iii,
                 'hra_exemption': hra_exemption,
                 'home_loan_24b': home_loan_24b,
                 'sec_80eea': sec_80eea,
@@ -557,6 +608,7 @@ Actual Current Month TDS : ₹{current_month_tds:,.2f}
                 'tds_already_deducted': tds_already_deducted,
                 'remaining_liability': remaining_liability,
                 'remaining_periods': remaining_periods,
+                'remaining_periods_incl_current': remaining_periods_incl_current,
                 'projected_monthly_tds': projected_monthly_tds,
                 'current_month_tds': current_month_tds,
                 # ── TDS Recalculation Mode & Schedule ──────────────────────────
@@ -572,7 +624,9 @@ Actual Current Month TDS : ₹{current_month_tds:,.2f}
                 'tds_feb_allocation': sched_feb,
                 'tds_mar_allocation': sched_mar,
                 # ── Chapter VI-A Summary ──────────────────────────────────────
-                'chapter6a_rows': chapter6a_rows_nonzero,
+                'chapter6a_rows': chapter6a_display_rows,
+                'relevant_traces': relevant_traces,
+                'chapter6a_total_display': chapter6a_display_total,
                 # ── Section Traces ────────────────────────────────────────────
                 'section_traces': section_traces,
                 # ── Reconciliation ────────────────────────────────────────────
@@ -693,7 +747,7 @@ Actual Current Month TDS : ₹{current_month_tds:,.2f}
         # 2. Section 24(b) — Home Loan Interest (Self-Occupied)
         # ─────────────────────────────────────────────────────────────────────
         sec_24b_amt = float(decl.decl_24b_self_interest or 0.0)
-        max_24b_limit = 200000.0
+        max_24b_limit = float(tds_param_svc.get_home_loan_interest_limit(eval_date=eval_date) or 0.0)
         approved_24b = min(sec_24b_amt, max_24b_limit) if regime_code == 'old' else 0.0
         excess_24b = max(0.0, sec_24b_amt - approved_24b)
         traces.append({
@@ -708,16 +762,16 @@ Actual Current Month TDS : ₹{current_month_tds:,.2f}
             'cap_applied': excess_24b > 0,
             'is_eligible': approved_24b > 0,
             'eligibility_status': self._eligibility_badge({'declared': sec_24b_amt, 'approved': approved_24b, 'is_eligible': approved_24b > 0}),
-            'reason': (f'Declared INR {sec_24b_amt:,.2f} capped at statutory ceiling INR 2,00,000.' if regime_code == 'old'
+            'reason': (f'Declared INR {sec_24b_amt:,.2f} capped at statutory ceiling INR {max_24b_limit:,.0f}.' if regime_code == 'old'
                        else 'Section 24(b) Home Loan Interest not permitted under New Tax Regime.'),
             'inputs': [
                 ('Declared Home Loan Interest', fmt(sec_24b_amt)),
-                ('Statutory Ceiling', 'INR 2,00,000'),
+                ('Statutory Ceiling', fmt(max_24b_limit)),
                 ('Approved Deduction', fmt(approved_24b)),
                 ('Excess / Disallowed Amount', fmt(excess_24b)),
             ],
             'formulas': [
-                ('min(Declared, ₹2,00,000)', fmt(approved_24b)),
+                (f'min(Declared, INR {max_24b_limit:,.0f})', fmt(approved_24b)),
             ],
         })
 
@@ -762,8 +816,9 @@ Actual Current Month TDS : ₹{current_month_tds:,.2f}
         # 4. Section 80C — Composite Specified Investments (Unified Trace)
         # ─────────────────────────────────────────────────────────────────────
         from ..services.tds.tds_declaration_lifecycle_logger import TdsDeclarationLifecycleLogger
+        cap_80c = float(tds_param_svc.get_80c_limit(eval_date=eval_date) or 0.0)
         c80_payload = TdsDeclarationLifecycleLogger.build_section_80c_composite_trace_payload(
-            declaration=decl, regime_code=regime_code, eval_date=eval_date, statutory_cap=150000.0, env=self.env
+            declaration=decl, regime_code=regime_code, eval_date=eval_date, statutory_cap=cap_80c, env=self.env
         )
 
         c80_inputs = []
@@ -782,7 +837,7 @@ Actual Current Month TDS : ₹{current_month_tds:,.2f}
             'name': 'Section 80C — Composite Specified Savings & Investments',
             'statutory_ref': 'Section 80C of Income Tax Act, 1961',
             'source_type': 'Investment Declaration',
-            'regime_applicability': 'Old Regime Only (Capped at ₹1,50,000)',
+            'regime_applicability': f'Old Regime Only (Capped at INR {cap_80c:,.0f})',
             'declared': c80_payload['total_declared'],
             'approved': c80_payload['final_eligible_deduction'],
             'excess': c80_payload['excess_disallowed'],
@@ -795,7 +850,7 @@ Actual Current Month TDS : ₹{current_month_tds:,.2f}
             'composite_payload': c80_payload,
             'inputs': c80_inputs,
             'formulas': [
-                ('min(Total Eligible Components, ₹1,50,000)', fmt(c80_payload['final_eligible_deduction'])),
+                (f'min(Total Eligible Components, INR {cap_80c:,.0f})', fmt(c80_payload['final_eligible_deduction'])),
             ],
         })
 
@@ -808,12 +863,13 @@ Actual Current Month TDS : ₹{current_month_tds:,.2f}
         self_is_senior = bool(getattr(decl, 'decl_80d_self_is_senior', False))
         parents_is_senior = bool(getattr(decl, 'decl_80d_parents_is_senior', False))
 
-        cap_self = 50000.0 if self_is_senior else 25000.0
-        cap_parents = 50000.0 if parents_is_senior else 25000.0
+        cap_self = float(tds_param_svc.get_80d_limit(is_senior=self_is_senior, is_parents=False, eval_date=eval_date) or 0.0)
+        cap_parents = float(tds_param_svc.get_80d_limit(is_senior=parents_is_senior, is_parents=True, eval_date=eval_date) or 0.0)
+        cap_preventive = float(tds_param_svc.get_parameter('80D_PREVENTIVE_CHECKUP_LIMIT', eval_date=eval_date) or 0.0)
         cap_combined = cap_self + cap_parents
 
         total_80d_raw = d_self + d_parents + d_prev
-        approved_80d_self = min(d_self + min(d_prev, 5000.0), cap_self)
+        approved_80d_self = min(d_self + min(d_prev, cap_preventive), cap_self)
         approved_80d_parents = min(d_parents, cap_parents)
         approved_80d = (approved_80d_self + approved_80d_parents) if regime_code == 'old' else 0.0
         excess_80d = max(0.0, total_80d_raw - approved_80d)
@@ -838,13 +894,13 @@ Actual Current Month TDS : ₹{current_month_tds:,.2f}
                 ('Parents Insurance Claim', fmt(d_parents)),
                 ('Parents Section Statutory Limit', f'INR {cap_parents:,.2f} ({ "Senior Citizen 60+" if parents_is_senior else "Non-Senior" })'),
                 ('Preventive Annual Health Checkup', fmt(d_prev)),
-                ('Preventive Checkup Sublimit', 'INR 5,000.00 (included in Self cap)'),
+                ('Preventive Checkup Sublimit', f'{fmt(cap_preventive)} (included in Self cap)'),
                 ('Total Declared Medical 80D', fmt(total_80d_raw)),
                 ('Combined Profile Statutory Cap', f'INR {cap_combined:,.2f} (Self INR {cap_self:,.0f} + Parents INR {cap_parents:,.0f})'),
                 ('Approved 80D Deduction', fmt(approved_80d)),
             ],
             'formulas': [
-                ('Self Allowable', f'min(Self + min(Preventive, ₹5,000), INR {cap_self:,.0f}) = INR {approved_80d_self:,.2f}'),
+                ('Self Allowable', f'min(Self + min(Preventive, INR {cap_preventive:,.0f}), INR {cap_self:,.0f}) = INR {approved_80d_self:,.2f}'),
                 ('Parents Allowable', f'min(Parents, INR {cap_parents:,.0f}) = INR {approved_80d_parents:,.2f}'),
                 ('Total Allowable 80D', f'INR {approved_80d_self:,.2f} + INR {approved_80d_parents:,.2f} = INR {approved_80d:,.2f}'),
             ],
@@ -854,7 +910,8 @@ Actual Current Month TDS : ₹{current_month_tds:,.2f}
         # 6. Section 80CCD(1B) — Voluntary NPS
         # ─────────────────────────────────────────────────────────────────────
         nps_1b = float(decl.decl_80ccd1b_nps or 0.0)
-        approved_nps_1b = min(nps_1b, 50000.0) if regime_code == 'old' else 0.0
+        cap_nps_1b = float(tds_param_svc.get_80ccd1b_limit(eval_date=eval_date) or 0.0)
+        approved_nps_1b = min(nps_1b, cap_nps_1b) if regime_code == 'old' else 0.0
         excess_nps1b = max(0.0, nps_1b - approved_nps_1b)
         traces.append({
             'code': '80CCD(1B)',
@@ -868,16 +925,16 @@ Actual Current Month TDS : ₹{current_month_tds:,.2f}
             'cap_applied': excess_nps1b > 0,
             'is_eligible': nps_1b > 0 and regime_code == 'old',
             'eligibility_status': self._eligibility_badge({'declared': nps_1b, 'approved': approved_nps_1b, 'is_eligible': nps_1b > 0 and regime_code == 'old'}),
-            'reason': (f'Additional NPS contribution INR {nps_1b:,.2f} capped at INR 50,000.' if regime_code == 'old'
+            'reason': (f'Additional NPS contribution INR {nps_1b:,.2f} capped at INR {cap_nps_1b:,.0f}.' if regime_code == 'old'
                        else 'Section 80CCD(1B) deduction not permitted under New Tax Regime.'),
             'inputs': [
                 ('Voluntary NPS Contribution', fmt(nps_1b)),
-                ('Statutory Ceiling', 'INR 50,000'),
+                ('Statutory Ceiling', fmt(cap_nps_1b)),
                 ('Approved Deduction', fmt(approved_nps_1b)),
                 ('Excess / Disallowed', fmt(excess_nps1b)),
             ],
             'formulas': [
-                ('min(Declared, ₹50,000)', fmt(approved_nps_1b)),
+                (f'min(Declared, INR {cap_nps_1b:,.0f})', fmt(approved_nps_1b)),
             ],
         })
 
@@ -985,12 +1042,12 @@ Actual Current Month TDS : ₹{current_month_tds:,.2f}
             'reason': dd_res.remarks,
             'inputs': [
                 ('Declared Medical Expenditure', fmt(dd_amt)),
-                ('Severe Disability (>= 80%)', 'YES — Flat ₹1,25,000' if is_severe_dd else 'NO — Flat ₹75,000'),
+                ('Severe Disability (>= 80%)', 'YES' if is_severe_dd else 'NO'),
                 ('Eligible Amount (Statutory Flat)', fmt(dd_res.allowed_deduction)),
                 ('Excess / Disallowed Amount', fmt(dd_excess)),
             ],
             'formulas': [
-                ('Flat Deduction — ₹75,000 (Normal) / ₹1,25,000 (Severe)', fmt(dd_res.allowed_deduction)),
+                ('Flat statutory deduction (' + ('severe' if is_severe_dd else 'normal') + ' disability)', fmt(dd_res.allowed_deduction)),
             ],
         })
 
@@ -1019,12 +1076,12 @@ Actual Current Month TDS : ₹{current_month_tds:,.2f}
             'reason': u_res.remarks,
             'inputs': [
                 ('Declared Disability Amount', fmt(u_amt)),
-                ('Severe Disability (>= 80%)', 'YES — Flat ₹1,25,000' if is_severe_u else 'NO — Flat ₹75,000'),
+                ('Severe Disability (>= 80%)', 'YES' if is_severe_u else 'NO'),
                 ('Eligible Amount (Statutory Flat)', fmt(u_res.allowed_deduction)),
                 ('Excess / Disallowed Amount', fmt(u_excess)),
             ],
             'formulas': [
-                ('Flat Deduction — ₹75,000 (Normal) / ₹1,25,000 (Severe)', fmt(u_res.allowed_deduction)),
+                ('Flat statutory deduction (' + ('severe' if is_severe_u else 'normal') + ' disability)', fmt(u_res.allowed_deduction)),
             ],
         })
 
@@ -1054,11 +1111,8 @@ Actual Current Month TDS : ₹{current_month_tds:,.2f}
             'inputs': [
                 ('Employee Agniveer Contribution', fmt(cch_amt)),
                 ('Eligibility Percentage', '100.00%'),
-                ('Tax Regime', regime_code.upper()),
-                ('Parameter Code', 'HDS_IN_TDS_AGNIVEER_LIMIT'),
                 ('Eligible Amount', fmt(cch_allowed)),
                 ('Excess / Disallowed Amount', fmt(cch_excess)),
-                ('Cap Applied', 'YES' if cch_excess > 0 else 'NO'),
             ],
             'formulas': [
                 ('Eligible = 100% of Declared Amount', fmt(cch_allowed)),
@@ -1066,7 +1120,7 @@ Actual Current Month TDS : ₹{current_month_tds:,.2f}
         })
 
         # ─────────────────────────────────────────────────────────────────────
-        # 12. Section 57(iia) — Family Pension Deduction & Tax Impact
+        # 12. Section 93(1)(d) — Family Pension Deduction & Tax Impact
         # ─────────────────────────────────────────────────────────────────────
         from ..services.tds.section_57iia_deduction_service import Section57IIADeductionService
         p_svc = Section57IIADeductionService(self.env)
@@ -1074,7 +1128,7 @@ Actual Current Month TDS : ₹{current_month_tds:,.2f}
         p_line = decl.declaration_line_ids.filtered(lambda l: l.category == '57iia') if decl else []
         p_amt = float(getattr(decl, 'decl_57iia_family_pension', 0.0) or (sum(l.declared_amount for l in p_line) if p_line else 0.0))
         one_third_p = round(p_amt / 3.0, 2)
-        p_max = tds_param_svc.get_family_pension_limit(regime=regime_code, eval_date=eval_date) or (25000.0 if regime_code == 'new' else 15000.0)
+        p_max = float(tds_param_svc.get_family_pension_limit(regime=regime_code, eval_date=eval_date) or 0.0)
         p_eligible = float(p_res.allowed_deduction or 0.0)
         p_excess = max(0.0, p_amt - p_eligible)
         net_taxable_family_pension = max(0.0, p_amt - p_eligible)
@@ -1084,7 +1138,7 @@ Actual Current Month TDS : ₹{current_month_tds:,.2f}
 
         traces.append({
             'code': fp_sec_code,
-            'name': f'{fp_stat_label} — Family Pension Statutory Trace & Tax Impact Audit',
+            'name': 'Family Pension',
             'statutory_ref': fp_stat_label,
             'source_type': 'Family Pension Declaration',
             'regime_applicability': 'Both Old & New Regime',
@@ -1094,7 +1148,9 @@ Actual Current Month TDS : ₹{current_month_tds:,.2f}
             'cap_applied': (one_third_p > p_max),
             'is_eligible': p_res.is_eligible,
             'eligibility_status': self._eligibility_badge({'declared': p_amt, 'approved': p_eligible, 'is_eligible': p_res.is_eligible}),
-            'reason': p_res.remarks,
+            'reason': (f'Deduction INR {p_eligible:,.2f} = lower of 1/3rd of the pension (INR {one_third_p:,.2f}) and the '
+                       f'statutory ceiling (INR {p_max:,.2f}); taxable family pension INR {net_taxable_family_pension:,.2f}.'
+                       if p_amt else p_res.remarks),
             'is_family_pension': True,
             'tax_impact': {
                 'family_pension_declared': p_amt,
@@ -1103,20 +1159,15 @@ Actual Current Month TDS : ₹{current_month_tds:,.2f}
                 'net_taxable_family_pension': net_taxable_family_pension,
             },
             'inputs': [
-                ('Employee Context', f"{employee.name} (ID: {employee.barcode or employee.id})"),
-                ('Declaration & FY Context', f"{decl.name or decl.id} | FY: {financial_year.name if financial_year else 'N/A'} ({regime_code.upper()} Regime)"),
-                ('Statutory Rule Context', f"{fp_stat_label} r/w Finance Act (Parameter: {'HDS_IN_TDS_FAMILY_PENSION_LIMIT_NEW' if regime_code == 'new' else 'HDS_IN_TDS_FAMILY_PENSION_LIMIT_OLD'})"),
                 ('Gross Family Pension Declared', fmt(p_amt)),
                 ('1/3rd of Family Pension', fmt(one_third_p)),
-                ('Configured Statutory Ceiling', fmt(p_max)),
-                ('Eligible Statutory Deduction', fmt(p_eligible)),
-                ('Excess / Disallowed Amount', fmt(p_excess)),
-                ('Statutory Cap Status', 'CAP APPLIED (1/3rd > Ceiling)' if one_third_p > p_max else 'NO CAP APPLIED'),
+                ('Statutory Ceiling', fmt(p_max)),
+                ('Eligible Deduction', fmt(p_eligible)),
             ],
             'formulas': [
                 ('Step 1 — Gross Family Pension Added to Other Income', fmt(p_amt)),
                 ('Step 2 — Calculate 1/3rd of Family Pension', fmt(one_third_p)),
-                (f'Step 3 — Statutory Limit ({regime_code.capitalize()} Regime: ₹{p_max:,.0f})', fmt(p_max)),
+                (f'Step 3 — Statutory Limit ({regime_code.capitalize()} Regime: INR {p_max:,.0f})', fmt(p_max)),
                 ('Step 4 — Eligible Deduction = min(1/3rd, Statutory Limit)', fmt(p_eligible)),
                 ('Step 5 — Net Taxable Family Pension in Other Sources = Gross minus Eligible Deduction', fmt(net_taxable_family_pension)),
             ],
@@ -1129,7 +1180,7 @@ Actual Current Month TDS : ₹{current_month_tds:,.2f}
         nps2_line = decl.declaration_line_ids.filtered(lambda l: l.category == '80ccd2') if decl else []
         nps2_amt = float(getattr(decl, 'decl_80ccd2_employer_nps', 0.0) or (sum(l.declared_amount for l in nps2_line) if nps2_line else 0.0))
         emp_type = getattr(employee, 'hds_in_employer_category', getattr(employee, 'employer_type', 'private')) or 'private'
-        nps_pct = tds_param_svc.get_employer_nps_limit(regime=regime_code, employer_type=emp_type, eval_date=eval_date) or (14.0 if regime_code == 'new' else 10.0)
+        nps_pct = float(tds_param_svc.get_employer_nps_limit(regime=regime_code, employer_type=emp_type, eval_date=eval_date) or 0.0)
         sal_b = annual_basic
         calc_ceiling = sal_b * (nps_pct / 100.0)
         from ..services.tds.eligibility_rule_engine_service import EligibilityRuleEngineService
@@ -1157,13 +1208,11 @@ Actual Current Month TDS : ₹{current_month_tds:,.2f}
             'reason': elig_res.rule_applied,
             'inputs': [
                 ('Employer NPS Contribution (Declared)', fmt(nps2_amt)),
-                ('Employer Category', str(emp_type).upper()),
-                ('Eligibility % (Regime-Based Parameter)', f'{nps_pct:.2f}%'),
+                ('Eligibility %', f'{nps_pct:.2f}%'),
                 ('Salary Base (Basic + DA)', fmt(sal_b)),
                 ('Statutory Ceiling  =  Salary Base × Eligibility %', fmt(calc_ceiling)),
                 ('Eligible Amount', fmt(approved_80ccd2)),
                 ('Excess Amount', fmt(excess_80ccd2)),
-                ('Cap Applied', 'YES' if excess_80ccd2 > 0 else 'NO'),
             ],
             'formulas': [
                 ('Statutory Ceiling  =  Salary Base × Eligibility %',
@@ -1173,6 +1222,53 @@ Actual Current Month TDS : ₹{current_month_tds:,.2f}
             ],
         })
 
+        # ─────────────────────────────────────────────────────────────────────
+        # 14. Section 17(2)(vii) — Employer Contribution Perquisite Audit Trace
+        # ─────────────────────────────────────────────────────────────────────
+        proj = getattr(tds_res, 'annual_income_projection', None)
+        sec_17_val = float(getattr(proj, 'sec_17_2_vii_perquisite', 0.0) or 0.0) if proj else 0.0
+        ann_epf = float(getattr(proj, 'total_annual_employer_epf', 0.0) or 0.0) if proj else 0.0
+        ann_nps = float(getattr(proj, 'actual_employer_nps', 0.0) or 0.0) if proj else 0.0
+        tot_contrib = float(getattr(proj, 'combined_employer_contribution', 0.0) or (ann_epf + ann_nps)) if proj else (ann_epf + ann_nps)
+        ceiling_17 = float((getattr(proj, 'combined_ceiling', 0.0) if proj else 0.0)
+                           or tds_param_svc.get_combined_employer_contribution_limit(eval_date=eval_date) or 0.0)
+
+        if tot_contrib > 0 or sec_17_val > 0:
+            traces.append({
+                'code': '17(2)(vii)',
+                'name': 'Section 17(2)(vii) — Employer Contributions Perquisite Audit (EPF, NPS, Superannuation)',
+                'statutory_ref': 'Section 17(2)(vii) of Income-tax Act, 1961',
+                'source_type': 'Employer Statutory Contributions',
+                'regime_applicability': 'Both Old & New Regime (Taxable Perquisite Added to GTI)',
+                'declared': tot_contrib,
+                'approved': sec_17_val,
+                'excess': sec_17_val,
+                'cap_applied': sec_17_val > 0,
+                'is_eligible': True,
+                'eligibility_status': 'TAXABLE PERQUISITE APPLIED' if sec_17_val > 0 else 'WITHIN STATUTORY CEILING (NOT TAXABLE)',
+                'reason': (
+                    f"Combined employer contributions (INR {tot_contrib:,.2f}) exceed aggregate statutory ceiling of INR {ceiling_17:,.2f}. "
+                    f"Excess of INR {sec_17_val:,.2f} is treated as a taxable perquisite and added to Gross Total Income (GTI)."
+                    if sec_17_val > 0 else
+                    f"Combined employer contributions (INR {tot_contrib:,.2f}) are within the aggregate statutory ceiling of INR {ceiling_17:,.2f}. No taxable perquisite arises."
+                ),
+                'inputs': [
+                    ('Projected Annual Employer EPF Contribution', fmt(ann_epf)),
+                    ('Declared Employer NPS Contribution', fmt(ann_nps)),
+                    ('Total Combined Employer Contribution', fmt(tot_contrib)),
+                    ('Statutory Aggregate Ceiling', fmt(ceiling_17)),
+                    ('Taxable Perquisite Added to Gross Total Income', fmt(sec_17_val)),
+                ],
+                'formulas': [
+                    ('Formula — Combined Contribution', f'{fmt(ann_epf)} + {fmt(ann_nps)} = {fmt(tot_contrib)}'),
+                    ('Formula — Taxable Perquisite', f'max(0.0, {fmt(tot_contrib)} − {fmt(ceiling_17)}) = {fmt(sec_17_val)}'),
+                ],
+            })
+
+        # Internal parameter codes (HDS_IN_...) are not meant for the printed report
+        for trace in traces:
+            if isinstance(trace.get('reason'), str):
+                trace['reason'] = re.sub(r'\s*\(?\bHDS_IN_[A-Z0-9_]+\)?', '', trace['reason']).strip()
         return traces
 
 

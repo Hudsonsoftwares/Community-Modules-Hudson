@@ -7,3 +7,4 @@ from . import mrp_bom
 from . import mrp_eco
 from . import mrp_eco_bom_change
 from . import product_template
+from . import product_product

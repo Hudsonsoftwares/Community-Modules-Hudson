@@ -25,12 +25,17 @@
                         </div>
                     </div>
                     <group>
+                        <field name="company_id" invisible="1"/>
+                        <field name="company_partner_id" invisible="1"/>
                         <field name="mode"/>
                         <field name="payment_date"/>
                         <field name="include_unpaid"/>
                         <field name="payment_method" invisible="mode != 'enet'"/>
                         <field name="report_name" invisible="mode != 'advice'"/>
-                        <field name="company_bank_id" invisible="mode != 'advice'" options="{'no_create': True, 'no_open': True}"/>
+                        <field name="company_bank_id" invisible="mode != 'advice'"
+                               required="mode == 'advice'"
+                               context="{'default_partner_id': company_partner_id, 'default_company_id': company_id}"
+                               placeholder="Select or add Company Bank Account"/>
                         <field name="by_cheque" invisible="mode != 'advice'"/>
                         <field name="cheque_number" invisible="mode != 'advice' or not by_cheque" required="mode == 'advice' and by_cheque"/>
                         <field name="cheque_date" invisible="mode != 'advice' or not by_cheque" required="mode == 'advice' and by_cheque"/>

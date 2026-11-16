@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Clinic Configuration: where the branch's pharmacy dispenses (pharmacy app or POS counter) -->
+    <record id="view_res_company_dental_configuration_pharmacy_pos" model="ir.ui.view">
+        <field name="name">res.company.dental.configuration.pharmacy.pos</field>
+        <field name="model">res.company</field>
+        <field name="inherit_id" ref="dental_pharmacy.view_res_company_dental_configuration_pharmacy"/>
+        <field name="arch" type="xml">
+            <xpath expr="//group[@name='operations_pharmacy']/field[@name='dental_has_pharmacy']" position="after">
+                <field name="dental_dispense_mode" widget="radio" invisible="not dental_has_pharmacy"/>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_res_company_dental_branch_pharmacy_pos" model="ir.ui.view">
+        <field name="name">res.company.dental.branch.form.pharmacy.pos</field>
+        <field name="model">res.company</field>
+        <field name="inherit_id" ref="dental_pharmacy.view_res_company_dental_branch_pharmacy"/>
+        <field name="arch" type="xml">
+            <xpath expr="//group[@name='operations_pharmacy']/field[@name='dental_has_pharmacy']" position="after">
+                <field name="dental_dispense_mode" widget="radio" invisible="not dental_has_pharmacy"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>

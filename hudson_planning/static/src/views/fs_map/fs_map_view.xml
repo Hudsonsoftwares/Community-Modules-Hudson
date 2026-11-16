@@ -39,22 +39,45 @@
                     <div class="o_fs_map_body d-flex h-100">
                         <div class="o_fs_map_canvas flex-grow-1 position-relative">
                             <div class="o_fs_map_leaflet h-100 w-100" t-ref="this.mapRef"/>
-                            <div t-if="this.state.error" class="alert alert-warning position-absolute top-0 start-50 translate-middle-x mt-3" role="status">
-                                The map could not be loaded: <t t-out="this.state.error"/>
-                            </div>
-                            <div t-elif="!this.state.loading and this.state.records.length and !this.locatedCount"
-                                 class="alert alert-info position-absolute top-0 start-50 translate-middle-x mt-3" role="status">
-                                None of these shifts has a customer address that could be located.
+                            <div class="o_fs_map_notices position-absolute top-0 start-0 end-0 px-5 pt-3 d-flex flex-column align-items-center gap-2">
+                                <div t-if="this.state.error" class="alert alert-warning mb-0" role="status">
+                                    The map could not be loaded: <t t-out="this.state.error"/>
+                                </div>
+                                <div t-if="this.showMapboxBanner" class="alert alert-info d-flex align-items-center gap-3 mb-0 w-100" role="status">
+                                    <span class="flex-grow-1 text-center">
+                                        To get routing on your map, you first need to set up your MapBox token. It's free.
+                                        <a t-if="this.state.canSetMapboxToken" href="#" class="fw-bold ms-1"
+                                           t-on-click.prevent="() => this.openMapboxSettings()">
+                                            <i class="oi" data-icon="arrow_forward"/> Set up token
+                                        </a>
+                                        <span t-else="" class="ms-1">Ask an administrator to set it in the Planning settings.</span>
+                                    </span>
+                                    <button type="button" class="btn-close" title="Close" t-on-click="() => this.closeMapboxBanner()"/>
+                                </div>
+                                <div t-if="this.state.mapboxStatus === 'invalid'" class="alert alert-warning mb-0" role="status">
+                                    Mapbox did not accept the token of the settings (<t t-out="this.state.mapboxError"/>): no routes are shown.
+                                    <a t-if="this.state.canSetMapboxToken" href="#" class="fw-bold ms-1"
+                                       t-on-click.prevent="() => this.openMapboxSettings()">Check the token</a>
+                                </div>
+                                <div t-if="!this.state.loading and this.state.records.length and !this.locatedCount"
+                                     class="alert alert-info mb-0" role="status">
+                                    None of these shifts has a customer address that could be located.
+                                </div>
                             </div>
                         </div>
 
                         <!-- Groups (resource by default), like Online -->
                         <div class="o_fs_map_panel border-start overflow-auto">
+                            <div t-if="this.state.routing" class="px-3 py-2 small text-muted border-bottom">
+                                <span class="spinner-border spinner-border-sm me-1"/> Computing the routes...
+                            </div>
                             <div t-if="!this.state.loading and !this.state.groups.length" class="p-3 text-muted">
                                 No shifts found.
                             </div>
                             <t t-foreach="this.state.groups" t-as="group" t-key="this.groupId(group)">
-                                <div class="o_fs_map_group">
+                                <div class="o_fs_map_group"
+                                     t-on-mouseenter="() => this.onGroupHover(group)"
+                                     t-on-mouseleave="() => this.onGroupHover(null)">
                                     <div class="o_fs_map_group_header d-flex align-items-center gap-1 px-2 py-2"
                                          t-on-click="() => this.toggleGroup(group)">
                                         <i class="oi text-muted" t-att-data-icon="this.isExpanded(group) ? 'keyboard_arrow_down' : 'keyboard_arrow_right'"/>
@@ -66,15 +89,69 @@
                                             <t t-call="hudson_planning.FsMapGoogleIcon"/>
                                         </button>
                                     </div>
+                                    <!-- Driving route of the group (Mapbox) -->
+                                    <div t-if="this.routeTotals(group)" class="o_fs_map_route_summary d-flex align-items-center gap-1 ps-5 pe-2 pb-2 small text-muted"
+                                         title="Show the whole route" t-on-click="() => this.focusGroupRoute(group)">
+                                        <i class="oi" data-icon="directions_car"/>
+                                        <span>
+                                            <t t-out="this.formatDistance(this.routeTotals(group).distance)"/> ·
+                                            <t t-out="this.formatDuration(this.routeTotals(group).duration)"/> driving
+                                        </span>
+                                        <span class="ms-auto"><t t-out="this.routeTotals(group).stops"/> stops</span>
+                                    </div>
+                                    <div t-elif="this.routeError(group)" class="ps-5 pe-2 pb-2 small text-warning">
+                                        No route: <t t-out="this.routeError(group)"/>
+                                    </div>
                                     <t t-if="this.isExpanded(group)">
-                                        <div t-foreach="this.groupRecords(group)" t-as="record" t-key="record.id"
-                                             class="o_fs_map_record ps-5 pe-2 py-1"
-                                             t-att-class="(record.latitude or record.longitude) ? '' : 'o_fs_map_unlocated'"
-                                             t-att-title="(record.latitude or record.longitude) ? record.address : 'No location: ' + (record.address or 'no customer address')"
-                                             t-on-click="() => this.onRecordClick(record)">
-                                            <div class="text-truncate" t-out="record.name"/>
-                                            <div class="text-muted small text-truncate" t-out="this.recordTime(record)"/>
-                                        </div>
+                                        <t t-foreach="this.groupRecords(group)" t-as="record" t-key="record.id">
+                                            <!-- Drive from the previous stop: distance, time and other paths -->
+                                            <div t-if="this.recordLeg(group, record)" class="o_fs_map_leg ps-5 pe-2 small"
+                                                 t-att-class="this.isLegSelected(group, this.recordLeg(group, record).index) ? 'o_fs_map_leg_selected' : ''">
+                                                <div class="o_fs_map_leg_line d-flex align-items-center gap-1 text-muted"
+                                                     title="Drive from the previous stop: click to see the other paths"
+                                                     t-on-click="() => this.selectLeg(group, this.recordLeg(group, record).index)">
+                                                    <i class="oi" data-icon="arrow_downward"/>
+                                                    <span>
+                                                        <t t-out="this.formatDistance(this.legPath(this.recordLeg(group, record).leg).distance)"/> ·
+                                                        <t t-out="this.formatDuration(this.legPath(this.recordLeg(group, record).leg).duration)"/>
+                                                    </span>
+                                                    <span t-if="this.recordLeg(group, record).leg.loadingAlternatives" class="spinner-border spinner-border-sm ms-1"/>
+                                                </div>
+                                                <div t-if="this.isLegSelected(group, this.recordLeg(group, record).index) and this.recordLeg(group, record).leg.alternativesLoaded"
+                                                     class="d-flex flex-column gap-1 py-1">
+                                                    <div t-if="this.recordLeg(group, record).leg.paths.length === 1" class="text-muted fst-italic">
+                                                        No other path proposed.
+                                                    </div>
+                                                    <t t-else="">
+                                                        <button t-foreach="this.recordLeg(group, record).leg.paths" t-as="option" t-key="option_index" type="button"
+                                                                class="btn btn-sm text-start o_fs_map_path"
+                                                                t-att-class="option_index === this.recordLeg(group, record).leg.selected ? 'btn-primary' : 'btn-light border'"
+                                                                t-on-click="() => this.choosePath(group, this.recordLeg(group, record).index, option_index)">
+                                                            Path <t t-out="option_index + 1"/>:
+                                                            <t t-out="this.formatDistance(option.distance)"/> · <t t-out="this.formatDuration(option.duration)"/>
+                                                            <span t-if="option_index === this.fastestPathIndex(this.recordLeg(group, record).leg)"
+                                                                  class="badge text-bg-success ms-1">fastest</span>
+                                                        </button>
+                                                    </t>
+                                                </div>
+                                            </div>
+                                            <div class="o_fs_map_record ps-5 pe-2 py-1"
+                                                 t-att-class="{
+                                                     'o_fs_map_unlocated': !this.isLocated(record),
+                                                     'o_fs_map_record_hover': this.isRecordHighlighted(record),
+                                                 }"
+                                                 t-att-title="this.isLocated(record) ? record.address : 'No location: ' + (record.address or 'no customer address')"
+                                                 t-on-mouseenter="() => this.onRecordHover(record)"
+                                                 t-on-mouseleave="() => this.onRecordHover(null)"
+                                                 t-on-click="(ev) => this.onRecordClick(record, ev)">
+                                                <div class="text-truncate">
+                                                    <i t-if="!this.isLocated(record)" class="oi text-warning me-1" data-icon="warning"
+                                                       title="No location"/>
+                                                    <t t-out="record.name"/>
+                                                </div>
+                                                <div class="text-muted small text-truncate" t-out="this.recordTime(record)"/>
+                                            </div>
+                                        </t>
                                     </t>
                                 </div>
                             </t>

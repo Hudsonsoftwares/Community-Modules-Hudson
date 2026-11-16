@@ -1,22 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
+    <!-- 1. Salary Statement Report List View (Matches Screenshot 1) -->
     <record id="hds_salary_statement_report_view_tree" model="ir.ui.view">
         <field name="name">hds.salary.statement.report.view.tree</field>
         <field name="model">hds.salary.statement.report</field>
         <field name="arch" type="xml">
-            <list string="Salary Statement Reports">
-                <field name="name"/>
-                <field name="year" optional="show"/>
-                <field name="month" optional="show"/>
-                <field name="employee_count" optional="show"/>
-                <field name="company_id" groups="base.group_multi_company" optional="hide"/>
-                <field name="state" widget="badge" optional="show"
-                       decoration-info="state == 'draft'"
-                       decoration-success="state == 'done'"/>
+            <list string="Salary Statement Report">
+                <field name="name" string="Description"/>
             </list>
         </field>
     </record>
 
+    <!-- 2. Salary Statement Report Form View (Matches Screenshot 2) -->
     <record id="hds_salary_statement_report_view_form" model="ir.ui.view">
         <field name="name">hds.salary.statement.report.view.form</field>
         <field name="model">hds.salary.statement.report</field>
@@ -26,24 +21,7 @@
                     <button name="action_populate"
                             string="Populate"
                             type="object"
-                            class="btn-primary"
-                            invisible="state == 'done'"/>
-                    <button name="action_print_pdf"
-                            string="Print PDF"
-                            type="object"
-                            class="btn-primary"
-                            icon="print"/>
-                    <button name="action_export_xlsx"
-                            string="Export XLSX"
-                            type="object"
-                            class="btn-success"
-                            icon="table_chart"/>
-                    <button name="action_reset_to_draft"
-                            string="Reset to Draft"
-                            type="object"
-                            class="btn-secondary"
-                            invisible="state == 'draft'"/>
-                    <field name="state" widget="statusbar" statusbar_visible="draft,done"/>
+                            class="btn-primary"/>
                 </header>
                 <sheet>
                     <div class="oe_button_box" name="button_box">
@@ -55,62 +33,64 @@
                         </button>
                     </div>
 
-                    <div class="oe_title">
-                        <h1>
-                            <field name="name" placeholder="Description e.g. Salary Statement - August, 2026"/>
-                        </h1>
-                    </div>
-
                     <group>
-                        <group string="Period Selection">
-                            <field name="year" readonly="state == 'done'"/>
-                            <field name="month" readonly="state == 'done'"/>
-                            <field name="payslip_state" readonly="state == 'done'"/>
-                        </group>
-                        <group string="Company &amp; Audit">
-                            <field name="company_id" groups="base.group_multi_company" readonly="state == 'done'"/>
-                        </group>
+                        <field name="year" options="{'enable_formatting': False, 'format': False}"/>
+                        <field name="month"/>
+                        <field name="name" string="Description"/>
                     </group>
-
-                    <notebook>
-                        <page string="Salary Statement Details" name="statement_lines">
-                            <field name="line_ids" readonly="1">
-                                <list string="Statement Lines">
-                                    <field name="emp_ref"/>
-                                    <field name="employee_id"/>
-                                    <field name="department_id" optional="show"/>
-                                    <field name="job_id" optional="hide"/>
-                                    <field name="payroll_month" optional="show"/>
-                                    <field name="working_days" optional="show"/>
-                                    <field name="basic"/>
-                                    <field name="hra" optional="show"/>
-                                    <field name="allowances" optional="show"/>
-                                    <field name="gross" sum="Total Gross"/>
-                                    <field name="pf_ee" optional="show"/>
-                                    <field name="esi_ee" optional="show"/>
-                                    <field name="pt" optional="show"/>
-                                    <field name="lwf_ee" optional="show"/>
-                                    <field name="tds" optional="show"/>
-                                    <field name="other_deductions" optional="show"/>
-                                    <field name="total_deductions" sum="Total Deductions"/>
-                                    <field name="net_pay" sum="Total Net Pay"/>
-                                    <field name="pf_er_eps" optional="show"/>
-                                    <field name="pf_er_share" optional="show"/>
-                                    <field name="pf_er_admin" optional="show"/>
-                                    <field name="pf_er" optional="show"/>
-                                    <field name="esi_er" optional="show"/>
-                                    <field name="lwf_er" optional="show"/>
-                                    <field name="other_er_contrib" optional="hide"/>
-                                    <field name="total_employer_cost" sum="Total Employer Cost" optional="show"/>
-                                </list>
-                            </field>
-                        </page>
-                    </notebook>
                 </sheet>
             </form>
         </field>
     </record>
 
+    <!-- 3. Eligible Employees / Declarations List View (Matches Screenshot 3) -->
+    <record id="hds_salary_statement_line_view_tree" model="ir.ui.view">
+        <field name="name">hds.salary.statement.line.view.tree</field>
+        <field name="model">hds.salary.statement.line</field>
+        <field name="arch" type="xml">
+            <list string="Employee Declarations" create="0" delete="0">
+                <field name="employee_id" widget="many2one_avatar_employee"/>
+                <field name="pdf_file" filename="pdf_filename" widget="binary" string="PDF File"/>
+                <field name="state" widget="badge" decoration-success="state == 'generated'"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- 4. Individual Salary Statement Line Form View -->
+    <record id="hds_salary_statement_line_view_form" model="ir.ui.view">
+        <field name="name">hds.salary.statement.line.view.form</field>
+        <field name="model">hds.salary.statement.line</field>
+        <field name="arch" type="xml">
+            <form string="Salary Statement" create="0">
+                <header>
+                    <button name="action_print_pdf"
+                            string="Print PDF"
+                            type="object"
+                            class="btn-primary"
+                            icon="print"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,generated"/>
+                </header>
+                <sheet>
+                    <group>
+                        <group string="Employee Information">
+                            <field name="employee_id" readonly="1"/>
+                            <field name="designation" readonly="1"/>
+                            <field name="department_id" readonly="1"/>
+                            <field name="date_of_joining" readonly="1"/>
+                            <field name="salary_effective_from" readonly="1"/>
+                        </group>
+                        <group string="Report Information">
+                            <field name="structure_name" readonly="1"/>
+                            <field name="payroll_month" readonly="1"/>
+                            <field name="pdf_file" filename="pdf_filename" widget="binary"/>
+                        </group>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Main Action -->
     <record id="action_hds_salary_statement_report" model="ir.actions.act_window">
         <field name="name">Salary Statement Report</field>
         <field name="res_model">hds.salary.statement.report</field>

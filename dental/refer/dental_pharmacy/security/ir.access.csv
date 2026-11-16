@@ -1,0 +1,42 @@
+id,name,model_id,group_id/id,operation,domain
+access_dental_medicine_cat_user,dental.medicine.category.user,dental.medicine.category,base.group_user,r,
+access_dental_medicine_cat_pharmacist,dental.medicine.category.pharmacist,dental.medicine.category,dental_pharmacy.group_dental_pharmacist,cru,
+access_dental_medicine_cat_manager,dental.medicine.category.manager,dental.medicine.category,dental_base.group_dental_manager,crud,
+
+access_dental_prescription_dentist,dental.prescription.dentist,dental.prescription,dental_base.group_dental_dentist,crud,"['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]"
+access_dental_prescription_pharmacist,dental.prescription.pharmacist,dental.prescription,dental_pharmacy.group_dental_pharmacist,ru,"['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]"
+access_dental_prescription_manager,dental.prescription.manager,dental.prescription,dental_base.group_dental_manager,crud,"['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]"
+access_dental_prescription_admin,dental.prescription.admin,dental.prescription,dental_base.group_dental_admin,crud,
+
+access_dental_prescription_line_dentist,dental.prescription.line.dentist,dental.prescription.line,dental_base.group_dental_dentist,crud,
+access_dental_prescription_line_pharmacist,dental.prescription.line.pharmacist,dental.prescription.line,dental_pharmacy.group_dental_pharmacist,ru,
+access_dental_prescription_line_manager,dental.prescription.line.manager,dental.prescription.line,dental_base.group_dental_manager,crud,
+access_dental_prescription_line_admin,dental.prescription.line.admin,dental.prescription.line,dental_base.group_dental_admin,crud,
+
+access_dental_pharmacy_dispense_dentist,dental.pharmacy.dispense.dentist,dental.pharmacy.dispense,dental_base.group_dental_dentist,r,
+access_dental_pharmacy_dispense_pharmacist,dental.pharmacy.dispense.pharmacist,dental.pharmacy.dispense,dental_pharmacy.group_dental_pharmacist,cru,"['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]"
+access_dental_pharmacy_dispense_manager,dental.pharmacy.dispense.manager,dental.pharmacy.dispense,dental_base.group_dental_manager,crud,"['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]"
+access_dental_pharmacy_dispense_admin,dental.pharmacy.dispense.admin,dental.pharmacy.dispense,dental_base.group_dental_admin,crud,
+
+access_dental_pharmacy_dispense_line_dentist,dental.pharmacy.dispense.line.dentist,dental.pharmacy.dispense.line,dental_base.group_dental_dentist,r,
+access_dental_pharmacy_dispense_line_pharmacist,dental.pharmacy.dispense.line.pharmacist,dental.pharmacy.dispense.line,dental_pharmacy.group_dental_pharmacist,cru,
+access_dental_pharmacy_dispense_line_manager,dental.pharmacy.dispense.line.manager,dental.pharmacy.dispense.line,dental_base.group_dental_manager,crud,
+access_dental_pharmacy_dispense_line_admin,dental.pharmacy.dispense.line.admin,dental.pharmacy.dispense.line,dental_base.group_dental_admin,crud,
+
+access_dental_rx_template_dentist,dental.prescription.template.dentist,dental.prescription.template,dental_base.group_dental_dentist,crud,
+access_dental_rx_template_pharmacist,dental.prescription.template.pharmacist,dental.prescription.template,dental_pharmacy.group_dental_pharmacist,r,
+access_dental_rx_template_manager,dental.prescription.template.manager,dental.prescription.template,dental_base.group_dental_manager,crud,
+access_dental_rx_template_admin,dental.prescription.template.admin,dental.prescription.template,dental_base.group_dental_admin,crud,
+
+access_dental_rx_template_line_dentist,dental.prescription.template.line.dentist,dental.prescription.template.line,dental_base.group_dental_dentist,crud,
+access_dental_rx_template_line_pharmacist,dental.prescription.template.line.pharmacist,dental.prescription.template.line,dental_pharmacy.group_dental_pharmacist,r,
+access_dental_rx_template_line_manager,dental.prescription.template.line.manager,dental.prescription.template.line,dental_base.group_dental_manager,crud,
+access_dental_rx_template_line_admin,dental.prescription.template.line.admin,dental.prescription.template.line,dental_base.group_dental_admin,crud,
+
+dental_prescription_company_rule,dental.prescription: company isolation,dental.prescription,,crud,"['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]"
+dental_prescription_line_company_rule,dental.prescription.line: company isolation,dental.prescription.line,,crud,"['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]"
+dental_pharmacy_dispense_company_rule,dental.pharmacy.dispense: company isolation,dental.pharmacy.dispense,,crud,"['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]"
+dental_pharmacy_dispense_line_company_rule,dental.pharmacy.dispense.line: company isolation,dental.pharmacy.dispense.line,,crud,"['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]"
+dental_prescription_template_company_rule,dental.prescription.template: company isolation,dental.prescription.template,,crud,"['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]"
+access_dental_prescription_receptionist,dental.prescription.receptionist,dental.prescription,dental_base.group_dental_receptionist,r,"['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]"
+access_dental_prescription_line_receptionist,dental.prescription.line.receptionist,dental.prescription.line,dental_base.group_dental_receptionist,r,

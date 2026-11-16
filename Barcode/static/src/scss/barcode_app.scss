@@ -1,0 +1,245 @@
+// Theme-aware colours: this file is compiled once for the light and once for the dark
+// bundle, so these follow Inventory's light / dark theme automatically.
+:root {
+    --o-barcode-view-bg: #{$o-view-background-color};
+    --o-barcode-page-bg: #{$o-webclient-background-color};
+    --o-barcode-subtle-bg: #{$o-gray-100};
+    --o-barcode-muted-bg: #{$o-gray-200};
+    --o-barcode-border: #{$o-gray-300};
+    --o-barcode-text: #{$o-gray-900};
+    --o-barcode-text-muted: #{$o-gray-700};
+    --o-barcode-info-text: #{mix($o-black, #17a2b8, 45%)};
+    // light tints (same colours as before in light theme, dark equivalents in dark theme)
+    --o-barcode-teal-tint: #{mix(#017e84, $o-view-background-color, 6%)};
+    --o-barcode-purple-tint: #{mix(#714B67, $o-view-background-color, 8%)};
+    --o-barcode-info-tint: #{mix(#17a2b8, $o-view-background-color, 10%)};
+    --o-barcode-info-bg: #{mix(#17a2b8, $o-view-background-color, 20%)};
+    --o-barcode-info-border: #{mix(#17a2b8, $o-view-background-color, 30%)};
+}
+
+// Text on coloured / camera backgrounds stays white in both themes
+// (Bootstrap's text-white turns black in Odoo's dark theme).
+.o_barcode_text_light {
+    color: #FFF !important;
+}
+.o_barcode_border_light {
+    border-color: #FFF !important;
+}
+.o_barcode_bg_black {
+    background-color: #000 !important;
+}
+
+.o_barcode_client_action {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    background-color: $o-webclient-background-color;
+    
+    .o_barcode_header {
+        background-color: #714B67;
+        color: white;
+        padding: 1rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        
+        button.btn-link {
+            color: white;
+            text-decoration: none;
+            &:hover {
+                color: #e0e0e0;
+            }
+        }
+    }
+
+    .o_barcode_content {
+        flex: 1;
+        overflow-y: auto;
+        padding: 1rem;
+        
+        &.o_landing_background {
+            background: linear-gradient(135deg, mix($o-view-background-color, #714B67, 85%) 0%, $o-webclient-background-color 100%);
+            padding: 0;
+        }
+    }
+    
+    .o_barcode_kanban_tiles {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+        gap: 1rem;
+        
+        .o_barcode_tile {
+            background: $o-view-background-color;
+            border: 1px solid $o-gray-300;
+            border-radius: 0.5rem;
+            padding: 1.5rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            
+            &:hover {
+                box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                border-color: #714B67;
+            }
+            
+            .o_tile_icon {
+                font-size: 2.5rem;
+                color: #714B67;
+                margin-bottom: 0.5rem;
+            }
+        }
+    }
+    
+    .o_barcode_list {
+        .o_barcode_list_item {
+            background: $o-view-background-color;
+            border: 1px solid $o-gray-300;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-bottom: 0.5rem;
+            cursor: pointer;
+            
+            &:hover {
+                border-color: #714B67;
+            }
+        }
+    }
+
+    .o_barcode_lines {
+        .o_barcode_line {
+            background: $o-view-background-color;
+            border: 1px solid $o-gray-300;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-bottom: 0.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            
+            .o_line_qty {
+                display: flex;
+                align-items: center;
+                gap: 0.5rem;
+                
+                button {
+                    border-radius: 50%;
+                    width: 35px;
+                    height: 35px;
+                }
+            }
+            
+            &.o_line_completed {
+                background-color: rgba(40, 167, 69, 0.15);
+                border-color: rgba(40, 167, 69, 0.35);
+            }
+        }
+    }
+
+    .o_barcode_bottom_bar {
+        background: $o-view-background-color;
+        border-top: 1px solid $o-gray-300;
+        padding: 1rem;
+        display: flex;
+        justify-content: space-around;
+        
+        button {
+            flex: 1;
+            margin: 0 0.5rem;
+        }
+    }
+}
+
+// Scanning Laser Animation
+@keyframes scanLaser {
+    0% { top: 0%; opacity: 0; }
+    10% { opacity: 1; }
+    90% { opacity: 1; }
+    100% { top: 100%; opacity: 0; }
+}
+
+.o_barcode_scanner_reticle {
+    box-shadow: 0 0 0 4000px rgba(10, 15, 25, 0.7);
+    border-radius: 16px;
+    z-index: 1;
+    overflow: hidden;
+}
+
+.o_barcode_laser {
+    height: 2px;
+    background-color: #017e84;
+    box-shadow: 0 0 10px 2px rgba(1, 126, 132, 0.8);
+    animation: scanLaser 2.5s infinite ease-in-out;
+    width: 100%;
+    position: absolute;
+}
+
+.o_barcode_reticle_corner {
+    position: absolute;
+    width: 30px;
+    height: 30px;
+    border-color: #017e84 !important;
+    border-radius: 4px;
+}
+
+// Transfer cards of the Receipts / Deliveries / ... list (Odoo Online kanban look):
+// 4 cards per row on wide screens, 3 / 2 / 1 on smaller ones.
+.o_barcode_picking_grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1rem;
+    @media (min-width: 576px) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    @media (min-width: 992px) { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    @media (min-width: 1200px) { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+
+.o_barcode_picking_card {
+    min-height: 84px;
+    padding: 0.85rem 1rem;
+    border-radius: 6px;
+    transition: box-shadow 0.15s ease, border-color 0.15s ease;
+    &:hover {
+        box-shadow: 0 0.25rem 0.75rem rgba(0, 0, 0, 0.12) !important;
+    }
+    .o_barcode_card_title {
+        font-size: 1rem;
+        max-width: 75%;
+    }
+    .o_barcode_state_badge {
+        font-size: 0.7rem;
+        font-weight: 500;
+        padding: 0.35em 0.75em;
+        color: var(--bs-secondary-color, #6c757d);
+        background-color: var(--bs-secondary-bg, #e9ecef);
+        &.o_barcode_state_ready {
+            // dark green text in light theme, light green text in dark theme
+            color: mix($o-black, #28a745, 35%);
+            background-color: rgba(40, 167, 69, 0.15);
+        }
+    }
+    .o_barcode_card_footer {
+        font-size: 0.95rem;
+        margin-top: 0.75rem;
+        color: var(--bs-body-color);
+    }
+}
+
+// Count Inventory > Add Product (Odoo Online form)
+.o_barcode_inventory_qty {
+    font-size: 2.4rem;
+    padding-top: 0.6rem;
+    padding-bottom: 0.6rem;
+}
+.o_barcode_inventory_qty_buttons {
+    padding: 0 5%;
+    .btn {
+        height: 48px;
+        font-size: 1.05rem;
+        color: var(--o-barcode-text);
+        background-color: var(--o-barcode-view-bg);
+        border: 1px solid var(--o-barcode-border);
+        border-radius: 4px;
+        &:hover {
+            background-color: var(--o-barcode-subtle-bg);
+        }
+    }
+}

@@ -4,6 +4,9 @@ import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
 import { Component, onWillStart, onMounted, onWillUnmount, proxy } from "@odoo/owl";
 
+const REFRESH_MS = 8000;
+const ANNOUNCE_MS = 12000;
+
 export class WaitingQueueBoard extends Component {
     static template = "dental_core.WaitingQueueBoard";
 
@@ -14,7 +17,9 @@ export class WaitingQueueBoard extends Component {
 
         this.state = proxy({
             loading: true,
-            clinic_name: "DenBell Multi-Speciality Dental Hospital",
+            busyId: null,
+            canStartConsultation: false,
+            clinic_name: "",
             clinic_address: "Main Clinic & Dental Surgery",
             stats: {
                 total_patients_today: 0,
@@ -25,11 +30,16 @@ export class WaitingQueueBoard extends Component {
             doctors: [],
             is_tv_mode: false,
             auto_refresh: true,
-            sound_enabled: true,
+            sound_enabled: false, // true only while the speaker button is calling a token
+            callingKey: null, // "all" (header speaker) or a doctor_id (card speaker) while calling
             currentTimeStr: "",
             currentDateStr: "",
-            lastSyncStr: "Just now",
+            lastSyncStr: "",
+            announcement: null, // { token, patient_name, doctor_name, operatory_name, accent_color }
         });
+
+        // Last "now serving" token per doctor, used to announce newly called patients
+        this.servingTokens = null;
 
         this.updateClock();
 
@@ -38,17 +48,12 @@ export class WaitingQueueBoard extends Component {
         });
 
         onMounted(() => {
-            // Live clock ticker every second
             this.clockInterval = setInterval(() => this.updateClock(), 1000);
-
-            // Auto-refresh queue data every 8 seconds
             this.refreshInterval = setInterval(() => {
                 if (this.state.auto_refresh) {
                     this.loadQueueData(false);
                 }
-            }, 8000);
-
-            // Fullscreen change listener
+            }, REFRESH_MS);
             this.onFullscreenChange = () => {
                 this.state.is_tv_mode = !!document.fullscreenElement;
             };
@@ -56,28 +61,31 @@ export class WaitingQueueBoard extends Component {
         });
 
         onWillUnmount(() => {
-            if (this.clockInterval) clearInterval(this.clockInterval);
-            if (this.refreshInterval) clearInterval(this.refreshInterval);
+            clearInterval(this.clockInterval);
+            clearInterval(this.refreshInterval);
+            this.stopCalling();
+            clearTimeout(this.announceTimeout);
             document.removeEventListener("fullscreenchange", this.onFullscreenChange);
         });
     }
 
+    // ------------------------------------------------------------------
+    // Data
+    // ------------------------------------------------------------------
+
     updateClock() {
         const now = new Date();
-        const timeStr = now.toLocaleTimeString("en-US", {
+        this.state.currentTimeStr = now.toLocaleTimeString("en-US", {
             hour: "2-digit",
             minute: "2-digit",
-            second: "2-digit",
             hour12: true,
         });
-        const dateStr = now.toLocaleDateString("en-US", {
-            weekday: "short",
+        this.state.currentDateStr = now.toLocaleDateString("en-US", {
+            weekday: "long",
             day: "numeric",
-            month: "short",
+            month: "long",
             year: "numeric",
         });
-        this.state.currentTimeStr = timeStr;
-        this.state.currentDateStr = dateStr;
     }
 
     async loadQueueData(showLoader = true) {
@@ -90,7 +98,12 @@ export class WaitingQueueBoard extends Component {
                 if (data.clinic_name) this.state.clinic_name = data.clinic_name;
                 if (data.clinic_address) this.state.clinic_address = data.clinic_address;
                 if (data.stats) Object.assign(this.state.stats, data.stats);
-                if (data.doctors) this.state.doctors = data.doctors;
+                if (data.doctors) {
+                    this.detectNewCalls(data.doctors);
+                    this.state.doctors = data.doctors;
+                    this.state.canStartConsultation = Boolean(data.can_start_consultation);
+                    this.state.canCheckIn = Boolean(data.can_check_in);
+                }
                 this.state.lastSyncStr = new Date().toLocaleTimeString("en-US", {
                     hour: "2-digit",
                     minute: "2-digit",
@@ -106,9 +119,91 @@ export class WaitingQueueBoard extends Component {
         }
     }
 
-    // Play polite 2-tone clinic chime using Web Audio API
+    /** Announce (banner + chime) any token that started being served since the last refresh. */
+    detectNewCalls(doctors) {
+        const current = {};
+        for (const doc of doctors) {
+            current[doc.doctor_id] = doc.now_serving ? doc.now_serving.token : null;
+        }
+        if (this.servingTokens) {
+            const called = doctors.find(
+                (doc) => doc.now_serving && this.servingTokens[doc.doctor_id] !== doc.now_serving.token
+            );
+            if (called) {
+                this.announce(called, called.now_serving);
+            }
+        }
+        this.servingTokens = current;
+    }
+
+    announce(doc, appt) {
+        this.state.announcement = {
+            token: appt.token,
+            patient_name: appt.patient_name,
+            doctor_name: doc.doctor_name,
+            operatory_name: doc.operatory_name,
+            accent_color: doc.accent_color,
+        };
+        this.playChime();
+        clearTimeout(this.announceTimeout);
+        this.announceTimeout = setTimeout(() => {
+            this.state.announcement = null;
+        }, ANNOUNCE_MS);
+    }
+
+    dismissAnnouncement() {
+        clearTimeout(this.announceTimeout);
+        this.state.announcement = null;
+    }
+
+    // ------------------------------------------------------------------
+    // Display helpers
+    // ------------------------------------------------------------------
+
+    /** On the public TV screen only first name + last initial is shown (patient privacy). */
+    displayName(name) {
+        if (!this.state.is_tv_mode || !name) {
+            return name;
+        }
+        const parts = name.trim().split(/\s+/);
+        return parts.length > 1 ? `${parts[0]} ${parts[parts.length - 1][0]}.` : parts[0];
+    }
+
+    initials(name) {
+        return (name || "")
+            .replace(/^dr\.?\s+/i, "")
+            .split(/\s+/)
+            .filter(Boolean)
+            .slice(0, 2)
+            .map((p) => p[0].toUpperCase())
+            .join("");
+    }
+
+    formatWait(mins) {
+        if (!mins) {
+            return "Just arrived";
+        }
+        return mins < 60 ? `${mins} min` : `${Math.floor(mins / 60)}h ${mins % 60}m`;
+    }
+
+    waitLevel(mins) {
+        if (mins >= 45) {
+            return "is-critical";
+        }
+        return mins >= 25 ? "is-long" : "";
+    }
+
+    get boardLayoutClass() {
+        const count = this.state.doctors.length;
+        return count === 1 ? "layout-single" : count === 2 ? "layout-double" : "layout-multi";
+    }
+
+    // ------------------------------------------------------------------
+    // Sound / modes
+    // ------------------------------------------------------------------
+
+    // Polite 2-tone clinic chime using Web Audio API
     playChime() {
-        if (!this.state.sound_enabled) return;
         try {
             const AudioContext = window.AudioContext || window.webkitAudioContext;
             if (!AudioContext) return;
@@ -133,8 +228,66 @@ export class WaitingQueueBoard extends Component {
             // Two pleasant harmonics: C5 (523.25Hz) then E5 (659.25Hz)
             playTone(523.25, 0, 0.4);
             playTone(659.25, 0.25, 0.6);
-        } catch (e) {
+        } catch {
             // AudioContext restricted before user gesture
+        }
+    }
+
+    /** "A05" -> "A 0 5" so the engine reads each character instead of a word/number. */
+    spellToken(token) {
+        return String(token || "")
+            .replace(/[-_]/g, " ")
+            .split("")
+            .join(" ")
+            .replace(/\s+/g, " ")
+            .trim();
+    }
+
+    /** Speak the text once; turns the speaker back off when finished. */
+    speak(text) {
+        if (!text || !("speechSynthesis" in window)) {
+            this.state.sound_enabled = false;
+            return;
+        }
+        try {
+            const utter = new SpeechSynthesisUtterance(text);
+            const voices = window.speechSynthesis.getVoices();
+            const voice =
+                voices.find((v) => v.lang === "en-IN") ||
+                voices.find((v) => v.lang && v.lang.startsWith("en"));
+            if (voice) utter.voice = voice;
+            utter.lang = voice ? voice.lang : "en-IN";
+            utter.rate = 0.9;
+            utter.pitch = 1;
+            utter.volume = 1;
+            const done = () => {
+                if (this.currentUtterance === utter) {
+                    this.stopCalling();
+                }
+            };
+            utter.onend = done;
+            utter.onerror = done;
+            this.currentUtterance = utter;
+            window.speechSynthesis.speak(utter);
+            // Safety net: some browsers never fire onend
+            clearTimeout(this.speakSafetyTimeout);
+            this.speakSafetyTimeout = setTimeout(done, 4000 + text.length * 120);
+        } catch {
+            this.stopCalling();
+        }
+    }
+
+    /** Stop any announcement in progress and switch the speaker back off. */
+    stopCalling() {
+        clearTimeout(this.speakTimeout);
+        clearTimeout(this.speakSafetyTimeout);
+        this.currentUtterance = null;
+        this.state.sound_enabled = false;
+        this.state.callingKey = null;
+        try {
+            if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+        } catch {
+            // ignore
         }
     }
 
@@ -156,58 +309,71 @@ export class WaitingQueueBoard extends Component {
         this.state.auto_refresh = !this.state.auto_refresh;
     }
 
-    toggleSound() {
-        this.state.sound_enabled = !this.state.sound_enabled;
+    /**
+     * Speaker button (on/off):
+     *  - Off -> On: says the token number once (patient in consultation per doctor,
+     *    or that doctor's next waiting patient), then switches itself back off.
+     *  - On -> Off: stops the announcement immediately.
+     *
+     * @param {Object} [onlyDoc] when given, call only this doctor's token (card speaker);
+     *                           otherwise call every doctor's token (header speaker).
+     */
+    callPatients(onlyDoc = null) {
+        const key = onlyDoc ? onlyDoc.doctor_id : "all";
+        const wasCallingThis = this.state.sound_enabled && this.state.callingKey === key;
         if (this.state.sound_enabled) {
-            this.playChime();
+            this.stopCalling();
+        }
+        if (wasCallingThis) {
+            return; // second click on the same button = stop
+        }
+        const calls = [];
+        for (const doc of onlyDoc ? [onlyDoc] : this.state.doctors || []) {
+            const appt = doc.now_serving || (doc.waiting_queue && doc.waiting_queue[0]);
+            if (appt && appt.token) {
+                calls.push({ doc, appt });
+            }
+        }
+        if (!calls.length) {
+            const who = onlyDoc ? `${onlyDoc.doctor_name} has no` : "No";
+            this.notification.add(`${who} patient waiting or in consultation to call.`, { type: "info" });
+            return;
+        }
+        this.state.sound_enabled = true;
+        this.state.callingKey = key;
+        this.announce(calls[0].doc, calls[0].appt);
+        const text = calls.map(({ appt }) => `Token number ${this.spellToken(appt.token)}`).join(". ");
+        // Speak once, right after the chime
+        clearTimeout(this.speakTimeout);
+        this.speakTimeout = setTimeout(() => this.speak(text), 900);
+    }
+
+    // ------------------------------------------------------------------
+    // Reception actions
+    // ------------------------------------------------------------------
+
+    async _run(appt, method, message, type = "success") {
+        if (!appt || !appt.id || this.state.busyId) return;
+        this.state.busyId = appt.id;
+        try {
+            await this.orm.call("dental.appointment", method, [[appt.id]]);
+            this.notification.add(message, { type });
+            await this.loadQueueData(false);
+        } finally {
+            this.state.busyId = null;
         }
     }
 
-    async callNextPatient(appt) {
-        if (!appt || !appt.id) return;
-        try {
-            await this.orm.call("dental.appointment", "action_start_consultation", [[appt.id]]);
-            this.playChime();
-            if (this.notification) {
-                this.notification.add(`Token ${appt.token} (${appt.patient_name}) called into operatory!`, {
-                    title: "Patient Called",
-                    type: "success",
-                });
-            }
-            await this.loadQueueData(false);
-        } catch (err) {
-            console.error("Failed to call patient:", err);
-        }
+    callNextPatient(appt) {
+        return this._run(appt, "action_start_consultation", `Token ${appt.token} (${appt.patient_name}) called in.`);
     }
 
-    async checkInPatient(appt) {
-        if (!appt || !appt.id) return;
-        try {
-            await this.orm.call("dental.appointment", "action_check_in", [[appt.id]]);
-            if (this.notification) {
-                this.notification.add(`Patient ${appt.patient_name} checked in to queue!`, {
-                    type: "info",
-                });
-            }
-            await this.loadQueueData(false);
-        } catch (err) {
-            console.error("Failed to check in patient:", err);
-        }
+    checkInPatient(appt) {
+        return this._run(appt, "action_check_in", `${appt.patient_name} checked in to the queue.`, "info");
     }
 
-    async completeVisit(appt) {
-        if (!appt || !appt.id) return;
-        try {
-            await this.orm.call("dental.appointment", "action_complete", [[appt.id]]);
-            if (this.notification) {
-                this.notification.add(`Appointment for ${appt.patient_name} marked Completed.`, {
-                    type: "success",
-                });
-            }
-            await this.loadQueueData(false);
-        } catch (err) {
-            console.error("Failed to complete appointment:", err);
-        }
+    completeVisit(appt) {
+        return this._run(appt, "action_complete", `Visit completed for ${appt.patient_name}.`);
     }
 
     openAppointment(apptId) {

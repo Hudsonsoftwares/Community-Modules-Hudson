@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <menuitem id="menu_abdm_care_context" name="Care Contexts" parent="abdm_base.menu_abdm_root"
+              action="action_abdm_care_context" sequence="20"/>
+    <menuitem id="menu_abdm_consent" name="Consents" parent="abdm_base.menu_abdm_root"
+              action="action_abdm_consent" sequence="30"/>
+    <menuitem id="menu_abdm_data_transfer" name="Data Transfers" parent="abdm_base.menu_abdm_config"
+              action="action_abdm_data_transfer" sequence="30"/>
+    <menuitem id="menu_abdm_link_request" name="Patient Link Requests" parent="abdm_base.menu_abdm_config"
+              action="action_abdm_link_request" sequence="40"/>
+</odoo>

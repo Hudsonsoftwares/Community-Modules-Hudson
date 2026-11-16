@@ -1,0 +1,212 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- ===== Care contexts ===== -->
+    <record id="abdm_care_context_view_list" model="ir.ui.view">
+        <field name="name">abdm.care.context.list</field>
+        <field name="model">abdm.care.context</field>
+        <field name="arch" type="xml">
+            <list create="0" decoration-success="state == 'linked'" decoration-danger="state == 'error'">
+                <field name="reference"/>
+                <field name="display"/>
+                <field name="partner_id"/>
+                <field name="hi_types"/>
+                <field name="state" widget="badge" decoration-success="state == 'linked'"
+                       decoration-info="state == 'linking'" decoration-danger="state == 'error'"/>
+                <field name="link_method" optional="show"/>
+                <field name="linked_date" optional="show"/>
+                <field name="company_id" groups="base.group_multi_company" optional="hide"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="abdm_care_context_view_form" model="ir.ui.view">
+        <field name="name">abdm.care.context.form</field>
+        <field name="model">abdm.care.context</field>
+        <field name="arch" type="xml">
+            <form create="0">
+                <header>
+                    <button name="action_link" type="object" string="Link to ABHA" class="btn-primary"
+                            invisible="state in ('linked', 'linking')"/>
+                    <button name="action_notify_new_data" type="object" string="Notify New Records"
+                            invisible="state != 'linked'"/>
+                    <field name="state" widget="statusbar" statusbar_visible="not_linked,linking,linked"/>
+                </header>
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_open_source" type="object" class="oe_stat_button"
+                                icon="open_in_new" string="Open Record"/>
+                    </div>
+                    <div class="oe_title">
+                        <h1><field name="display"/></h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="reference"/>
+                            <field name="partner_id"/>
+                            <field name="hi_types"/>
+                        </group>
+                        <group>
+                            <field name="company_id"/>
+                            <field name="hip_id"/>
+                            <field name="link_method"/>
+                            <field name="linked_date"/>
+                            <field name="linked_abha_address"/>
+                            <field name="last_notified"/>
+                        </group>
+                    </group>
+                    <field name="error_message" invisible="not error_message" class="text-danger"/>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="abdm_care_context_view_search" model="ir.ui.view">
+        <field name="name">abdm.care.context.search</field>
+        <field name="model">abdm.care.context</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="reference"/>
+                <field name="partner_id"/>
+                <filter name="linked" string="Linked" domain="[('state', '=', 'linked')]"/>
+                <filter name="not_linked" string="Not Linked" domain="[('state', 'in', ('not_linked', 'error'))]"/>
+                <group>
+                    <filter name="group_state" string="Status" context="{'group_by': 'state'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_abdm_care_context" model="ir.actions.act_window">
+        <field name="name">Care Contexts</field>
+        <field name="res_model">abdm.care.context</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">No care contexts yet</p>
+            <p>A care context is one episode of care (e.g. a dental case) linked to the patient's ABHA.
+               Use "Link to ABHA" on the case, or let the patient link it from the ABHA app.</p>
+        </field>
+    </record>
+
+    <!-- ===== Consents ===== -->
+    <record id="abdm_consent_view_list" model="ir.ui.view">
+        <field name="name">abdm.consent.list</field>
+        <field name="model">abdm.consent</field>
+        <field name="arch" type="xml">
+            <list create="0" decoration-muted="status != 'GRANTED'">
+                <field name="create_date" string="Received"/>
+                <field name="partner_id"/>
+                <field name="purpose"/>
+                <field name="hi_types"/>
+                <field name="date_from"/>
+                <field name="date_to"/>
+                <field name="erase_at"/>
+                <field name="status" widget="badge" decoration-success="status == 'GRANTED'"
+                       decoration-danger="status in ('REVOKED', 'DENIED')" decoration-warning="status == 'EXPIRED'"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="abdm_consent_view_form" model="ir.ui.view">
+        <field name="name">abdm.consent.form</field>
+        <field name="model">abdm.consent</field>
+        <field name="arch" type="xml">
+            <form create="0" edit="0">
+                <header>
+                    <field name="status" widget="statusbar"/>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <h1><field name="consent_id"/></h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="partner_id"/>
+                            <field name="patient_abha_address"/>
+                            <field name="purpose"/>
+                            <field name="hi_types"/>
+                            <field name="access_mode"/>
+                        </group>
+                        <group>
+                            <field name="date_from"/>
+                            <field name="date_to"/>
+                            <field name="erase_at"/>
+                            <field name="hip_id"/>
+                            <field name="company_id" groups="base.group_multi_company"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Care Contexts" name="contexts">
+                            <field name="care_context_ids"/>
+                        </page>
+                        <page string="Transfers" name="transfers" groups="abdm_base.group_abdm_manager">
+                            <field name="transfer_ids">
+                                <list>
+                                    <field name="create_date" string="Date"/>
+                                    <field name="transaction_id"/>
+                                    <field name="record_count"/>
+                                    <field name="state"/>
+                                    <field name="error_message"/>
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_abdm_consent" model="ir.actions.act_window">
+        <field name="name">Consents</field>
+        <field name="res_model">abdm.consent</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">No consents yet</p>
+            <p>When a patient allows another facility to see records held here, ABDM sends the consent and it appears in this list.</p>
+        </field>
+    </record>
+
+    <!-- ===== Transfers and link requests (troubleshooting) ===== -->
+    <record id="abdm_data_transfer_view_list" model="ir.ui.view">
+        <field name="name">abdm.data.transfer.list</field>
+        <field name="model">abdm.data.transfer</field>
+        <field name="arch" type="xml">
+            <list create="0" decoration-danger="state == 'failed'" decoration-success="state == 'transferred'">
+                <field name="create_date" string="Date"/>
+                <field name="partner_id"/>
+                <field name="consent_id"/>
+                <field name="transaction_id" optional="hide"/>
+                <field name="record_count"/>
+                <field name="state" widget="badge" decoration-success="state == 'transferred'" decoration-danger="state == 'failed'"/>
+                <field name="details" optional="show"/>
+                <field name="error_message" optional="show"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="action_abdm_data_transfer" model="ir.actions.act_window">
+        <field name="name">Data Transfers</field>
+        <field name="res_model">abdm.data.transfer</field>
+        <field name="view_mode">list</field>
+    </record>
+
+    <record id="abdm_link_request_view_list" model="ir.ui.view">
+        <field name="name">abdm.link.request.list</field>
+        <field name="model">abdm.link.request</field>
+        <field name="arch" type="xml">
+            <list create="0">
+                <field name="create_date" string="Date"/>
+                <field name="partner_id"/>
+                <field name="abha_address"/>
+                <field name="care_context_ids" widget="many2many_tags"/>
+                <field name="state"/>
+                <field name="sandbox_otp" optional="show"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="action_abdm_link_request" model="ir.actions.act_window">
+        <field name="name">Patient Link Requests</field>
+        <field name="res_model">abdm.link.request</field>
+        <field name="view_mode">list</field>
+    </record>
+</odoo>

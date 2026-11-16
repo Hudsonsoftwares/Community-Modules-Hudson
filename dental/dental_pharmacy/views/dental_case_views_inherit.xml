@@ -5,32 +5,145 @@
         <field name="model">dental.case</field>
         <field name="inherit_id" ref="dental_core.view_dental_case_form"/>
         <field name="arch" type="xml">
-            <xpath expr="//div[@name='button_box']" position="inside">
-                <button name="action_view_prescriptions" type="object" class="oe_stat_button" icon="fa-medkit">
-                    <field name="prescription_count" widget="statinfo" string="Prescriptions"/>
-                </button>
-            </xpath>
-            <xpath expr="//header" position="inside">
-                <button name="action_new_prescription" string="New Prescription" type="object" class="btn-secondary"
-                        invisible="state in ('completed', 'cancelled')"
-                        groups="dental_base.group_dental_dentist,dental_base.group_dental_manager,dental_base.group_dental_admin"/>
-            </xpath>
-            <xpath expr="//notebook" position="inside">
-                <page string="Prescriptions (Rx)" name="prescriptions">
-                    <field name="prescription_ids">
-                        <list>
-                            <field name="name"/>
-                            <field name="prescription_date"/>
-                            <field name="dentist_id"/>
-                            <field name="diagnosis"/>
-                            <field name="total_prescribed_qty"/>
-                            <field name="total_dispensed_qty"/>
-                            <field name="total_remaining_qty"/>
-                            <field name="state" widget="badge"
-                                   decoration-info="state == 'confirmed'"
-                                   decoration-warning="state == 'partially_dispensed'"
-                                   decoration-success="state == 'fully_dispensed'"/>
-                        </list>
+            <!-- PRESCRIPTIONS tab: today's prescription on top, the patient's history as compact cards below -->
+            <xpath expr="//page[@name='treatment_plans']" position="after">
+                <page string="Prescriptions" name="prescriptions">
+                    <field name="current_prescription_id" invisible="1"/>
+                    <field name="rx_branch_has_pharmacy" invisible="1"/>
+                    <field name="rx_patient_email" invisible="1"/>
+
+                    <!-- 1. Today's prescription -->
+                    <div name="rx_composer" class="o_rx_composer" invisible="not id or state in ('completed', 'cancelled')"
+                         groups="dental_base.group_dental_dentist,dental_base.group_dental_manager">
+                        <div class="o_rx_composer_head">
+                            <span class="o_rx_head_icon"><span class="o_dc_icon o_dc_icon_rx"/></span>
+                            <div class="o_rx_head_text">
+                                <div class="o_rx_head_title">Today's Prescription</div>
+                                <div class="o_rx_head_sub" invisible="current_prescription_id">
+                                    Load a template or add medicines below.
+                                </div>
+                                <div class="o_rx_head_sub" invisible="not current_prescription_id">
+                                    Draft <field name="current_prescription_id" readonly="1" class="d-inline" options="{'no_open': True}"/>
+                                    · saved with the consultation
+                                </div>
+                            </div>
+                            <div class="o_rx_template_picker">
+                                <span class="o_dc_icon o_dc_icon_clipboard"/>
+                                <field name="rx_template_id" nolabel="1" options="{'no_create': True, 'no_open': True}"
+                                       placeholder="Load a template..."/>
+                            </div>
+                        </div>
+
+                        <div class="o_rx_indication">
+                            <label for="rx_diagnosis" string="Indication"/>
+                            <field name="rx_diagnosis" nolabel="1" placeholder="e.g. Irreversible pulpitis 36, post-extraction 48"/>
+                        </div>
+
+                        <field name="rx_line_ids" nolabel="1" class="o_rx_lines"
+                               context="{'dental_rx_patient_id': patient_id, 'dental_rx_company_id': company_id}">
+                            <!-- Rendered as one card per medicine (rx_case_tab.scss): captions replace the grid header -->
+                            <list editable="bottom" decoration-danger="has_allergy_conflict">
+                                <control>
+                                    <create name="add_medicine" string="Add medicine"/>
+                                </control>
+                                <field name="has_allergy_conflict" column_invisible="1"/>
+                                <field name="dispensed_qty" column_invisible="1"/>
+                                <field name="medicine_id" options="{'no_create': True}" placeholder="Search medicine..."/>
+                                <widget name="dental_rx_stock" width="24px"/>
+                                <field name="dose" width="100px" placeholder="1 tab"/>
+                                <field name="frequency" width="210px"/>
+                                <field name="duration" string="Days" width="70px"/>
+                                <field name="quantity" string="Qty" width="70px"/>
+                                <field name="instructions" placeholder="After meals"/>
+                            </list>
+                        </field>
+
+                        <field name="rx_clinical_notes" nolabel="1" class="o_rx_advice"
+                               placeholder="Advice to the patient: warm saline rinses, soft diet, no hot drinks for 24 hours..."/>
+
+                        <div class="o_rx_composer_foot">
+                            <div class="o_rx_foot_tools" invisible="not current_prescription_id">
+                                <button name="action_rx_save_template" type="object" class="btn btn-link" icon="bookmark"
+                                        string="Save as Template"/>
+                                <button name="action_rx_print" type="object" class="btn btn-link" icon="print" string="Preview PDF"/>
+                                <button name="action_rx_discard" type="object" class="btn btn-link text-danger" icon="delete"
+                                        string="Discard" confirm="Discard today's prescription?"/>
+                            </div>
+                            <div class="o_rx_foot_hint" invisible="current_prescription_id">
+                                Medicines are saved with the consultation.
+                            </div>
+                            <div class="o_rx_foot_send" invisible="not current_prescription_id">
+                                <button name="action_rx_send_patient" type="object" class="btn btn-secondary o_rx_send_patient" icon="mail"
+                                        string="Send to Patient"
+                                        help="Issue the prescription and email it to the patient as a PDF, to buy the medicines at any pharmacy."/>
+                                <button name="action_rx_send_pharmacy" type="object" class="btn btn-primary o_rx_send_pharmacy" icon="medical_services"
+                                        string="Send to Pharmacy" invisible="not rx_branch_has_pharmacy"
+                                        help="Send the prescription to the clinic's pharmacy, which dispenses and bills the medicines."/>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 2. Prescription history: every prescription of the patient, compact cards, newest first -->
+                    <div class="o_dental_section_title" name="rx_history_title">
+                        <span>Prescription History</span>
+                        <small invisible="not history_prescription_count">
+                            <field name="history_prescription_count" class="d-inline"/> prescription(s) across all visits
+                        </small>
+                    </div>
+                    <div class="o_rx_empty" invisible="history_prescription_count">
+                        No prescriptions for this patient yet.
+                    </div>
+                    <field name="history_prescription_ids" mode="kanban" readonly="1" nolabel="1" class="o_rx_history"
+                           invisible="not history_prescription_count" context="{'dental_rx_case_id': id}">
+                        <kanban create="0" delete="0" limit="6">
+                            <field name="state"/>
+                            <templates>
+                                <t t-name="card" class="o_rx_card">
+                                    <div class="o_rx_card_top">
+                                        <field name="name" class="o_rx_card_no"/>
+                                        <field name="state" widget="badge" class="ms-auto"
+                                               decoration-info="state in ('confirmed', 'issued')"
+                                               decoration-warning="state == 'partially_dispensed'"
+                                               decoration-success="state == 'fully_dispensed'"
+                                               decoration-muted="state in ('draft', 'cancelled')"/>
+                                    </div>
+                                    <div class="o_rx_card_meta">
+                                        <field name="prescription_date"/>
+                                        <span>·</span>
+                                        <field name="dentist_id"/>
+                                        <span invisible="not case_id">·</span>
+                                        <field name="case_id" invisible="not case_id"/>
+                                    </div>
+                                    <div class="o_rx_card_dx" invisible="not diagnosis">
+                                        <field name="diagnosis"/>
+                                    </div>
+                                    <div class="o_rx_card_meds">
+                                        <field name="medication_summary"/>
+                                    </div>
+                                    <footer class="o_rx_card_foot">
+                                        <span class="o_rx_card_count"><field name="medicine_count"/> medicine(s)</span>
+                                        <div class="o_rx_card_actions">
+                                            <button name="action_repeat_prescription" type="object" class="btn btn-link btn-sm"
+                                                    title="Add these medicines to today's prescription"
+                                                    groups="dental_base.group_dental_dentist,dental_base.group_dental_manager">
+                                                <i class="oi" data-icon="replay"/> Repeat
+                                            </button>
+                                            <button name="action_print_for_patient" type="object" class="btn btn-link btn-sm" title="Print PDF"
+                                                    invisible="state in ('draft', 'cancelled')">
+                                                <i class="oi" data-icon="print"/>
+                                            </button>
+                                            <button name="action_send_to_patient" type="object" class="btn btn-link btn-sm"
+                                                    title="Email the PDF to the patient" invisible="state in ('draft', 'cancelled')">
+                                                <i class="oi" data-icon="mail"/>
+                                            </button>
+                                            <button name="action_open_prescription" type="object" class="btn btn-link btn-sm" title="Open">
+                                                <i class="oi" data-icon="open_in_new"/>
+                                            </button>
+                                        </div>
+                                    </footer>
+                                </t>
+                            </templates>
+                        </kanban>
                     </field>
                 </page>
             </xpath>

@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+# pyrefly: ignore [missing-import]
 from odoo import fields
 from ..base import BaseStatutoryService
 
@@ -11,20 +12,23 @@ class EPFEmployerCalculator(BaseStatutoryService):
         self.wage_calc = wage_calc
         self.pension_calc = pension_calc
 
+    def _is_epf_applicable(self, payslip):
+        """Validates that EPF master toggle is enabled at both employee and company levels."""
+        employee = getattr(payslip, 'employee_id', False)
+        if not employee or not getattr(employee, 'hds_in_epf_applicable', False):
+            return False
+        company = getattr(payslip, 'company_id', False) or (employee and getattr(employee, 'company_id', False)) or self.env.company
+        if company and hasattr(company, 'hds_in_epf_applicable') and not company.hds_in_epf_applicable:
+            return False
+        return True
+
     def compute_employer_epf(self, payslip):
         """
         Calculates Employer EPF Contribution.
         Formula: Round(PF Contribution Wage * Effective Employer EPF Rate)
         Returns POSITIVE float amount representing Employer Cost.
         """
-        employee = getattr(payslip, 'employee_id', False)
-        # Guard 1: Employee applicability guard
-        if not employee or not getattr(employee, 'hds_in_epf_applicable', False):
-            return 0.0
-
-        # Guard 2: Company applicability guard
-        company = getattr(payslip, 'company_id', False) or (employee and getattr(employee, 'company_id', False)) or self.env.company
-        if company and hasattr(company, 'hds_in_epf_applicable') and not company.hds_in_epf_applicable:
+        if not self._is_epf_applicable(payslip):
             return 0.0
 
         # Guard 3: Historical date handling (payslip period date, not today's date)
@@ -55,8 +59,7 @@ class EPFEmployerCalculator(BaseStatutoryService):
         Formula: Max(0.0, Total Employer PF Contribution - Employer EPS Contribution)
         Example: ₹2,040 (Total 12%) - ₹1,250 (EPS 8.33%) = ₹790.00
         """
-        employee = payslip.employee_id
-        if not employee or not employee.hds_in_epf_applicable:
+        if not self._is_epf_applicable(payslip):
             return 0.0
 
         total_statutory = self.compute_employer_epf(payslip)
@@ -65,30 +68,25 @@ class EPFEmployerCalculator(BaseStatutoryService):
         return max(0.0, total_statutory - eps_amount)
 
     def compute_edli(self, payslip):
-        employee = payslip.employee_id
-        if not employee or not employee.hds_in_epf_applicable:
+        if not self._is_epf_applicable(payslip):
             return 0.0
 
-        eval_date = payslip.date_to or fields.Date.today()
+        eval_date = getattr(payslip, 'date_to', False) or fields.Date.today()
         actual_pf_wage = self.wage_calc.get_actual_pf_wage(payslip)
         if actual_pf_wage <= 0.0:
             return 0.0
 
-        if employee.hds_in_is_international_worker or employee.hds_in_pf_contribution_basis in ('actual_basic', 'actual_pf_wage'):
-            edli_wage = actual_pf_wage
-        else:
-            edli_ceiling = self.get_pf_parameter('hds_in_edli_wage_ceiling', date=eval_date)
-            edli_wage = min(actual_pf_wage, edli_ceiling)
+        edli_ceiling = self.get_pf_parameter('hds_in_edli_wage_ceiling', date=eval_date)
+        edli_wage = min(actual_pf_wage, edli_ceiling) if edli_ceiling else actual_pf_wage
 
         edli_rate = self.get_pf_parameter('hds_in_edli_rate', date=eval_date, as_decimal=True)
         return self.round_statutory(edli_wage * edli_rate)
 
     def compute_epf_admin(self, payslip):
-        employee = payslip.employee_id
-        if not employee or not employee.hds_in_epf_applicable:
+        if not self._is_epf_applicable(payslip):
             return 0.0
 
-        eval_date = payslip.date_to or fields.Date.today()
+        eval_date = getattr(payslip, 'date_to', False) or fields.Date.today()
         pf_wage = getattr(self.wage_calc, 'get_employer_pf_contribution_wage', self.wage_calc.get_pf_contribution_wage)(payslip)
         if pf_wage <= 0.0:
             return 0.0
@@ -96,20 +94,16 @@ class EPFEmployerCalculator(BaseStatutoryService):
         return self.round_statutory(pf_wage * admin_rate)
 
     def compute_edli_admin(self, payslip):
-        employee = payslip.employee_id
-        if not employee or not employee.hds_in_epf_applicable:
+        if not self._is_epf_applicable(payslip):
             return 0.0
 
-        eval_date = payslip.date_to or fields.Date.today()
+        eval_date = getattr(payslip, 'date_to', False) or fields.Date.today()
         actual_pf_wage = self.wage_calc.get_actual_pf_wage(payslip)
         if actual_pf_wage <= 0.0:
             return 0.0
 
-        if employee.hds_in_is_international_worker or employee.hds_in_pf_contribution_basis in ('actual_basic', 'actual_pf_wage'):
-            edli_wage = actual_pf_wage
-        else:
-            edli_ceiling = self.get_pf_parameter('hds_in_edli_wage_ceiling', date=eval_date)
-            edli_wage = min(actual_pf_wage, edli_ceiling)
+        edli_ceiling = self.get_pf_parameter('hds_in_edli_wage_ceiling', date=eval_date)
+        edli_wage = min(actual_pf_wage, edli_ceiling) if edli_ceiling else actual_pf_wage
 
         admin_rate = self.get_pf_parameter('hds_in_edli_admin_charge_rate', date=eval_date, as_decimal=True)
         return self.round_statutory(edli_wage * admin_rate)

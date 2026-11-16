@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_partner_form_insurance" model="ir.ui.view">
+        <field name="name">res.partner.form.insurance</field>
+        <field name="model">res.partner</field>
+        <field name="inherit_id" ref="base.view_partner_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//div[@name='button_box']" position="inside">
+                <button name="action_view_insurance_policies" type="object" class="oe_stat_button"
+                        icon="badge" groups="insurance_base.group_insurance_user"
+                        invisible="insurance_partner_type or not insurance_policy_count">
+                    <field name="insurance_policy_count" widget="statinfo" string="Policies"/>
+                </button>
+            </xpath>
+            <xpath expr="//notebook" position="inside">
+                <page string="Insurance Payer" name="insurance_payer"
+                      invisible="not is_company" groups="insurance_base.group_insurance_manager">
+                    <group>
+                        <group>
+                            <field name="insurance_partner_type"/>
+                            <field name="insurance_connector" invisible="not insurance_partner_type"
+                                   required="insurance_partner_type"/>
+                        </group>
+                    </group>
+                </page>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_partner_list_insurance_payer" model="ir.ui.view">
+        <field name="name">res.partner.list.insurance.payer</field>
+        <field name="model">res.partner</field>
+        <field name="priority">90</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="name"/>
+                <field name="insurance_partner_type"/>
+                <field name="insurance_connector"/>
+                <field name="phone" optional="show"/>
+                <field name="email" optional="show"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="action_insurance_insurer" model="ir.actions.act_window">
+        <field name="name">Insurance Companies</field>
+        <field name="res_model">res.partner</field>
+        <field name="view_mode">list,form</field>
+        <field name="view_id" ref="view_partner_list_insurance_payer"/>
+        <field name="domain">[('insurance_partner_type', '=', 'insurer')]</field>
+        <field name="context">{'default_is_company': True, 'default_insurance_partner_type': 'insurer'}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Add an insurance company</p>
+        </field>
+    </record>
+
+    <record id="action_insurance_tpa" model="ir.actions.act_window">
+        <field name="name">TPAs</field>
+        <field name="res_model">res.partner</field>
+        <field name="view_mode">list,form</field>
+        <field name="view_id" ref="view_partner_list_insurance_payer"/>
+        <field name="domain">[('insurance_partner_type', '=', 'tpa')]</field>
+        <field name="context">{'default_is_company': True, 'default_insurance_partner_type': 'tpa'}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Add a Third-Party Administrator</p>
+            <p>TPAs process claims on behalf of insurance companies.</p>
+        </field>
+    </record>
+</odoo>

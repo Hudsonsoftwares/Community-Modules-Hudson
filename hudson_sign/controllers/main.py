@@ -1,3 +1,4 @@
+import json
 import secrets
 import time
 
@@ -57,7 +58,7 @@ class HudsonSignPortal(DMSPortal):
             })
         if signature_req and signature_req._get_blocking_requests():
             return self._render_waiting_page(signature_req, access_token)
-        return super().portal_dms_signature_token(req_id, access_token, **kw)
+        return self._with_autofill(super().portal_dms_signature_token(req_id, access_token, **kw))
 
     @http.route()
     def portal_my_dms_signature_detail(self, req_id, access_token=None, **kw):
@@ -67,7 +68,23 @@ class HudsonSignPortal(DMSPortal):
             or signature_req.recipient_id == request.env.user)
         if allowed and signature_req._get_blocking_requests():
             return self._render_waiting_page(signature_req, access_token or signature_req.access_token)
-        return super().portal_my_dms_signature_detail(req_id, access_token=access_token, **kw)
+        return self._with_autofill(super().portal_my_dms_signature_detail(req_id, access_token=access_token, **kw))
+
+    @staticmethod
+    def _with_autofill(response):
+        """Signer page: values of the signer (name, email, company...) proposed when they
+        click an empty field, see ``dms.file.signature.item._hudson_autofill_values``."""
+        qcontext = getattr(response, 'qcontext', None)
+        signature_req = qcontext and qcontext.get('signature_req')
+        if not signature_req or signature_req.state == 'signed':
+            return response
+        if signature_req.hudson_request_id.is_shared:
+            # Share link: anyone may sign, only a logged-in visitor is known
+            user = request.env.user if request.session.uid and not request.env.user._is_public() else None
+        else:
+            user = signature_req.sudo().recipient_id
+        qcontext['hs_autofill_json'] = json.dumps(signature_req.sudo().item_ids._hudson_autofill_values(user))
+        return response
 
     @staticmethod
     def _render_waiting_page(signature_req, access_token):

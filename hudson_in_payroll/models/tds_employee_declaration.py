@@ -1,6 +1,9 @@
+import json
 import logging
 import math
 import re
+# pyrefly: ignore [missing-import]
+from markupsafe import Markup
 # pyrefly: ignore [missing-import]
 from odoo import api, fields, models, _
 # pyrefly: ignore [missing-import]
@@ -43,8 +46,7 @@ DECLARATION_BUSINESS_REGISTRY = [
     {'category': '80dd', 'field_name': 'decl_80dd_expenditure_amount', 'statutory_section': 'Section 80DD', 'eligibility_strategy': 'CAP_LIMIT', 'parameter_code': 'HDS_IN_TDS_80DD_NORMAL_LIMIT', 'allowed_regimes': ['old'], 'workflow': {'planning_supported': True, 'proof_required': True, 'hr_verification_required': True}, 'deduction_group': 'chapter6a'},
     {'category': '80u', 'field_name': 'decl_80u_amount', 'statutory_section': 'Section 80U', 'eligibility_strategy': 'CAP_LIMIT', 'parameter_code': 'HDS_IN_TDS_80U_NORMAL_LIMIT', 'allowed_regimes': ['old'], 'workflow': {'planning_supported': True, 'proof_required': True, 'hr_verification_required': True}, 'deduction_group': 'chapter6a'},
     # Shared Deductions (Both Regimes)
-    {'category': '80ccd2', 'field_name': 'decl_80ccd2_employer_nps', 'statutory_section': 'Section 80CCD(2)', 'eligibility_strategy': 'EMPLOYER_NPS_PERCENTAGE_CAP', 'parameter_code': 'HDS_IN_TDS_EMPLOYER_CONTRIBUTION_LIMIT', 'allowed_regimes': ['old', 'new'], 'workflow': {'planning_supported': True, 'proof_required': False, 'hr_verification_required': False}, 'deduction_group': 'statutory_earning_deduction'},
-    {'category': '57iia', 'field_name': 'decl_57iia_family_pension', 'statutory_section': 'Section 57(iia)', 'eligibility_strategy': 'FAMILY_PENSION_CAP', 'parameter_code': 'HDS_IN_TDS_FAMILY_PENSION_LIMIT', 'allowed_regimes': ['old', 'new'], 'workflow': {'planning_supported': True, 'proof_required': True, 'hr_verification_required': True}, 'deduction_group': 'statutory_earning_deduction'},
+    {'category': '57iia', 'field_name': 'decl_57iia_family_pension', 'statutory_section': 'Family Pension Section 93(1)(d)', 'eligibility_strategy': 'FAMILY_PENSION_CAP', 'parameter_code': 'HDS_IN_TDS_FAMILY_PENSION_LIMIT', 'allowed_regimes': ['old', 'new'], 'workflow': {'planning_supported': True, 'proof_required': True, 'hr_verification_required': True}, 'deduction_group': 'other_sources_income'},
     {'category': '80cch', 'field_name': 'decl_80cch_agniveer', 'statutory_section': 'Section 80CCH', 'eligibility_strategy': 'UNLIMITED', 'parameter_code': None, 'allowed_regimes': ['old', 'new'], 'workflow': {'planning_supported': True, 'proof_required': True, 'hr_verification_required': True}, 'deduction_group': 'statutory_earning_deduction'},
 ]
 
@@ -78,8 +80,7 @@ DECLARATION_UI_REGISTRY = {
     'decl_80g_donation': {'label': 'Charitable Donations (80G)', 'display_order': 210},
     'decl_80gg_rent': {'label': 'Rent Paid without HRA (80GG)', 'display_order': 220},
     'decl_80dd_expenditure_amount': {'label': 'Dependent Disability Deduction (80DD)', 'display_order': 230},
-    'decl_80ccd2_employer_nps': {'label': 'Employer NPS Contribution — Section 124', 'display_order': 240},
-    'decl_57iia_family_pension': {'label': 'Family Pension Received (annual)', 'display_order': 250},
+    'decl_57iia_family_pension': {'label': 'Family Pension Received (annual) — Section 93(1)(d)', 'display_order': 250},
     'decl_80cch_agniveer': {'label': 'Agniveer Corpus Fund Contribution (80CCH)', 'display_order': 260},
 }
 
@@ -92,8 +93,62 @@ class TdsEmployeeDeclaration(models.Model):
     Only APPROVED declarations are consumed by downstream TDS calculation engines.
     """
     _name = 'tds.employee.declaration'
+    _inherit = ['mail.thread', 'mail.activity.mixin']
     _description = 'Employee Annual Tax Declaration Header'
     _order = 'financial_year_id desc, employee_id, id'
+
+    _DECLARATION_AUDIT_FIELDS = [
+        'decl_80c_ppf',
+        'decl_80c_elss',
+        'decl_80c_epf',
+        'decl_80c_lic',
+        'decl_80c_nsc',
+        'decl_80c_ssy',
+        'decl_80c_fd',
+        'decl_80c_tuition',
+        'decl_80c_housing_principal',
+        'decl_80c_other',
+        'decl_80ccd1b_nps',
+        'decl_80d_self',
+        'decl_80d_parents',
+        'decl_80d_preventive',
+        'decl_24b_self_interest',
+        'decl_80eea_interest_amount',
+        'decl_80eea_interest',
+        'decl_hra_annual_rent',
+        'decl_lta_declared_fare',
+        'decl_80tta_interest',
+        'decl_80ttb_interest',
+        'decl_80e_interest',
+        'decl_80g_donation',
+        'decl_80gg_rent',
+        'decl_80dd_expenditure_amount',
+        'decl_80u_amount',
+        'decl_80ccd2_employer_nps',
+        'decl_57iia_family_pension',
+        'decl_80cch_agniveer',
+        'total_declared_amount',
+        'total_approved_amount',
+        'state',
+        'tax_regime_id',
+        # Income from Other Sources
+        'savings_bank_interest',
+        'fixed_deposit_interest',
+        'dividend_income',
+        'other_sources_income',
+        'total_other_sources_income',
+        # House Property (Let-Out Property)
+        'annual_let_out_rent',
+        'municipal_taxes_paid',
+        'let_out_interest_paid',
+        'net_house_property_income_loss',
+        # Previous Employer Details
+        'prev_employer_taxable_gross',
+        'prev_employer_tds',
+        'prev_employer_pt',
+        'prev_employer_pf',
+    ]
+
     _sql_constraints = [
         ('emp_fy_decl_uniq', 'unique(employee_id, financial_year_id)',
          'An employee can have only one Tax Declaration header per Financial Year!')
@@ -154,28 +209,31 @@ class TdsEmployeeDeclaration(models.Model):
         help="Returns True if HR manually opened proof submission toggle OR current date falls within December proof submission window."
     )
 
-    @api.depends('financial_year_id', 'financial_year_id.is_proof_submission_open', 'financial_year_id.proof_submission_start_date', 'financial_year_id.proof_submission_end_date')
+    @api.depends('financial_year_id', 'financial_year_id.is_closed', 'financial_year_id.proof_submission_start_date', 'financial_year_id.proof_submission_end_date')
     def _compute_is_proof_window_open(self):
-        today = fields.Date.today()
         for rec in self:
             fy = rec.financial_year_id
-            if not fy:
-                rec.is_proof_window_open = False
-                continue
-            if fy.is_proof_submission_open:
-                rec.is_proof_window_open = True
-                continue
-            if fy.proof_submission_start_date and fy.proof_submission_end_date:
-                rec.is_proof_window_open = (fy.proof_submission_start_date <= today <= fy.proof_submission_end_date)
-            elif today.month == 12:
-                rec.is_proof_window_open = True
-            else:
-                rec.is_proof_window_open = False
+            rec.is_proof_window_open = bool(fy and fy.is_proof_submission_active())
 
     hds_in_tds_applicable = fields.Boolean(
-        related='company_id.hds_in_tds_applicable',
         string="TDS Applicable",
+        compute='_compute_hds_in_tds_applicable',
+        store=False,
+    )
+
+    @api.depends('company_id.hds_in_tds_applicable', 'employee_id.hds_in_tds_applicable')
+    def _compute_hds_in_tds_applicable(self):
+        for rec in self:
+            comp_tds = bool(rec.company_id and rec.company_id.hds_in_tds_applicable)
+            emp_tds = bool(rec.employee_id and rec.employee_id.hds_in_tds_applicable)
+            rec.hds_in_tds_applicable = comp_tds and emp_tds
+
+    hds_in_is_agnipath = fields.Boolean(
+        string="Employee under Agnipath Scheme",
+        related='employee_id.hds_in_is_agnipath',
+        store=True,
         readonly=True,
+        help="Indicates whether the employee is enrolled under the Agnipath Scheme (enables Section 80CCH Agniveer Corpus Fund deduction)."
     )
 
     def action_print_statutory_report(self):
@@ -186,6 +244,8 @@ class TdsEmployeeDeclaration(models.Model):
         company = self.company_id or self.employee_id.company_id or self.env.company
         if not company.hds_in_tds_applicable:
             raise UserError(_("Tax Calculation Report is not available because TDS is disabled in Company Settings."))
+        if not getattr(self.employee_id, 'hds_in_tds_applicable', False):
+            raise UserError(_("Tax Calculation Report is not available because TDS is disabled for employee '%s'.") % (self.employee_id.name or ''))
         return self.env.ref('hudson_in_payroll.action_report_statutory_tax_declaration').report_action(self)
 
     tax_regime_id = fields.Many2one(
@@ -217,6 +277,12 @@ class TdsEmployeeDeclaration(models.Model):
         string="Submission Date",
         readonly=True,
         help="Date when employee submitted declaration."
+    )
+    proof_submission_date = fields.Date(
+        string="Proof Submission Date",
+        readonly=True,
+        copy=False,
+        help="Date when the employee submitted the proof documents."
     )
     approval_date = fields.Date(
         string="Approval Date",
@@ -275,6 +341,11 @@ class TdsEmployeeDeclaration(models.Model):
         sanitize=False,
         help="Read-only informational guidance and statutory rule parameters for HR awareness."
     )
+    recalculation_summary_html = fields.Html(
+        string="Recalculation Summary",
+        sanitize=False,
+        help="Full breakdown of the latest TDS recalculation result."
+    )
 
     # Dynamic Component Active Visibility Flags (computed from Configuration Master)
     is_80c_ppf_active = fields.Boolean(compute='_compute_component_active_flags', store=False)
@@ -292,7 +363,7 @@ class TdsEmployeeDeclaration(models.Model):
     is_57iia_active = fields.Boolean(compute='_compute_component_active_flags', store=False)
     is_80cch_active = fields.Boolean(compute='_compute_component_active_flags', store=False)
 
-    @api.depends('regime_code', 'financial_year_id')
+    @api.depends('regime_code', 'financial_year_id', 'employee_id.hds_in_is_agnipath')
     def _compute_component_active_flags(self):
         from ..services.tds.tds_section_config_service import TdsSectionConfigService
         sec_config_svc = TdsSectionConfigService(self.env)
@@ -317,7 +388,7 @@ class TdsEmployeeDeclaration(models.Model):
             rec.is_80ccd1b_active = ('80ccd1b' in active_codes) if has_config else True
             rec.is_80ccd2_active = ('80ccd2' in active_codes) if has_config else True
             rec.is_57iia_active = ('57iia' in active_codes) if has_config else True
-            rec.is_80cch_active = ('80cch' in active_codes) if has_config else True
+            rec.is_80cch_active = (('80cch' in active_codes) if has_config else True) and rec.hds_in_is_agnipath
 
 
     decl_80c_total_declared = fields.Monetary(
@@ -351,9 +422,11 @@ class TdsEmployeeDeclaration(models.Model):
         'decl_80dd_disability_exists', 'decl_80dd_has_certificate', 'decl_80dd_disability_percentage',
         'decl_80u_disability_percentage', 'decl_80u_has_certificate',
         'decl_80ccd2_employer_nps', 'decl_80cch_agniveer', 'decl_57iia_family_pension', 'decl_hra_annual_rent', 'decl_24b_self_interest',
+        'employee_id.hds_in_is_agnipath',
         'declaration_line_ids', 'declaration_line_ids.declared_amount', 'declaration_line_ids.approved_amount',
+        'declaration_line_ids.tax_firm_approved_amount', 'declaration_line_ids.is_regime_permitted',
         'declaration_line_ids.rejected_amount', 'declaration_line_ids.eligible_amount', 'declaration_line_ids.excess_amount',
-        'regime_code'
+        'regime_code', 'state'
     )
     def _compute_totals(self):
         def _sf(v):
@@ -387,11 +460,12 @@ class TdsEmployeeDeclaration(models.Model):
             rec.decl_80c_total_eligible = eligible_80c
             rec.decl_80c_total_excess = excess_80c
 
-            lines_declared = sum(rec.declaration_line_ids.mapped('declared_amount'))
-            lines_approved = sum(rec.declaration_line_ids.mapped('approved_amount'))
-            lines_rejected = sum(rec.declaration_line_ids.mapped('rejected_amount'))
-            lines_eligible = sum(rec.declaration_line_ids.mapped('eligible_amount'))
-            lines_excess = sum(rec.declaration_line_ids.mapped('excess_amount'))
+            non_nps_lines = rec.declaration_line_ids.filtered(lambda l: l.category != '80ccd2' and getattr(l, 'active', True))
+            lines_declared = sum(non_nps_lines.mapped('declared_amount'))
+            lines_approved = sum(non_nps_lines.mapped('approved_amount'))
+            lines_rejected = sum(non_nps_lines.mapped('rejected_amount'))
+            lines_eligible = sum(non_nps_lines.mapped('eligible_amount'))
+            lines_excess = sum(non_nps_lines.mapped('excess_amount'))
             
             scalars_total = sum_80c_scalars + sum_80d + sum_other_ded
             rec.total_declared_amount = max(scalars_total, lines_declared)
@@ -461,7 +535,7 @@ class TdsEmployeeDeclaration(models.Model):
             approved_80cch = 0.0
             has_80cch_header = (float(getattr(rec, 'decl_80cch_agniveer', 0.0) or 0.0) > 0.0)
             has_80cch_line = any(l.category == '80cch' for l in rec.declaration_line_ids)
-            if has_80cch_header or has_80cch_line:
+            if (has_80cch_header or has_80cch_line) and rec.hds_in_is_agnipath:
                 from ..services.tds.section_80cch_deduction_service import Section80CCHDeductionService
                 cch_svc = Section80CCHDeductionService(rec.env)
                 cch_res = cch_svc.validate_and_trace(
@@ -490,12 +564,14 @@ class TdsEmployeeDeclaration(models.Model):
             has_80ccd2_header = (float(getattr(rec, 'decl_80ccd2_employer_nps', 0.0) or 0.0) > 0.0)
             has_80ccd2_line = any(l.category == '80ccd2' for l in rec.declaration_line_ids)
             if has_80ccd2_header or has_80ccd2_line:
+                decl_80ccd2_amt = float(getattr(rec, 'decl_80ccd2_employer_nps', 0.0) or 0.0)
                 line_80ccd2 = next((l for l in rec.declaration_line_ids if l.category == '80ccd2' and getattr(l, 'active', True)), None)
-                if line_80ccd2:
+                if decl_80ccd2_amt > 0.0:
+                    source_type_80ccd2 = 'HEADER_DECLARATION'
+                elif line_80ccd2:
                     decl_80ccd2_amt = float(line_80ccd2.declared_amount or 0.0)
                     source_type_80ccd2 = 'DECLARATION_LINE'
                 else:
-                    decl_80ccd2_amt = float(getattr(rec, 'decl_80ccd2_employer_nps', 0.0) or 0.0)
                     source_type_80ccd2 = 'HEADER_DECLARATION'
 
                 emp = rec.employee_id
@@ -569,12 +645,57 @@ class TdsEmployeeDeclaration(models.Model):
             rec.decl_80dd_amount = approved_80dd if rec.state in ('proof_verified', 'approved') else 0.0
             rec.decl_80u_amount = approved_80u
 
-            if rec.regime_code == 'old' and rec.state in ('proof_verified', 'approved'):
-                has_80gg_line = any(l.category == '80gg' for l in rec.declaration_line_ids)
-                scalar_80gg = approved_80gg if not has_80gg_line else 0.0
-                scalar_approved = approved_80c + approved_80d + approved_80ccd1b + approved_home_loan + approved_80e + approved_80g + approved_80dd + approved_80u + scalar_80gg
-                rec.total_approved_amount = scalar_approved + lines_approved
-                rec.total_rejected_amount = lines_rejected
+            if rec.state in ('proof_verified', 'approved'):
+                if rec.regime_code == 'old':
+                    has_80gg_line = any(l.category == '80gg' for l in rec.declaration_line_ids)
+                    scalar_80gg = approved_80gg if not has_80gg_line else 0.0
+                    scalar_approved = approved_80c + approved_80d + approved_80ccd1b + approved_home_loan + approved_80e + approved_80g + approved_80dd + approved_80u + scalar_80gg
+                    if non_nps_lines:
+                        line_categories = set(non_nps_lines.mapped('category'))
+                        orphan_scalar_approved = 0.0
+                        if '80c' not in line_categories:
+                            orphan_scalar_approved += approved_80c
+                        if '80d_self' not in line_categories and '80d_parents' not in line_categories and '80d_preventive' not in line_categories:
+                            orphan_scalar_approved += approved_80d
+                        if '80ccd1b' not in line_categories:
+                            orphan_scalar_approved += approved_80ccd1b
+                        if '24b' not in line_categories:
+                            orphan_scalar_approved += approved_home_loan
+                        if '80e' not in line_categories:
+                            orphan_scalar_approved += approved_80e
+                        if '80g' not in line_categories:
+                            orphan_scalar_approved += approved_80g
+                        if '80dd' not in line_categories:
+                            orphan_scalar_approved += approved_80dd
+                        if '80u' not in line_categories:
+                            orphan_scalar_approved += approved_80u
+                        if '80gg' not in line_categories:
+                            orphan_scalar_approved += scalar_80gg
+                        if '80cch' not in line_categories and approved_80cch:
+                            orphan_scalar_approved += approved_80cch
+                        if '57iia' not in line_categories and approved_57iia:
+                            orphan_scalar_approved += approved_57iia
+                        rec.total_approved_amount = lines_approved + orphan_scalar_approved
+                    else:
+                        rec.total_approved_amount = scalar_approved + approved_80cch + approved_57iia
+                    rec.total_rejected_amount = lines_rejected
+                else:
+                    # New Regime: Regime-permitted lines (e.g. 57iia, 80cch) and New Regime scalars
+                    permitted_lines = non_nps_lines.filtered(lambda l: getattr(l, 'is_regime_permitted', True))
+                    lines_approved_new = sum(permitted_lines.mapped('approved_amount'))
+                    lines_rejected_new = sum(non_nps_lines.mapped('rejected_amount'))
+
+                    orphan_scalar_approved_new = 0.0
+                    if non_nps_lines:
+                        line_categories = set(non_nps_lines.mapped('category'))
+                        if '80cch' not in line_categories and approved_80cch:
+                            orphan_scalar_approved_new += approved_80cch
+                        if '57iia' not in line_categories and approved_57iia:
+                            orphan_scalar_approved_new += approved_57iia
+                        rec.total_approved_amount = lines_approved_new + orphan_scalar_approved_new
+                    else:
+                        rec.total_approved_amount = approved_80cch + approved_57iia
+                    rec.total_rejected_amount = lines_rejected_new
             else:
                 scalar_approved = 0.0
                 rec.total_approved_amount = 0.0
@@ -622,10 +743,140 @@ class TdsEmployeeDeclaration(models.Model):
         string="Supporting Proof Documents",
         help="Uploaded investment receipts, rent receipts, insurance statements, and tax certificates."
     )
+    decl_80c_attachment_ids = fields.Many2many(
+        'ir.attachment',
+        'tds_decl_80c_ir_attachment_rel',
+        'declaration_id',
+        'attachment_id',
+        string="Section 80C Investment Proofs",
+        help="Investment receipts for PPF, ELSS, LIC, EPF, NSC, SSY, FD, Tuition Fees, Housing Principal."
+    )
+    decl_80d_attachment_ids = fields.Many2many(
+        'ir.attachment',
+        'tds_decl_80d_ir_attachment_rel',
+        'declaration_id',
+        'attachment_id',
+        string="Section 80D Medical Insurance Proofs",
+        help="Health insurance receipts, policy documents, and preventive health checkup bills."
+    )
+    decl_80ccd1b_attachment_ids = fields.Many2many(
+        'ir.attachment',
+        'tds_decl_80ccd1b_ir_attachment_rel',
+        'declaration_id',
+        'attachment_id',
+        string="Section 80CCD(1B) NPS Tier 1 Proofs",
+        help="NPS contribution receipt or transaction statement."
+    )
+    decl_hra_attachment_ids = fields.Many2many(
+        'ir.attachment',
+        'tds_decl_hra_ir_attachment_rel',
+        'declaration_id',
+        'attachment_id',
+        string="HRA Rent Receipts & Agreement",
+        help="Rent receipts, rental agreement, and landlord PAN declaration."
+    )
+    decl_24b_attachment_ids = fields.Many2many(
+        'ir.attachment',
+        'tds_decl_24b_ir_attachment_rel',
+        'declaration_id',
+        'attachment_id',
+        string="Home Loan Interest Proofs (24b / 80EEA)",
+        help="Provisional or final home loan interest certificate issued by bank or financial institution."
+    )
+    decl_80e_attachment_ids = fields.Many2many(
+        'ir.attachment',
+        'tds_decl_80e_ir_attachment_rel',
+        'declaration_id',
+        'attachment_id',
+        string="Section 80E Education Loan Proofs",
+        help="Education loan interest certificate issued by financial institution."
+    )
+    decl_80g_attachment_ids = fields.Many2many(
+        'ir.attachment',
+        'tds_decl_80g_ir_attachment_rel',
+        'declaration_id',
+        'attachment_id',
+        string="Section 80G Charitable Donation Proofs",
+        help="Donation receipts with 80G approval number / registration details."
+    )
+    decl_80gg_attachment_ids = fields.Many2many(
+        'ir.attachment',
+        'tds_decl_80gg_ir_attachment_rel',
+        'declaration_id',
+        'attachment_id',
+        string="Section 80GG Form 10BA & Rent Proofs",
+        help="Form 10BA declaration and rent payment receipts."
+    )
+    decl_80dd_attachment_ids = fields.Many2many(
+        'ir.attachment',
+        'tds_decl_80dd_ir_attachment_rel',
+        'declaration_id',
+        'attachment_id',
+        string="Section 80DD Disability Medical Certificates",
+        help="Disability certificate or Form 10-IA for dependent with disability."
+    )
+    decl_80u_attachment_ids = fields.Many2many(
+        'ir.attachment',
+        'tds_decl_80u_ir_attachment_rel',
+        'declaration_id',
+        'attachment_id',
+        string="Section 80U Disability Certificates",
+        help="Disability certificate or Form 10-IA for employee with disability."
+    )
+    decl_57iia_attachment_ids = fields.Many2many(
+        'ir.attachment',
+        'tds_decl_57iia_ir_attachment_rel',
+        'declaration_id',
+        'attachment_id',
+        string="Section 57(iia) Family Pension Proofs",
+        help="Family pension payment slip or bank passbook copy."
+    )
+    decl_80cch_attachment_ids = fields.Many2many(
+        'ir.attachment',
+        'tds_decl_80cch_ir_attachment_rel',
+        'declaration_id',
+        'attachment_id',
+        string="Section 80CCH Agniveer Corpus Proofs",
+        help="Agniveer Corpus Fund contribution statement under Agnipath scheme."
+    )
+    prev_employer_attachment_ids = fields.Many2many(
+        'ir.attachment',
+        'tds_decl_prev_emp_ir_attachment_rel',
+        'declaration_id',
+        'attachment_id',
+        string="Previous Employer Form 12B / Form 16",
+        help="Form 12B declaration and Form 16 from previous employer."
+    )
     active = fields.Boolean(
         string="Active",
         default=True
     )
+
+    @api.constrains(
+        'decl_80c_attachment_ids', 'decl_80d_attachment_ids', 'decl_80ccd1b_attachment_ids',
+        'decl_hra_attachment_ids', 'decl_lta_attachment_ids', 'decl_24b_attachment_ids',
+        'decl_80e_attachment_ids', 'decl_80g_attachment_ids', 'decl_80gg_attachment_ids',
+        'decl_80dd_attachment_ids', 'decl_80u_attachment_ids', 'decl_57iia_attachment_ids',
+        'decl_80cch_attachment_ids', 'prev_employer_attachment_ids'
+    )
+    def _check_single_attachment_per_proof(self):
+        proof_fields = [
+            'decl_80c_attachment_ids', 'decl_80d_attachment_ids', 'decl_80ccd1b_attachment_ids',
+            'decl_hra_attachment_ids', 'decl_lta_attachment_ids', 'decl_24b_attachment_ids',
+            'decl_80e_attachment_ids', 'decl_80g_attachment_ids', 'decl_80gg_attachment_ids',
+            'decl_80dd_attachment_ids', 'decl_80u_attachment_ids', 'decl_57iia_attachment_ids',
+            'decl_80cch_attachment_ids', 'prev_employer_attachment_ids'
+        ]
+        for rec in self:
+            for fname in proof_fields:
+                if hasattr(rec, fname):
+                    atts = getattr(rec, fname)
+                    if len(atts) > 1:
+                        f_label = rec._fields[fname].string or fname
+                        raise ValidationError(_(
+                            "Maximum 1 file can be uploaded for '%s'. Currently %d files are attached. "
+                            "Please upload only 1 supporting document per category."
+                        ) % (f_label, len(atts)))
 
 
     regime_choice_id = fields.Many2one(
@@ -634,7 +885,8 @@ class TdsEmployeeDeclaration(models.Model):
         compute='_compute_regime_choice_id',
         inverse='_inverse_regime_choice_id',
         store=False,
-        help="Editable Tax Regime selection for employee in current FY."
+        readonly=True,
+        help="Tax Regime selection reflected from Employee Tax Period & Regime settings."
     )
 
     # -------------------------------------------------------------------------
@@ -687,7 +939,7 @@ class TdsEmployeeDeclaration(models.Model):
     total_other_sources_income = fields.Monetary(
         string="Total Other Sources Income (₹)",
         currency_field='currency_id',
-        compute='_compute_income_decl_fields',
+        compute='_compute_total_other_sources_income',
         store=False,
         help="Total Income from Other Sources aggregated for TDS computation."
     )
@@ -727,7 +979,7 @@ class TdsEmployeeDeclaration(models.Model):
     net_house_property_income_loss = fields.Monetary(
         string="Net Property Income / Loss (₹)",
         currency_field='currency_id',
-        compute='_compute_income_decl_fields',
+        compute='_compute_house_property_totals',
         store=False,
         help="Net taxable income or loss from Let-Out House Property after 30% statutory standard deduction under Section 24(a)."
     )
@@ -2726,7 +2978,7 @@ is_within_8_years=%s""",
         currency_field='currency_id',
         default=0.0,
         store=True,
-        help="Annual gross family pension received by legal heirs (Income from Other Sources). Standard deduction under Section 57(iia) / Section 93(1)(d) (1/3rd or ₹25,000 New / ₹15,000 Old) is netted directly to determine taxable income."
+        help="Annual gross family pension received by legal heirs (Income from Other Sources). Standard deduction under Family Pension Section 93(1)(d) (1/3 of family pension or ₹25,000, whichever is lower) is netted directly to determine taxable income."
     )
     decl_80cch_agniveer = fields.Monetary(
         string="Agniveer Corpus Fund Contribution (80CCH) (₹)",
@@ -2744,11 +2996,11 @@ is_within_8_years=%s""",
             reg = (rec.regime_code or 'regime').upper()
             rec.name = f"Tax Declaration - {emp} [{fy}] ({reg})"
 
-    @api.depends('employee_id', 'financial_year_id')
+    @api.depends('employee_id', 'financial_year_id', 'employee_id.hds_in_current_tax_regime_id')
     def _compute_tax_regime_id(self):
         """
         Dynamically resolves active tax regime from tds.employee.tax.regime history for employee + FY.
-        Defaults to company default regime if explicit selection not found.
+        Defaults to employee's selected regime on profile or statutory default regime (New).
         """
         for rec in self:
             company = rec.company_id or (rec.employee_id and rec.employee_id.company_id) or self.env.company
@@ -2768,18 +3020,22 @@ is_within_8_years=%s""",
                     ('employee_id', '=', rec.employee_id.id),
                     ('financial_year_id', '=', rec.financial_year_id.id),
                 ], limit=1)
-                if reg_record:
+                if reg_record and reg_record.regime_id:
                     rec.tax_regime_id = reg_record.regime_id
                     continue
+                # If no reg_record exists, check employee's selected current regime
+                if rec.employee_id.hds_in_current_tax_regime_id:
+                    rec.tax_regime_id = rec.employee_id.hds_in_current_tax_regime_id
+                    continue
 
-            # Fallback to default regime master
-            default_reg = self.env['tds.tax.regime'].search([('code', '=', 'new')], limit=1) or self.env['tds.tax.regime'].search([('is_default', '=', True)], limit=1)
+            # Fallback to default regime master (New Tax Regime Income-tax Act, 2025 — Section 202(1))
+            default_reg = self.env['tds.tax.regime'].sudo().search([('code', '=', 'new')], limit=1) or self.env['tds.tax.regime'].sudo().search([('is_default', '=', True)], limit=1)
             rec.tax_regime_id = default_reg.id if default_reg else False
 
-    @api.depends('tax_regime_id')
+    @api.depends('tax_regime_id', 'employee_id.hds_in_current_tax_regime_id')
     def _compute_regime_choice_id(self):
         for rec in self:
-            rec.regime_choice_id = rec.tax_regime_id
+            rec.regime_choice_id = rec.tax_regime_id or (rec.employee_id and rec.employee_id.hds_in_current_tax_regime_id)
 
     def _inverse_regime_choice_id(self):
         for rec in self:
@@ -2806,6 +3062,8 @@ is_within_8_years=%s""",
                         'financial_year_id': rec.financial_year_id.id,
                         'regime_id': rec.regime_choice_id.id,
                     })
+                # Invalidate employee profile computed regime fields so they reflect immediately
+                rec.employee_id.invalidate_recordset(['hds_in_current_tax_regime_id', 'hds_in_is_new_tax_regime', 'hds_in_tax_regime'])
 
     def _get_income_declaration(self):
         self.ensure_one()
@@ -2824,11 +3082,9 @@ is_within_8_years=%s""",
                 rec.fixed_deposit_interest = 0.0
                 rec.dividend_income = 0.0
                 rec.other_sources_income = 0.0
-                rec.total_other_sources_income = 0.0
                 rec.annual_let_out_rent = 0.0
                 rec.municipal_taxes_paid = 0.0
                 rec.let_out_interest_paid = 0.0
-                rec.net_house_property_income_loss = 0.0
                 rec.prev_employer_taxable_gross = 0.0
                 rec.prev_employer_tds = 0.0
                 rec.prev_employer_pt = 0.0
@@ -2841,11 +3097,9 @@ is_within_8_years=%s""",
                 rec.fixed_deposit_interest = decl.fixed_deposit_interest
                 rec.dividend_income = decl.dividend_income
                 rec.other_sources_income = decl.other_sources_income
-                rec.total_other_sources_income = decl.total_other_sources_income
                 rec.annual_let_out_rent = decl.annual_let_out_rent
                 rec.municipal_taxes_paid = decl.municipal_taxes_paid
                 rec.let_out_interest_paid = decl.let_out_interest_paid
-                rec.net_house_property_income_loss = decl.net_house_property_income_loss
                 rec.prev_employer_taxable_gross = decl.prev_employer_taxable_gross
                 rec.prev_employer_tds = decl.prev_employer_tds
                 rec.prev_employer_pt = decl.prev_employer_pt
@@ -2859,7 +3113,6 @@ is_within_8_years=%s""",
                 rec.fixed_deposit_interest = fd
                 rec.dividend_income = div
                 rec.other_sources_income = oth
-                rec.total_other_sources_income = sb + fd + div + oth
 
                 rent = float(rec.annual_let_out_rent or 0.0)
                 muni = float(rec.municipal_taxes_paid or 0.0)
@@ -2867,13 +3120,25 @@ is_within_8_years=%s""",
                 rec.annual_let_out_rent = rent
                 rec.municipal_taxes_paid = muni
                 rec.let_out_interest_paid = intr
-                nav = max(0.0, rent - muni)
-                rec.net_house_property_income_loss = nav - (nav * 0.30) - intr
 
                 rec.prev_employer_taxable_gross = float(rec.prev_employer_taxable_gross or 0.0)
                 rec.prev_employer_tds = float(rec.prev_employer_tds or 0.0)
                 rec.prev_employer_pt = float(rec.prev_employer_pt or 0.0)
                 rec.prev_employer_pf = float(rec.prev_employer_pf or 0.0)
+
+    @api.depends(
+        'savings_bank_interest', 'fixed_deposit_interest', 'dividend_income',
+        'other_sources_income', 'decl_57iia_family_pension'
+    )
+    def _compute_total_other_sources_income(self):
+        for rec in self:
+            rec.total_other_sources_income = (
+                float(rec.savings_bank_interest or 0.0) +
+                float(rec.fixed_deposit_interest or 0.0) +
+                float(rec.dividend_income or 0.0) +
+                float(rec.other_sources_income or 0.0) +
+                float(rec.decl_57iia_family_pension or 0.0)
+            )
 
     @api.depends(
         'annual_let_out_rent', 'municipal_taxes_paid', 'let_out_interest_paid',
@@ -2887,6 +3152,7 @@ is_within_8_years=%s""",
             nav = max(0.0, rent - muni)
             std_ded = nav * 0.30
             net_hp = nav - std_ded - intr
+            rec.net_house_property_income_loss = net_hp
 
             other_inc_svc = OtherIncomeAggregationService(self.env)
             eval_date = fields.Date.today()
@@ -2935,7 +3201,7 @@ is_within_8_years=%s""",
                     vals[f] = float_val
 
             if vals:
-                decl.sudo().write(vals)
+                decl.sudo().with_context(no_tds_audit=True).write(vals)
 
     def _match_80c_child_line(self, line, python_field_name):
         """
@@ -2994,35 +3260,43 @@ is_within_8_years=%s""",
                 lambda l: l.category == '80c' and getattr(l, 'active', True) and self._match_80c_child_line(l, python_field_name)
             )
         else:
+            # Match by category only — description is written during sync, not used as a lookup key.
+            # Previously matched by label substring which caused duplicate lines when users entered
+            # custom descriptions that didn't contain the canonical label (e.g. '80d_self' line named
+            # 'My Health Policy' instead of 'Medical Insurance (Self & Family)').
             lines = self.declaration_line_ids.filtered(
-                lambda l: l.category == category_code and l.description and description.split(' (')[0] in l.description
+                lambda l: l.category == category_code
             )
         existing_val = lines[0].declared_amount if lines else 0.0
         line_id = lines[0].id if lines else 'New'
 
         if amount > 0.0:
-            line_vals = {
+            # When updating an existing line, do NOT overwrite description —
+            # the user may have entered a custom name which must be preserved.
+            # Description is only set on initial creation.
+            update_vals = {
                 'declared_amount': amount,
-                'description': description,
                 'is_senior_citizen': is_senior,
                 'is_severe_disability': is_severe,
             }
+            create_vals = dict(update_vals, description=description)
             if category_code == '80g' and hasattr(self, 'decl_80g_category') and self.decl_80g_category:
-                line_vals['decl_80g_category'] = self.decl_80g_category
+                update_vals['decl_80g_category'] = self.decl_80g_category
+                create_vals['decl_80g_category'] = self.decl_80g_category
 
             if lines:
                 target_line = lines[0]
-                target_line.sudo().write(line_vals)
+                target_line.sudo().write(update_vals)
                 if len(lines) > 1:
                     lines[1:].sudo().unlink()
                 line_id = target_line.id
                 post_val = target_line.declared_amount
             else:
-                line_vals.update({
+                create_vals.update({
                     'declaration_id': self.id,
                     'category': category_code,
                 })
-                new_line = self.env['tds.employee.declaration.line'].sudo().create(line_vals)
+                new_line = self.env['tds.employee.declaration.line'].sudo().create(create_vals)
                 line_id = new_line.id
                 post_val = new_line.declared_amount
         else:
@@ -3170,6 +3444,12 @@ is_within_8_years=%s""",
                                     else:
                                         line_added_fields[target_f] = d_amt
 
+        # Clean up legacy Employer NPS child lines (Employer NPS Section 124 is an employer statutory contribution, not an employee investment line item)
+        for rec in self:
+            legacy_nps_lines = rec.declaration_line_ids.filtered(lambda l: l.category == '80ccd2')
+            if legacy_nps_lines:
+                legacy_nps_lines.unlink()
+
         for rec in self:
             header_updates = {}
             for item in DECLARATION_BUSINESS_REGISTRY:
@@ -3184,7 +3464,7 @@ is_within_8_years=%s""",
                     hdr_val = float(getattr(rec, alt_field, 0.0) or 0.0)
 
                 # 2. Check existing active child lines for this category & field
-                SINGLE_INSTANCE_CATEGORIES = {'57iia', '80ccd2', '80cch', '80ccd1b', 'hra', 'lta', '24b', '80dd', '80u', '80eea', '80g', '80e'}
+                SINGLE_INSTANCE_CATEGORIES = {'57iia', '80cch', '80ccd1b', 'hra', 'lta', '24b', '80dd', '80u', '80eea', '80g', '80e'}
                 if cat in SINGLE_INSTANCE_CATEGORIES:
                     matching_lines = active_lines.filtered(lambda l: l.category == cat)
                 elif cat == '80c':
@@ -3192,12 +3472,9 @@ is_within_8_years=%s""",
                         lambda l: l.category == '80c' and rec._match_80c_child_line(l, field_name)
                     )
                 else:
-                    ui_info = DECLARATION_UI_REGISTRY.get(field_name, {})
-                    ui_label = ui_info.get('label', field_name)
-                    lbl_base = ui_label.split(' (')[0].strip()
-                    matching_lines = active_lines.filtered(
-                        lambda l: l.category == cat and l.description and (lbl_base in l.description or field_name in l.description or ui_label in l.description)
-                    )
+                    # Match by category only — description is not a reliable key because users
+                    # may enter custom names. This prevents false misses that cause duplicate lines.
+                    matching_lines = active_lines.filtered(lambda l: l.category == cat)
                 line_val = sum(float(l.declared_amount or 0.0) for l in matching_lines) if matching_lines else 0.0
                 has_approved_proof = any(
                     float(getattr(l, 'tax_firm_approved_amount', 0.0) or getattr(l, 'approved_amount', 0.0) or getattr(l, 'verified_amount', 0.0) or 0.0) > 0.0
@@ -3292,7 +3569,7 @@ is_within_8_years=%s""",
         'decl_24b_self_interest', 'decl_80eea_interest_amount', 'decl_80eea_interest',
         'decl_hra_annual_rent', 'decl_lta_declared_fare', 'decl_80tta_interest', 'decl_80ttb_interest',
         'decl_80e_interest', 'decl_80g_donation', 'decl_80gg_rent', 'decl_80dd_expenditure_amount',
-        'decl_80u_amount', 'decl_80ccd2_employer_nps', 'decl_57iia_family_pension', 'decl_80cch_agniveer',
+        'decl_80u_amount', 'decl_57iia_family_pension', 'decl_80cch_agniveer',
         'decl_80d_self_is_senior', 'decl_80d_parents_is_senior', 'decl_80dd_is_severe_disability',
         'decl_80u_is_severe_disability', 'decl_80g_category', 'decl_hra_landlord_name', 'decl_hra_landlord_pan'
     )
@@ -3302,7 +3579,7 @@ is_within_8_years=%s""",
         Immediately adds, updates, or cleans up declaration_line_ids in-memory as the user types
         values into any deduction tab (80C, 80D, HRA, NPS, etc.) without requiring a manual save.
         """
-        SINGLE_INSTANCE_CATEGORIES = {'57iia', '80ccd2', '80cch', '80ccd1b', 'hra', 'lta', '24b', '80dd', '80u', '80eea', '80g', '80e'}
+        SINGLE_INSTANCE_CATEGORIES = {'57iia', '80cch', '80ccd1b', 'hra', 'lta', '24b', '80dd', '80u', '80eea', '80g', '80e'}
         
         for rec in self:
             existing_lines = list(rec.declaration_line_ids)
@@ -3337,7 +3614,10 @@ is_within_8_years=%s""",
                     elif cat == '80c' and line.category == '80c' and rec._match_80c_child_line(line, field_name):
                         matched = line
                         break
-                    elif line.category == cat and line.description and desc.split(' (')[0].strip() in line.description:
+                    elif line.category == cat:
+                        # Match by category only — do not require the canonical label to be present
+                        # in the line description. Users may have entered a custom description;
+                        # the description is overwritten during sync anyway.
                         matched = line
                         break
 
@@ -3345,7 +3625,8 @@ is_within_8_years=%s""",
                     matched_line_set.add(matched)
                     if hdr_val > 0.0:
                         matched.declared_amount = hdr_val
-                        matched.description = desc
+                        # Do NOT overwrite description — user may have set a custom name.
+                        # Only update amount and flags; description is preserved as-is.
                         matched.is_senior_citizen = is_senior
                         matched.is_severe_disability = is_severe
                         if cat == '80g' and hasattr(rec, 'decl_80g_category') and rec.decl_80g_category:
@@ -3445,7 +3726,6 @@ is_within_8_years=%s""",
         """Phase 4: HR completes proof verification, setting approved amounts active for Jan-Mar payroll."""
         for rec in self:
             old_state = rec.state
-            rec.action_validate_declaration_rules()
             for line in rec.declaration_line_ids:
                 if line.category == '80g':
                     eff_amt = float(line.tax_firm_approved_amount or line.approved_amount or line.verified_amount or line.declared_amount or 0.0)
@@ -3458,13 +3738,20 @@ is_within_8_years=%s""",
                     if cat_val and not line.decl_80g_category:
                         line.write({'decl_80g_category': cat_val})
 
-                if line.tax_firm_approved_amount > 0.0 and line.approved_amount != line.tax_firm_approved_amount:
-                    line.write({'approved_amount': line.tax_firm_approved_amount})
+                tf_amt = float(line.tax_firm_approved_amount or 0.0)
+                appr_amt = float(line.approved_amount or 0.0)
+                if tf_amt > 0.0 and appr_amt == 0.0:
+                    line.write({'approved_amount': tf_amt})
+                elif appr_amt > 0.0 and tf_amt == 0.0:
+                    line.write({'tax_firm_approved_amount': appr_amt})
+
             rec.write({
                 'state': 'proof_verified',
                 'approval_date': fields.Date.today(),
                 'approved_by_id': self.env.user.id,
             })
+            rec.action_validate_declaration_rules()
+            rec._compute_totals()
             _logger.info(
                 "[TDS TRACE] Phase: HR Verification | Model: tds.employee.declaration | Record ID: %s | Employee: %s | FY: %s | Field: state | Old Value: %s | New Value: proof_verified | Target Model: tds.employee.declaration | DB Write: True | Service: TdsEmployeeDeclaration | Result: Proof Verified; Approved Amounts Active for Jan-Mar TDS",
                 rec.id, rec.employee_id.name if rec.employee_id else 'N/A', rec.financial_year_id.name if rec.financial_year_id else 'N/A', old_state
@@ -3474,6 +3761,7 @@ is_within_8_years=%s""",
                 self.env['hds.in.payroll.audit'].sudo().create({
                     'employee_id': rec.employee_id.id,
                     'company_id': rec.company_id.id,
+                    'user_id': self.env.uid,
                     'statutory_module': 'tds',
                     'rule_code': 'TDS_DECL_APPROVE',
                     'calculation_date': fields.Date.today(),
@@ -3500,6 +3788,8 @@ is_within_8_years=%s""",
             if rec.state not in ('proof_verified', 'approved'):
                 raise ValidationError(_("Full TDS recalculation using Tax Firm Approved amounts can only be executed when declaration is in 'Proof Verified' or 'Approved' status."))
 
+            rec._compute_totals()
+
             for line in rec.declaration_line_ids:
                 if line.category == '80g':
                     eff_amt = float(line.tax_firm_approved_amount or line.approved_amount or line.verified_amount or line.declared_amount or 0.0)
@@ -3515,59 +3805,153 @@ is_within_8_years=%s""",
             eval_dt = rec.approval_date or fields.Date.today()
             tds_result = orchestration_engine.hds_in_compute_tds(rec.employee_id, eval_date=eval_dt)
 
+            mth_dist = getattr(tds_result, 'monthly_tds_distribution', None)
+            annual_tax = float(getattr(tds_result, 'total_annual_tax_liability', 0.0) or 0.0)
+            ytd_paid = float(getattr(tds_result, 'total_tds_paid_so_far', getattr(mth_dist, 'total_tds_paid_so_far', getattr(tds_result, 'ytd_tds_deducted', getattr(mth_dist, 'ytd_tds_deducted', 0.0)))) or 0.0)
+            rem_tax = float(getattr(tds_result, 'remaining_annual_tax_liability', getattr(mth_dist, 'remaining_annual_tax_liability', 0.0)) or 0.0)
+            rem_months = int(getattr(tds_result, 'remaining_payroll_periods', getattr(mth_dist, 'remaining_payroll_periods', 1)) or 1)
+            monthly_tds = float(getattr(tds_result, 'current_month_tds', getattr(mth_dist, 'current_month_tds', 0.0)) or 0.0)
+
             _logger.info(
                 "[TAX FIRM RECALCULATION] Executed full TDS recalculation for Employee '%s' (FY %s). "
                 "Recalculated Annual Tax Liability: ₹%s, YTD TDS Paid: ₹%s, Remaining Liability: ₹%s, "
                 "Remaining Months: %s, New Monthly TDS: ₹%s",
                 rec.employee_id.name if rec.employee_id else 'N/A',
                 rec.financial_year_id.name if rec.financial_year_id else 'N/A',
-                getattr(tds_result, 'total_annual_tax_liability', 0.0),
-                getattr(tds_result, 'total_tds_paid_so_far', getattr(tds_result, 'ytd_tds_deducted', 0.0)),
-                getattr(tds_result, 'remaining_annual_tax_liability', 0.0),
-                getattr(tds_result, 'remaining_payroll_periods', 1),
-                getattr(tds_result, 'current_month_tds', 0.0)
+                annual_tax,
+                ytd_paid,
+                rem_tax,
+                rem_months,
+                monthly_tds
             )
 
             if 'hds.in.payroll.audit' in self.env:
                 self.env['hds.in.payroll.audit'].sudo().create({
                     'employee_id': rec.employee_id.id,
                     'company_id': rec.company_id.id,
+                    'user_id': self.env.uid,
                     'statutory_module': 'tds',
                     'rule_code': 'TAX_FIRM_RECALCULATION',
                     'calculation_date': fields.Date.today(),
                     'messages': (
                         f"Tax Firm Approved TDS Recalculation Completed: {rec.name}. FY {rec.financial_year_id.name}. "
-                        f"Recalculated Annual Tax: ₹{getattr(tds_result, 'total_annual_tax_liability', 0.0):,.2f}, "
-                        f"YTD TDS Paid: ₹{getattr(tds_result, 'total_tds_paid_so_far', 0.0):,.2f}, "
-                        f"Remaining Tax: ₹{getattr(tds_result, 'remaining_annual_tax_liability', 0.0):,.2f}, "
-                        f"Distribution Months: {getattr(tds_result, 'remaining_payroll_periods', 1)}, "
-                        f"New Monthly TDS: ₹{getattr(tds_result, 'current_month_tds', 0.0):,.2f}."
+                        f"Recalculated Annual Tax: ₹{annual_tax:,.2f}, "
+                        f"YTD TDS Paid: ₹{ytd_paid:,.2f}, "
+                        f"Remaining Tax: ₹{rem_tax:,.2f}, "
+                        f"Distribution Months: {rem_months}, "
+                        f"New Monthly TDS: ₹{monthly_tds:,.2f}."
                     ),
                     'status': 'success',
                 })
 
-            annual_tax = getattr(tds_result, 'total_annual_tax_liability', 0.0)
-            ytd_paid = getattr(tds_result, 'total_tds_paid_so_far', getattr(tds_result, 'ytd_tds_deducted', 0.0))
-            rem_tax = getattr(tds_result, 'remaining_annual_tax_liability', 0.0)
-            rem_months = getattr(tds_result, 'remaining_payroll_periods', 1)
-            monthly_tds = getattr(tds_result, 'current_month_tds', 0.0)
+            emp_name = rec.employee_id.name or 'Employee'
+            fy_name = rec.financial_year_id.name or 'Current FY'
+            regime_name = rec.tax_regime_id.name or (rec.regime_code.upper() if rec.regime_code else 'Standard')
 
+            rec_html = f"""
+<div class="p-3" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #1e293b;">
+    <!-- Success Banner -->
+    <div style="background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border: 1px solid #86efac; border-radius: 10px; padding: 16px 20px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+        <div style="display: flex; align-items: center; gap: 14px;">
+            <div style="background: #16a34a; color: #ffffff; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: bold; flex-shrink: 0;">
+                &#10003;
+            </div>
+            <div>
+                <h4 style="margin: 0; color: #15803d; font-weight: 700; font-size: 18px; letter-spacing: -0.3px;">
+                    Full TDS Recalculation Completed
+                </h4>
+                <p style="margin: 4px 0 0 0; color: #166534; font-size: 13px;">
+                    Tax Firm Approved Amounts successfully applied across all sections for <strong>{emp_name}</strong> ({fy_name} &bull; {regime_name}).
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statutory Metrics Grid -->
+    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin-bottom: 20px;">
+        <!-- Card 1: Annual Tax -->
+        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+            <div style="font-size: 11px; color: #64748b; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px;">
+                Recalculated Annual Tax Liability
+            </div>
+            <div style="font-size: 24px; font-weight: 700; color: #0f172a; margin-top: 6px;">
+                &#8377;{annual_tax:,.2f}
+            </div>
+            <div style="font-size: 12px; color: #94a3b8; margin-top: 4px;">
+                Total computed tax after statutory deductions &amp; cess
+            </div>
+        </div>
+
+        <!-- Card 2: YTD TDS Paid -->
+        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+            <div style="font-size: 11px; color: #64748b; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px;">
+                TDS Paid YTD (Year-to-Date)
+            </div>
+            <div style="font-size: 24px; font-weight: 700; color: #0284c7; margin-top: 6px;">
+                &#8377;{ytd_paid:,.2f}
+            </div>
+            <div style="font-size: 12px; color: #94a3b8; margin-top: 4px;">
+                Tax already withheld in previous payroll cycles
+            </div>
+        </div>
+
+        <!-- Card 3: Remaining Tax Liability -->
+        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+            <div style="font-size: 11px; color: #64748b; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px;">
+                Remaining Annual Tax Liability
+            </div>
+            <div style="font-size: 24px; font-weight: 700; color: #ea580c; margin-top: 6px;">
+                &#8377;{rem_tax:,.2f}
+            </div>
+            <div style="font-size: 12px; color: #94a3b8; margin-top: 4px;">
+                Outstanding balance to be deducted over remaining months
+            </div>
+        </div>
+
+        <!-- Card 4: Remaining Periods -->
+        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+            <div style="font-size: 11px; color: #64748b; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px;">
+                Remaining Payroll Periods
+            </div>
+            <div style="font-size: 24px; font-weight: 700; color: #475569; margin-top: 6px;">
+                {rem_months} Month(s)
+            </div>
+            <div style="font-size: 12px; color: #94a3b8; margin-top: 4px;">
+                Remaining distribution cycles in {fy_name}
+            </div>
+        </div>
+    </div>
+
+    <!-- Highlight Callout: New Monthly TDS -->
+    <div style="background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border: 2px solid #3b82f6; border-radius: 10px; padding: 18px 22px; box-shadow: 0 2px 8px rgba(59,130,246,0.15);">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+            <div>
+                <div style="font-size: 13px; color: #1e40af; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px;">
+                    New Monthly TDS Withholding
+                </div>
+                <div style="font-size: 12px; color: #3b82f6; margin-top: 2px;">
+                    Updated monthly tax deduction to be deducted in upcoming payslips
+                </div>
+            </div>
+            <div style="font-size: 28px; font-weight: 800; color: #1d4ed8; text-align: right;">
+                &#8377;{monthly_tds:,.2f}<span style="font-size: 14px; font-weight: 600; color: #3b82f6;"> / month</span>
+            </div>
+        </div>
+    </div>
+</div>
+"""
+            rec.sudo().write({'recalculation_summary_html': rec_html})
+
+            view_id = self.env.ref('hudson_in_payroll.tds_recalculation_result_view_form').id
             return {
-                'type': 'ir.actions.client',
-                'tag': 'display_notification',
-                'params': {
-                    'title': _("Full TDS Recalculation Completed"),
-                    'message': _(
-                        "Tax Firm Approved Amounts applied across all sections for %s.\n"
-                        "Recalculated Annual Tax: ₹{:,.2f}\n"
-                        "TDS Paid YTD: ₹{:,.2f}\n"
-                        "Remaining Liability: ₹{:,.2f}\n"
-                        "Configured Remaining Months: %s\n"
-                        "New Monthly TDS Withholding: ₹{:,.2f}"
-                    ).format(annual_tax, ytd_paid, rem_tax, monthly_tds) % (rec.employee_id.name, rem_months),
-                    'type': 'success',
-                    'sticky': True,
-                }
+                'name': _('Full TDS Recalculation Completed'),
+                'type': 'ir.actions.act_window',
+                'res_model': 'tds.employee.declaration',
+                'res_id': rec.id,
+                'view_mode': 'form',
+                'views': [(view_id, 'form')],
+                'target': 'new',
+                'context': {'dialog_size': 'large'},
             }
 
     def action_reject(self):
@@ -3592,6 +3976,46 @@ is_within_8_years=%s""",
                 rec.id, rec.employee_id.name if rec.employee_id else 'N/A', rec.financial_year_id.name if rec.financial_year_id else 'N/A', old_state
             )
 
+    def unlink(self):
+        """Safeguard: Statutory tax declarations cannot be deleted by users."""
+        for record in self:
+            if not self.env.su:
+                raise UserError(_(
+                    "Employee Tax Declarations cannot be deleted as they are statutory compliance records. "
+                    "If updates are required, please adjust the values or reset the declaration via Employee Profile -> Income Tax."
+                ))
+        return super().unlink()
+
+    def action_open_employee_income_tax(self):
+        """Opens the Employee Profile to make edits or submit declarations via Income Tax tab."""
+        self.ensure_one()
+        return {
+            'type': 'ir.actions.act_window',
+            'name': _('Employee Profile'),
+            'res_model': 'hr.employee',
+            'res_id': self.employee_id.id,
+            'view_mode': 'form',
+            'target': 'current',
+        }
+
+    def action_open_proof_rule_guide(self):
+        """
+        Opens the Proof Documentation & Rule Guide in a dedicated dialog/popup modal,
+        reducing visual congestion on the main tax declaration form.
+        """
+        self.ensure_one()
+        view_id = self.env.ref('hudson_in_payroll.tds_declaration_rule_guide_view_form').id
+        return {
+            'name': _('Proof Documentation & Rule Guide'),
+            'type': 'ir.actions.act_window',
+            'res_model': 'tds.employee.declaration',
+            'res_id': self.id,
+            'view_mode': 'form',
+            'views': [(view_id, 'form')],
+            'target': 'new',
+            'context': {'dialog_size': 'extra-large'},
+        }
+
     def _sync_tax_regime(self):
         """
         Synchronizes tax_regime_id on declaration header to tds.employee.tax.regime master record.
@@ -3615,11 +4039,126 @@ is_within_8_years=%s""",
                         'regime_id': rec.tax_regime_id.id,
                     })
 
+    @api.model
+    def _set_proof_submission_date(self, vals):
+        """Record when the declaration reaches Proof Submitted (whichever way it gets there)."""
+        if vals.get('state') == 'proof_submitted' and not vals.get('proof_submission_date'):
+            vals = dict(vals, proof_submission_date=fields.Date.context_today(self))
+        return vals
+
     @api.model_create_multi
     def create(self, vals_list):
+        vals_list = [self._set_proof_submission_date(vals) for vals in vals_list]
         records = super().create(vals_list)
         records._sync_tax_regime()
         records._sync_all_declaration_lines(method_name='create')
+        if not self.env.context.get('no_tds_audit') and 'hds.in.payroll.audit' in self.env:
+            for rec in records:
+                if not rec.employee_id:
+                    continue
+                tracked_fields = [f for f in rec._DECLARATION_AUDIT_FIELDS if hasattr(rec, f)]
+                old_diff = {}
+                new_diff = {}
+                for f in tracked_fields:
+                    val = getattr(rec, f, None)
+                    if hasattr(val, 'name'):
+                        val = val.name
+                    if isinstance(val, (int, float)) and abs(float(val)) >= 0.01:
+                        old_diff[f] = 0.0
+                        new_diff[f] = float(val)
+                if new_diff:
+                    calc_date = fields.Date.today()
+                    self.env['hds.in.payroll.audit'].sudo().create({
+                        'employee_id': rec.employee_id.id,
+                        'company_id': rec.company_id.id or self.env.company.id,
+                        'user_id': self.env.uid,
+                        'statutory_module': 'tds',
+                        'rule_code': 'TDS_DECLARATION',
+                        'calculation_type': 'tax_declaration',
+                        'calculation_date': calc_date,
+                        'inputs_json': json.dumps(old_diff, default=str),
+                        'outputs_json': json.dumps(new_diff, default=str),
+                        'status': 'success',
+                    })
+                    audit_model = self.env['hds.in.payroll.audit']
+                    label_map = {
+                        'decl_80c_ppf': 'Public Provident Fund (PPF)',
+                        'decl_80c_elss': 'ELSS Mutual Funds',
+                        'decl_80c_epf': 'Voluntary EPF (VPF)',
+                        'decl_80c_lic': 'Life Insurance Premium (LIC)',
+                        'decl_80c_nsc': 'National Savings Certificate (NSC)',
+                        'decl_80c_ssy': 'Sukanya Samriddhi Yojana (SSY)',
+                        'decl_80c_fd': 'Tax Saving Fixed Deposit',
+                        'decl_80c_tuition': 'Children Tuition Fees',
+                        'decl_80c_housing_principal': 'Housing Loan Principal Repayment',
+                        'decl_80c_other': 'Other 80C Specified Investments',
+                        'decl_80ccd1b_nps': 'Employee Voluntary NPS (80CCD(1B))',
+                        'decl_80d_self': 'Medical Insurance (Self & Family)',
+                        'decl_80d_parents': 'Medical Insurance (Parents)',
+                        'decl_80d_preventive': 'Preventive Health Checkup',
+                        'decl_24b_self_interest': 'Interest on Housing Loan (Self-Occupied)',
+                        'decl_80eea_interest_amount': '80EEA Home Loan Additional Interest',
+                        'decl_80eea_interest': '80EEA Home Loan Additional Interest',
+                        'decl_hra_annual_rent': 'Annual House Rent Paid (HRA)',
+                        'decl_lta_declared_fare': 'Leave Travel Allowance (LTA)',
+                        'decl_80tta_interest': 'Savings Interest Deduction (80TTA)',
+                        'decl_80ttb_interest': 'Senior Citizen Interest (80TTB)',
+                        'decl_80e_interest': 'Education Loan Interest (80E)',
+                        'decl_80g_donation': 'Charitable Donations (80G)',
+                        'decl_80gg_rent': 'Rent Paid without HRA (80GG)',
+                        'decl_80dd_expenditure_amount': 'Dependent Disability (80DD)',
+                        'decl_80u_amount': 'Employee Disability (80U)',
+                        'decl_80ccd2_employer_nps': 'Employer NPS Contribution (80CCD(2))',
+                        'decl_57iia_family_pension': 'Family Pension Received (Section 57(iia))',
+                        'decl_80cch_agniveer': 'Agniveer Corpus Fund (80CCH)',
+                        'total_declared_amount': 'Total Declared Deductions',
+                        'total_approved_amount': 'Total Approved Deductions',
+                        'state': 'Declaration Status',
+                        'tax_regime_id': 'Tax Regime',
+                        'savings_bank_interest': 'Savings Account Interest',
+                        'fixed_deposit_interest': 'Fixed Deposit Interest',
+                        'dividend_income': 'Dividend Income',
+                        'other_sources_income': 'Other Miscellaneous Income',
+                        'total_other_sources_income': 'Total Other Sources Income',
+                        'annual_let_out_rent': 'Gross Annual Rent (Let-Out Property)',
+                        'municipal_taxes_paid': 'Municipal Taxes Paid',
+                        'let_out_interest_paid': 'Housing Loan Interest (Let-Out Property)',
+                        'net_house_property_income_loss': 'Net Property Income / Loss',
+                        'prev_employer_taxable_gross': 'Previous Employer Taxable Salary',
+                        'prev_employer_tds': 'Previous Employer TDS Deducted',
+                        'prev_employer_pt': 'Previous Employer PT Deducted',
+                        'prev_employer_pf': 'Previous Employer EPF',
+                    }
+                    diff_html_parts = []
+                    for k in rec._DECLARATION_AUDIT_FIELDS:
+                        if k in new_diff:
+                            old_f = audit_model._format_audit_value(k, old_diff.get(k))
+                            new_f = audit_model._format_audit_value(k, new_diff.get(k))
+                            lbl = label_map.get(k, k.replace('_', ' ').title())
+                            diff_html_parts.append(
+                                f'<div style="line-height: 1.45; margin-bottom: 1px;">'
+                                f'<span style="color: #212529;">{old_f}</span>'
+                                f'<span style="color: #495057;"> → </span>'
+                                f'<b style="color: #008784;">{new_f}</b>'
+                                f' <span style="color: #6c757d; font-style: italic;">({lbl})</span>'
+                                f'</div>'
+                            )
+                    if diff_html_parts:
+                        today_str = fields.Date.today().strftime('%b %d, %Y').replace(' 0', ' ')
+                        chatter_body = (
+                            f'<div style="color: #008784; font-weight: bold; margin-bottom: 3px;">'
+                            f'→ As of {today_str}</div>'
+                            + ''.join(diff_html_parts)
+                        )
+                        if hasattr(rec, 'message_post'):
+                            rec.message_post(body=Markup(chatter_body), subtype_xmlid='mail.mt_note')
+                        if rec.employee_id and hasattr(rec.employee_id, 'message_post'):
+                            fy_str = rec.financial_year_id.name if rec.financial_year_id else ''
+                            emp_body = (
+                                f'<div style="font-weight: 600; margin-bottom: 2px;">TDS Declaration Created ({fy_str}):</div>'
+                                + chatter_body
+                            )
+                            rec.employee_id.message_post(body=Markup(emp_body), subtype_xmlid='mail.mt_note')
         for rec in records:
             _logger.warning(
                 "[HR & ESS DECLARATION PERSISTENCE AUDIT] Created Declaration ID: %s | Employee: %s (ID: %s) | FY: %s | Total Declared: ₹%s | Line Items: %s",
@@ -3629,6 +4168,23 @@ is_within_8_years=%s""",
         return records
 
     def write(self, vals):
+        if isinstance(vals, dict):
+            vals = self._set_proof_submission_date(vals)
+        if self.env.context.get('no_tds_audit'):
+            return super().write(vals)
+
+        # 1. Capture old state for tracked fields
+        tracked_fields = [f for f in self._DECLARATION_AUDIT_FIELDS if hasattr(self, f)]
+        old_state = {}
+        for rec in self:
+            old_dict = {}
+            for f in tracked_fields:
+                val = getattr(rec, f, None)
+                if hasattr(val, 'name'):
+                    val = val.name
+                old_dict[f] = val
+            old_state[rec.id] = old_dict
+
         pre_deleted_lines = {}
         if vals and isinstance(vals, dict) and 'declaration_line_ids' in vals:
             for cmd in vals.get('declaration_line_ids') or []:
@@ -3641,11 +4197,154 @@ is_within_8_years=%s""",
         if not self.env.context.get('no_line_sync'):
             self._sync_tax_regime()
             self._sync_all_declaration_lines(method_name='write', write_vals=vals, pre_deleted_lines=pre_deleted_lines)
+
+        # 2. Check for differences and log to Audit Trail + Chatter
+        if 'hds.in.payroll.audit' in self.env:
+            for rec in self:
+                if not rec.employee_id:
+                    continue
+                rec_old = old_state.get(rec.id, {})
+                old_diff = {}
+                new_diff = {}
+                for f in tracked_fields:
+                    old_v = rec_old.get(f)
+                    new_v = getattr(rec, f, None)
+                    if hasattr(new_v, 'name'):
+                        new_v = new_v.name
+                    if isinstance(old_v, (int, float)) and isinstance(new_v, (int, float)):
+                        if round(float(old_v or 0.0), 2) != round(float(new_v or 0.0), 2):
+                            old_diff[f] = float(old_v or 0.0)
+                            new_diff[f] = float(new_v or 0.0)
+                    elif old_v != new_v:
+                        if old_v or new_v:
+                            old_diff[f] = old_v
+                            new_diff[f] = new_v
+
+                if new_diff:
+                    calc_date = fields.Date.today()
+                    self.env['hds.in.payroll.audit'].sudo().create({
+                        'employee_id': rec.employee_id.id,
+                        'company_id': rec.company_id.id or self.env.company.id,
+                        'user_id': self.env.uid,
+                        'statutory_module': 'tds',
+                        'rule_code': 'TDS_DECLARATION',
+                        'calculation_type': 'tax_declaration',
+                        'calculation_date': calc_date,
+                        'inputs_json': json.dumps(old_diff, default=str),
+                        'outputs_json': json.dumps(new_diff, default=str),
+                        'status': 'success',
+                    })
+                    audit_model = self.env['hds.in.payroll.audit']
+                    label_map = {
+                        'decl_80c_ppf': 'Public Provident Fund (PPF)',
+                        'decl_80c_elss': 'ELSS Mutual Funds',
+                        'decl_80c_epf': 'Voluntary EPF (VPF)',
+                        'decl_80c_lic': 'Life Insurance Premium (LIC)',
+                        'decl_80c_nsc': 'National Savings Certificate (NSC)',
+                        'decl_80c_ssy': 'Sukanya Samriddhi Yojana (SSY)',
+                        'decl_80c_fd': 'Tax Saving Fixed Deposit',
+                        'decl_80c_tuition': 'Children Tuition Fees',
+                        'decl_80c_housing_principal': 'Housing Loan Principal Repayment',
+                        'decl_80c_other': 'Other 80C Specified Investments',
+                        'decl_80ccd1b_nps': 'Employee Voluntary NPS (80CCD(1B))',
+                        'decl_80d_self': 'Medical Insurance (Self & Family)',
+                        'decl_80d_parents': 'Medical Insurance (Parents)',
+                        'decl_80d_preventive': 'Preventive Health Checkup',
+                        'decl_24b_self_interest': 'Interest on Housing Loan (Self-Occupied)',
+                        'decl_80eea_interest_amount': '80EEA Home Loan Additional Interest',
+                        'decl_80eea_interest': '80EEA Home Loan Additional Interest',
+                        'decl_hra_annual_rent': 'Annual House Rent Paid (HRA)',
+                        'decl_lta_declared_fare': 'Leave Travel Allowance (LTA)',
+                        'decl_80tta_interest': 'Savings Interest Deduction (80TTA)',
+                        'decl_80ttb_interest': 'Senior Citizen Interest (80TTB)',
+                        'decl_80e_interest': 'Education Loan Interest (80E)',
+                        'decl_80g_donation': 'Charitable Donations (80G)',
+                        'decl_80gg_rent': 'Rent Paid without HRA (80GG)',
+                        'decl_80dd_expenditure_amount': 'Dependent Disability (80DD)',
+                        'decl_80u_amount': 'Employee Disability (80U)',
+                        'decl_80ccd2_employer_nps': 'Employer NPS Contribution (80CCD(2))',
+                        'decl_57iia_family_pension': 'Family Pension Received (Section 57(iia))',
+                        'decl_80cch_agniveer': 'Agniveer Corpus Fund (80CCH)',
+                        'total_declared_amount': 'Total Declared Deductions',
+                        'total_approved_amount': 'Total Approved Deductions',
+                        'state': 'Declaration Status',
+                        'tax_regime_id': 'Tax Regime',
+                        'savings_bank_interest': 'Savings Account Interest',
+                        'fixed_deposit_interest': 'Fixed Deposit Interest',
+                        'dividend_income': 'Dividend Income',
+                        'other_sources_income': 'Other Miscellaneous Income',
+                        'total_other_sources_income': 'Total Other Sources Income',
+                        'annual_let_out_rent': 'Gross Annual Rent (Let-Out Property)',
+                        'municipal_taxes_paid': 'Municipal Taxes Paid',
+                        'let_out_interest_paid': 'Housing Loan Interest (Let-Out Property)',
+                        'net_house_property_income_loss': 'Net Property Income / Loss',
+                        'prev_employer_taxable_gross': 'Previous Employer Taxable Salary',
+                        'prev_employer_tds': 'Previous Employer TDS Deducted',
+                        'prev_employer_pt': 'Previous Employer PT Deducted',
+                        'prev_employer_pf': 'Previous Employer EPF',
+                    }
+                    diff_html_parts = []
+                    for k in rec._DECLARATION_AUDIT_FIELDS:
+                        if k in new_diff:
+                            old_f = audit_model._format_audit_value(k, old_diff.get(k))
+                            new_f = audit_model._format_audit_value(k, new_diff.get(k))
+                            lbl = label_map.get(k, k.replace('_', ' ').title())
+                            diff_html_parts.append(
+                                f'<div style="line-height: 1.45; margin-bottom: 1px;">'
+                                f'<span style="color: #212529;">{old_f}</span>'
+                                f'<span style="color: #495057;"> → </span>'
+                                f'<b style="color: #008784;">{new_f}</b>'
+                                f' <span style="color: #6c757d; font-style: italic;">({lbl})</span>'
+                                f'</div>'
+                            )
+                    if diff_html_parts:
+                        today_str = fields.Date.today().strftime('%b %d, %Y').replace(' 0', ' ')
+                        chatter_body = (
+                            f'<div style="color: #008784; font-weight: bold; margin-bottom: 3px;">'
+                            f'→ As of {today_str}</div>'
+                            + ''.join(diff_html_parts)
+                        )
+                        if hasattr(rec, 'message_post'):
+                            rec.message_post(body=Markup(chatter_body), subtype_xmlid='mail.mt_note')
+                        if rec.employee_id and hasattr(rec.employee_id, 'message_post'):
+                            fy_str = rec.financial_year_id.name if rec.financial_year_id else ''
+                            emp_body = (
+                                f'<div style="font-weight: 600; margin-bottom: 2px;">TDS Declaration Update ({fy_str}):</div>'
+                                + chatter_body
+                            )
+                            rec.employee_id.message_post(body=Markup(emp_body), subtype_xmlid='mail.mt_note')
+        if not self.env.context.get('no_att_sync'):
+            self.with_context(no_att_sync=True)._sync_attachments_to_master()
         _logger.warning(
             "[HR & ESS DECLARATION PERSISTENCE AUDIT] Write Called on Declaration IDs: %s | Payload Vals: %s",
             self.ids, vals
         )
         return res
+
+    def _sync_attachments_to_master(self):
+        """
+        Synchronizes all attachments uploaded via contextual fields or declaration line items
+        into the master attachment_ids pool.
+        """
+        contextual_fields = [
+            'decl_80c_attachment_ids', 'decl_80d_attachment_ids', 'decl_80ccd1b_attachment_ids',
+            'decl_hra_attachment_ids', 'decl_lta_attachment_ids', 'decl_24b_attachment_ids',
+            'decl_80e_attachment_ids', 'decl_80g_attachment_ids', 'decl_80gg_attachment_ids',
+            'decl_80dd_attachment_ids', 'decl_80u_attachment_ids', 'decl_57iia_attachment_ids',
+            'decl_80cch_attachment_ids', 'prev_employer_attachment_ids'
+        ]
+        for rec in self:
+            all_attachments = self.env['ir.attachment']
+            for fname in contextual_fields:
+                if hasattr(rec, fname):
+                    all_attachments |= getattr(rec, fname)
+            for line in rec.declaration_line_ids:
+                all_attachments |= line.attachment_ids
+            new_att = all_attachments - rec.attachment_ids
+            if new_att:
+                rec.with_context(no_tds_audit=True, no_line_sync=True, no_att_sync=True).sudo().write({
+                    'attachment_ids': [(4, att.id) for att in new_att]
+                })
 
     def _compute_proof_rule_guide_html(self):
         """
@@ -4054,27 +4753,28 @@ is_within_8_years=%s""",
                 ))
 
             # 11. BOTH REGIMES (Section 80CCH Agniveer Corpus Fund)
-            d_80cch = float(getattr(rec, 'decl_80cch_agniveer', 0.0) or 0.0)
-            line_80cch = sum(float(l.usable_amount if l.usable_amount is not None else (l.declared_amount or 0.0)) for l in rec.declaration_line_ids if l.category == '80cch' and getattr(l, 'active', True))
-            tot_80cch = max(d_80cch, line_80cch)
-            if tot_80cch > 0:
-                cards.append(self._build_card_html(
-                    section_code="Section 80CCH", section_title="Contributions to Agniveer Corpus Fund (Agnipath Scheme)",
-                    fy_name=fy_name, ay_name=ay_name, regime_title=regime_title,
-                    declared_amt=tot_80cch, eligible_amt=tot_80cch, cap_amt=None, excess_amt=0.0,
-                    param_code="HDS_IN_TDS_80CCH_DEDUCTION_LIMIT", param_val=tot_80cch, date_from=eval_date,
-                    statutory_rule="100% statutory deduction allowed for contributions made by an individual enrolled in the Agnipath Scheme to the Agniveer Corpus Fund u/s 80CCH(1). Allowed under BOTH Old and New Tax Regimes.",
-                    conditions=[
-                        "Deduction available for individual contribution to Agniveer Corpus Fund.",
-                        "No upper monetary statutory ceiling (100% of contribution allowed).",
-                        "Allowed under BOTH Old Tax Regime and New Tax Regime Income-tax Act, 2025 — Section 202(1)."
-                    ],
-                    typical_docs=[
-                        "Agniveer Corpus Fund Contribution Certificate / Statement",
-                        "Salary Slip showing Agniveer Corpus Fund Deduction",
-                        "Agnipath Enrollment Certificate / Defense Identity Record"
-                    ]
-                ))
+            if rec.hds_in_is_agnipath:
+                d_80cch = float(getattr(rec, 'decl_80cch_agniveer', 0.0) or 0.0)
+                line_80cch = sum(float(l.usable_amount if l.usable_amount is not None else (l.declared_amount or 0.0)) for l in rec.declaration_line_ids if l.category == '80cch' and getattr(l, 'active', True))
+                tot_80cch = max(d_80cch, line_80cch)
+                if tot_80cch > 0:
+                    cards.append(self._build_card_html(
+                        section_code="Section 80CCH", section_title="Contributions to Agniveer Corpus Fund (Agnipath Scheme)",
+                        fy_name=fy_name, ay_name=ay_name, regime_title=regime_title,
+                        declared_amt=tot_80cch, eligible_amt=tot_80cch, cap_amt=None, excess_amt=0.0,
+                        param_code="HDS_IN_TDS_80CCH_DEDUCTION_LIMIT", param_val=tot_80cch, date_from=eval_date,
+                        statutory_rule="100% statutory deduction allowed for contributions made by an individual enrolled in the Agnipath Scheme to the Agniveer Corpus Fund u/s 80CCH(1). Allowed under BOTH Old and New Tax Regimes.",
+                        conditions=[
+                            "Deduction available for individual contribution to Agniveer Corpus Fund.",
+                            "No upper monetary statutory ceiling (100% of contribution allowed).",
+                            "Allowed under BOTH Old Tax Regime and New Tax Regime Income-tax Act, 2025 — Section 202(1)."
+                        ],
+                        typical_docs=[
+                            "Agniveer Corpus Fund Contribution Certificate / Statement",
+                            "Salary Slip showing Agniveer Corpus Fund Deduction",
+                            "Agnipath Enrollment Certificate / Defense Identity Record"
+                        ]
+                    ))
 
             if not cards:
                 cards.append("""

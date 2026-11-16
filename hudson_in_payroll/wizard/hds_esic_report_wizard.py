@@ -2,11 +2,17 @@
 import base64
 import calendar
 import io
+import math
 from datetime import date
+# pyrefly: ignore [missing-import]
 from odoo import api, fields, models, _
+# pyrefly: ignore [missing-import]
 from odoo.exceptions import UserError
+# pyrefly: ignore [missing-import]
+from odoo.addons.hudson_in_payroll.services.esic.validator import ESICValidator
 
 try:
+    # pyrefly: ignore [missing-import]
     import xlsxwriter
 except ImportError:
     xlsxwriter = None
@@ -142,13 +148,25 @@ class HdsEsicReportWizard(models.Model):
             raise UserError(_("No payslips found for ESIC-applicable employees in the selected period (%s).") % self._get_month_label())
 
         # Pre-export statutory ESIC compliance validation
+        validator = ESICValidator(self.env)
+        from odoo.addons.hudson_in_payroll.services.esic.employee_calculator import ESICEmployeeCalculator
+        calc = ESICEmployeeCalculator(self.env)
+
+        # Pre-export statutory ESIC compliance validation for active covered employees
         from odoo.addons.hudson_in_payroll.services.compliance.statutory_compliance_service import StatutoryComplianceValidationService
         compliance_service = StatutoryComplianceValidationService(self.env)
-        compliance_service.validate_scope_compliance(
-            employees=payslips.mapped('employee_id'),
-            statutory_type='esic',
-            report_title='ESIC Report'
-        )
+        covered_employees = payslips.filtered(
+            lambda p: p.employee_id.hds_in_esic_applicable and (
+                p.line_ids.filtered(lambda l: l.code in ('ESIC_EE', 'ESI_EE', 'EMPLOYEE_ESIC', 'ESIC_DED', 'ESI', 'ESIC'))
+                or validator.is_esic_eligible(p)
+            )
+        ).mapped('employee_id')
+        if covered_employees:
+            compliance_service.validate_scope_compliance(
+                employees=covered_employees,
+                statutory_type='esic',
+                report_title='ESIC Report'
+            )
 
         esic_rows = []
         tot_wages = 0.0
@@ -159,17 +177,33 @@ class HdsEsicReportWizard(models.Model):
             emp = payslip.employee_id
             lines = payslip.line_ids
 
-            ip_number = getattr(emp, 'hds_in_esic_ip_number', False) or getattr(emp, 'esic_number', False) or ''
+            # Statutory Registration Number: ESIC Number from employee personal details
+            ip_number = (
+                getattr(emp, 'hds_in_esic_ip_number', False)
+                or getattr(emp, 'hds_in_esic_number', False)
+                or getattr(emp, 'esic_number', False)
+                or '-'
+            )
             emp_name = emp.name or ''
+            clean_ip_name = ''.join(c for c in emp_name if c.isalpha() or c.isspace()).strip()
+            if not clean_ip_name:
+                clean_ip_name = emp_name
 
-            # Calculate worked / payable days
-            unpaid_lines = payslip.worked_days_line_ids.filtered(lambda l: l.code in ('UNPAID', 'ABSENT', 'LEAVE_UNPAID'))
-            lop_days = sum(unpaid_lines.mapped('number_of_days')) if unpaid_lines else 0
-            if getattr(payslip, 'hds_snapshot_id', False) and payslip.hds_snapshot_id.lop_days:
-                lop_days = payslip.hds_snapshot_id.lop_days
+            # Employee Number: Employee Code from employee module
+            emp_number = (
+                getattr(emp, 'employee_code', False)
+                or getattr(emp, 'registration_number', False)
+                or getattr(emp, 'barcode', False)
+                or getattr(emp, 'identification_id', False)
+                or '-'
+            )
 
-            month_days = calendar.monthrange(int(self.year), int(self.month))[1]
-            worked_days = max(0, int(month_days - lop_days))
+            # Dynamically determine exact payable / worked days using pure statutory engine
+            if getattr(payslip, 'hds_in_esic_paid_days', False):
+                paid_days_val = payslip.hds_in_esic_paid_days
+            else:
+                paid_days_val = calc.get_paid_days(payslip)
+            worked_days = int(math.ceil(paid_days_val)) if paid_days_val > 0 else 0
 
             # ESI Contributable Wage
             wage_lines = lines.filtered(lambda l: l.code in ('ESIC_WAGE', 'ESI_WAGE', 'ESIC_CONTRIBUTABLE_WAGE'))
@@ -179,39 +213,86 @@ class HdsEsicReportWizard(models.Model):
                 gross_lines = lines.filtered(lambda l: l.code == 'GROSS')
                 esi_wage = abs(gross_lines[0].total) if gross_lines else (payslip.contract_id.wage if payslip.contract_id else 0.0)
 
-            # Employee ESI Deduction (0.75%)
+            # Dynamic statutory ceiling and date-effective contribution rates
+            eval_date = payslip.date_to or date_to
+            applicable_ceiling = validator.get_applicable_ceiling(payslip)
+            ee_rate = self.env['hr.rule.parameter'].get_parameter('hds_in_esic_employee_rate', date=eval_date, as_decimal=True)
+            er_rate = self.env['hr.rule.parameter'].get_parameter('hds_in_esic_employer_rate', date=eval_date, as_decimal=True)
+            is_covered = emp.hds_in_esic_applicable and (esi_wage <= applicable_ceiling or validator.is_esic_eligible(payslip, gross_wage=esi_wage))
+
+            # Employee ESI Deduction
             ee_lines = lines.filtered(lambda l: l.code in ('ESIC_EE', 'ESI_EE', 'EMPLOYEE_ESIC', 'ESIC_DED', 'ESI', 'ESIC'))
             if ee_lines:
                 ee_contrib = abs(sum(ee_lines.mapped('total')))
             else:
-                ee_contrib = round(esi_wage * 0.0075, 2) if (emp.hds_in_esic_applicable and esi_wage <= 21000.0) else 0.0
+                ee_contrib = round(esi_wage * ee_rate, 2) if is_covered else 0.0
 
-            # Employer ESI Contribution (3.25%)
+            # Employer ESI Contribution
             er_lines = lines.filtered(lambda l: l.code in ('ESIC_ER', 'ESI_ER', 'EMPLOYER_ESIC'))
             if er_lines:
                 er_contrib = abs(sum(er_lines.mapped('total')))
             else:
-                er_contrib = round(esi_wage * 0.0325, 2) if (emp.hds_in_esic_applicable and esi_wage <= 21000.0) else 0.0
+                er_contrib = round(esi_wage * er_rate, 2) if is_covered else 0.0
 
-            reason_code = getattr(emp, 'hds_in_esic_exit_reason', False) or ''
             tot_contrib = round(ee_contrib + er_contrib, 2)
+
+            # Determine Reason Code for zero working days and Last Working Day
+            reason_code = 0
+            last_working_day = ''
+
+            if worked_days == 0:
+                dep_reason = getattr(emp, 'departure_reason_id', None)
+                reason_name = (dep_reason.name or '').lower() if dep_reason else ''
+                dep_date = getattr(emp, 'departure_date', False) or getattr(emp, 'resign_date', False)
+
+                if 'retire' in reason_name:
+                    reason_code = 3
+                elif any(k in reason_name for k in ('death', 'deceased', 'expire')):
+                    reason_code = 5
+                elif 'retrench' in reason_name:
+                    reason_code = 10
+                elif any(k in reason_name for k in ('resigned', 'left', 'departure')):
+                    reason_code = 2
+                elif 'leave' in reason_name:
+                    reason_code = 1
+                elif dep_date and dep_date <= date_to:
+                    reason_code = 2
+                else:
+                    reason_code = 0
+
+                if reason_code in (2, 3, 4, 5, 10):
+                    resolved_exit = dep_date or (payslip.contract_id.date_end if payslip.contract_id else False)
+                    if resolved_exit:
+                        if isinstance(resolved_exit, str):
+                            resolved_exit = fields.Date.from_string(resolved_exit)
+                        last_working_day = resolved_exit.strftime('%d/%m/%Y')
 
             esic_rows.append({
                 'ip_number': ip_number,
                 'employee_name': emp_name,
+                'ip_name': clean_ip_name,
+                'employee_number': emp_number,
                 'number_of_days': worked_days,
                 'total_monthly_wages': round(esi_wage, 2),
                 'employee_contribution': round(ee_contrib, 2),
                 'employer_contribution': round(er_contrib, 2),
                 'total_contribution': tot_contrib,
                 'reason_code': reason_code,
+                'last_working_day': last_working_day,
             })
 
             tot_wages += esi_wage
             tot_ee += ee_contrib
             tot_er += er_contrib
 
-        est_code = getattr(self.company_id, 'hds_in_esic_employer_code', False) or getattr(self.company_id, 'vat', '') or ''
+        # Establishment ID: ESIC IP Number from company settings
+        est_code = (
+            getattr(self.company_id, 'hds_in_esic_employer_code', False)
+            or getattr(self.company_id, 'hds_in_esic_registration_no', False)
+            or getattr(self.company_id, 'vat', False)
+            or getattr(self.company_id, 'company_registry', False)
+            or '-'
+        )
         return {
             'esic_rows': esic_rows,
             'tot_wages': round(tot_wages, 2),
@@ -239,58 +320,281 @@ class HdsEsicReportWizard(models.Model):
         tot_er = data['tot_er']
 
         month_label = self._get_month_label().replace(' ', '_')
-        if self.report_type == 'esi_summary':
-            xlsx_filename = f"ESI_Summary_Report_{month_label}.xlsx"
+        if self.report_type == 'esic_report':
+            xlsx_filename = f"ESIC_Monthly_Statement_{month_label}.xlsx"
         else:
-            xlsx_filename = f"ESIC_Report_{month_label}.xlsx"
+            xlsx_filename = f"ESIC_Summary_{month_label}.xlsx"
 
         output = io.BytesIO()
         if xlsxwriter:
             workbook = xlsxwriter.Workbook(output, {'in_memory': True})
-            header_fmt = workbook.add_format({'bold': True, 'bg_color': '#1F4E78', 'font_color': '#FFFFFF', 'border': 1, 'align': 'center', 'valign': 'vcenter'})
-            num_fmt = workbook.add_format({'num_format': '#,##0.00', 'border': 1})
-            text_fmt = workbook.add_format({'border': 1})
-            meta_label_fmt = workbook.add_format({'bold': True, 'font_size': 11})
-            meta_val_fmt = workbook.add_format({'font_size': 11})
+            title_fmt = workbook.add_format({
+                'bold': True,
+                'align': 'center',
+                'valign': 'vcenter',
+                'font_size': 13,
+            })
+            meta_bold_fmt = workbook.add_format({
+                'bold': True,
+                'font_size': 10,
+                'valign': 'vcenter',
+            })
+            meta_val_fmt = workbook.add_format({
+                'font_size': 10,
+                'valign': 'vcenter',
+            })
+            header_fmt = workbook.add_format({
+                'bold': True,
+                'bg_color': '#D9D9D9',
+                'font_color': '#000000',
+                'border': 1,
+                'align': 'center',
+                'valign': 'vcenter',
+                'font_size': 9,
+                'text_wrap': True,
+            })
+            text_left_fmt = workbook.add_format({
+                'border': 1,
+                'align': 'left',
+                'valign': 'vcenter',
+                'font_size': 9,
+            })
+            text_center_fmt = workbook.add_format({
+                'border': 1,
+                'align': 'center',
+                'valign': 'vcenter',
+                'font_size': 9,
+            })
+            num_center_fmt = workbook.add_format({
+                'border': 1,
+                'align': 'center',
+                'valign': 'vcenter',
+                'font_size': 9,
+            })
+            wage_fmt = workbook.add_format({
+                'num_format': '0.00',
+                'border': 1,
+                'align': 'right',
+                'valign': 'vcenter',
+                'font_size': 9,
+            })
+            reason_code_fmt = workbook.add_format({
+                'num_format': '0',
+                'border': 1,
+                'align': 'center',
+                'valign': 'vcenter',
+                'font_size': 9,
+            })
+            num_fmt = workbook.add_format({
+                'num_format': '#,##0.00',
+                'border': 1,
+                'align': 'right',
+                'valign': 'vcenter',
+                'font_size': 9,
+            })
 
-            if self.report_type == 'esi_summary':
-                sheet = workbook.add_worksheet('ESI Summary')
+            if self.report_type == 'esic_report':
+                # ═════════════════════════════════════════════════════════════
+                # Sheet 1: Employees' State Insurance Corp (Portal Upload Format)
+                # ═════════════════════════════════════════════════════════════
+                sheet = workbook.add_worksheet("Employees' State Insurance Corp")
+                sheet.set_column(0, 0, 24)  # IP Number (10 Digits)
+                sheet.set_column(1, 1, 32)  # IP Name (Only alphabets and space)
+                sheet.set_column(2, 2, 24)  # No of Days for which wages paid/payable during the month
+                sheet.set_column(3, 3, 20)  # Total Monthly Wages
+                sheet.set_column(4, 4, 32)  # Reason Code for Zero workings days
+                sheet.set_column(5, 5, 26)  # Last Working Day
 
+                # Row 1 (Index 0): Title banner
+                sheet.set_row(0, 26)
+                sheet.merge_range(0, 0, 0, 5, 'ESIC - Monthly Statement', title_fmt)
+
+                # Row 2 (Index 1): Establishment Name
+                sheet.set_row(1, 20)
+                sheet.write(1, 0, 'Establishment Name', meta_bold_fmt)
+                sheet.write(1, 1, data.get('est_name') or self.company_id.name or '', meta_val_fmt)
+
+                # Row 3 (Index 2): Establishment ID
+                sheet.set_row(2, 20)
+                sheet.write(2, 0, 'Establishment ID', meta_bold_fmt)
+                sheet.write_string(2, 1, str(data.get('est_code') or '-'), meta_val_fmt)
+
+                # Row 4 (Index 3): Blank separator row
+                sheet.set_row(3, 16)
+
+                # Row 5 (Index 4): Table Headers
+                sheet.set_row(4, 36)
                 headers = [
-                    'Establishment/Company', 'Reporting Month & Year', 'Total Employees Covered',
-                    'Total ESI Wages', 'Total Employee Contribution', 'Total Employer Contribution', 'Total ESI Payable'
+                    'IP Number (10 Digits)',
+                    'IP Name (Only alphabets and space)',
+                    'No of Days for which wages paid/payable during the month',
+                    'Total Monthly Wages',
+                    'Reason Code for Zero workings days(Numeric Only: provide 0 for all other reasons)',
+                    'Last Working Day (Format DD/MM/YYYY or DD-MM-YYYY)',
                 ]
                 for col_idx, text in enumerate(headers):
-                    sheet.write(0, col_idx, text, header_fmt)
+                    sheet.write(4, col_idx, text, header_fmt)
 
-                total_payable = round(tot_ee + tot_er, 2)
-                sheet.write(1, 0, self.company_id.name or '', text_fmt)
-                sheet.write(1, 1, self._get_month_label(), text_fmt)
-                sheet.write(1, 2, len(esic_rows), text_fmt)
-                sheet.write(1, 3, round(tot_wages, 2), num_fmt)
-                sheet.write(1, 4, round(tot_ee, 2), num_fmt)
-                sheet.write(1, 5, round(tot_er, 2), num_fmt)
-                sheet.write(1, 6, total_payable, num_fmt)
+                # Rows 6+ (Index 5+): Employee data rows
+                for row_idx, r in enumerate(esic_rows, start=5):
+                    sheet.set_row(row_idx, 20)
+                    sheet.write_string(row_idx, 0, str(r['ip_number'] or ''), text_left_fmt)
+                    sheet.write(row_idx, 1, str(r.get('ip_name') or r['employee_name'] or ''), text_left_fmt)
+                    sheet.write(row_idx, 2, r['number_of_days'], num_center_fmt)
+                    sheet.write(row_idx, 3, r['total_monthly_wages'], wage_fmt)
+                    sheet.write(row_idx, 4, int(r.get('reason_code', 0) or 0), reason_code_fmt)
+                    sheet.write_string(row_idx, 5, str(r.get('last_working_day') or ''), text_center_fmt)
+
+                # ═════════════════════════════════════════════════════════════
+                # Sheet 2: Reason & Upload Instructions
+                # ═════════════════════════════════════════════════════════════
+                reason_sheet = workbook.add_worksheet('Instructions & Reason Codes')
+                reason_sheet.set_column(0, 0, 36)
+                reason_sheet.set_column(1, 1, 10)
+                reason_sheet.set_column(2, 2, 95)
+
+                reason_header_fmt = workbook.add_format({
+                    'bold': True,
+                    'border': 1,
+                    'align': 'center',
+                    'valign': 'vcenter',
+                    'font_size': 10,
+                })
+                reason_text_fmt = workbook.add_format({
+                    'border': 1,
+                    'align': 'left',
+                    'valign': 'vcenter',
+                    'font_size': 9,
+                })
+                reason_code_fmt = workbook.add_format({
+                    'border': 1,
+                    'align': 'center',
+                    'valign': 'vcenter',
+                    'font_size': 9,
+                })
+                inst_title_fmt = workbook.add_format({
+                    'bold': True,
+                    'font_size': 11,
+                    'valign': 'vcenter',
+                })
+                inst_text_fmt = workbook.add_format({
+                    'font_size': 9,
+                    'valign': 'vcenter',
+                })
+
+                # Row 1 (Index 0): Headers
+                reason_sheet.set_row(0, 20)
+                reason_sheet.write(0, 0, 'Reason', reason_header_fmt)
+                reason_sheet.write(0, 1, 'Code', reason_header_fmt)
+                reason_sheet.write(0, 2, 'Note', reason_header_fmt)
+
+                # Rows 2 to 15 (Index 1 to 14): Reason Code Table
+                reason_table = [
+                    ('Without Reason', 0, 'Leave last working day as blank'),
+                    ('On Leave', 1, 'Leave last working day as blank'),
+                    ('Left Service', 2, 'Please provide last working day (dd/mm/yyyy). IP will not appear from next wage period'),
+                    ('Retired', 3, 'Please provide last working day (dd/mm/yyyy). IP will not appear from next wage period'),
+                    ('Out of Coverage', 4, 'Please provide last working day (dd/mm/yyyy). IP will not appear from next contribution period. This option is valid only if Wage Period is April/October. In case any other month then IP will continue to appear in the list'),
+                    ('Expired', 5, 'Please provide last working day (dd/mm/yyyy). IP will not appear from next wage period'),
+                    ('Non Implemented area', 6, 'Please provide last working day (dd/mm/yyyy)'),
+                    ('Compliance by Immediate Employer', 7, 'Leave last working day as blank'),
+                    ('Suspension of work', 8, 'Leave last working day as blank'),
+                    ('Strike/Lockout', 9, 'Leave last working day as blank'),
+                    ('Retrenchment', 10, 'Please provide last working day (dd/mm/yyyy). IP will not appear from next wage period'),
+                    ('No Work', 11, 'Leave last working day as blank'),
+                    ('Doesnt Belong To This Employer', 12, 'Leave last working day as blank'),
+                    ('Duplicate IP', 13, 'Leave last working day as blank'),
+                ]
+
+                for idx, (reason_desc, code_val, note_text) in enumerate(reason_table, start=1):
+                    reason_sheet.set_row(idx, 18)
+                    reason_sheet.write(idx, 0, reason_desc, reason_text_fmt)
+                    reason_sheet.write(idx, 1, code_val, reason_code_fmt)
+                    reason_sheet.write(idx, 2, note_text, reason_text_fmt)
+
+                # Row 16 (Index 15): Blank row
+                reason_sheet.set_row(15, 15)
+
+                # Row 17 (Index 16): Section title
+                reason_sheet.set_row(16, 22)
+                reason_sheet.write(16, 0, 'Instructions to fill in the excel file:', inst_title_fmt)
+
+                # Rows 18 to 32 (Index 17 to 31): Instructions 1 to 11
+                instructions = [
+                    "1. Enter the IP number, IP name, No. of Days, Total Monthly Wages, Reason for 0 wages(If Wages '0') & Last Working Day(only if employee has left service, Retired, Out of coverage, Expired, Non-Implementedarea or Retrenchment. For other reasons, last working day must be left BLANK)",
+                    "2. Number of days must me a whole number. Fractions should be rounded up to next higher whole number/integer",
+                    "3. Excel sheet upload will lead to successful transaction only when all the Employees' (who are currently mapped in the system) details are entered perfectly in the excel sheet",
+                    "4. Reasons are to be assigned numeric code and date has to be provided as mentioned in the table above",
+                    "5. Once 0 wages given and last working day is mentioned as in reason codes (2,3,4,5,10) IP will be removed from the employer's record. Subsequent months will not have this IP listed under the employer.Last working day should be mentioned only if 'Number of days wages paid/payable' is '0'",
+                    "6. In case IP has worked for part of the month(i.e. atleast 1 day wage is paid/payable) and left in between of the month, then last working day shouldn't be mentioned",
+                    "7. Calculations - IP Contribution and Employer contribution calculation will be automatically done by the system",
+                    "8. Date column format is dd/mm/yyyy or dd-mm-yyyy. Pad single digit dates with 0. Eg:- 2/5/2010 or 2-May-2010 is NOT acceptable. Correct format is 02/05/2010 or 02-05-2010",
+                    "9. Excel file should be saved in .xls format (Excel 97-2003)",
+                    "10. Note that all the column including date column should be in 'Text' format",
+                    "10a. To convert all columns to text",
+                    "a. Select column A; Click Data in Menu Bar on top; Select Text to Columns ; Click Next (keep default selection of Delimited); Click Next (keep default selection of Tab); Select TEXT; Click FINISH.",
+                    "b. Repeat the above step for each of the 6 columns. (Columns A - F )",
+                    "10b. Another method that can be used to text conversion is - copy the column with data and paste it in NOTEPAD.Select the column (in excel) and convert to text. Copy the data back from notepad to excel",
+                    "11. If problem continues while upload, download a fresh template by clicking 'Sample MC Excel Template'. Then copy the data area from Step 8a.a - eg: copy Cell A2 to F8 (if there is data in 8 rows); Paste it in cell A2 in the fresh template. Upload it",
+                ]
+
+                for idx, inst_line in enumerate(instructions, start=17):
+                    reason_sheet.set_row(idx, 18)
+                    reason_sheet.write(idx, 0, inst_line, inst_text_fmt)
+
             else:
-                sheet = workbook.add_worksheet('ESIC Report')
+                # ═════════════════════════════════════════════════════════════
+                # ESI Summary Report (Format unchanged)
+                # ═════════════════════════════════════════════════════════════
+                sheet = workbook.add_worksheet('ESIC - Summary')
+                sheet.set_column(0, 0, 26)  # EMPLOYEE NAME
+                sheet.set_column(1, 1, 20)  # EMPLOYEE NUMBER
+                sheet.set_column(2, 2, 34)  # STATUTORY REGISTRATION NUMBER
+                sheet.set_column(3, 3, 16)  # ESI WAGES
+                sheet.set_column(4, 4, 24)  # EMPLOYEE CONTRIBUTION
+                sheet.set_column(5, 5, 24)  # EMPLOYER CONTRIBUTION
+                sheet.set_column(6, 6, 20)  # TOTAL REMITTED
 
+                # Row 1 (Index 0): Title banner
+                sheet.set_row(0, 24)
+                sheet.merge_range(0, 0, 0, 6, 'ESIC - Summary', title_fmt)
+
+                # Row 2 (Index 1): Establishment Name
+                sheet.set_row(1, 20)
+                sheet.write(1, 0, 'Establishment Name', meta_bold_fmt)
+                sheet.write(1, 1, data.get('est_name') or self.company_id.name or '', meta_val_fmt)
+
+                # Row 3 (Index 2): Establishment ID
+                sheet.set_row(2, 20)
+                sheet.write(2, 0, 'Establishment ID', meta_bold_fmt)
+                sheet.write_string(2, 1, str(data.get('est_code') or '-'), meta_val_fmt)
+
+                # Row 4 (Index 3): Blank separator row
+                sheet.set_row(3, 15)
+
+                # Row 5 (Index 4): Table Headers
+                sheet.set_row(4, 22)
                 headers = [
-                    'IP Number / ESIC Number', 'Employee Name', 'Number of Days',
-                    'Total Monthly Wages', 'Employee Contribution', 'Employer Contribution',
-                    'Total Contribution', 'Reason Code'
+                    'EMPLOYEE NAME',
+                    'EMPLOYEE NUMBER',
+                    'STATUTORY REGISTRATION NUMBER',
+                    'ESI WAGES',
+                    'EMPLOYEE CONTRIBUTION',
+                    'EMPLOYER CONTRIBUTION',
+                    'TOTAL REMITTED',
                 ]
                 for col_idx, text in enumerate(headers):
-                    sheet.write(0, col_idx, text, header_fmt)
+                    sheet.write(4, col_idx, text, header_fmt)
 
-                for row_idx, r in enumerate(esic_rows, start=1):
-                    sheet.write(row_idx, 0, r['ip_number'], text_fmt)
-                    sheet.write(row_idx, 1, r['employee_name'], text_fmt)
-                    sheet.write(row_idx, 2, r['number_of_days'], text_fmt)
+                # Rows 6+ (Index 5+): Data rows
+                for row_idx, r in enumerate(esic_rows, start=5):
+                    sheet.write(row_idx, 0, r['employee_name'], text_left_fmt)
+                    sheet.write_string(row_idx, 1, str(r['employee_number'] or '-'), text_center_fmt)
+                    sheet.write_string(row_idx, 2, str(r['ip_number'] or '-'), text_left_fmt)
                     sheet.write(row_idx, 3, r['total_monthly_wages'], num_fmt)
                     sheet.write(row_idx, 4, r['employee_contribution'], num_fmt)
                     sheet.write(row_idx, 5, r['employer_contribution'], num_fmt)
                     sheet.write(row_idx, 6, r['total_contribution'], num_fmt)
-                    sheet.write(row_idx, 7, r['reason_code'], text_fmt)
 
             workbook.close()
             output.seek(0)
@@ -298,9 +602,16 @@ class HdsEsicReportWizard(models.Model):
         else:
             xlsx_content = b"Excel export requires xlsxwriter library."
 
+        try:
+            # pyrefly: ignore [missing-import]
+            from odoo.tools import BinaryBytes
+            file_data = BinaryBytes(xlsx_content, filename=xlsx_filename)
+        except Exception:
+            file_data = base64.b64encode(xlsx_content).decode('utf-8')
+
         self.write({
             'state': 'generated',
-            'xlsx_file': base64.b64encode(xlsx_content),
+            'xlsx_file': file_data,
             'xlsx_filename': xlsx_filename,
             'record_count': len(esic_rows),
             'total_esi_wages': tot_wages,

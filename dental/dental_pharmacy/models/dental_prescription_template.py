@@ -3,22 +3,21 @@ from odoo import models, fields, api, _
 
 class DentalPrescriptionTemplate(models.Model):
     _name = 'dental.prescription.template'
-    _description = 'Dental Clinical Prescription Protocol / Template'
-    _order = 'name asc'
+    _description = 'Prescription Template'
+    _order = 'sequence, name'
 
     name = fields.Char(
-        string='Protocol Name',
+        string='Template Name',
         required=True,
         help='Clinical protocol name, e.g., Post-Extraction Standard Regimen, Acute Abscess Protocol'
     )
     code = fields.Char(
-        string='Protocol Code',
+        string='Short Code',
         help='Short reference code, e.g., POST-EXT, PULP-01'
     )
     indication = fields.Char(
-        string='Clinical Indication / Diagnosis',
-        required=True,
-        help='Standard diagnosis or indication for this protocol'
+        string='Indication',
+        help='Diagnosis or reason this template is used for; copied to the prescription'
     )
     notes = fields.Text(
         string='Clinical Advice / Special Instructions',
@@ -28,6 +27,9 @@ class DentalPrescriptionTemplate(models.Model):
         string='Active',
         default=True
     )
+    sequence = fields.Integer(default=10)
+    medicine_count = fields.Integer(string='Medicines', compute='_compute_medicine_summary')
+    medicine_summary = fields.Text(string='Medicines Summary', compute='_compute_medicine_summary')
     line_ids = fields.One2many(
         'dental.prescription.template.line',
         'template_id',
@@ -39,6 +41,15 @@ class DentalPrescriptionTemplate(models.Model):
         string='Clinic Branch',
         default=lambda self: self.env.company
     )
+
+    @api.depends('line_ids.medicine_id', 'line_ids.frequency', 'line_ids.duration')
+    def _compute_medicine_summary(self):
+        for template in self:
+            labels = dict(template.line_ids._fields['frequency']._description_selection(self.env))
+            template.medicine_count = len(template.line_ids)
+            template.medicine_summary = '\n'.join(
+                '%s · %s · %s' % (line.medicine_id.display_name, labels.get(line.frequency, ''), _('%s days', line.duration))
+                for line in template.line_ids if line.medicine_id) or False
 
 
 class DentalPrescriptionTemplateLine(models.Model):

@@ -13,6 +13,12 @@
                         <group string="Tax Deducted at Source (TDS)">
                             <field name="hds_in_tds_applicable"/>
                             <field name="hds_in_tan" placeholder="e.g. ABCD12345E" required="hds_in_tds_applicable"/>
+                            <field name="hds_in_company_pan" placeholder="e.g. ABCDE1234F"/>
+                            <field name="hds_in_deductor_type"/>
+                            <field name="hds_in_tds_responsible_name"/>
+                            <field name="hds_in_tds_responsible_designation"/>
+                            <field name="hds_in_tds_responsible_email" widget="email"/>
+                            <field name="hds_in_tds_responsible_mobile" widget="phone"/>
                             <field name="hds_in_default_tax_regime" widget="radio" options="{'horizontal': true}" required="hds_in_tds_applicable"/>
                             <field name="hds_in_default_tax_year" placeholder="Select Default Tax Year"/>
                         </group>
@@ -25,19 +31,16 @@
                         </group>
                     </group>
                     <group>
-                        <!-- EPF & EPS Section -->
+                        <!-- Employee Provident Fund (EPF) Section -->
                         <group string="Employee Provident Fund (EPF)">
                             <field name="hds_in_epf_applicable"/>
                             <field name="hds_in_epf_employer_id" placeholder="e.g. MH/BAN/0012345/000" invisible="not hds_in_epf_applicable"/>
-                            <field name="hds_in_eps_applicable"/>
-                            <field name="hds_in_edli_applicable"/>
-                            <field name="hds_in_edli_registration_number" invisible="not hds_in_edli_applicable"/>
                         </group>
 
                         <!-- ESIC Section -->
                         <group string="Employees' State Insurance (ESIC)">
                             <field name="hds_in_esic_applicable"/>
-                            <field name="hds_in_esic_employer_code" placeholder="e.g. 31000123450000101" invisible="not hds_in_esic_applicable"/>
+                            <field name="hds_in_esic_employer_code" placeholder="e.g. 34567788876890875" invisible="not hds_in_esic_applicable"/>
                             <field name="hds_in_esic_registration_no" placeholder="e.g. ESIC/MH/3100012" invisible="not hds_in_esic_applicable"/>
                             <field name="hds_in_esic_branch_office" placeholder="e.g. Sub-Regional Office Thane" invisible="not hds_in_esic_applicable"/>
                         </group>
@@ -51,6 +54,17 @@
                         <group string="Gratuity">
                             <field name="hds_in_enable_gratuity"/>
                             <field name="hds_in_gratuity_registration_no" placeholder="e.g. GR/MH/2024/00567" invisible="not hds_in_enable_gratuity"/>
+                        </group>
+                    </group>
+                    <group>
+                        <!-- Leave Encashment Section -->
+                        <group string="Leave Encashment">
+                            <field name="hds_in_enable_leave_encashment"/>
+                            <field name="hds_in_leave_encashment_registration_no" placeholder="e.g. LE/MH/2026/00123" invisible="not hds_in_enable_leave_encashment"/>
+                        </group>
+                        <group string="Notice Pay Settlement">
+                            <field name="hds_in_enable_notice_pay_settlement"/>
+                            <field name="hds_in_notice_period_unit" invisible="not hds_in_enable_notice_pay_settlement"/>
                         </group>
                     </group>
                 </page>

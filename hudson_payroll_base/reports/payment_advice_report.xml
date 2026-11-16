@@ -6,89 +6,77 @@
         <field name="model">hudson.payroll.payment.advice</field>
         <field name="report_type">qweb-pdf</field>
         <field name="report_name">hudson_payroll_base.report_payment_advice_document</field>
-        <field name="print_report_name">'Payment_Advice_' + (object.name or '').replace('/', '_')</field>
+<field name="print_report_name">'Payment_Advice_' + (object.name or '').replace('/', '_')</field>
         <field name="binding_model_id" ref="model_hudson_payroll_payment_advice"/>
         <field name="binding_type">report</field>
     </record>
 
-    <!-- QWeb PDF Template -->
+    <!-- QWeb PDF Template (bank letter layout) -->
     <template id="report_payment_advice_document">
         <t t-call="web.html_container">
             <t t-foreach="docs" t-as="doc">
                 <t t-call="web.external_layout">
-                    <div class="page">
-                        <div class="row mb-4">
-                            <div class="col-12 text-center">
-                                <h2><strong>BANK PAYMENT ADVICE</strong></h2>
-                                <h4><span t-field="doc.name"/></h4>
-                            </div>
+                    <t t-set="currency" t-value="doc.company_id.currency_id"/>
+                    <t t-set="company_bank_acc" t-value="(doc.company_bank_id.account_number if 'account_number' in doc.company_bank_id._fields else doc.company_bank_id.acc_number) or ''"/>
+                    <t t-set="period_label" t-value="doc.get_period_label()"/>
+                    <div class="page" style="font-size: 13px;">
+                        <h2 class="text-center mb-3" style="color: #b03a2e; font-weight: 600;">Payment Advice</h2>
+
+                        <div class="text-end mb-3">
+                            <div>Made on <span t-out="(doc.create_date or doc.date).strftime('%d-%m-%Y')"/></div>
+                            <div>Payment date <span t-out="doc.date.strftime('%d-%m-%Y') if doc.date else ''"/></div>
                         </div>
 
-                        <div class="row mb-4">
-                            <div class="col-6">
-                                <span t-if="doc.payslip_run_id"><strong>Pay Run:</strong> <span t-field="doc.payslip_run_id.name"/><br/></span>
-                                <span t-if="doc.payslip_id"><strong>Payslip:</strong> <span t-field="doc.payslip_id.name"/><br/></span>
-                                <strong>Date:</strong> <span t-field="doc.date"/><br/>
-                                <strong>Company:</strong> <span t-field="doc.company_id.name"/>
-                            </div>
-                            <div class="col-6 text-end">
-                                <strong>Disbursing Bank:</strong> <span t-field="doc.company_bank_id.bank_id.name"/><br/>
-                                <strong>Account No:</strong> <span t-field="doc.company_bank_id.acc_number"/><br/>
-                                <strong>Total Disbursed:</strong> 
-                                <span t-out="doc.total_amount" t-options='{"widget": "monetary", "display_currency": doc.company_id.currency_id}'/>
-                            </div>
-                        </div>
+                        <p class="mb-3">To,<br/>The Manager,</p>
+                        <p class="mb-3">Dear Sir/Madam,</p>
 
-                        <table class="table table-sm table-bordered mt-3">
-                            <thead class="table-light">
+                        <p t-if="period_label" class="text-center mb-3">
+                            <strong><u>Payment Advice from <t t-out="period_label"/></u></strong>
+                        </p>
+
+                        <p class="mb-2">
+                            Please initiate a payroll transfer from account number <t t-out="company_bank_acc"/>
+                            to the below mentioned account numbers towards employees salaries:
+                        </p>
+
+                        <table class="table table-sm table-bordered mb-2" style="border: 1px solid #000;">
+                            <thead>
                                 <tr>
-                                    <th>#</th>
-                                    <th>Employee Name</th>
-                                    <th>Bank Name</th>
-                                    <th>Account Number</th>
-                                    <th>IFSC / Routing Code</th>
-                                    <th class="text-end">Net Amount</th>
+                                    <th style="width: 8%;">Sl No.</th>
+                                    <th>Employee</th>
+                                    <th style="width: 7%;">C/D</th>
+                                    <th>Bank Account No.</th>
+                                    <th>IFSC Code</th>
+                                    <th class="text-end">By salary</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                <t t-set="i" t-value="1"/>
                                 <t t-foreach="doc.line_ids" t-as="line">
-                                    <tr t-att-class="'table-warning' if not line.has_bank_account else ''">
-                                        <td><t t-out="i"/></td>
+                                    <tr>
+                                        <td><t t-out="line_index + 1"/></td>
                                         <td><span t-field="line.employee_id.name"/></td>
-                                        <td><span t-field="line.bank_name"/></td>
-                                        <td>
-                                            <span t-if="line.has_bank_account" t-field="line.acc_number"/>
-                                            <span t-else="" class="badge bg-danger">Missing Bank</span>
-                                        </td>
-                                        <td><span t-field="line.bank_bic"/></td>
+                                        <td>C</td>
+                                        <td><t t-out="line.acc_number or ''"/></td>
+                                        <td><t t-out="line.bank_account_id.bank_bic or line.bank_bic or line.bank_account_id.clearing_number or ''"/></td>
                                         <td class="text-end">
-                                            <span t-field="line.net_amount" t-options='{"widget": "monetary", "display_currency": doc.company_id.currency_id}'/>
+                                            <span t-out="line.net_amount" t-options='{"widget": "monetary", "display_currency": currency}'/>
                                         </td>
                                     </tr>
-                                    <t t-set="i" t-value="i + 1"/>
                                 </t>
-                            </tbody>
-                            <tfoot>
-                                <tr class="table-light font-weight-bold">
-                                    <td colspan="5" class="text-end"><strong>TOTAL DISBURSEMENT:</strong></td>
+                                <tr>
+                                    <td colspan="5" class="text-end"><strong>Total</strong></td>
                                     <td class="text-end">
-                                        <strong>
-                                            <span t-out="doc.total_amount" t-options='{"widget": "monetary", "display_currency": doc.company_id.currency_id}'/>
-                                        </strong>
+                                        <strong><span t-out="doc.total_amount" t-options='{"widget": "monetary", "display_currency": currency}'/></strong>
                                     </td>
                                 </tr>
-                            </tfoot>
+                            </tbody>
                         </table>
 
-                        <div class="row mt-5">
-                            <div class="col-6">
-                                <p>Prepared By: ___________________</p>
-                            </div>
-                            <div class="col-6 text-end">
-                                <p>Authorized Signatory: ___________________</p>
-                            </div>
-                        </div>
+                        <p class="mb-4">Total Amount: <t t-out="doc.get_amount_in_words()"/></p>
+
+                        <p class="mb-5">Yours Sincerely<br/>For <t t-out="doc.company_id.name"/></p>
+
+                        <p class="mt-5">Authorized Signature</p>
                     </div>
                 </t>
             </t>

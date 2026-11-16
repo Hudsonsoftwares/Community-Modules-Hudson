@@ -4,8 +4,9 @@ class HrAttendance(models.Model):
     _inherit = 'hr.attendance'
 
 
-    check_in_photo = fields.Image(string="Check In Photo", max_width=1024, max_height=1024)
-    check_out_photo = fields.Image(string="Check Out Photo", max_width=1024, max_height=1024)
+    # Counterpart of the core ``in_image`` field: the systray / kiosk camera
+    # picture taken at check-out, also posted in the chatter.
+    out_image = fields.Binary(string="Check-Out Image")
 
     # Work From Home (WFH) Fields
     is_wfh = fields.Boolean(string="Work From Home", default=False, index=True)
@@ -58,7 +59,9 @@ class HrAttendance(models.Model):
             emp['daily_planned_hours'] = calendars.get(cal_id, 8.0) if cal_id else 8.0
 
         # Fetch attendances overlapping the time window
-        att_domain = [('employee_id', 'in', emp_ids)]
+        # Odoo 20 time rules generate extra overtime attendances linked to
+        # their source attendance: only show the real check-ins.
+        att_domain = [('employee_id', 'in', emp_ids), ('source_attendance_id', '=', False)]
         if date_start and date_stop:
             att_domain += [
                 ('check_in', '<=', date_stop),
@@ -74,7 +77,7 @@ class HrAttendance(models.Model):
 
         attendances = self.search_read(
             att_domain,
-            ['id', 'employee_id', 'check_in', 'check_out', 'worked_hours', 'overtime_hours', 'is_wfh', 'wfh_status'],
+            ['id', 'employee_id', 'check_in', 'check_out', 'worked_hours', 'is_wfh', 'wfh_status'],
             order='check_in asc'
         )
 

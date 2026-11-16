@@ -5,77 +5,80 @@
         <field name="name">dental.treatment.plan.form</field>
         <field name="model">dental.treatment.plan</field>
         <field name="arch" type="xml">
-            <form>
+            <!-- One page, no tabs: who / when, then the steps (each step is one treatment, done in one or more visits) -->
+            <form class="o_dc_form o_dental_plan_form">
                 <header>
+                    <button name="action_propose" string="Propose to Patient" type="object" class="oe_highlight"
+                            groups="dental_base.group_dental_dentist,dental_base.group_dental_manager" invisible="state != 'draft'"/>
+                    <button name="action_accept" string="Patient Accepted" type="object" class="oe_highlight"
+                            groups="dental_base.group_dental_dentist,dental_base.group_dental_manager" invisible="state not in ('draft', 'proposed')"/>
+                    <button name="action_decline" string="Patient Declined" type="object"
+                            groups="dental_base.group_dental_dentist,dental_base.group_dental_manager" invisible="state in ('completed', 'cancelled')"
+                            confirm="Record that the patient declined this whole treatment plan? Open sessions are cancelled."/>
+                    <button name="action_reset_to_draft" string="Reset to Draft" type="object"
+                            groups="dental_base.group_dental_dentist,dental_base.group_dental_manager" invisible="state not in ('proposed', 'cancelled')"/>
                     <field name="state" widget="statusbar" statusbar_visible="draft,proposed,approved,in_progress,completed"/>
                 </header>
                 <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_view_sessions" type="object" class="oe_stat_button" icon="event_available" invisible="session_count == 0">
+                            <field name="session_count" widget="statinfo" string="Visits"/>
+                        </button>
+                    </div>
                     <div class="oe_title">
-                        <h1>
-                            <field name="name"/>
-                        </h1>
+                        <h1><field name="name"/></h1>
                     </div>
                     <group>
                         <group>
                             <field name="patient_id"/>
                             <field name="case_id"/>
                             <field name="doctor_id"/>
-                            <field name="appointment_id"/>
+                            <field name="appointment_id" invisible="1"/>
                         </group>
                         <group>
                             <field name="plan_date"/>
-                            <field name="branch_id"/>
+                            <field name="progress" widget="progressbar"/>
+                            <field name="accepted_date" invisible="not accepted_date"/>
                             <field name="currency_id" invisible="1"/>
                         </group>
                     </group>
-                    <notebook>
-                        <page string="Treatments">
-                            <field name="line_ids">
-                                <list editable="bottom">
-                                    <field name="treatment_id"/>
-                                    <field name="tooth_reference"/>
-                                    <field name="description"/>
-                                    <field name="quantity"/>
-                                    <field name="unit_price"/>
-                                    <field name="discount"/>
-                                    <field name="estimated_amount" sum="Total"/>
-                                    <field name="number_of_visits"/>
-                                    <field name="state"/>
-                                    <field name="currency_id" invisible="1"/>
-                                </list>
-                                <form>
-                                    <group>
-                                        <group>
-                                            <field name="treatment_id"/>
-                                            <field name="tooth_reference"/>
-                                            <field name="description"/>
-                                        </group>
-                                        <group>
-                                            <field name="quantity"/>
-                                            <field name="unit_price"/>
-                                            <field name="discount"/>
-                                            <field name="estimated_amount"/>
-                                            <field name="number_of_visits"/>
-                                            <field name="state"/>
-                                            <field name="currency_id" invisible="1"/>
-                                        </group>
-                                    </group>
-                                    <notebook>
-                                        <page string="Notes">
-                                            <field name="notes"/>
-                                        </page>
-                                    </notebook>
-                                </form>
-                            </field>
-                            <group class="oe_subtotal_footer oe_right">
-                                <field name="estimated_total" widget="monetary" options="{'currency_field': 'currency_id'}"/>
-                            </group>
-                            <div class="oe_clear"/>
-                        </page>
-                        <page string="Notes">
-                            <field name="notes"/>
-                        </page>
-                    </notebook>
+
+                    <div class="o_dental_section_title" name="plan_steps">
+                        <span>Steps</span>
+                        <small class="text-muted">One line per treatment, in phase order. A step can take one visit or several.</small>
+                    </div>
+                    <field name="line_ids" nolabel="1" readonly="state in ('completed', 'cancelled')">
+                        <list editable="bottom" open_form_view="1" default_order="phase, priority desc, id"
+                              decoration-muted="acceptance == 'declined' or state == 'cancelled'" decoration-success="state == 'completed'">
+                            <field name="phase"/>
+                            <field name="treatment_id"/>
+                            <field name="tooth_reference" string="Tooth" placeholder="e.g. 36"/>
+                            <field name="number_of_visits" string="Visits"/>
+                            <field name="visit_interval" string="Every" optional="hide" placeholder="e.g. 1 Month"/>
+                            <field name="priority" widget="priority" optional="hide"/>
+                            <field name="unit_price" optional="hide"/>
+                            <field name="discount" optional="hide"/>
+                            <field name="progress" widget="progressbar" string="Done" optional="show"/>
+                            <field name="estimated_amount" sum="Total" string="Amount"/>
+                            <field name="acceptance" widget="badge" readonly="1" string="Decision"
+                                   decoration-warning="acceptance == 'pending'" decoration-success="acceptance == 'accepted'" decoration-danger="acceptance == 'declined'"/>
+                            <field name="state" widget="badge" readonly="1" optional="hide"
+                                   decoration-info="state in ('draft', 'planned')" decoration-warning="state == 'in_progress'" decoration-success="state == 'completed'"/>
+                            <field name="currency_id" column_invisible="1"/>
+                            <button name="action_accept_line" type="object" title="Patient accepts this step" icon="thumb_up" class="btn-link text-success"
+                                    groups="dental_base.group_dental_dentist,dental_base.group_dental_manager"
+                                    invisible="not id or acceptance == 'accepted' or state in ('completed', 'cancelled')"/>
+                            <button name="action_decline_line" type="object" title="Patient declines this step" icon="thumb_down" class="btn-link text-danger"
+                                    groups="dental_base.group_dental_dentist,dental_base.group_dental_manager"
+                                    invisible="not id or acceptance == 'declined' or state in ('completed', 'cancelled')"
+                                    confirm="Record that the patient declined this step?"/>
+                        </list>
+                    </field>
+                    <group class="oe_subtotal_footer oe_right">
+                        <field name="estimated_total" widget="monetary" options="{'currency_field': 'currency_id'}"/>
+                    </group>
+                    <div class="oe_clear"/>
+                    <field name="notes" nolabel="1" placeholder="Notes for this plan (optional)"/>
                 </sheet>
                 <chatter/>
             </form>
@@ -91,6 +94,7 @@
                 <field name="patient_id"/>
                 <field name="plan_date"/>
                 <field name="doctor_id"/>
+                <field name="session_count" string="Sessions"/>
                 <field name="estimated_total"/>
                 <field name="state"/>
                 <field name="currency_id" invisible="1"/>
@@ -101,19 +105,99 @@
     <record id="action_dental_treatment_plan" model="ir.actions.act_window">
         <field name="name">Treatment Plans</field>
         <field name="res_model">dental.treatment.plan</field>
-        <field name="view_mode">list,form</field>
+        <field name="view_mode">kanban,list,form</field>
     </record>
 
     <!-- Treatment Session Views -->
+    <!-- Full-page form for one planned treatment (opened from the editable lists, no popup) -->
+    <record id="view_dental_treatment_plan_line_form" model="ir.ui.view">
+        <field name="name">dental.treatment.plan.line.form</field>
+        <field name="model">dental.treatment.plan.line</field>
+        <field name="arch" type="xml">
+            <!-- One step of a plan: what, where, how many visits, and the visits done so far -->
+            <form>
+                <header>
+                    <button name="action_mark_visit_done" type="object" string="Visit Done" class="oe_highlight" icon="check"
+                            invisible="acceptance == 'declined' or state in ('completed', 'cancelled')"/>
+                    <button name="action_add_session" type="object" string="Plan a Visit" icon="add"
+                            invisible="acceptance == 'declined' or state in ('completed', 'cancelled')"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,planned,in_progress,completed"/>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <h1><field name="treatment_id" placeholder="Treatment"/></h1>
+                        <field name="plan_id" readonly="1"/>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="tooth_reference" placeholder="e.g. 36 or 11, 21"/>
+                            <field name="phase"/>
+                            <field name="priority" widget="priority"/>
+                            <field name="acceptance" readonly="1" widget="badge"
+                                   decoration-warning="acceptance == 'pending'" decoration-success="acceptance == 'accepted'" decoration-danger="acceptance == 'declined'"/>
+                        </group>
+                        <group>
+                            <field name="number_of_visits"/>
+                            <field name="visit_interval" invisible="number_of_visits &lt; 2" placeholder="e.g. 1 Month"/>
+                            <field name="progress" widget="progressbar"/>
+                            <label for="unit_price" string="Price"/>
+                            <div class="d-flex gap-2 align-items-baseline">
+                                <field name="quantity" class="oe_inline" style="max-width: 4rem;"/>
+                                <span>×</span>
+                                <field name="unit_price" class="oe_inline"/>
+                                <span class="text-muted">−</span>
+                                <field name="discount" class="oe_inline" style="max-width: 4rem;"/>
+                                <span class="text-muted">%</span>
+                            </div>
+                            <field name="estimated_amount"/>
+                            <field name="currency_id" invisible="1"/>
+                        </group>
+                    </group>
+
+                    <div class="o_dental_section_title" name="step_visits">
+                        <span>Visits</span>
+                        <small class="text-muted"><field name="progress_summary" class="d-inline"/></small>
+                    </div>
+                    <field name="session_ids" nolabel="1" context="{'default_plan_line_id': id, 'default_tooth_reference': tooth_reference}">
+                        <list create="0" decoration-success="state == 'completed'" decoration-warning="state == 'in_progress'" decoration-muted="state == 'cancelled'">
+                            <field name="session_date"/>
+                            <field name="name" optional="hide"/>
+                            <field name="doctor_id"/>
+                            <field name="appointment_id" optional="hide"/>
+                            <field name="procedure_notes" optional="show"/>
+                            <field name="state" widget="badge" decoration-info="state == 'planned'" decoration-warning="state == 'in_progress'" decoration-success="state == 'completed'" decoration-muted="state == 'cancelled'"/>
+                            <field name="billing_state" widget="badge" optional="show"
+                                   decoration-info="billing_state == 'to_invoice'"
+                                   decoration-success="billing_state == 'invoiced'"/>
+                            <button name="action_complete" type="object" string="Complete" icon="check" class="btn-link" invisible="state not in ('planned', 'in_progress')"/>
+                            <button name="action_cancel" type="object" string="Cancel" icon="close" class="btn-link text-danger" invisible="state in ('completed', 'cancelled')"/>
+                        </list>
+                    </field>
+                    <field name="notes" nolabel="1" placeholder="Notes for this step (optional)"/>
+                    <field name="description" invisible="1"/>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
     <record id="view_dental_treatment_session_form" model="ir.ui.view">
         <field name="name">dental.treatment.session.form</field>
         <field name="model">dental.treatment.session</field>
         <field name="arch" type="xml">
             <form>
                 <header>
+                    <button name="action_start" string="Start Session" type="object" class="oe_highlight" invisible="state != 'planned'"/>
+                    <button name="action_complete" string="Complete Session" type="object" class="oe_highlight" invisible="state not in ('planned', 'in_progress')"/>
+                    <button name="action_cancel" string="Cancel" type="object" invisible="state in ('completed', 'cancelled')"/>
+                    <button name="action_reset_to_planned" string="Reset to Planned" type="object" invisible="state != 'cancelled'"/>
                     <field name="state" widget="statusbar" statusbar_visible="planned,in_progress,completed"/>
                 </header>
                 <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_view_follow_ups" type="object" class="oe_stat_button" icon="event_available" invisible="follow_up_count == 0">
+                            <field name="follow_up_count" widget="statinfo" string="Follow-ups"/>
+                        </button>
+                    </div>
                     <div class="oe_title">
                         <h1>
                             <field name="name"/>
@@ -121,8 +205,8 @@
                     </div>
                     <group>
                         <group>
-                            <field name="plan_line_id"/>
-                            <field name="plan_id"/>
+                            <field name="plan_line_id" domain="[('plan_id', '=', plan_id)] if plan_id else ([('plan_id.patient_id', '=', patient_id)] if patient_id else [])"/>
+                            <field name="plan_id" domain="[('patient_id', '=', patient_id)] if patient_id else []"/>
                             <field name="case_id"/>
                             <field name="patient_id"/>
                         </group>
@@ -131,7 +215,25 @@
                             <field name="doctor_id"/>
                             <field name="appointment_id"/>
                             <field name="tooth_reference"/>
+                            <field name="stage_id"/>
+                            <field name="billing_state" widget="badge"
+                                   decoration-info="billing_state == 'to_invoice'"
+                                   decoration-success="billing_state == 'invoiced'"/>
                         </group>
+                    </group>
+                    <group string="Planned vs. Performed" name="planned_vs_performed">
+                        <group>
+                            <field name="planned_treatment_id"/>
+                            <field name="planned_tooth_reference"/>
+                        </group>
+                        <group>
+                            <field name="performed_treatment_id" placeholder="As planned" readonly="state in ('completed', 'cancelled')"/>
+                            <field name="performed_tooth_reference" placeholder="As planned" readonly="state in ('completed', 'cancelled')"/>
+                            <field name="deviates_from_plan" invisible="1"/>
+                        </group>
+                        <field name="deviation_reason" colspan="2" invisible="not deviates_from_plan"
+                               required="deviates_from_plan and state in ('planned', 'in_progress')"
+                               placeholder="Why the performed treatment differs from the plan"/>
                     </group>
                     <notebook>
                         <page string="Procedure Notes">
@@ -157,7 +259,11 @@
                 <field name="session_date"/>
                 <field name="doctor_id"/>
                 <field name="plan_line_id"/>
-                <field name="state"/>
+                <field name="stage_id" optional="show"/>
+                <field name="state" widget="badge" decoration-info="state == 'planned'" decoration-warning="state == 'in_progress'" decoration-success="state == 'completed'" decoration-muted="state == 'cancelled'"/>
+                <field name="billing_state" widget="badge" optional="show"
+                       decoration-info="billing_state == 'to_invoice'"
+                       decoration-success="billing_state == 'invoiced'"/>
             </list>
         </field>
     </record>
@@ -165,6 +271,60 @@
     <record id="action_dental_treatment_session" model="ir.actions.act_window">
         <field name="name">Treatment Sessions</field>
         <field name="res_model">dental.treatment.session</field>
+        <field name="view_mode">kanban,list,form</field>
+    </record>
+
+    <!-- Treatment Stage Views -->
+    <record id="view_dental_treatment_stage_list" model="ir.ui.view">
+        <field name="name">dental.treatment.stage.list</field>
+        <field name="model">dental.treatment.stage</field>
+        <field name="arch" type="xml">
+            <list editable="bottom">
+                <field name="sequence" widget="handle"/>
+                <field name="name"/>
+                <field name="treatment_id"/>
+                <field name="stage_type"/>
+                <field name="fold"/>
+                <field name="description"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_dental_treatment_stage_form" model="ir.ui.view">
+        <field name="name">dental.treatment.stage.form</field>
+        <field name="model">dental.treatment.stage</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="name"/>
+                            <field name="sequence"/>
+                            <field name="stage_type"/>
+                        </group>
+                        <group>
+                            <field name="treatment_id"/>
+                            <field name="fold"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Description">
+                            <field name="description"/>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_dental_treatment_stage" model="ir.actions.act_window">
+        <field name="name">Treatment Stages</field>
+        <field name="res_model">dental.treatment.stage</field>
         <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Define and configure stages for dental treatments.
+            </p>
+        </field>
     </record>
 </odoo>

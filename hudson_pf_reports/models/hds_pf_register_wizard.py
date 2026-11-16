@@ -1,10 +1,13 @@
 # -*- coding: utf-8 -*-
 import base64
 import io
+# pyrefly: ignore [missing-import]
 from odoo import api, fields, models, _
+# pyrefly: ignore [missing-import]
 from odoo.exceptions import UserError
 
 try:
+    # pyrefly: ignore [missing-import]
     import xlsxwriter
 except ImportError:
     xlsxwriter = None
@@ -125,6 +128,8 @@ class HdsPfRegisterWizard(models.TransientModel):
             if xlsxwriter:
                 workbook = xlsxwriter.Workbook(output, {'in_memory': True})
                 sheet = workbook.add_worksheet('Employee PF Statement')
+                sheet.set_column(0, 0, 30)
+                sheet.set_column(1, 1, 30)
 
                 title_fmt = workbook.add_format({'bold': True, 'font_size': 14})
                 label_fmt = workbook.add_format({'bold': True, 'bg_color': '#1F4E78', 'font_color': '#FFFFFF', 'border': 1})
@@ -167,6 +172,13 @@ class HdsPfRegisterWizard(models.TransientModel):
             else:
                 xlsx_content = b"Excel export requires xlsxwriter library."
 
+            try:
+                # pyrefly: ignore [missing-import]
+                from odoo.tools import BinaryBytes
+                file_data = BinaryBytes(xlsx_content, filename=xlsx_filename)
+            except Exception:
+                file_data = base64.b64encode(xlsx_content).decode('utf-8')
+
             self.write({
                 'state': 'generated',
                 'emp_summary_name': emp.name,
@@ -182,7 +194,7 @@ class HdsPfRegisterWizard(models.TransientModel):
                 'emp_summary_er_eps': round(er_eps, 2),
                 'emp_summary_edli_admin': round(edli_admin, 2),
                 'emp_summary_total_cost': round(total_cost, 2),
-                'xlsx_file': base64.b64encode(xlsx_content),
+                'xlsx_file': file_data,
                 'xlsx_filename': xlsx_filename,
             })
 
@@ -235,15 +247,32 @@ class HdsPfRegisterWizard(models.TransientModel):
             if xlsxwriter:
                 workbook = xlsxwriter.Workbook(output, {'in_memory': True})
                 sheet = workbook.add_worksheet('PF Register')
+                sheet.set_column(0, 0, 26)  # Employee
+                sheet.set_column(1, 1, 18)  # UAN
+                sheet.set_column(2, 2, 18)  # PF Wage
+                sheet.set_column(3, 3, 16)  # Employee EPF
+                sheet.set_column(4, 4, 16)  # Employer EPF
+                sheet.set_column(5, 5, 16)  # Employer EPS
+                sheet.set_column(6, 6, 16)  # EDLI
+                sheet.set_column(7, 7, 22)  # Total Employer Cost
 
                 title_fmt = workbook.add_format({'bold': True, 'font_size': 14})
-                header_fmt = workbook.add_format({'bold': True, 'bg_color': '#1F4E78', 'font_color': '#FFFFFF', 'border': 1})
-                num_fmt = workbook.add_format({'num_format': '#,##0.00', 'border': 1})
-                text_fmt = workbook.add_format({'border': 1})
-                total_fmt = workbook.add_format({'bold': True, 'num_format': '#,##0.00', 'bg_color': '#D9E1F2', 'border': 1})
+                header_fmt = workbook.add_format({
+                    'bold': True,
+                    'bg_color': '#1F4E78',
+                    'font_color': '#FFFFFF',
+                    'border': 1,
+                    'align': 'center',
+                    'valign': 'vcenter',
+                    'text_wrap': True,
+                })
+                num_fmt = workbook.add_format({'num_format': '#,##0.00', 'border': 1, 'align': 'right', 'valign': 'vcenter'})
+                text_fmt = workbook.add_format({'border': 1, 'align': 'left', 'valign': 'vcenter'})
+                total_fmt = workbook.add_format({'bold': True, 'num_format': '#,##0.00', 'bg_color': '#D9E1F2', 'border': 1, 'align': 'right', 'valign': 'vcenter'})
 
                 sheet.write(0, 0, f"PF REGISTER — {self._get_month_label()} ({self.company_id.name})", title_fmt)
 
+                sheet.set_row(2, 26)
                 headers = [
                     'Employee', 'UAN', 'PF Wage', 'Employee EPF',
                     'Employer EPF', 'Employer EPS', 'EDLI', 'Total Employer Cost'
@@ -277,9 +306,16 @@ class HdsPfRegisterWizard(models.TransientModel):
             else:
                 xlsx_content = b"Excel export requires xlsxwriter library."
 
+            try:
+                # pyrefly: ignore [missing-import]
+                from odoo.tools import BinaryBytes
+                file_data = BinaryBytes(xlsx_content, filename=xlsx_filename)
+            except Exception:
+                file_data = base64.b64encode(xlsx_content).decode('utf-8')
+
             self.write({
                 'state': 'generated',
-                'xlsx_file': base64.b64encode(xlsx_content),
+                'xlsx_file': file_data,
                 'xlsx_filename': xlsx_filename,
                 'record_count': len(rows),
                 'total_pf_wages': tot_wages,
@@ -291,9 +327,7 @@ class HdsPfRegisterWizard(models.TransientModel):
             })
 
         return {
-            'type': 'ir.actions.act_window',
-            'res_model': self._name,
-            'res_id': self.id,
-            'view_mode': 'form',
-            'target': 'current',
+            'type': 'ir.actions.act_url',
+            'url': f'/web/content/?model={self._name}&id={self.id}&field=xlsx_file&filename_field=xlsx_filename&download=true',
+            'target': 'self',
         }

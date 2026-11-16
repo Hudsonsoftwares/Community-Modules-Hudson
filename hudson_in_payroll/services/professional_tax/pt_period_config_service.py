@@ -2,6 +2,7 @@
 import logging
 from datetime import date
 import calendar
+# pyrefly: ignore [missing-import]
 from odoo import fields
 
 _logger = logging.getLogger(__name__)
@@ -72,11 +73,11 @@ class PTPeriodScheduleService:
                     matching_schedules.append(sched)
 
         if not matching_schedules:
-            return schedules[0]
+            return False
 
         # Rank company-specific over global
         def rank_key(s):
-            is_company = 1 if (company and s.company_id and s.company_id.id == company.id) else 0
+            is_company = 1 if (target_company and s.company_id and s.company_id.id == target_company.id) else 0
             d_from = s.date_from or fields.Date.from_string('1900-01-01')
             return (is_company, d_from, s.id)
 
@@ -112,9 +113,14 @@ class PTPeriodScheduleService:
             end_m = int(schedule.window_end_month)
 
             if start_m <= end_m:
-                start_d = date(year, start_m, 1)
-                last_day = calendar.monthrange(year, end_m)[1]
-                end_d = date(year, end_m, last_day)
+                if month < start_m:
+                    start_d = date(year - 1, start_m, 1)
+                    last_day = calendar.monthrange(year - 1, end_m)[1]
+                    end_d = date(year - 1, end_m, last_day)
+                else:
+                    start_d = date(year, start_m, 1)
+                    last_day = calendar.monthrange(year, end_m)[1]
+                    end_d = date(year, end_m, last_day)
             else:
                 if month >= start_m:
                     start_d = date(year, start_m, 1)
@@ -349,6 +355,15 @@ class PTPeriodScheduleService:
 
             return False
 
+        if strategy_type == 'beginning_of_period':
+            target_m = int(schedule.window_start_month or schedule.deduction_month or '1')
+            if schedule.deduction_month:
+                try:
+                    target_m = int(str(schedule.deduction_month).strip())
+                except (ValueError, TypeError):
+                    pass
+            return m == target_m
+
         if strategy_type == 'specific_month':
             if schedule.deduction_month:
                 try:
@@ -357,4 +372,5 @@ class PTPeriodScheduleService:
                     pass
             return False
 
-        return True
+        return False
+

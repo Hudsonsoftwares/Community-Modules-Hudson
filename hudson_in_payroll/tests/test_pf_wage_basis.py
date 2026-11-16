@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from odoo.tests import common
+from odoo.tests import common# pyrefly: ignore [missing-import]
 
 
 class TestPfWageBasis(common.TransactionCase):
@@ -201,7 +201,7 @@ class TestPfWageBasis(common.TransactionCase):
         struct_base = self.env.ref('hudson_payroll_base.structure_base')
         struct_bonus = self.env.ref('hudson_in_payroll.structure_bonus_payroll', raise_if_not_found=False)
 
-        # 1. Uncapped Actual PF Wage (> 15k)
+        # 1. Uncapped Actual PF Wage (> 25k)
         employee_high = self.Employee.create({
             'name': 'High Wage Employee',
             'hds_in_epf_applicable': True,
@@ -209,8 +209,8 @@ class TestPfWageBasis(common.TransactionCase):
         })
         contract_high = employee_high.version_id
         contract_high.write({
-            'wage': 25000.0,
-            'basic_salary': 18000.0,
+            'wage': 35000.0,
+            'basic_salary': 28000.0,
             'hra': 5000.0,
             'da': 2000.0,
             'struct_id': struct_base.id,
@@ -226,10 +226,10 @@ class TestPfWageBasis(common.TransactionCase):
         payslip_high.compute_sheet()
 
         line_map_high = {line.code: line.total for line in payslip_high.line_ids}
-        # Actual PF Wage must NOT be capped at 15,000 -> 18000 + 2000 = 20000.0
-        self.assertEqual(line_map_high.get('PF_WAGE'), 20000.0, "Actual PF Wage must be uncapped (18000 + 2000 = 20000.0).")
-        # EPF deduction must be capped at 15,000 ceiling -> 12% of 15000 = -1800.0
-        self.assertEqual(line_map_high.get('EPF'), -1800.0, "EPF deduction must be capped at 15000 statutory ceiling.")
+        # Actual PF Wage must NOT be capped at 25,000 -> 28000 + 2000 = 30000.0
+        self.assertEqual(line_map_high.get('PF_WAGE'), 30000.0, "Actual PF Wage must be uncapped (28000 + 2000 = 30000.0).")
+        # EPF deduction must be capped at 25,000 ceiling -> 12% of 25000 = -3000.0
+        self.assertEqual(line_map_high.get('EPF'), -3000.0, "EPF deduction must be capped at 25000 statutory ceiling.")
 
         # 2. Structure Isolation: rule in another structure must not be summed into struct_base payslip
         if struct_bonus:

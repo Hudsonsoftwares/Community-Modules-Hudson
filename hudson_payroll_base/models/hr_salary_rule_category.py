@@ -27,7 +27,8 @@ class HrSalaryRuleCategory(models.Model):
     company_id = fields.Many2one(
         'res.company',
         string='Company',
-        default=lambda self: self.env.company
+        default=False,
+        help="If set, this rule category will only be available to the specified company. If empty, it is shared across all companies."
     )
 
     _sql_constraints = [
@@ -36,5 +37,5 @@ class HrSalaryRuleCategory(models.Model):
 
     @api.constrains('parent_id')
     def _check_parent_id(self):
-        if not self._check_recursion():
+        if self._has_cycle('parent_id'):
             raise ValidationError(_('Error! You cannot create recursive salary rule categories.'))

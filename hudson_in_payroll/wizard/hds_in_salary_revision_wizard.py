@@ -1,8 +1,10 @@
 # -*- coding: utf-8 -*-
+from dateutil.relativedelta import relativedelta
+
 # pyrefly: ignore [missing-import]
 from odoo import api, fields, models, _
 # pyrefly: ignore [missing-import]
-from odoo.exceptions import ValidationError
+from odoo.exceptions import UserError, ValidationError
 from ..services.revision.salary_preview_service import SalaryPreviewService
 from ..services.revision.salary_revision_service import SalaryRevisionService
 
@@ -15,10 +17,16 @@ class HdsInSalaryRevisionWizard(models.TransientModel):
     _name = 'hds.in.salary.revision.wizard'
     _description = 'Hudson Indian Payroll Salary Revision Wizard'
 
-    def _get_employee_contract(self, employee):
-        """Resolves active/open employee contract safely across Odoo 19 hr.version."""
+    def _get_employee_contract(self, employee, date=False):
+        """Resolves the employee's contract version: the one in force on the revision's effective
+        date (a revision builds on it), else the current one."""
         if not employee:
             return False
+        date = fields.Date.to_date(date)
+        if date and hasattr(employee, '_get_version'):
+            version = employee._get_version(date)
+            if version:
+                return version
         contract = getattr(employee, 'version_id', False) or getattr(employee, 'contract_id', False)
         if contract:
             return contract
@@ -37,11 +45,28 @@ class HdsInSalaryRevisionWizard(models.TransientModel):
         res = super().default_get(fields_list)
         active_id = self.env.context.get('active_id')
         active_model = self.env.context.get('active_model')
+        default_employee_id = self.env.context.get('default_employee_id')
 
+        emp_id = None
+        active_ids = self.env.context.get('active_ids') or []
+        if active_model == 'hr.employee' and len(active_ids) > 1 and 'employee_ids' in fields_list:
+            res['employee_ids'] = [(6, 0, active_ids)]
+            active_id = active_id or active_ids[0]
         if active_model == 'hr.employee' and active_id:
-            employee = self.env['hr.employee'].browse(active_id)
+            emp_id = active_id
+            res['is_employee_readonly'] = True
+        elif default_employee_id:
+            emp_id = default_employee_id
+            res['is_employee_readonly'] = True
+
+        if emp_id:
+            employee = self.env['hr.employee'].browse(emp_id)
             res['employee_id'] = employee.id
-            contract = self._get_employee_contract(employee)
+            if employee.company_id:
+                res['company_id'] = employee.company_id.id
+            code = getattr(employee, 'registration_number', None) or getattr(employee, 'identification_id', None) or False
+            res['employee_code'] = str(code) if code else False
+            contract = self._get_employee_contract(employee, res.get('effective_date'))
             if contract:
                 res['contract_id'] = contract.id
                 res['current_wage'] = contract.wage or 0.0
@@ -51,12 +76,45 @@ class HdsInSalaryRevisionWizard(models.TransientModel):
                     res['struct_id'] = contract.struct_id.id
         return res
 
+    @api.model_create_multi
+    def create(self, vals_list):
+        for vals in vals_list:
+            if vals.get('employee_id') and not vals.get('company_id'):
+                emp = self.env['hr.employee'].browse(vals['employee_id'])
+                if emp.company_id:
+                    vals['company_id'] = emp.company_id.id
+        return super().create(vals_list)
+
     # Section 1: Employee Information
-    employee_id = fields.Many2one('hr.employee', string="Employee", required=True)
-    employee_code = fields.Char(string="Employee Code", compute='_compute_employee_code', readonly=True)
+    is_employee_readonly = fields.Boolean(
+        string="Is Employee Fixed",
+        default=False,
+        help="Locks employee selection when the wizard is initiated directly from an employee profile."
+    )
+    company_id = fields.Many2one(
+        'res.company',
+        string="Company",
+        default=lambda self: self.env.company,
+        required=True
+    )
+    employee_id = fields.Many2one(
+        'hr.employee',
+        string="Employee",
+        required=True,
+        domain="['|', ('company_id', '=', False), ('company_id', '=', company_id)]"
+    )
+    employee_code = fields.Char(
+        string="Employee Code",
+        compute='_compute_employee_code',
+        readonly=True,
+        help="Employee Code / Registration Number from employee profile."
+    )
     department_id = fields.Many2one('hr.department', string="Department", related='employee_id.department_id', readonly=True)
+    # Salary Increase on several employees at once (employee list > Actions)
+    employee_ids = fields.Many2many('hr.employee', string="Employees",
+                                    help="Employees receiving the same salary increase.")
+    employee_count = fields.Integer(compute='_compute_employee_count')
     job_id = fields.Many2one('hr.job', string="Designation", related='employee_id.job_id', readonly=True)
-    company_id = fields.Many2one('res.company', string="Company", related='employee_id.company_id', readonly=True)
     currency_id = fields.Many2one('res.currency', string="Currency", related='company_id.currency_id', readonly=True)
     contract_id = fields.Many2one('hr.version', string="Current Contract", compute='_compute_contract_info', readonly=False, store=True)
     current_wage = fields.Monetary(string="Current Gross Salary", currency_field='currency_id', compute='_compute_contract_info', readonly=False, store=True)
@@ -64,11 +122,11 @@ class HdsInSalaryRevisionWizard(models.TransientModel):
     current_employer_cost_annual = fields.Monetary(string="Current Employer Cost (Annual)", currency_field='currency_id', compute='_compute_contract_info', readonly=False, store=True)
     struct_id = fields.Many2one('hr.payroll.structure', string="Payroll Structure", compute='_compute_contract_info', readonly=False, store=True)
 
-    @api.depends('employee_id')
+    @api.depends('employee_id', 'effective_date')
     def _compute_contract_info(self):
         for wizard in self:
             if wizard.employee_id:
-                contract = wizard._get_employee_contract(wizard.employee_id)
+                contract = wizard._get_employee_contract(wizard.employee_id, wizard.effective_date)
                 if contract:
                     wizard.contract_id = contract.id
                     wizard.current_wage = contract.wage or 0.0
@@ -90,21 +148,52 @@ class HdsInSalaryRevisionWizard(models.TransientModel):
 
     @api.onchange('employee_id')
     def _onchange_employee_id(self):
+        if self.employee_id:
+            if self.employee_id.company_id:
+                self.company_id = self.employee_id.company_id
+            code = getattr(self.employee_id, 'registration_number', None) or getattr(self.employee_id, 'identification_id', None) or False
+            self.employee_code = str(code) if code else False
+        else:
+            self.employee_code = False
         self._compute_contract_info()
         self._onchange_breakdown_distribution_mode()
+
+    @api.onchange('company_id')
+    def _onchange_company_id(self):
+        if self.employee_id and self.employee_id.company_id and self.company_id:
+            if self.employee_id.company_id != self.company_id:
+                self.employee_id = False
+                self.employee_code = False
+                self._compute_contract_info()
+                self._onchange_breakdown_distribution_mode()
+
+    @api.constrains('employee_id', 'company_id')
+    def _check_employee_company(self):
+        for wizard in self:
+            if wizard.employee_id and wizard.company_id and wizard.employee_id.company_id:
+                if wizard.employee_id.company_id != wizard.company_id:
+                    raise ValidationError(_(
+                        "The selected employee (%s) belongs to %s, but the salary revision wizard is set to %s."
+                    ) % (wizard.employee_id.name, wizard.employee_id.company_id.name, wizard.company_id.name))
 
     @api.depends('employee_id')
     def _compute_employee_code(self):
         for wizard in self:
             emp = wizard.employee_id
             if emp:
-                code = getattr(emp, 'registration_number', None) or getattr(emp, 'identification_id', None) or getattr(emp, 'barcode', None) or str(emp.id)
-                wizard.employee_code = str(code)
+                code = getattr(emp, 'registration_number', None) or getattr(emp, 'identification_id', None) or False
+                wizard.employee_code = str(code) if code else False
             else:
                 wizard.employee_code = False
 
     # Section 2: Revision Details
-    effective_date = fields.Date(string="Effective Date", default=fields.Date.today, required=True)
+    effective_date = fields.Date(string="Effective Date", default=lambda self: self._default_effective_date(),
+                                 required=True, help="1st of the month from which the new salary applies (today or later).")
+
+    @api.model
+    def _default_effective_date(self):
+        today = fields.Date.context_today(self)
+        return today if today.day == 1 else (today.replace(day=1) + relativedelta(months=1))
     revision_type = fields.Selection([
         ('annual_increment', 'Annual Increment'),
         ('promotion', 'Promotion'),
@@ -124,9 +213,14 @@ class HdsInSalaryRevisionWizard(models.TransientModel):
     revision_basis = fields.Selection([
         ('full_wage', 'Full Wage'),
         ('capped_wage', 'Capped Wage'),
-    ], string="Applies On", default='full_wage', required=True)
+    ], string="Applies On", default='full_wage', required=True,
+        help="Full Wage: the increase rate applies to the whole wage. Capped Wage: the rate applies to the wage "
+             "only up to the capped amount (e.g. 10% with a ₹30,000 cap on a ₹50,000 wage adds ₹3,000).")
 
-    capped_wage_amount = fields.Monetary(string="Capped Wage Amount", currency_field='currency_id')
+    capped_wage_amount = fields.Monetary(string="Capped Wage Amount", currency_field='currency_id',
+                                         help="Part of the wage the increase rate applies to.")
+    extra_amount = fields.Monetary(string="Extra Amount", currency_field='currency_id',
+                                   help="Fixed amount added to the wage on top of the increase rate.")
 
     # Section 3b: Salary Breakdown Update Mode
     breakdown_distribution_mode = fields.Selection([
@@ -322,11 +416,12 @@ class HdsInSalaryRevisionWizard(models.TransientModel):
     preview_esic_next_period_reason = fields.Text(string="Next ESIC Period Reason", compute='_compute_payroll_preview')
 
     preview_pt_amount = fields.Monetary(string="Estimated Professional Tax", currency_field='currency_id', compute='_compute_payroll_preview')
+    preview_old_pt_amount = fields.Monetary(string="Current Professional Tax", currency_field='currency_id', compute='_compute_payroll_preview')
     preview_lwf_amount = fields.Monetary(string="Estimated Labour Welfare Fund", currency_field='currency_id', compute='_compute_payroll_preview')
 
     @api.depends(
         'employee_id', 'current_wage', 'revision_basis', 'capped_wage_amount',
-        'computation_type', 'increase_percentage', 'increase_amount', 'effective_date',
+        'computation_type', 'increase_percentage', 'increase_amount', 'extra_amount', 'effective_date',
         'breakdown_distribution_mode', 'manual_basic_salary', 'manual_hra', 'manual_da',
         'manual_travel_allowance', 'manual_meal_allowance', 'manual_medical_allowance',
         'manual_other_allowance', 'manual_fixed_allowance'
@@ -373,28 +468,23 @@ class HdsInSalaryRevisionWizard(models.TransientModel):
                 wizard.preview_esic_next_period_status = False
                 wizard.preview_esic_next_period_reason = False
                 wizard.preview_pt_amount = 0.0
+                wizard.preview_old_pt_amount = 0.0
                 wizard.preview_lwf_amount = 0.0
                 continue
 
-            # Calculate revised gross wage
-            if wizard.revision_basis == 'capped_wage':
-                revised_wage = wizard.capped_wage_amount
-            elif wizard.computation_type == 'percentage':
-                revised_wage = wage_base * (1.0 + (wizard.increase_percentage / 100.0))
-            else:
-                revised_wage = wage_base + wizard.increase_amount
+            revised_wage = wizard._get_revised_wage(wage_base)
 
             wizard.revised_wage = revised_wage
             wizard.wage_difference = revised_wage - wage_base
 
             # Set section visibility flags
             wizard.preview_show_pf = bool(wizard.employee_id.hds_in_epf_applicable)
-            company = wizard.employee_id.company_id or wizard.env.company
+            company = wizard.company_id or wizard.employee_id.company_id or wizard.env.company
             wizard.preview_show_esic = bool(company.hds_in_esic_applicable and wizard.employee_id.hds_in_esic_applicable)
 
             # Delegate preview simulation to SalaryPreviewService with distribution mode
             preview_service = SalaryPreviewService(wizard.env)
-            manual_dict = wizard._get_manual_breakdown_dict() if wizard.breakdown_distribution_mode == 'manual_adjust' else None
+            manual_dict = wizard._get_manual_breakdown_dict() if wizard.breakdown_distribution_mode in ('manual_adjust', 'copy_current') else None
             preview = preview_service.calculate_preview(
                 wizard.employee_id,
                 wage_base,
@@ -431,12 +521,96 @@ class HdsInSalaryRevisionWizard(models.TransientModel):
             wizard.preview_esic_next_period_status = preview['esic_next_period_status']
             wizard.preview_esic_next_period_reason = preview['esic_next_period_reason']
             wizard.preview_pt_amount = preview['pt_amount']
+            wizard.preview_old_pt_amount = preview.get('old_pt_amount', 0.0)
             wizard.preview_lwf_amount = preview['lwf_amount']
 
     @api.onchange('revision_basis')
+    def _salary_increase_values(self):
+        self.ensure_one()
+        return {
+            'company_id': self.company_id.id,
+            'effective_date': self.effective_date,
+            'revision_type': self.revision_type,
+            'computation_type': self.computation_type,
+            'increase_percentage': self.increase_percentage,
+            'increase_amount': self.increase_amount,
+            'extra_amount': self.extra_amount,
+            'revision_basis': self.revision_basis,
+            'capped_wage_amount': self.capped_wage_amount,
+            'breakdown_distribution_mode': self.breakdown_distribution_mode,
+            'reason': self.reason,
+            'notes': self.notes,
+        }
+
+    def action_confirm_salary_increase(self):
+        """Salary Increase dialog: one revision per employee, each through the same checks and
+        revision service as the detailed wizard. Any error cancels the whole increase."""
+        self.ensure_one()
+        employees = self.employee_ids or self.employee_id
+        if len(employees) <= 1:
+            return self.action_confirm_revision()
+        values = self._salary_increase_values()
+        revisions = self.env['hds.in.salary.revision']
+        Wizard = self.with_context(active_id=False, active_ids=False, active_model=False)
+        for employee in employees:
+            wizard = Wizard.create(dict(values, employee_id=employee.id,
+                                        company_id=employee.company_id.id or values['company_id']))
+            try:
+                action = wizard.action_confirm_revision()
+            except (ValidationError, UserError) as error:
+                raise UserError(_("%(employee)s: %(error)s", employee=employee.name, error=error.args[0])) from error
+            revisions |= revisions.browse(action.get('res_id'))
+        action = self.env['ir.actions.act_window']._for_xml_id('hudson_in_payroll.action_hds_in_salary_revision_history')
+        action.update({'domain': [('id', 'in', revisions.ids)], 'context': {}})
+        return action
+
+    def action_open_detailed_revision(self):
+        """Advanced: read-only comparison of the current and the new salary (breakdown, PF, ESIC,
+        statutory deductions) for the values entered in the Salary Increase dialog."""
+        self.ensure_one()
+        return self._salary_increase_dialog('hudson_in_payroll.hds_in_salary_increase_comparison_view_form',
+                                            _("Salary Increase - Comparison"))
+
+    def action_back_to_salary_increase(self):
+        """Back from the comparison to the Salary Increase dialog, keeping the values."""
+        self.ensure_one()
+        return self._salary_increase_dialog('hudson_in_payroll.hds_in_salary_increase_wizard_view_form',
+                                            _("Salary Increase"))
+
+    def _salary_increase_dialog(self, view_xmlid, name):
+        return {
+            'type': 'ir.actions.act_window',
+            'name': name,
+            'res_model': self._name,
+            'res_id': self.id,
+            'view_mode': 'form',
+            'views': [(self.env.ref(view_xmlid).id, 'form')],
+            'target': 'new',
+            'context': dict(self.env.context, active_model='hr.employee', active_id=self.employee_id.id,
+                            active_ids=self.employee_id.ids),
+        }
+
     def _onchange_revision_basis(self):
         if self.revision_basis != 'capped_wage':
             self.capped_wage_amount = 0.0
+
+    @api.depends('employee_ids')
+    def _compute_employee_count(self):
+        for wizard in self:
+            wizard.employee_count = len(wizard.employee_ids)
+
+    def _get_revised_wage(self, wage):
+        """New wage (as Odoo's Salary Increase): the increase rate applies to the full wage, or to the
+        wage only up to the capped amount, and the extra amount is added on top. The fixed-amount
+        mode of the detailed wizard adds its amount to the wage."""
+        self.ensure_one()
+        wage = wage or 0.0
+        if self.computation_type == 'fixed_amount':
+            return wage + (self.increase_amount or 0.0)
+        base = wage
+        if self.revision_basis == 'capped_wage':
+            base = min(wage, self.capped_wage_amount or 0.0)
+        return wage + base * (self.increase_percentage or 0.0) / 100.0 + (self.extra_amount or 0.0)
 
     def action_confirm_revision(self):
         """
@@ -447,18 +621,21 @@ class HdsInSalaryRevisionWizard(models.TransientModel):
         if self.revision_basis == 'capped_wage' and self.capped_wage_amount <= 0.0:
             raise ValidationError(_("Capped Wage Amount must be greater than zero when 'Capped Wage' is selected."))
 
-        if self.computation_type == 'percentage' and self.increase_percentage <= 0.0:
-            raise ValidationError(_("Increase Percentage must be greater than zero."))
+        if self.computation_type == 'percentage':
+            if self.increase_percentage < 0.0 or (self.extra_amount or 0.0) < 0.0:
+                raise ValidationError(_("The Increase Rate and the Extra Amount cannot be negative."))
+            if self.increase_percentage <= 0.0 and (self.extra_amount or 0.0) <= 0.0:
+                raise ValidationError(_("Enter an Increase Rate or an Extra Amount."))
 
         if self.computation_type == 'fixed_amount' and self.increase_amount <= 0.0:
             raise ValidationError(_("Increase Amount must be greater than zero."))
 
-        if self.breakdown_distribution_mode == 'manual_adjust':
+        if self.breakdown_distribution_mode in ('manual_adjust', 'copy_current'):
             if not self.manual_breakdown_is_equal:
                 raise ValidationError(_(
                     "Manual Salary Breakdown total (₹%s) does not match Revised Gross Salary (₹%s). "
                     "Difference: ₹%s."
-                ) % (self.manual_breakdown_total, self.revised_wage, self.manual_breakdown_diff))
+                ) % (self.manual_breakdown_total, self.revised_wage, self.manual_breakdown_remaining))
 
         revision_service = SalaryRevisionService(self.env)
         revision_record = revision_service.execute_salary_revision(self)

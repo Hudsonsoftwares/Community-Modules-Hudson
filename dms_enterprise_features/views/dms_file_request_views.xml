@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Form: links and requests have no content -->
+    <record id="view_dms_file_form_inherit_request" model="ir.ui.view">
+        <field name="name">dms.file.form.inherit.request</field>
+        <field name="model">dms.file</field>
+        <field name="inherit_id" ref="dms.view_dms_file_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='content']" position="attributes">
+                <attribute name="required">file_kind == 'binary'</attribute>
+            </xpath>
+            <xpath expr="//header" position="inside">
+                <button name="action_dms_open_url" string="Open Link" type="object" class="btn-primary" invisible="file_kind != 'url'"/>
+                <button name="action_dms_request_resend" string="Send Request Again" type="object" invisible="file_kind != 'request'"/>
+            </xpath>
+            <xpath expr="//div[hasclass('oe_title')]" position="after">
+                <field name="file_kind" invisible="1"/>
+                <field name="can_upload_request" invisible="1"/>
+                <group name="dms_link" invisible="file_kind != 'url'">
+                    <field name="url" widget="url" required="file_kind == 'url'"/>
+                </group>
+                <group name="dms_request" invisible="file_kind != 'request'">
+                    <group>
+                        <field name="request_partner_id" readonly="1"/>
+                        <field name="requested_by_id" readonly="1" widget="many2one_avatar_user"/>
+                    </group>
+                    <group>
+                        <field name="request_date_deadline"/>
+                        <field name="request_message"/>
+                    </group>
+                </group>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- Kanban card: link preview and "missing file" placeholder -->
+    <record id="view_dms_file_kanban_inherit_request" model="ir.ui.view">
+        <field name="name">dms.file.kanban.inherit.request</field>
+        <field name="model">dms.file</field>
+        <field name="inherit_id" ref="dms.view_dms_file_kanban"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='id']" position="after">
+                <field name="file_kind"/>
+                <field name="url"/>
+                <field name="url_preview_image"/>
+                <field name="url_thumbnail"/>
+                <field name="url_domain"/>
+                <field name="request_partner_id"/>
+                <field name="can_upload_request"/>
+            </xpath>
+            <xpath expr="//div[hasclass('o_kanban_dms_file_preview')]/t[1]" position="before">
+                <t t-if="record.file_kind.raw_value === 'request'">
+                    <div class="o_dms_request_preview w-100 h-100 d-flex align-items-center justify-content-center"
+                         t-att-title="record.can_upload_request.raw_value ? 'Upload the requested file' : 'Waiting for the requested file'">
+                        <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4"/><path d="M7 9l5-5 5 5"/><path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg>
+                    </div>
+                </t>
+                <t t-elif="record.file_kind.raw_value === 'url'">
+                    <div class="o_dms_url_preview w-100 h-100 position-relative" t-att-title="record.url.raw_value">
+                        <div class="o_dms_url_fallback position-absolute top-0 start-0 w-100 h-100 d-flex flex-column align-items-center justify-content-center gap-1">
+                            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg>
+                            <span class="small text-muted text-truncate px-2" style="max-width: 100%;" t-out="record.url_domain.raw_value"/>
+                        </div>
+                        <!-- covers the fallback; a broken image with empty alt renders nothing -->
+                        <img t-if="record.url_thumbnail.raw_value" t-attf-src="/web/image/dms.file/#{record.id.raw_value}/url_thumbnail?unique=#{record.write_date.raw_value}"
+                             class="o_dms_url_image position-absolute top-0 start-0 w-100 h-100"
+                             loading="lazy" alt=""/>
+                    </div>
+                </t>
+            </xpath>
+            <xpath expr="//div[hasclass('o_kanban_dms_file_preview')]/t[@t-if=&quot;record.mimetype.raw_value == 'application/pdf'&quot;]" position="attributes">
+                <attribute name="t-if"/>
+                <attribute name="t-elif">record.mimetype.raw_value == 'application/pdf'</attribute>
+            </xpath>
+            <xpath expr="//strong/field[@name='name']" position="before">
+                <span t-if="record.file_kind.raw_value === 'url'" class="o_dms_kind_icon text-info me-1" title="Link">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg>
+                </span>
+            </xpath>
+            <xpath expr="//strong[field[@name='name']]" position="after">
+                <div t-if="record.file_kind.raw_value === 'request'" class="text-muted small text-truncate mb-1" t-out="record.request_partner_id.value"/>
+            </xpath>
+            <xpath expr="//div[hasclass('oe_kanban_bottom_right')]" position="inside">
+                <span t-if="record.file_kind.raw_value === 'request' and record.can_upload_request.raw_value"
+                      role="button" class="o_dms_request_upload ms-1 text-success" title="Upload the requested file">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4"/><path d="M7 9l5-5 5 5"/><path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg>
+                </span>
+            </xpath>
+        </field>
+    </record>
+</odoo>

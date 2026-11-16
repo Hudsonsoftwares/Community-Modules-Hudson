@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
+# pyrefly: ignore [missing-import]
 from odoo import api, fields, models, _
+# pyrefly: ignore [missing-import]
 from odoo.exceptions import ValidationError
 
 
@@ -9,11 +11,6 @@ class HrEmployee(models.Model):
     # ---------------------------------------------------------
     # Personal Information & Preferences
     # ---------------------------------------------------------
-    show_birthday_to_employees = fields.Boolean(
-        string='Show Birthday To Employees',
-        default=False,
-        help="Controls whether the employee's birthday may be visible to other employees."
-    )
     is_disabled = fields.Boolean(
         string='Disabled?',
         default=False,

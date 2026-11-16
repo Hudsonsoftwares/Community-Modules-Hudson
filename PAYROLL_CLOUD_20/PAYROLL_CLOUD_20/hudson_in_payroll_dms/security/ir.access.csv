@@ -1,0 +1,3 @@
+id,name,model_id,group_id/id,operation,domain
+access_hds_in_tax_proof_document_payroll_user,hds.in.tax.proof.document payroll user,hds.in.tax.proof.document,hudson_payroll_base.group_payroll_user,r,
+access_hds_in_tax_proof_document_system,hds.in.tax.proof.document system,hds.in.tax.proof.document,base.group_system,crud,

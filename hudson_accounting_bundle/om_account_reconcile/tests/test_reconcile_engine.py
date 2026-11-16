@@ -410,3 +410,103 @@ class TestReconcileEngine(AccountTestInvoicingCommon):
         self.env['account.move.line'].om_action_match_suggestions(
             [('move_id', 'in', (other_invoice + other_refund).ids)])
         self.assertTrue(all(self._open_line(other_invoice + other_refund).mapped('reconciled')))
+
+    # -------------------------------------------------------------------------
+    # Regressions
+    # -------------------------------------------------------------------------
+
+    def _matching_rule(self, **values):
+        return self.env['account.reconcile.model'].create({
+            'name': 'Invoices', 'rule_type': 'matching_rule', **values,
+        })
+
+    def test_matching_rule_without_partner_needs_a_reference(self):
+        """ 500 from an unknown payer does not close 300 of a customer and 200 of another one. """
+        self._matching_rule()
+        invoice_a = self._invoice(300.0, partner=self.partner_a, date='2026-01-05')
+        invoice_b = self._invoice(200.0, partner=self.partner_b, date='2026-01-06')
+        unknown = self._transaction(500.0, label='Transfer', partner=False)
+        self.assertFalse(unknown._om_auto_reconcile())
+        self.assertFalse(unknown.is_reconciled)
+        self.assertEqual(invoice_a.payment_state, 'not_paid')
+        self.assertEqual(invoice_b.payment_state, 'not_paid')
+
+        # both references on the label: still never two partners in one go
+        both = self._transaction(500.0, label='%s %s' % (invoice_a.name, invoice_b.name), partner=False)
+        self.assertFalse(both._om_auto_reconcile())
+        self.assertEqual(invoice_a.payment_state, 'not_paid')
+
+        # the reference of one invoice: that invoice, and its partner set on the transaction
+        referenced = self._transaction(300.0, label='Payment %s' % invoice_a.name, partner=False)
+        self.assertEqual(referenced._om_auto_reconcile(), referenced)
+        self.assertEqual(referenced.partner_id, self.partner_a)
+        self.assertIn(invoice_a.payment_state, ('paid', 'in_payment'))
+        self.assertEqual(invoice_b.payment_state, 'not_paid')
+
+    def test_manual_models_are_not_applied_automatically(self):
+        model = self.env['account.reconcile.model'].create({
+            'name': 'Fees', 'rule_type': 'reco_model', 'trigger': 'manual',
+            'match_label': 'contains', 'match_label_param': 'FEE',
+            'line_ids': [Command.create({
+                'account_id': self.expense_account.id, 'amount_type': 'percentage', 'amount_string': '100'})],
+        })
+        st_line = self._transaction(-20.0, label='FEE january', partner=False)
+        self.assertFalse(st_line._om_auto_reconcile())
+        self.assertFalse(st_line.is_reconciled)
+        # saving or renaming a model does not reconcile the open transactions either
+        model.name = 'Bank fees'
+        model.copy()
+        self.assertFalse(st_line.is_reconciled)
+        # the same model set to automatic is applied
+        model.trigger = 'auto_reconcile'
+        self.assertEqual(st_line._om_auto_reconcile(), st_line)
+
+    def test_new_transactions_follow_the_company_setting(self):
+        self.env['account.reconcile.model'].create({
+            'name': 'Fees', 'rule_type': 'reco_model', 'trigger': 'auto_reconcile',
+            'match_label': 'contains', 'match_label_param': 'FEE',
+            'line_ids': [Command.create({
+                'account_id': self.expense_account.id, 'amount_type': 'percentage', 'amount_string': '100'})],
+        })
+        self.env.company.om_reconcile_auto = False
+        st_line = self._transaction(-20.0, label='FEE january', partner=False)
+        self.env['account.bank.statement.line']._om_cron_auto_reconcile()
+        self.assertFalse(st_line.is_reconciled)
+
+    def test_fixed_amount_follows_the_transaction(self):
+        model = self.env['account.reconcile.model'].create({
+            'name': 'Fee', 'rule_type': 'reco_model',
+            'line_ids': [Command.create({'account_id': self.expense_account.id, 'amount_type': 'fixed',
+                                         'amount_string': '5'})],
+        })
+        payment = self._transaction(-5.0, label='fee', partner=False)
+        self.assertEqual([writeoff['amount'] for writeoff in model._om_get_writeoffs(payment)], [5.0])
+        payment._om_reconcile(model._om_get_proposal(payment))
+        self.assertTrue(payment.is_reconciled)
+        self.assertIn((self.expense_account.id, 5.0), self._entry_lines(payment))
+        receipt = self._transaction(5.0, label='fee refund', partner=False)
+        self.assertEqual([writeoff['amount'] for writeoff in model._om_get_writeoffs(receipt)], [-5.0])
+
+    def test_uncovered_amount_stays_on_suspense(self):
+        st_line = self._transaction(-100.0, label='Supplies', partner=False)
+        st_line._om_reconcile({'writeoffs': [{'account_id': self.expense_account.id, 'amount': 60.0}]})
+        self.assertFalse(st_line.is_reconciled)
+        self.assertIn((self.expense_account.id, 60.0), self._entry_lines(st_line))
+        self.assertIn((self.bank_journal.suspense_account_id.id, 40.0), self._entry_lines(st_line))
+
+    def test_amounts_are_not_compared_across_currencies(self):
+        eur = self.setup_other_currency('EUR')  # rate 2: 100 EUR = 50 in company currency
+        invoice = self._invoice(100.0, partner=self.partner_b, currency=eur)
+        st_line = self._transaction(100.0, label='Transfer', partner=False)
+        scores = dict(st_line._om_scored_candidates())
+        self.assertLess(scores.get(self._open_line(invoice), 0), 50)
+        self.assertFalse(st_line._om_suggested_proposal())
+
+    def test_undo_errors_are_raised(self):
+        invoice = self._invoice(100.0)
+        st_line = self._transaction(100.0)
+        st_line._om_reconcile({'matches': [{'aml_id': self._open_line(invoice).id}]})
+        self.env.company.fiscalyear_lock_date = '2026-12-31'
+        with self.assertRaises(UserError):
+            st_line._om_undo()
+        self.assertTrue(st_line.is_reconciled)

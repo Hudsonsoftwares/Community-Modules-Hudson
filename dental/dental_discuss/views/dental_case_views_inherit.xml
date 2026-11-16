@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_dental_case_form_inherit_discuss" model="ir.ui.view">
+        <field name="name">dental.case.form.inherit.discuss</field>
+        <field name="model">dental.case</field>
+        <field name="inherit_id" ref="dental_core.view_dental_case_form"/>
+        <field name="arch" type="xml">
+            <!-- Smart button only once a discussion exists; starting one is in the Actions menu -->
+            <xpath expr="//div[@name='button_box']" position="inside">
+                <button name="action_open_case_channel" type="object" class="oe_stat_button" icon="fa-comments"
+                        invisible="not discuss_channel_count">
+                    <field name="discuss_channel_count" widget="statinfo" string="Case Chat"/>
+                </button>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- Actions (cog) menu of the case form: collaboration entries (sequence 10-19) -->
+    <record id="action_server_dental_case_peer_consultation" model="ir.actions.server">
+        <field name="name">Peer Consultation</field>
+        <field name="model_id" ref="dental_core.model_dental_case"/>
+        <field name="binding_model_id" ref="dental_core.model_dental_case"/>
+        <field name="binding_view_types">form</field>
+        <field name="sequence">10</field>
+        <field name="group_ids" eval="[Command.set([ref('dental_base.group_dental_dentist'), ref('dental_base.group_dental_manager')])]"/>
+        <field name="state">code</field>
+        <field name="code">action = record.action_open_case_discuss_wizard()</field>
+    </record>
+
+    <record id="action_server_dental_case_chat" model="ir.actions.server">
+        <field name="name">Case Chat</field>
+        <field name="model_id" ref="dental_core.model_dental_case"/>
+        <field name="binding_model_id" ref="dental_core.model_dental_case"/>
+        <field name="binding_view_types">form</field>
+        <field name="sequence">11</field>
+        <!-- Same audience as the former smart button: record rules decide who may open the case -->
+        <field name="group_ids" eval="[Command.set([ref('base.group_user')])]"/>
+        <field name="state">code</field>
+        <!-- Opens the case channel, creating it on first use -->
+        <field name="code">action = record.action_open_case_channel()</field>
+    </record>
+</odoo>

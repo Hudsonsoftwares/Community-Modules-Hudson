@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+
+    <t t-name="dental_speech.ConversationRecorderField">
+        <div class="o_dental_dictation o_dental_conversation w-100">
+            <div t-if="this.showRecorder" class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                <button t-if="!this.conversation.recording" type="button" class="btn btn-sm btn-primary"
+                        t-att-disabled="!this.hasConsent"
+                        t-on-click="this.startRecording" title="Record the conversation">
+                    <i class="fa fa-microphone me-1"/> Start Recording
+                </button>
+                <button t-else="" type="button" class="btn btn-sm btn-danger"
+                        t-on-click="this.stopRecording" title="Stop recording">
+                    <i class="fa fa-stop me-1"/> Stop <span class="o_dental_dictation_dot ms-1"/> <t t-out="this.elapsedLabel"/>
+                </button>
+                <span t-if="!this.hasConsent" class="text-muted small">
+                    <i class="fa fa-info-circle me-1"/> Confirm the patient's consent above to enable recording.
+                </span>
+                <span t-if="this.conversation.pending" class="text-muted small">
+                    <i class="fa fa-spinner fa-spin me-1"/>
+                    Transcribing <t t-out="this.conversation.pending"/> part(s) on this server. Wait for it to finish before generating the summary.
+                </span>
+                <span t-elif="this.hasConsent and !this.conversation.recording" class="text-muted small">
+                    <i class="fa fa-lock me-1"/> Processed locally; audio is not uploaded or stored.
+                </span>
+            </div>
+
+            <div t-if="this.conversation.error" class="alert alert-warning py-2 px-3 mb-2 small" role="alert">
+                <i class="fa fa-exclamation-triangle me-1"/> <t t-out="this.conversation.error"/>
+            </div>
+
+            <t t-call="web.TextField"/>
+        </div>
+    </t>
+
+</templates>

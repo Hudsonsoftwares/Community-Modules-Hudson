@@ -96,16 +96,24 @@ class DentalMaintenanceEquipment(models.Model):
     # -------------------------------------------------------------------------
     # Computes
     # -------------------------------------------------------------------------
-    @api.depends('equipment_condition', 'maintenance_ids.stage_id', 'maintenance_ids.stage_id.fold', 'maintenance_ids.equipment_availability_impact')
+    @api.depends('equipment_condition', 'maintenance_ids.stage_id', 'maintenance_ids.stage_id.name', 'maintenance_ids.stage_id.fold', 'maintenance_ids.equipment_availability_impact')
     def _compute_is_available(self):
         for rec in self:
-            if rec.equipment_condition in ('under_repair', 'out_of_order', 'scrapped'):
+            if rec.equipment_condition in ('under_repair', 'out_of_order', 'scrapped') or getattr(rec, 'scrap_date', False):
+                rec.is_available = False
+                continue
+
+            # Check if any maintenance request is in a Scrap / Decommission stage
+            has_scrap_req = rec.maintenance_ids.filtered(
+                lambda r: r.stage_id and ('scrap' in (r.stage_id.name or '').lower() or 'decommission' in (r.stage_id.name or '').lower())
+            )
+            if has_scrap_req:
                 rec.is_available = False
                 continue
 
             # Check if there is any active breakdown request marking it unavailable
             active_down_reqs = rec.maintenance_ids.filtered(
-                lambda r: not r.stage_id.fold and r.equipment_availability_impact == 'unavailable'
+                lambda r: not r.stage_id.fold and r.equipment_availability_impact in ('unavailable', 'reduced_capacity')
             )
             rec.is_available = False if active_down_reqs else True
 
@@ -227,6 +235,7 @@ class DentalMaintenanceEquipment(models.Model):
     def get_maintenance_dashboard_data(self, branch_id=None):
         """Fetch comprehensive, real-time maintenance dashboard metrics and lists."""
         company = self.env['res.company'].browse(branch_id) if branch_id else self.env.company
+        self.env['dental.company.mixin']._dental_check_company_access(company)
         today = fields.Date.context_today(self)
         soon_threshold = today + timedelta(days=30)
         warranty_threshold = today + timedelta(days=60)
@@ -437,27 +446,61 @@ class DentalMaintenanceRequest(models.Model):
             if not req.equipment_id:
                 continue
             equipment = req.equipment_id
+            stage_name = (req.stage_id.name or '').strip().lower() if req.stage_id else ''
 
-            # If request is marked Repaired or Folded
-            if req.stage_id.fold:
+            # 1. SCRAP STAGE (Highest priority): equipment is condemned and scrapped
+            if 'scrap' in stage_name or 'decommission' in stage_name:
+                vals = {
+                    'equipment_condition': 'scrapped',
+                    'is_available': False,
+                }
+                if hasattr(equipment, 'scrap_date') and not equipment.scrap_date:
+                    vals['scrap_date'] = fields.Date.context_today(req)
+                equipment.write(vals)
+                continue
+
+            # If equipment is already scrapped, do not let repair/closure of other tickets restore it
+            if equipment.equipment_condition == 'scrapped' or getattr(equipment, 'scrap_date', False):
+                continue
+
+            # 2. Completed / Repaired / Closed stage (Folded, but NOT Scrap)
+            if req.stage_id and req.stage_id.fold:
+                # Check if there is any other request in Scrap stage
+                has_scrap_req = self.search([
+                    ('equipment_id', '=', equipment.id),
+                    ('stage_id.name', 'ilike', 'scrap')
+                ], limit=1)
+                if has_scrap_req:
+                    equipment.write({
+                        'equipment_condition': 'scrapped',
+                        'is_available': False,
+                    })
+                    continue
+
                 # Check if there are other open breakdown requests
                 other_open = self.search([
                     ('equipment_id', '=', equipment.id),
                     ('id', '!=', req.id),
                     ('stage_id.fold', '=', False),
-                    ('maintenance_type', '=', 'corrective')
+                    ('equipment_availability_impact', 'in', ('unavailable', 'reduced_capacity'))
                 ])
-                if not other_open and equipment.equipment_condition in ('under_repair', 'out_of_order'):
-                    equipment.equipment_condition = 'operational'
+                if not other_open and equipment.equipment_condition in ('under_repair', 'out_of_order', 'needs_maintenance'):
+                    equipment.write({
+                        'equipment_condition': 'operational',
+                        'is_available': True,
+                    })
             else:
-                # If active request has availability impact
-                if req.maintenance_type == 'corrective':
-                    if req.equipment_availability_impact == 'unavailable':
-                        equipment.equipment_condition = 'out_of_order'
-                    elif req.equipment_availability_impact == 'reduced_capacity':
-                        equipment.equipment_condition = 'needs_maintenance'
-                elif req.maintenance_type == 'preventive' and req.equipment_availability_impact == 'unavailable':
-                    equipment.equipment_condition = 'under_repair'
+                # 3. Active open request (New, Assigned, In Progress, etc.)
+                if req.equipment_availability_impact == 'unavailable':
+                    new_cond = 'out_of_order' if req.maintenance_type == 'corrective' else 'under_repair'
+                    equipment.write({
+                        'equipment_condition': new_cond,
+                        'is_available': False,
+                    })
+                elif req.equipment_availability_impact == 'reduced_capacity':
+                    equipment.write({
+                        'equipment_condition': 'needs_maintenance',
+                    })
 
     def action_mark_repaired(self):
         """Mark request as repaired and restore equipment availability."""

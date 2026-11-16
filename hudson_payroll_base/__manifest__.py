@@ -1,14 +1,14 @@
 # -*- coding: utf-8 -*-
 {
     'name': 'Hudson Payroll Base',
-    'version': '20.0.1.0.0',
+    'version': '20.0.1.0.1',
     'category': 'Human Resources/Payroll',
     'sequence': 95,
-    'summary': 'Clean, Modern, and High-Performance Base Payroll Engine with Pay Runs & Payment Advice for Odoo 19',
+    'summary': 'Clean, Modern, and High-Performance Base Payroll Engine with Pay Runs & Payment Advice for Odoo 20',
     'description': """
 Hudson Payroll Base
 ===================
-A modern, modular, and high-performance base payroll engine designed from scratch for Odoo 19.
+A modern, modular, and high-performance base payroll engine designed from scratch for Odoo 20.
 
 Key Features:
 -------------
@@ -26,7 +26,6 @@ Key Features:
         'hr',
         'hr_holidays',
         'hr_work_entry',
-        'hr_work_entry_holidays',
     ],
     'data': [
         'security/hr_payroll_security.xml',
@@ -38,13 +37,16 @@ Key Features:
         'data/hr_payroll_dashboard_warning_data.xml',
         'data/hr_payment_advice_sequence.xml',
         'data/hr_payslip_input_type_data.xml',
+        'data/hds_payment_mode_data.xml',
         'reports/payment_advice_report.xml',
         'reports/hr_payslip_report.xml',
+        'reports/hr_salary_certificate_report.xml',
         'data/mail_template_data.xml',
         'data/mail_template_expiry_data.xml',
         'data/ir_cron_data.xml',
         'wizard/hr_payslip_employees_views.xml',
         'wizard/pay_run_pay_wizard_views.xml',
+        'wizard/hr_payslip_run_duplicate_wizard_views.xml',
         'views/payrun_wizard_views.xml',
         'views/hr_salary_rule_category_views.xml',
         'views/hr_payroll_structure_views.xml',
@@ -64,15 +66,24 @@ Key Features:
         'views/hr_salary_adjustment_views.xml',
         'views/res_partner_bank_views.xml',
         'views/hr_payroll_menu_views.xml',
+        'views/hds_payment_mode_views.xml',
     ],
     'assets': {
         'web.assets_backend': [
             'hudson_payroll_base/static/src/scss/payroll_settings.scss',
             'hudson_payroll_base/static/src/scss/payroll_dashboard.scss',
             'hudson_payroll_base/static/src/js/payroll_dashboard_navigation.js',
+            'hudson_payroll_base/static/src/js/number_comma_parser.js',
+            'hudson_payroll_base/static/src/js/display_notification_delay.js',
+            'hudson_payroll_base/static/src/js/payslip_generation_loader.js',
+            'hudson_payroll_base/static/src/js/payrun_list_view.js',
+            'hudson_payroll_base/static/src/js/employee_selection_table.js',
+            'hudson_payroll_base/static/src/xml/employee_selection_table.xml',
         ],
     },
     'installable': True,
     'application': True,
     'auto_install': False,
+    'pre_init_hook': 'pre_init_hook',
+    'post_init_hook': 'post_init_hook',
 }

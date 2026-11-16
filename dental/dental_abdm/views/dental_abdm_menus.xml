@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Reception: register a patient straight from ABHA -->
+    <menuitem id="menu_dental_abha_registration"
+              name="ABHA Registration"
+              parent="dental_appointment.menu_dental_appointment_root"
+              action="abdm_abha.action_abdm_abha_wizard"
+              sequence="21"
+              groups="abdm_base.group_abdm_user"/>
+</odoo>

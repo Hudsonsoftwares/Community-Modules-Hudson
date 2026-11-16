@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="module_category_abdm" model="ir.module.category">
+        <field name="name">ABDM</field>
+        <field name="description">Ayushman Bharat Digital Mission integration</field>
+        <field name="sequence">60</field>
+    </record>
+
+    <record id="res_groups_privilege_abdm" model="res.groups.privilege">
+        <field name="name">ABDM</field>
+        <field name="sequence">60</field>
+        <field name="category_id" ref="abdm_base.module_category_abdm"/>
+    </record>
+
+    <!-- Front desk / doctors: use ABDM features, see transactions of their work -->
+    <record id="group_abdm_user" model="res.groups">
+        <field name="name">User</field>
+        <field name="privilege_id" ref="abdm_base.res_groups_privilege_abdm"/>
+        <field name="implied_ids" eval="[(4, ref('base.group_user'))]"/>
+        <field name="comment">Can use ABDM features (ABHA, Scan &amp; Share, linking).</field>
+    </record>
+
+    <!-- Administrator: sees the API log and raw answers -->
+    <record id="group_abdm_manager" model="res.groups">
+        <field name="name">Administrator</field>
+        <field name="privilege_id" ref="abdm_base.res_groups_privilege_abdm"/>
+        <field name="implied_ids" eval="[(4, ref('group_abdm_user'))]"/>
+        <field name="user_ids" eval="[(4, ref('base.user_root')), (4, ref('base.user_admin'))]"/>
+        <field name="comment">Full ABDM access, including the API log for troubleshooting and audits.</field>
+    </record>
+</odoo>

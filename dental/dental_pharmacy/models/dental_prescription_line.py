@@ -13,6 +13,7 @@ class DentalPrescriptionLine(models.Model):
         ondelete='cascade',
         index=True
     )
+    company_id = fields.Many2one(related='prescription_id.company_id', store=True, index=True, string='Branch')
     patient_id = fields.Many2one(
         'res.partner',
         string='Patient',
@@ -77,6 +78,14 @@ class DentalPrescriptionLine(models.Model):
         ('stat', 'Immediately (STAT)'),
     ], string='Frequency', default='bid', required=True)
 
+    frequency_label = fields.Char(string='Frequency Label', compute='_compute_frequency_label')
+
+    @api.depends('frequency')
+    def _compute_frequency_label(self):
+        labels = dict(self._fields['frequency']._description_selection(self.env))
+        for line in self:
+            line.frequency_label = labels.get(line.frequency, '')
+
     duration = fields.Integer(
         string='Duration (Days)',
         default=5,
@@ -129,6 +138,75 @@ class DentalPrescriptionLine(models.Model):
         store=True,
         help='Details of allergy conflict for clinical reference.'
     )
+    # Live pharmacy stock of the prescription's branch (informational: prescribing is never blocked)
+    stock_on_hand = fields.Float(
+        string='Pharmacy Stock',
+        compute='_compute_stock_alert',
+        help="Quantity on hand in this branch's pharmacy."
+    )
+    stock_alert = fields.Selection([
+        ('ok', 'In Stock'),
+        ('low', 'Low Stock'),
+        ('insufficient', 'Not Enough Stock'),
+        ('out', 'Out of Stock'),
+    ], string='Stock Status', compute='_compute_stock_alert')
+    stock_alert_note = fields.Char(string='Stock Alert', compute='_compute_stock_alert')
+    stock_free_qty = fields.Float(string='Free to Use', compute='_compute_stock_alert',
+                                  help='On hand minus what is already reserved for other orders.')
+    stock_forecast_qty = fields.Float(string='Forecasted', compute='_compute_stock_alert',
+                                      help='On hand plus incoming minus outgoing (planned receipts and deliveries).')
+    stock_warehouse_id = fields.Many2one('stock.warehouse', string='Pharmacy Warehouse', compute='_compute_stock_alert')
+    stock_forecast_access = fields.Boolean(compute='_compute_stock_alert',
+                                           help='The user can open the inventory forecast report.')
+
+    def _rx_patient(self):
+        """Patient of the line; while the dentist types lines on the case (prescription not saved
+        yet) it comes from the context the case form passes."""
+        self.ensure_one()
+        return (self.prescription_id.patient_id or self.patient_id
+                or self.env['res.partner'].browse(self.env.context.get('dental_rx_patient_id')).exists())
+
+    def _rx_company(self):
+        self.ensure_one()
+        return (self.prescription_id.company_id or self.company_id
+                or self.env['res.company'].browse(self.env.context.get('dental_rx_company_id')).exists()
+                or self.env.company)
+
+    @api.depends('medicine_id', 'quantity', 'dispensed_qty', 'company_id', 'prescription_id.company_id')
+    def _compute_stock_alert(self):
+        forecast_access = self.env.user.has_group('stock.group_stock_user')
+        for line in self:
+            medicine = line.medicine_id
+            needed = max(line.quantity - line.dispensed_qty, 0.0)
+            line.stock_forecast_access = forecast_access
+            if not medicine or not medicine.is_storable or (line.dispensed_qty and not needed):
+                line.stock_on_hand = line.stock_free_qty = line.stock_forecast_qty = 0.0
+                line.stock_warehouse_id = False
+                line.stock_alert = False
+                line.stock_alert_note = False
+                continue
+            company = line._rx_company()
+            # Doctors usually have no inventory rights: read stock with sudo, limited to this branch
+            warehouse = self.env['stock.warehouse'].sudo().search([('company_id', '=', company.id)], limit=1)
+            stock_medicine = medicine.sudo().with_context(allowed_company_ids=[company.id], warehouse_id=warehouse.id)
+            on_hand = stock_medicine.qty_available
+            line.stock_free_qty = stock_medicine.free_qty
+            line.stock_forecast_qty = stock_medicine.virtual_available
+            line.stock_warehouse_id = warehouse
+            uom = medicine.uom_id.name or ''
+            line.stock_on_hand = on_hand
+            if on_hand <= 0:
+                line.stock_alert = 'out'
+                line.stock_alert_note = _('Out of stock')
+            elif needed and on_hand < needed:
+                line.stock_alert = 'insufficient'
+                line.stock_alert_note = _('Only %(qty)s %(uom)s in stock', qty=f'{on_hand:g}', uom=uom)
+            elif on_hand <= medicine.reorder_level:
+                line.stock_alert = 'low'
+                line.stock_alert_note = _('Low stock: %(qty)s %(uom)s left', qty=f'{on_hand:g}', uom=uom)
+            else:
+                line.stock_alert = 'ok'
+                line.stock_alert_note = False
 
     @api.depends('quantity', 'dispensed_qty')
     def _compute_remaining_qty(self):
@@ -138,7 +216,7 @@ class DentalPrescriptionLine(models.Model):
     @api.depends('medicine_id', 'prescription_id.patient_id.allergies', 'patient_id.allergies')
     def _compute_allergy_conflict(self):
         for line in self:
-            patient = line.prescription_id.patient_id or line.patient_id
+            patient = line._rx_patient()
             allergy_text = ""
             if patient and patient.allergies:
                 import re
@@ -251,7 +329,7 @@ class DentalPrescriptionLine(models.Model):
             # Check Patient Allergy Conflict
             self._compute_allergy_conflict()
             if self.has_allergy_conflict:
-                patient = self.prescription_id.patient_id or self.patient_id
+                patient = self._rx_patient()
                 warning = {
                     'title': _('CLINICAL ALLERGY ALERT!'),
                     'message': _(
@@ -265,6 +343,10 @@ class DentalPrescriptionLine(models.Model):
                         'note': self.allergy_conflict_note,
                     }
                 }
+
+            # Stock never interrupts prescribing: availability is shown inline on the line
+            # (Stock badge + on-hand qty) and on the linked sales order, without any popup.
+            self._compute_stock_alert()
 
         if warning:
             return {'warning': warning}

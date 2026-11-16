@@ -8,7 +8,7 @@ class IrUiView(models.Model):
     type = fields.Selection(selection_add=[('gantt', 'Gantt')])
 
     def _get_view_info(self):
-        return {'gantt': {'icon': 'oi oi-view-gantt'}} | super()._get_view_info()
+        return {'gantt': {'icon': 'view_timeline'}} | super()._get_view_info()
 
     def _validate_tag_gantt(self, node, name_manager, node_info):
         pass

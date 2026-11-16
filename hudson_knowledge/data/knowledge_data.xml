@@ -28,6 +28,7 @@
 
     <!-- Default Article Templates -->
     <record id="knowledge_template_meeting" model="knowledge.management.article.template">
+        <field name="category_id" ref="knowledge_template_category_productivity"/>
         <field name="name">Meeting Notes</field>
         <field name="icon">📝</field>
         <field name="sequence">10</field>
@@ -47,6 +48,7 @@
     </record>
 
     <record id="knowledge_template_sop" model="knowledge.management.article.template">
+        <field name="category_id" ref="knowledge_template_category_company"/>
         <field name="name">Standard Operating Procedure</field>
         <field name="icon">📋</field>
         <field name="sequence">20</field>
@@ -68,6 +70,7 @@
     </record>
 
     <record id="knowledge_template_onboarding" model="knowledge.management.article.template">
+        <field name="category_id" ref="knowledge_template_category_company"/>
         <field name="name">Employee Onboarding</field>
         <field name="icon">👋</field>
         <field name="sequence">30</field>
@@ -94,16 +97,17 @@
 
     <!-- Tiny House Catalog Template (Matches Image 1 reference) -->
     <record id="knowledge_template_catalog" model="knowledge.management.article.template">
+        <field name="category_id" ref="knowledge_template_category_sales"/>
         <field name="name">Tiny House Catalog</field>
         <field name="icon">🏡</field>
         <field name="sequence">40</field>
         <field name="body_html"><![CDATA[
 <h1>Tiny House Catalog</h1>
 <p class="lead">Explore our curated collection of architectural designs, modern layouts, and sustainable micro-homes.</p>
-<div class="o_knowledge_behavior_anchor o_knowledge_embedded_view_container" contenteditable="false" data-view-type="kanban" data-view-ref="emb_kanban_catalog" data-view-name="Available Models"></div>
+<div class="o_knowledge_item_view_host" data-embedded="knowledgeItemView" data-oe-protected="true" contenteditable="false" data-embedded-props='{"viewType": "kanban", "name": "Available Models"}'></div>
 <p><br></p>
 <h2>Available Models ✅</h2>
-<div class="o_knowledge_behavior_anchor o_knowledge_embedded_view_container" contenteditable="false" data-view-type="list" data-view-ref="emb_list_specs" data-view-name="Model Specifications & Pricing"></div>
+<div class="o_knowledge_item_view_host" data-embedded="knowledgeItemView" data-oe-protected="true" contenteditable="false" data-embedded-props='{"viewType": "list", "name": "Model Specifications &amp; Pricing"}'></div>
 <p><br></p>
 <h2>How to find the perfect model for your needs 🥰</h2>
 <p>Here is a short guide that will help you pick the right tiny house for you:</p>
@@ -119,6 +123,7 @@
 
     <!-- Product Feature Specification (PRD) Template -->
     <record id="knowledge_template_prd" model="knowledge.management.article.template">
+        <field name="category_id" ref="knowledge_template_category_product"/>
         <field name="name">Product Feature Spec (PRD)</field>
         <field name="icon">🚀</field>
         <field name="sequence">50</field>
@@ -129,10 +134,10 @@
 <h2>1. Problem Statement & Motivation</h2>
 <p>Users require an automated, streamlined solution to eliminate recurring manual data entry and improve team turnaround times.</p>
 <h2>2. Scope & Key Deliverables</h2>
-<div class="o_knowledge_behavior_anchor o_knowledge_embedded_view_container" contenteditable="false" data-view-type="list" data-view-ref="emb_list_prd" data-view-name="Functional Deliverables"></div>
+<div class="o_knowledge_item_view_host" data-embedded="knowledgeItemView" data-oe-protected="true" contenteditable="false" data-embedded-props='{"viewType": "list", "name": "Functional Deliverables"}'></div>
 <p><br></p>
 <h2>3. Execution Kanban</h2>
-<div class="o_knowledge_behavior_anchor o_knowledge_embedded_view_container" contenteditable="false" data-view-type="kanban" data-view-ref="emb_kanban_prd" data-view-name="Implementation Phases"></div>
+<div class="o_knowledge_item_view_host" data-embedded="knowledgeItemView" data-oe-protected="true" contenteditable="false" data-embedded-props='{"viewType": "kanban", "name": "Implementation Phases"}'></div>
 <p><br></p>
 <h2>4. Key Performance Metrics</h2>
 <ul>
@@ -144,6 +149,7 @@
 
     <!-- Sprint Planning & Task Tracker Template -->
     <record id="knowledge_template_sprint" model="knowledge.management.article.template">
+        <field name="category_id" ref="knowledge_template_category_product"/>
         <field name="name">Sprint Planning Board</field>
         <field name="icon">⚡</field>
         <field name="sequence">60</field>
@@ -157,7 +163,7 @@
     <li>Improve frontend latency across high-volume listing tables.</li>
 </ol>
 <h2>Sprint Work Board</h2>
-<div class="o_knowledge_behavior_anchor o_knowledge_embedded_view_container" contenteditable="false" data-view-type="kanban" data-view-ref="emb_kanban_sprint" data-view-name="Sprint Tasks"></div>
+<div class="o_knowledge_item_view_host" data-embedded="knowledgeItemView" data-oe-protected="true" contenteditable="false" data-embedded-props='{"viewType": "kanban", "name": "Sprint Tasks"}'></div>
 <p><br></p>
 <h2>Retrospective & Notes</h2>
 <p>Document blockers, dependencies, and action points during sprint demos.</p>

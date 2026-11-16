@@ -1,0 +1,258 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-name="custom_barcode_scanner.PickingListScreen" owl="1">
+        <div class="h-100 d-flex flex-column bg-view">
+            <WithSearch t-props="this.withSearchProps" t-slot-scope="search">
+                <!-- Custom Control Panel -->
+                <div class="o_control_panel d-flex justify-content-between align-items-center px-3 py-2 border-bottom" style="background-color: var(--o-barcode-view-bg); min-height: 56px;">
+                    <div class="o_cp_top_left d-flex align-items-center">
+                        <button t-if="this.props.pickingTypeId !== 'inventory'" class="btn btn-sm o_barcode_text_light fw-bold me-3 px-3 py-1" style="background-color: #714B67; border-radius: 4px;" t-on-click="this.createNewPicking">New</button>
+                        <div class="d-flex flex-column">
+                            <div class="d-flex align-items-center small fw-bold" style="font-size: 0.75rem; color: #017e84 !important;">
+                                <span class="cursor-pointer me-1" t-on-click="() => this.props.onBack ? this.props.onBack() : null">...</span> /
+                                <span class="cursor-pointer ms-1 me-1 text-info" t-on-click="() => this.props.onBack ? this.props.onBack() : null">Operations</span>
+                            </div>
+                            <div class="d-flex align-items-center">
+                                <span class="fw-bold text-dark" style="font-size: 0.9rem;">
+                                    Hudson Custom Dev: <t t-out="this.state.pickingTypeName"/>
+                                </span>
+                                <div class="dropdown d-inline-block ms-2">
+                                    <button type="button" class="btn o_btn_circle btn-light p-1 m-0 lh-1" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Actions menu" title="Actions"><i class="oi oi-fw" data-icon="more_vert" aria-hidden="true"/></button>
+                                    <ul class="dropdown-menu shadow-sm" style="font-size: 0.9rem; min-width: 180px;">
+                                        <li>
+                                            <a class="dropdown-item cursor-pointer py-2" t-on-click="this.exportData">
+                                                <i class="oi me-2 text-muted" data-icon="upload"/> Export
+                                            </a>
+                                        </li>
+                                        <li>
+                                            <a class="dropdown-item cursor-pointer text-muted py-2" style="pointer-events: none;">
+                                                <i class="oi me-2" data-icon="bookmark"/> Knowledge <i class="oi float-end mt-1 opacity-50" data-icon="arrow_right"/>
+                                            </a>
+                                        </li>
+                                        <li>
+                                            <a class="dropdown-item cursor-pointer text-muted py-2" style="pointer-events: none;">
+                                                <i class="oi me-2" data-icon="table"/> Spreadsheet <i class="oi float-end mt-1 opacity-50" data-icon="arrow_right"/>
+                                            </a>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="o_cp_searchview flex-grow-1 mx-3" style="max-width: 500px;">
+                        <SearchBar t-if="search.domain !== undefined" />
+                    </div>
+                    
+                    <div class="o_cp_pager d-flex align-items-center text-muted" style="font-size: 0.85rem;">
+                        <span class="me-3">
+                            <t t-if="this.state.count > 0">1-<t t-out="this.state.count"/></t>
+                            <t t-else="">0-0</t>
+                            / <t t-out="this.state.count"/>
+                        </span>
+                        <div class="btn-group">
+                            <button class="btn btn-sm btn-light border-0 px-2 text-muted"><i class="oi" data-icon="chevron_left"/></button>
+                            <button class="btn btn-sm btn-light border-0 px-2 text-muted"><i class="oi" data-icon="chevron_right"/></button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Tabs -->
+                <div class="d-flex w-100 border-bottom bg-view" t-if="this.props.pickingTypeId !== 'inventory' and this.state.canUseBatches">
+                    <div class="flex-fill text-center py-2 border-end cursor-pointer fw-bold"
+                         t-att-class="this.state.activeTab === 'transfers' ? 'border-bottom-2 border-primary text-primary' : 'text-muted'"
+                         t-on-click="() => { this.state.activeTab = 'transfers'; }" style="transition: all 0.2s; border-bottom: 3px solid transparent; border-bottom-color: {{state.activeTab === 'transfers' ? '#017e84' : 'transparent'}};">
+                        Transfers <span t-if="this.state.pickingCount > 0" class="badge rounded-pill bg-secondary ms-1"><t t-out="this.state.pickingCount"/></span>
+                    </div>
+                    <div class="flex-fill text-center py-2 cursor-pointer fw-bold"
+                         t-att-class="this.state.activeTab === 'batches' ? 'border-bottom-2 border-primary text-primary' : 'text-muted'"
+                         t-on-click="() => { this.state.activeTab = 'batches'; }" style="transition: all 0.2s; border-bottom: 3px solid transparent; border-bottom-color: {{state.activeTab === 'batches' ? '#017e84' : 'transparent'}};">
+                        Batches <span t-if="this.state.batchCount > 0" class="badge rounded-pill bg-secondary ms-1"><t t-out="this.state.batchCount"/></span>
+                    </div>
+                </div>
+
+                <!-- Dark Banner -->
+                <div class="o_barcode_text_light text-center py-2" style="background-color: #2C3E50; font-size: 0.85rem;">
+                    Scan a <strong>transfer</strong>, a <strong>product</strong>, a <strong>lot</strong>, or a <strong>packaging</strong> to filter your records 
+                    <i class="oi ms-2 fs-5 align-middle cursor-pointer" data-icon="barcode" style="border: 1px dashed rgba(255,255,255,0.5); padding: 2px; border-radius: 2px;" t-on-click="this.toggleScanner"/>
+                </div>
+                
+                <!-- Active Filter Badge -->
+                <div t-if="this.state.barcodeFilter" class="bg-warning text-dark px-3 py-2 d-flex justify-content-between align-items-center fw-bold" style="font-size: 0.85rem;">
+                    <span><i class="oi me-2" data-icon="filter_alt"/> Filtering by barcode: <t t-out="this.state.barcodeFilter"/></span>
+                    <i class="oi cursor-pointer fs-5" data-icon="close" t-on-click="() => { this.state.barcodeFilter = ''; this.state.barcodeDomain = []; }"/>
+                </div>
+                
+                <!-- Content Grid -->
+                <t t-if="this.state.activeTab === 'transfers'">
+                    <PickingGrid domain="this.getGridDomain(search.domain)" groupBy="search.groupBy" pickingTypeId="this.props.pickingTypeId" onPickingClick="this.props.onPickingClick" onBatchClick="this.props.onBatchClick" showBatches="this.state.canUseBatches" onDataLoaded="(c, filters) => this.onGridLoaded(c, filters)"/>
+                </t>
+                <t t-if="this.state.activeTab === 'batches' and this.state.canUseBatches">
+                    <BatchGrid domain="this.getGridDomain(search.domain)" pickingTypeId="this.props.pickingTypeId" onBatchClick="this.props.onBatchClick" onDataLoaded="(c, filters) => this.onGridLoaded(c, filters)"/>
+                </t>
+                
+                <!-- Scanner Modal -->
+                <t t-if="this.state.showScanner">
+                    <!-- Backdrop -->
+                    <div class="position-absolute top-0 start-0 w-100 h-100" style="background-color: rgba(0,0,0,0.5); z-index: 1040;" t-on-click="this.toggleScanner"></div>
+                    
+                    <!-- Modal Content -->
+                    <div class="position-absolute top-50 start-50 translate-middle d-flex flex-column rounded shadow-lg overflow-hidden" style="background-color: #24242e; z-index: 1050; width: 90%; max-width: 600px; max-height: 90vh;">
+                        <!-- Header -->
+                        <div class="d-flex align-items-center p-3 o_barcode_text_light border-bottom" style="border-color: rgba(255,255,255,0.1) !important;">
+                            <i class="oi cursor-pointer me-3 fs-5" data-icon="arrow_back" t-on-click="this.toggleScanner"/>
+                            <span class="fs-5 fw-bold">Barcode Scanner</span>
+                        </div>
+                        
+                        <!-- Video Area -->
+                        <div class="position-relative d-flex justify-content-center align-items-center o_barcode_bg_black" style="min-height: 350px;">
+                            <video t-ref="this.videoRef" class="w-100 h-100 position-absolute" style="object-fit: cover;" playsinline="1" muted="1"/>
+                            
+                            <!-- Scanner Overlay (Crop box) -->
+                            <div class="position-relative border o_barcode_border_light opacity-75" style="width: 70%; max-width: 400px; aspect-ratio: 16/9; border-width: 2px !important; z-index: 2;">
+                                <i class="oi position-absolute o_barcode_text_light" data-icon="crop" style="top: -10px; left: -10px;"/>
+                            </div>
+                        </div>
+                        
+                        <!-- Bottom Bar (Manual Input) -->
+                        <div class="p-3" style="background-color: #1a1a24;">
+                            <div class="d-flex bg-view rounded" style="padding: 2px;">
+                                <input type="text" class="form-control border-0 shadow-none bg-transparent px-2" placeholder="Enter a barcode..." t-att-value="this.state.manualBarcode" t-on-input="this.onManualBarcodeInput" t-on-keyup="this.onKeyup" autofocus="1"/>
+                                <button class="btn fw-bold px-4" style="color: white; background-color: #3d3d4e;" t-on-click="this.applyManualBarcode">Apply</button>
+                            </div>
+                        </div>
+                    </div>
+                </t>
+            </WithSearch>
+        </div>
+    </t>
+
+    <t t-name="custom_barcode_scanner.PickingGrid" owl="1">
+        <div class="p-3 flex-grow-1 overflow-auto" style="background-color: var(--o-barcode-page-bg);">
+                <t t-if="this.state.grouped ? this.state.groups.length === 0 : this.state.pickings.length === 0">
+                    <div class="alert alert-info">No transfers found.</div>
+                </t>
+                <!-- Group By: one kanban column per group (Odoo Online style); otherwise a single hidden group -->
+                <div t-att-class="this.state.grouped ? 'o_barcode_kanban_groups d-flex gap-3 overflow-auto align-items-start pb-2' : ''">
+                <t t-foreach="this.displayGroups" t-as="group" t-key="group.key">
+                <div t-att-class="this.state.grouped ? 'o_barcode_kanban_group flex-shrink-0 d-flex flex-column' : ''" t-att-style="this.state.grouped ? 'width: 300px;' : ''">
+                <div t-if="this.state.grouped" class="o_barcode_kanban_header d-flex justify-content-between align-items-center px-1 py-2">
+                    <span class="fw-bold text-dark text-truncate" style="font-size: 0.9rem;" t-out="group.label"/>
+                    <span class="badge rounded-pill bg-secondary ms-2" t-out="group.count"/>
+                </div>
+                <div t-att-class="this.state.grouped ? 'd-flex flex-column gap-2' : 'o_barcode_picking_grid'">
+                    <t t-foreach="group.records" t-as="picking" t-key="picking.id">
+                        <div class="o_barcode_picking_card bg-view border d-flex flex-column justify-content-between cursor-pointer shadow-sm" t-on-click="() => this.props.onPickingClick(picking.id)">
+                            <!-- Top Row -->
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <div class="o_barcode_card_title fw-bold text-dark text-truncate" t-att-title="picking.origin ? picking.name + ' - ' + picking.origin : picking.name">
+                                    <i class="oi text-muted me-2" data-icon="star"/><t t-out="picking.name"/><t t-if="picking.origin"> - <span class="o_barcode_picking_origin" t-out="picking.origin"/></t>
+                                </div>
+                                <span class="badge rounded-pill o_barcode_state_badge flex-shrink-0" t-att-class="picking.state === 'assigned' ? 'o_barcode_state_ready' : ''">
+                                    <t t-out="picking.state === 'assigned' ? 'Ready' : (picking.state === 'confirmed' ? (picking.product_id ? 'Confirmed' : 'Waiting') : picking.state)"/>
+                                </span>
+                            </div>
+                            <!-- Batch: transfers belonging to a batch, with a shortcut to it -->
+                            <div t-if="picking.batch_id and this.props.showBatches" class="d-flex justify-content-end mb-1">
+                                <button type="button" class="btn btn-sm o_barcode_text_light fw-bold py-0 px-2 o_barcode_batch_badge" style="background-color: #714B67; font-size: 0.72rem; border-radius: 4px;" t-att-title="'Open batch ' + picking.batch_id[1]" t-on-click.stop="() => this.openPickingBatch(picking.batch_id)">
+                                    <t t-out="picking.batch_id[1]"/> <i class="oi ms-1" data-icon="open_in_new"/>
+                                </button>
+                            </div>
+                            <!-- Bottom Row -->
+                            <div class="o_barcode_card_footer d-flex justify-content-between align-items-end">
+                                <div class="text-truncate" style="max-width: 75%;">
+                                    <t t-if="picking.product_id">
+                                        <div class="text-truncate"><t t-out="picking.product_id[1]"/></div>
+                                        <div class="text-truncate"><t t-out="picking.product_qty"/> <t t-out="picking.uom_id ? picking.uom_id[1] : 'Units'"/></div>
+                                    </t>
+                                    <t t-else="">
+                                        <t t-out="picking.partner_id ? picking.partner_id[1] : ' '"/>
+                                    </t>
+                                </div>
+                                <div class="text-end text-nowrap ms-2">
+                                    <t t-out="this.formatDate(picking.scheduled_date || picking.date_start)"/>
+                                </div>
+                            </div>
+                        </div>
+                    </t>
+                </div>
+                <div t-if="this.state.grouped and group.records.length &lt; group.count" class="d-flex justify-content-center mt-2">
+                    <button class="btn btn-sm btn-outline-secondary o_barcode_group_load_more" t-on-click="() => this.loadMoreInGroup(group)">
+                        <i class="oi me-1" data-icon="refresh"/> Load more
+                    </button>
+                </div>
+                </div>
+                </t>
+                </div>
+                
+                <!-- Load More Button -->
+                <div t-if="this.state.hasMore" class="d-flex justify-content-center mt-3 mb-4">
+                    <button class="btn btn-outline-secondary px-4 py-2" style="border-radius: 20px;" t-on-click="this.loadMore">
+                        <i class="oi me-2" data-icon="refresh"/> Load More
+                    </button>
+                </div>
+            </div>
+    </t>
+
+    <t t-name="custom_barcode_scanner.BatchGrid" owl="1">
+        <div class="flex-grow-1 overflow-auto bg-light p-2">
+            <!-- Loading State -->
+            <div t-if="this.state.loading" class="text-center py-5">
+                <div class="spinner-border text-secondary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <div class="mt-2 text-muted">Loading batches...</div>
+            </div>
+
+            <!-- Empty State -->
+            <div t-elif="this.state.batches.length === 0" class="text-center py-5 text-muted">
+                <i class="oi fs-1 mb-3 opacity-50" data-icon="stacks"/>
+                <h5>No Batch Transfers</h5>
+                <p>No batches are currently in Draft or In Progress state.</p>
+            </div>
+
+            <!-- Grid of Batches -->
+            <div t-else="" class="row g-2">
+                <t t-foreach="this.state.batches" t-as="batch" t-key="batch.id">
+                    <div class="col-12 col-md-6 col-lg-4">
+                        <div class="card h-100 border-0 shadow-sm cursor-pointer" t-on-click="() => this.openBatch(batch)" style="border-radius: 8px;">
+                            <div class="card-body p-3">
+                                <!-- Top Row: Name and State -->
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <div class="fw-bold text-dark" style="font-size: 1rem;">
+                                        <t t-out="batch.name"/>
+                                    </div>
+                                    <span class="badge o_barcode_text_light" t-attf-style="background-color: {{ this.getBatchStateColor(batch.state) }}; border-radius: 12px; padding: 4px 10px;">
+                                        <t t-out="this.getBatchStateLabel(batch.state)"/>
+                                    </span>
+                                </div>
+                                
+                                <!-- Transfer count -->
+                                <div class="text-muted small mb-2 d-flex align-items-center">
+                                    <i class="oi me-1" data-icon="swap_horiz"/> <t t-out="batch.picking_count"/> transfer(s)
+                                </div>
+
+                                <!-- Bottom Row: User and Date -->
+                                <div class="d-flex justify-content-between align-items-center mt-3 pt-2 border-top" style="font-size: 0.8rem;">
+                                    <div class="text-muted">
+                                        <t t-if="batch.user_id">
+                                            <i class="oi me-1" data-icon="account_circle"/> <t t-out="batch.user_id[1]"/>
+                                        </t>
+                                        <t t-else="">
+                                            <i class="oi me-1 opacity-50" data-icon="account_circle"/> Unassigned
+                                        </t>
+                                    </div>
+                                    <div class="text-muted fw-bold">
+                                        <t t-if="batch.scheduled_date">
+                                            <t t-out="this.formatDate(batch.scheduled_date)"/>
+                                        </t>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </t>
+            </div>
+        </div>
+    </t>
+</templates>

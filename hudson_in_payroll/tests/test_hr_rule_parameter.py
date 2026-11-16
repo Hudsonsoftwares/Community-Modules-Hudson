@@ -49,7 +49,7 @@ class TestHrRuleParameter(common.TransactionCase):
         self.assertAlmostEqual(eps_rate, 0.0833, places=4, msg="EPS_RATE as decimal should be 0.0833")
 
         pf_ceiling = self.RuleParam.get_pf_parameter('PF_WAGE_CEILING', date='2026-04-01')
-        self.assertEqual(pf_ceiling, 15000.0, "PF_WAGE_CEILING should resolve to 15000.0")
+        self.assertEqual(pf_ceiling, 25000.0, "PF_WAGE_CEILING should resolve to 25000.0")
 
         edli_rate = self.RuleParam.get_pf_parameter('EDLI_RATE', date='2026-04-01', as_decimal=True)
         self.assertAlmostEqual(edli_rate, 0.005, places=4, msg="EDLI_RATE as decimal should be 0.005")
@@ -76,3 +76,4 @@ class TestHrRuleParameter(common.TransactionCase):
                     'date_from': '2014-09-01',  # Duplicate date_from
                     'parameter_value': '14',
                 })
+                self.RuleParamValue.flush_model()

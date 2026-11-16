@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+# pyrefly: ignore [missing-import]
 from odoo.tools.float_utils import float_round
 import logging
 
@@ -113,10 +114,11 @@ class GratuityCalculator:
 
         # 5. Apply Monetary Rounding
         final_gratuity_amount = float_round(capped_gratuity_amount, precision_digits=precision_digits)
+        rounded_raw_amount = float_round(raw_gratuity_amount, precision_digits=precision_digits)
 
         # 6. Return Structured Result Object
         return GratuityCalculationResult(
-            raw_gratuity_amount=raw_gratuity_amount,
+            raw_gratuity_amount=rounded_raw_amount,
             capped_gratuity_amount=capped_gratuity_amount,
             final_gratuity_amount=final_gratuity_amount,
             is_ceiling_applied=is_ceiling_applied,

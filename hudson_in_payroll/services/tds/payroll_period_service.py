@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import logging
+# pyrefly: ignore [missing-import]
 from odoo import fields
 from ..base import BaseStatutoryService
 
@@ -35,7 +36,7 @@ class PayrollPeriodService(BaseStatutoryService):
                 pass
 
         for fname in ('contract_date_start', 'joining_date', 'date_of_joining', 'hds_in_doj',
-                      'first_contract_date', 'hds_in_esic_joining_date', 'hds_in_pf_joining_date', 'date_start'):
+                      'first_contract_date', 'hds_in_esic_joining_date', 'hds_in_pf_joining_date'):
             val = getattr(employee, fname, None)
             if val:
                 return fields.Date.from_string(val) if isinstance(val, str) else val
@@ -59,6 +60,9 @@ class PayrollPeriodService(BaseStatutoryService):
                 if val:
                     return fields.Date.from_string(val) if isinstance(val, str) else val
 
+        if getattr(employee, 'date_start', None):
+            return fields.Date.from_string(employee.date_start) if isinstance(employee.date_start, str) else employee.date_start
+
         # Fallback: check earliest payslip date for this employee
         first_slip = self.env['hr.payslip'].search([
             ('employee_id', '=', employee.id),
@@ -78,6 +82,22 @@ class PayrollPeriodService(BaseStatutoryService):
             val = getattr(employee, fname, None)
             if val:
                 return fields.Date.from_string(val) if isinstance(val, str) else val
+
+        if 'final.settlement' in self.env:
+            settlement = self.env['final.settlement'].search([
+                ('employee_id', '=', employee.id),
+                ('state', '!=', 'cancel'),
+            ], order='id desc', limit=1)
+            if settlement and settlement.last_working_day:
+                return fields.Date.from_string(settlement.last_working_day) if isinstance(settlement.last_working_day, str) else settlement.last_working_day
+
+        if 'hr.resignation' in self.env:
+            resignation = self.env['hr.resignation'].search([
+                ('employee_id', '=', employee.id),
+                ('state', 'in', ['approved', 'done']),
+            ], order='id desc', limit=1)
+            if resignation and getattr(resignation, 'approved_revealing_date', False):
+                return fields.Date.from_string(resignation.approved_revealing_date) if isinstance(resignation.approved_revealing_date, str) else resignation.approved_revealing_date
 
         contract = getattr(employee, 'version_id', False) or getattr(employee, 'contract_id', False)
         if not contract and hasattr(employee, 'contract_ids') and employee.contract_ids:
@@ -99,16 +119,34 @@ class PayrollPeriodService(BaseStatutoryService):
 
         return None
 
-    def calculate_remaining_periods(self, employee, financial_year, eval_date=None):
+    def calculate_remaining_periods(self, employee, financial_year, eval_date=None, payslip=None):
         """
         Calculates remaining payroll periods in Financial Year (inclusive of current month).
         Always respects employee joining date rather than assuming 12 months.
+        For final settlement payslips, returns 1 period to withhold remaining annual liability in full.
 
         :param employee: hr.employee record
         :param financial_year: tds.financial.year record
         :param eval_date: Date (optional payslip eval_date / date_to)
+        :param payslip: hr.payslip record (optional)
         :return: int (Remaining payroll periods, min 1)
         """
+        # Final settlement payslip check: 100% of remaining tax liability must be deducted on the final payslip
+        if payslip:
+            struct = getattr(payslip, 'struct_id', False)
+            struct_code = (getattr(struct, 'code', '') or '').upper() if struct else ''
+            struct_name = (getattr(struct, 'name', '') or '').upper() if struct else ''
+            if (struct and (struct_code in ('FINAL_SETTLEMENT_STRUCT', 'FINAL_SETT', 'FINAL_SETTLEMENT') or 'SETTLEMENT' in struct_code or 'SETTLEMENT' in struct_name or 'FINAL' in struct_name)) or self.env.context.get('is_final_settlement'):
+                return 1
+            if 'final.settlement' in self.env:
+                if self.env['final.settlement'].search_count([('payslip_id', '=', payslip.id), ('state', '!=', 'cancel')]):
+                    return 1
+        elif employee and 'final.settlement' in self.env and eval_date:
+            if self.env['final.settlement'].search_count([
+                ('employee_id', '=', employee.id), ('state', '!=', 'cancel'), ('last_working_day', '<=', eval_date)
+            ]):
+                return 1
+
         eval_date = eval_date or fields.Date.today()
         if isinstance(eval_date, str):
             eval_date = fields.Date.from_string(eval_date)

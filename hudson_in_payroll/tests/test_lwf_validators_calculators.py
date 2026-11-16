@@ -39,6 +39,7 @@ class TestLWFValidatorsCalculators(TransactionCase):
 
         self.emp = self.env['hr.employee'].create({
             'name': 'SOA Test Employee',
+            'hds_in_lwf_applicable': True,
         })
 
     def test_01_company_configuration_validator_enabled(self):
@@ -58,6 +59,7 @@ class TestLWFValidatorsCalculators(TransactionCase):
         res = self.comp_validator.validate(self.env.company)
         self.assertFalse(res.is_valid)
         self.assertFalse(res.is_enabled)
+        self.env.company.hds_in_enable_lwf = True
 
     def test_03_lwf_eligibility_validator_threshold_met(self):
         """Validates eligibility when headcount threshold (15 >= 10) and deduction month (June) match."""
@@ -119,7 +121,10 @@ class TestLWFValidatorsCalculators(TransactionCase):
     def test_08_lwf_eligibility_contractor(self):
         """Validates ineligibility when employee is a contractor/freelancer."""
         self.emp.hds_in_lwf_applicable = True
-        self.emp.employee_type = 'contractor'
+        contract_type = self.env.ref('hudson_payroll_base.employee_type_contract', raise_if_not_found=False)
+        if not contract_type:
+            contract_type = self.env['hr.employee.type'].create({'name': 'Contractor', 'code': 'CON'})
+        self.emp.employee_type_id = contract_type.id
         res = self.elig_validator.validate(
             employee=self.emp,
             state=self.state_mh,
@@ -183,7 +188,9 @@ class TestLWFValidatorsCalculators(TransactionCase):
     def test_11_lwf_eligibility_net_salary_below_contribution(self):
         """Validates ineligibility when employee earned net salary is less than LWF contribution (or 0 on LOP)."""
         self.emp.hds_in_lwf_applicable = True
-        self.emp.employee_type = 'employee'
+        reg_type = self.env.ref('hudson_payroll_base.employee_type_employee', raise_if_not_found=False)
+        if reg_type:
+            self.emp.employee_type_id = reg_type.id
         # Contribution is 25.0, net salary is 10.0
         res = self.elig_validator.validate(
             employee=self.emp,
@@ -210,7 +217,9 @@ class TestLWFValidatorsCalculators(TransactionCase):
     def test_12_lwf_eligibility_net_salary_sufficient(self):
         """Validates eligibility when employee earned net salary exceeds LWF contribution."""
         self.emp.hds_in_lwf_applicable = True
-        self.emp.employee_type = 'employee'
+        reg_type = self.env.ref('hudson_payroll_base.employee_type_employee', raise_if_not_found=False)
+        if reg_type:
+            self.emp.employee_type_id = reg_type.id
         res = self.elig_validator.validate(
             employee=self.emp,
             state=self.state_mh,

@@ -224,8 +224,9 @@
         <field name="name">fs.planning.slot.calendar</field>
         <field name="model">fs.planning.slot</field>
         <field name="arch" type="xml">
+            <!-- schedule: the "to schedule" side section, dragged onto the calendar (fs_calendar) -->
             <calendar string="Shifts" date_start="date_start" date_stop="date_end" color="role_id" mode="week"
-                      event_open_popup="1" quick_create="0">
+                      event_open_popup="1" quick_create="0" js_class="fs_calendar" schedule="1">
                 <field name="resource_id" filters="1" avatar_field="avatar_128"/>
                 <field name="role_id" filters="1"/>
                 <field name="partner_id"/>

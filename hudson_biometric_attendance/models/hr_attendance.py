@@ -46,7 +46,8 @@ class HrAttendance(models.Model):
 
             if att.check_in and att.employee_id.resource_calendar_id:
                 calendar = att.employee_id.resource_calendar_id
-                tz = pytz.timezone(calendar.tz or 'UTC')
+                tz_name = getattr(calendar, 'tz', False) or getattr(att.employee_id, 'tz', False) or (att.employee_id.company_id and att.employee_id.company_id.tz) or self.env.company.tz or 'UTC'
+                tz = pytz.timezone(tz_name)
                 local_check_in = pytz.utc.localize(att.check_in).astimezone(tz)
                 day = local_check_in.date()
                 
@@ -64,7 +65,6 @@ class HrAttendance(models.Model):
                     first_shift = shifts[0]
                     last_shift = shifts[-1]
                     
-                    tz = pytz.timezone(calendar.tz or 'UTC')
                     local_check_in = pytz.utc.localize(att.check_in).astimezone(tz)
                     check_in_hour = local_check_in.hour + local_check_in.minute / 60.0 + local_check_in.second / 3600.0
                     

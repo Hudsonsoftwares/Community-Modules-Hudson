@@ -12,10 +12,9 @@
             <xpath expr="//notebook" position="inside">
                 <page string="Dental Clinic Setup" name="dental_clinic" invisible="not is_dental_clinic">
                     <group>
-                        <group string="Operating Timings">
-                            <field name="working_days"/>
-                            <field name="opening_time" widget="float_time"/>
-                            <field name="closing_time" widget="float_time"/>
+                        <group string="Clinic Hours">
+                            <field name="dental_hours_summary" nolabel="1" colspan="2" class="text-muted"/>
+                            <div colspan="2" class="text-muted small">Edit in Dental Clinic &gt; Configuration &gt; Clinic Configuration.</div>
                         </group>
                         <group string="Clinic Details">
                             <field name="clinic_manager_id"/>
@@ -31,6 +30,199 @@
                     </group>
                 </page>
             </xpath>
+        </field>
+    </record>
+
+    <!-- =============================================================== -->
+    <!-- Dental Clinic Branch Views (Restricted to Branches Only)         -->
+    <!-- =============================================================== -->
+
+    <!-- Dental Clinic Branch List View -->
+    <record id="view_dental_clinic_branch_tree" model="ir.ui.view">
+        <field name="name">res.company.dental.branch.list</field>
+        <field name="model">res.company</field>
+        <field name="arch" type="xml">
+            <list string="Clinic Branches" decoration-muted="not active">
+                <field name="sequence" widget="handle"/>
+                <field name="logo" invisible="not logo" widget="image" options="{'size': [24, 24], 'img_class': 'o_avatar rounded'}" width="30" nolabel="1"/>
+                <field name="name" string="Branch Name"/>
+                <field name="parent_id" string="Main Clinic"/>
+                <field name="clinic_manager_id" string="Clinic Manager / Head Doctor"/>
+                <field name="phone"/>
+                <field name="email"/>
+                <field name="city"/>
+                <field name="state_id"/>
+                <field name="active" widget="boolean_toggle"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- Dental Clinic Branch Form View (parent_id is required to disallow root company creation) -->
+    <record id="view_dental_clinic_branch_form" model="ir.ui.view">
+        <field name="name">res.company.dental.branch.form</field>
+        <field name="model">res.company</field>
+        <field name="arch" type="xml">
+            <form string="Clinic Branch" duplicate="0">
+                <sheet>
+                    <widget name="web_ribbon" title="Archived" bg_color="text-bg-danger" invisible="active"/>
+                    <field name="active" invisible="1"/>
+                    <field name="is_dental_clinic" invisible="1"/>
+                    <div class="d-flex flex-column flex-md-row align-items-center gap-3">
+                        <field name="logo" widget="image" class="oe_avatar text-start float-none" nolabel="1" options="{'size': [100,100], 'img_class': 'rounded-4'}"/>
+                        <div class="oe_title w-100">
+                            <label for="name" string="Branch Name"/>
+                            <h1 class="o_outlined">
+                                <field name="name" placeholder="e.g. Downtown Dental Branch" required="1"/>
+                            </h1>
+                        </div>
+                    </div>
+                    <group>
+                        <group string="Branch Administration">
+                            <!-- Set once, on creation: Odoo forbids changing a company's parent afterwards
+                                 ("The company hierarchy cannot be changed"), and the main clinic has none -->
+                            <field name="parent_id" string="Main Clinic" required="not id" readonly="id" options="{'no_create': True}"
+                                   invisible="id and not parent_id"
+                                   help="The parent clinic network this branch belongs to. Set when the branch is created; it cannot be changed afterwards."/>
+                            <field name="clinic_manager_id" options="{'no_create': True}"/>
+                            <field name="clinic_registration_number"/>
+                            <field name="currency_id" options="{'no_create': True, 'no_open': True}"/>
+                        </group>
+                        <group string="Contact Details">
+                            <field name="phone"/>
+                            <field name="email"/>
+                            <field name="website" widget="url"/>
+                            <label for="street" string="Address"/>
+                            <div class="o_address_format">
+                                <field name="street" placeholder="Street..." class="o_address_street"/>
+                                <field name="street2" placeholder="Street 2..." class="o_address_street"/>
+                                <field name="city" placeholder="City" class="o_address_city"/>
+                                <field name="state_id" class="o_address_state" placeholder="State" options="{'no_open': True}"/>
+                                <field name="zip" placeholder="ZIP" class="o_address_zip"/>
+                                <field name="country_id" placeholder="Country" class="o_address_country" options="{'no_open': True, 'no_create': True}"/>
+                            </div>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Clinic Hours" name="clinic_hours">
+                            <group>
+                                <group string="Appointments" name="appointment_rules">
+                                    <field name="dental_slot_duration" string="Booking Slot (min)"
+                                           help="0 = use the global default from Clinic Settings."/>
+                                    <field name="dental_warn_outside_hours"/>
+                                </group>
+                                <group string="Week at a Glance" name="hours_summary">
+                                    <field name="dental_hours_summary" nolabel="1" colspan="2" class="text-muted"/>
+                                </group>
+                            </group>
+                            <button name="action_dental_load_default_hours" type="object" class="btn-secondary mb-2"
+                                    string="Load Standard Timings" icon="fa-clock-o" invisible="dental_clinic_hours_ids"/>
+                            <field name="dental_clinic_hours_ids" context="{'default_company_id': id}">
+                                <list editable="bottom" default_order="dayofweek, hour_from">
+                                    <field name="company_id" column_invisible="1"/>
+                                    <field name="dayofweek"/>
+                                    <field name="name"/>
+                                    <field name="hour_from" widget="float_time"/>
+                                    <field name="hour_to" widget="float_time"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Operations" name="clinic_operations">
+                            <group name="operations_main">
+                                <group string="Branch Settings" name="operations_clinic">
+                                    <field name="is_dental_clinic" readonly="1"/>
+                                </group>
+                            </group>
+                        </page>
+                        <page string="Letterhead &amp; Branding" name="letterhead">
+                            <group>
+                                <field name="letterhead_header" placeholder="Branch letterhead header..."/>
+                                <field name="letterhead_footer" placeholder="Branch letterhead footer..."/>
+                            </group>
+                        </page>
+                        <page string="Internal Notes" name="internal_notes">
+                            <field name="clinic_notes" placeholder="Branch-specific policies, instructions..."/>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Dental Clinic Branch Kanban View -->
+    <record id="view_dental_clinic_branch_kanban" model="ir.ui.view">
+        <field name="name">res.company.dental.branch.kanban</field>
+        <field name="model">res.company</field>
+        <field name="arch" type="xml">
+            <kanban duplicate="0">
+                <templates>
+                    <t t-name="card" class="flex-row gap-2">
+                        <main>
+                            <field class="h5 fw-bold" name="name"/>
+                            <div class="text-muted small">
+                                <i class="fa fa-hospital-o me-1"/> Branch of: <field name="parent_id"/>
+                            </div>
+                            <div t-if="record.city.value" class="text-muted small">
+                                <i class="fa fa-map-marker me-1"/> <field name="city"/>
+                            </div>
+                            <div t-if="record.clinic_manager_id.value" class="text-muted small">
+                                <i class="fa fa-user-md me-1"/> <field name="clinic_manager_id"/>
+                            </div>
+                            <div t-if="record.phone.value" class="text-muted small">
+                                <i class="fa fa-phone me-1"/> <field name="phone"/>
+                            </div>
+                        </main>
+                        <aside class="flex-basis-auto">
+                            <field name="logo" invisible="not logo" widget="image" options="{'size': [40, 40], 'img_class': 'border rounded object-fit-contain'}"/>
+                        </aside>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+
+    <!-- Dental Clinic Branch Search View -->
+    <record id="view_dental_clinic_branch_search" model="ir.ui.view">
+        <field name="name">res.company.dental.branch.search</field>
+        <field name="model">res.company</field>
+        <field name="arch" type="xml">
+            <search string="Search Clinic Branches">
+                <field name="name" string="Branch"/>
+                <field name="parent_id" string="Main Clinic"/>
+                <field name="clinic_manager_id"/>
+                <field name="city"/>
+                <separator/>
+                <filter string="Archived" name="inactive" domain="[('active', '=', False)]"/>
+                <group>
+                    <filter string="Main Clinic" name="group_parent" context="{'group_by': 'parent_id'}"/>
+                    <filter string="City" name="group_city" context="{'group_by': 'city'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <!-- Dental Clinic Branches Action: Only lists and creates branches (parent_id is set) -->
+    <record id="action_dental_clinic_branches" model="ir.actions.act_window">
+        <field name="name">Clinic Branches</field>
+        <field name="res_model">res.company</field>
+        <field name="view_mode">list,kanban,form</field>
+        <field name="domain">[('parent_id', '!=', False)]</field>
+        <field name="context">{
+            'dental_branch_creation': True,
+            'default_is_dental_clinic': True,
+        }</field>
+        <field name="search_view_id" ref="view_dental_clinic_branch_search"/>
+        <field name="view_ids" eval="[(5, 0, 0),
+            (0, 0, {'view_mode': 'list', 'view_id': ref('view_dental_clinic_branch_tree')}),
+            (0, 0, {'view_mode': 'kanban', 'view_id': ref('view_dental_clinic_branch_kanban')}),
+            (0, 0, {'view_mode': 'form', 'view_id': ref('view_dental_clinic_branch_form')}),
+        ]"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Create a new clinic branch
+            </p>
+            <p>
+                Add branches for your dental clinic network with branch-specific hours, doctor assignments, and operational details.
+            </p>
         </field>
     </record>
 </odoo>

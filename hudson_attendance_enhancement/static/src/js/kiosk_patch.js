@@ -1,79 +1,31 @@
-/** @odoo-module **/
-
 import { patch } from "@web/core/utils/patch";
-import { CheckInOut } from "@hr_attendance/components/check_in_out/check_in_out";
-import { CameraDialog } from "./camera_dialog";
-import { useService } from "@web/core/utils/hooks";
+import { KioskConfirmation } from "@hr_attendance/components/confirmation/confirmation";
+import { KioskPinCode } from "@hr_attendance/components/pin_code/pin_code";
 
-patch(CheckInOut.prototype, {
-    setup() {
-        super.setup();
-        this.dialogService = useService("dialog");
+/**
+ * Kiosk check-out picture.
+ *
+ * Core only shows the camera on these screens when the employee is about to
+ * check in. Once the employee is known, use the setting matching the next
+ * action: "Take Pictures on Check-In" or "Take Pictures on Check-Out" (both
+ * flags come with the employee data, see controllers/main.py). The snapshot is
+ * sent as usual; the server stores it as check-in or check-out picture.
+ */
+function showCameraFor(employeeData, checkedIn, streamAvailable) {
+    const enabled = checkedIn
+        ? employeeData.capture_check_out_image
+        : employeeData.capture_check_in_image;
+    return Boolean(enabled) && streamAvailable !== false;
+}
+
+patch(KioskConfirmation.prototype, {
+    get showVideoStream() {
+        return showCameraFor(this.props.employeeData, this.isCheckedIn, this.state.streamAvailable);
     },
+});
 
-    async signInOut() {
-        if (!this._attendancePhoto) {
-            this.dialogService.add(CameraDialog, {
-                onConfirm: async (base64Data) => {
-                    this._attendancePhoto = base64Data;
-                    await this.signInOut();
-                },
-                onClose: () => {
-                    this._attendancePhoto = null;
-                }
-            });
-            return;
-        }
-
-        const photo = this._attendancePhoto;
-        this._attendancePhoto = null; // reset for next attempt
-
-        if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(
-                async ({ coords: { latitude, longitude } }) => {
-                    try {
-                        await this.orm.call("hr.employee", "update_last_position", [
-                            [this.props.employeeId],
-                            latitude,
-                            longitude,
-                        ]);
-                    } catch (e) {
-                        console.warn("Could not update last position:", e);
-                    }
-                    await this._executeAttendanceManual(photo, latitude, longitude);
-                },
-                async (err) => {
-                    console.warn("Geolocation denied or failed in kiosk:", err);
-                    await this._executeAttendanceManual(photo, false, false);
-                },
-                { enableHighAccuracy: true, timeout: 8000 }
-            );
-        } else {
-            await this._executeAttendanceManual(photo, false, false);
-        }
+patch(KioskPinCode.prototype, {
+    get showVideoStream() {
+        return showCameraFor(this.props.employeeData, this.checkedIn, this.state.streamAvailable);
     },
-
-    async _executeAttendanceManual(photo, latitude, longitude) {
-        try {
-            const result = await this.orm.call("hr.employee", "attendance_manual", [
-                [this.props.employeeId],
-                this.props.nextAction,
-            ], {
-                photo: photo,
-                latitude: latitude,
-                longitude: longitude
-            });
-            if (result.action) {
-                this.actionService.doAction(result.action);
-            } else if (result.warning) {
-                this.notification.add(result.warning, { type: "danger" });
-            }
-        } catch (error) {
-            if (error && error.data && error.data.message) {
-                this.notification.add(error.data.message, { type: "danger", sticky: true });
-            } else {
-                throw error;
-            }
-        }
-    }
 });

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates id="template" xml:space="preserve">
+    <t t-name="dental_pharmacy_pos.ControlButtons" t-inherit="point_of_sale.ControlButtons" t-inherit-mode="extension">
+        <!-- Always visible next to the customer button at a pharmacy counter -->
+        <xpath expr="//t[@t-if='!this.props.showRemainingButtons']/SelectPartnerButton" position="after">
+            <button t-if="this.pos.isPharmacyCounter"
+                    class="btn btn-primary btn-lg lh-lg text-truncate o_dental_rx_button"
+                    t-on-click="() => this.onClickDentalPrescriptions()">
+                <i class="oi me-1" data-icon="medication" aria-hidden="true"/>Prescriptions
+            </button>
+        </xpath>
+        <xpath expr="//t[@t-if='this.props.showRemainingButtons']/div/t[@name='o_pricelist_button']" position="before">
+            <t t-if="this.pos.isPharmacyCounter" t-call="point_of_sale.controlButton"
+               icon="'person'"
+               btnText.translate="Allergies &amp; History"
+               btnClasses="'btn-secondary o_dental_patient_info_button'"
+               disabled="!this.pos.getOrder()?.getPartner()"
+               onClick="() => this.onClickDentalPatientInfo()"/>
+        </xpath>
+    </t>
+</templates>

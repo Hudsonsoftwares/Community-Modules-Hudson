@@ -1,31 +1,18 @@
 # -*- coding: utf-8 -*-
+# pyrefly: ignore [missing-import]
 from odoo import api, fields, models
 
 
 class HrEmployeeType(models.Model):
     """Classification of employee types for payroll and pay run filtering."""
-    _name = 'hr.employee.type'
-    _description = 'Employee Type'
-    _order = 'sequence, name'
-
-    name = fields.Char(string='Employee Type', required=True, translate=True)
-    code = fields.Char(string='Code')
-    sequence = fields.Integer(string='Sequence', default=10)
+    _inherit = 'hr.employee.type'
     active = fields.Boolean(string='Active', default=True)
 
 
 class HrEmployee(models.Model):
     _inherit = 'hr.employee'
 
-    def _default_employee_type_id(self):
-        return self.env['hr.employee.type'].search([('code', '=', 'EMP')], limit=1)
-
-    employee_type_id = fields.Many2one(
-        'hr.employee.type',
-        string='Employee Type',
-        default=_default_employee_type_id,
-        help="Type of employee (e.g. Permanent, Executive, Intern, Student)"
-    )
+    # employee_type_id is natively provided by Odoo 20 hr module (related to version_id.employee_type_id)
     bank_account_id = fields.Many2one(
         'res.partner.bank',
         string='Bank Account Number',
@@ -69,3 +56,30 @@ class HrEmployee(models.Model):
         readonly=False,
         help="If enabled, attendance adjustments (overtime / shortage) apply to payslips."
     )
+    enable_attendance_threshold = fields.Boolean(
+        string='Enable Attendance Threshold',
+        related='version_id.enable_attendance_threshold',
+        readonly=False,
+        help="If enabled, when Pay by Attendance is OFF, employee must work at least the minimum threshold days to receive 100% fixed salary."
+    )
+    min_attendance_threshold_days = fields.Float(
+        string='Minimum Attendance Days',
+        related='version_id.min_attendance_threshold_days',
+        readonly=False,
+        help="Minimum days required in the month to qualify for full fixed salary when Pay by Attendance is OFF. If worked days are below this, salary is prorated. If 0 days worked, salary is 0."
+    )
+    threshold_days_manually_set = fields.Boolean(
+        string='Threshold Days Manually Set',
+        related='version_id.threshold_days_manually_set',
+        readonly=True,
+    )
+    threshold_enabled_manually_set = fields.Boolean(
+        string='Threshold Enabled Manually Set',
+        related='version_id.threshold_enabled_manually_set',
+        readonly=True,
+    )
+
+    def action_reset_to_company_threshold(self):
+        for emp in self:
+            if emp.version_id:
+                emp.version_id.action_reset_to_company_threshold()

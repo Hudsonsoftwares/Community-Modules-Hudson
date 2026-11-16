@@ -1,41 +1,19 @@
 import re
 
-from odoo import api, models
+from odoo import models
 
 
 class AccountReconcileModel(models.Model):
     _inherit = 'account.reconcile.model'
 
-    @api.model_create_multi
-    def create(self, vals_list):
-        records = super().create(vals_list)
-        for record in records:
-            if record.active:
-                domain = [('is_reconciled', '=', False)]
-                if record.company_id:
-                    domain.append(('company_id', '=', record.company_id.id))
-                st_lines = self.env['account.bank.statement.line'].search(domain)
-                if st_lines:
-                    if hasattr(st_lines, '_hudson_auto_reconcile_sync'):
-                        st_lines._hudson_auto_reconcile_sync()
-                    if hasattr(st_lines, '_om_auto_reconcile'):
-                        st_lines._om_auto_reconcile()
-        return records
+    # Creating or saving a model does not reconcile anything (as in Odoo): the automatic models are applied
+    # to the new transactions only (see `account.bank.statement.line._om_auto_reconcile`), or to the
+    # transactions the user asks for with the "Auto-reconcile" button of the reconciliation screen.
 
-    def write(self, vals):
-        res = super().write(vals)
-        for record in self:
-            if record.active:
-                domain = [('is_reconciled', '=', False)]
-                if record.company_id:
-                    domain.append(('company_id', '=', record.company_id.id))
-                st_lines = self.env['account.bank.statement.line'].search(domain)
-                if st_lines:
-                    if hasattr(st_lines, '_hudson_auto_reconcile_sync'):
-                        st_lines._hudson_auto_reconcile_sync()
-                    if hasattr(st_lines, '_om_auto_reconcile'):
-                        st_lines._om_auto_reconcile()
-        return res
+    def _om_is_auto(self):
+        """ Whether the model is applied without the user clicking on it. """
+        self.ensure_one()
+        return self.trigger == 'auto_reconcile' and not self.mapped_partner_id
 
     def _om_label_texts(self, st_line):
         texts = [st_line.payment_ref or '']
@@ -101,7 +79,10 @@ class AccountReconcileModel(models.Model):
         writeoffs = []
         for line in self.line_ids.filtered('account_id'):
             if line.amount_type == 'fixed':
-                amount = -line.amount
+                # as in Odoo, a fixed amount follows the direction of what is left to cover: a bank fee is a
+                # debit on a payment and a credit on a receipt (a negative amount on the model reverses it)
+                direction = residual if not trans_currency.is_zero(residual) else trans_amount
+                amount = line.amount if direction > 0 else -line.amount
             elif line.amount_type == 'percentage':
                 amount = residual * line.amount / 100.0
             elif line.amount_type == 'percentage_st_line':
@@ -164,6 +145,18 @@ class AccountReconcileModel(models.Model):
         ]
         if partner:
             domain += [('partner_id', 'child_of', partner.id)]
+        else:
+            # As in Odoo: without a partner, only the open items whose reference is written on the
+            # transaction can be matched, never the open items of whoever happens to owe the same amount.
+            tokens = st_line._om_reference_tokens()
+            if not tokens:
+                return {}
+            token_domain = []
+            for token in tokens:
+                token_domain = (['|'] + token_domain if token_domain else []) + [
+                    '|', '|', ('move_id.name', 'ilike', token), ('move_id.payment_reference', 'ilike', token),
+                    ('move_id.ref', 'ilike', token)]
+            domain += token_domain
         amls = self.env['account.move.line'].search(
             domain,
             order='date_maturity %s, date %s, id' % (
@@ -171,6 +164,26 @@ class AccountReconcileModel(models.Model):
             ),
         )
         amls = amls.filtered(lambda aml: (aml.amount_residual > 0) == (residual > 0))
+        if not partner:
+            label = ' '.join(self._om_label_texts(st_line)).upper().replace(' ', '')
+            amls = amls.filtered(lambda aml: any(
+                reference and len(reference) > 3 and reference.upper().replace(' ', '') in label
+                for reference in (aml.move_id.name, aml.move_id.payment_reference, aml.move_id.ref)))
+            # the items of one partner at a time: one transaction never pays several partners
+            for commercial_partner in amls.partner_id.commercial_partner_id:
+                proposal = self._om_select_amls(
+                    st_line, amls.filtered(lambda aml: aml.partner_id.commercial_partner_id == commercial_partner),
+                    residual, commercial_partner)
+                if proposal:
+                    return proposal
+            without_partner = amls.filtered(lambda aml: not aml.partner_id)
+            return self._om_select_amls(st_line, without_partner, residual, partner) if without_partner else {}
+        return self._om_select_amls(st_line, amls, residual, partner)
+
+    def _om_select_amls(self, st_line, amls, residual, partner):
+        """ The first of `amls` (in the order of the model) adding up to the amount of the transaction within
+        the payment tolerance, the difference being written off with the lines of the model. """
+        trans_currency, _company_currency = st_line._om_currencies()
         tolerance = (self.payment_tolerance if self.payment_tolerance_type == 'amount'
                      else abs(residual) * self.payment_tolerance / 100.0)
 

@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
+# pyrefly: ignore [missing-import]
 from odoo import api, fields, models, _
+# pyrefly: ignore [missing-import]
 from odoo.exceptions import ValidationError
 
 MONTH_SELECTION = [
@@ -27,6 +29,27 @@ class LwfStateRate(models.Model):
     _name = 'lwf.state.rate'
     _description = 'Labour Welfare Fund State Rate'
     _order = 'state_id, date_from desc, id desc'
+
+    def _auto_init(self):
+        """
+        Ensure authoritative Indian statutory LWF state rates are global (company_id = NULL)
+        so they are automatically visible and usable across all companies nationwide.
+        """
+        res = super()._auto_init()
+        cr = self.env.cr
+        try:
+            cr.execute("""
+                UPDATE lwf_state_rate
+                SET company_id = NULL
+                WHERE id IN (
+                    SELECT res_id FROM ir_model_data
+                    WHERE model = 'lwf.state.rate'
+                      AND module = 'hudson_in_payroll'
+                );
+            """)
+        except Exception:
+            pass
+        return res
 
     name = fields.Char(
         string="Configuration Name",
@@ -111,18 +134,22 @@ class LwfStateRate(models.Model):
     company_id = fields.Many2one(
         'res.company',
         string="Company",
-        default=lambda self: self.env.company,
+        default=False,
         help="Optional company for multi-company isolation. Leave blank for global applicability."
     )
 
-    @api.depends('state_id', 'deduction_frequency', 'date_from')
+    @api.depends('state_id', 'deduction_frequency', 'date_from', 'company_id')
     def _compute_name(self):
         freq_labels = dict(self._fields['deduction_frequency'].selection)
         for rec in self:
             state_name = rec.state_id.name or _('Unset State')
             freq = freq_labels.get(rec.deduction_frequency, str(rec.deduction_frequency))
             date_str = fields.Date.to_string(rec.date_from) if rec.date_from else ''
-            rec.name = f"{state_name} - {freq} ({date_str})"
+            label = f"{state_name} - {freq} ({date_str})"
+            if rec.company_id:
+                rec.name = f"{label} ({rec.company_id.name})"
+            else:
+                rec.name = label
 
     @api.constrains('emp_contribution', 'empl_contribution')
     def _check_contributions(self):
@@ -147,12 +174,20 @@ class LwfStateRate(models.Model):
         for rec in self:
             if not rec.active or not rec.state_id:
                 continue
-            domain = [
-                ('id', '!=', rec.id),
-                ('state_id', '=', rec.state_id.id),
-                ('active', '=', True),
-                '|', ('company_id', '=', False), ('company_id', '=', rec.company_id.id if rec.company_id else False)
-            ]
+            if rec.company_id:
+                domain = [
+                    ('id', '!=', rec.id),
+                    ('state_id', '=', rec.state_id.id),
+                    ('active', '=', True),
+                    ('company_id', '=', rec.company_id.id),
+                ]
+            else:
+                domain = [
+                    ('id', '!=', rec.id),
+                    ('state_id', '=', rec.state_id.id),
+                    ('active', '=', True),
+                    ('company_id', '=', False),
+                ]
             others = self.search(domain)
             for other in others:
                 r_start = rec.date_from

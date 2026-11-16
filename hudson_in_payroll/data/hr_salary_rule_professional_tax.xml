@@ -8,6 +8,7 @@
             <field name="sequence" eval="165"/>
             <field name="category_id" ref="hudson_payroll_base.rule_category_ded"/>
             <field name="struct_id" ref="hudson_payroll_base.structure_base"/>
+            <field name="company_id" eval="False"/>
             <field name="condition_select">python</field>
             <field name="condition_python"><![CDATA[result = bool(employee and employee.hds_in_pt_applicable)]]></field>
             <field name="amount_select">code</field>

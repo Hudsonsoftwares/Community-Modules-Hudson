@@ -1,0 +1,24 @@
+.o_dental_rx_popup {
+    .o_dental_rx_body {
+        min-height: 60vh;
+    }
+    .o_dental_rx_list {
+        flex: 0 0 300px;
+        max-height: 70vh;
+        overflow-y: auto;
+    }
+    .o_dental_rx_detail {
+        max-height: 70vh;
+        overflow-y: auto;
+    }
+    .o_dental_rx_item.active {
+        border-width: 2px;
+    }
+}
+
+@media (max-width: 991.98px) {
+    .o_dental_rx_popup .o_dental_rx_list {
+        flex-basis: auto;
+        max-height: 35vh;
+    }
+}

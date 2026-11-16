@@ -12,10 +12,10 @@
             <xpath expr="//header" position="inside">
                 <field name="hds_in_tds_applicable" invisible="1"/>
                 <button name="action_print_statutory_report"
-                        string="Download Tax Calculation Report"
+                        string="View Tax Calculation Report"
                         type="object"
                         class="btn-secondary"
-                        icon="picture_as_pdf"
+                        icon="description"
                         invisible="not hds_in_tds_applicable"/>
             </xpath>
             <xpath expr="//div[@name='button_box']" position="inside">
@@ -24,14 +24,10 @@
                         class="oe_stat_button"
                         icon="security"
                         invisible="hds_in_statutory_audit_count == 0">
-                    <field name="hds_in_statutory_audit_count" widget="statinfo" string="Statutory Audits"/>
+                    <field name="hds_in_statutory_audit_count" widget="statinfo" string="Audit Trail"/>
                 </button>
             </xpath>
 
-            <!-- Payment Mode in Other Info Tab -->
-            <xpath expr="//page[@name='other_info']//field[@name='payment_date']" position="after">
-                <field name="hds_in_payment_mode" string="Payment Mode"/>
-            </xpath>
             <xpath expr="//page[@name='other_info']" position="inside">
                 <group string="ESIC Statutory Exemption (Rule 51-B)" name="esic_rule_51b_info">
                     <group>
@@ -152,19 +148,101 @@
         </field>
     </record>
 
-    <!-- Action for Dedicated Employer Statutory List View -->
-    <record id="action_hr_payslip_employer_statutory" model="ir.actions.act_window">
-        <field name="name">Statutory Compliance Summary (Employer Share)</field>
-        <field name="res_model">hr.payslip</field>
-        <field name="view_mode">list,form</field>
-        <field name="view_ids" eval="[(5, 0, 0),
-            (0, 0, {'view_mode': 'list', 'view_id': ref('view_hr_payslip_list_employer_statutory')}),
-            (0, 0, {'view_mode': 'form', 'view_id': ref('hudson_payroll_base.hr_payslip_view_form')})]"/>
-        <field name="domain">[('state', '!=', 'cancel')]</field>
-        <field name="help" type="html">
-            <p class="o_view_nocontent_smiling_face">
-                No payslips found for this period.
-            </p>
+    <!-- 7. Govt Deposit (Payroll dashboard card): statutory shares and TDS of each payslip -->
+    <record id="view_hr_payslip_list_govt_deposit" model="ir.ui.view">
+        <field name="name">hr.payslip.list.govt.deposit</field>
+        <field name="model">hr.payslip</field>
+        <field name="priority">99</field>
+        <field name="arch" type="xml">
+            <list string="Govt Deposit" decoration-success="state in ('done', 'paid')" create="false">
+                <field name="currency_id" column_invisible="1"/>
+                <field name="employee_id" widget="many2one_avatar_employee"/>
+                <field name="date_from" string="Period From"/>
+                <field name="date_to" string="Period To"/>
+                <field name="gross_wage" widget="monetary" sum="Total Gross Wage" optional="show"/>
+                <field name="hds_in_govt_ee_epf" widget="monetary" sum="Total Employee EPF"/>
+                <field name="hds_in_govt_er_epf" widget="monetary" sum="Total Employer EPF"/>
+                <field name="hds_in_govt_edli_admin" widget="monetary" sum="Total EDLI &amp; EPF Admin" optional="show"/>
+                <field name="hds_in_govt_ee_esic" widget="monetary" sum="Total Employee ESIC"/>
+                <field name="hds_in_govt_er_esic" widget="monetary" sum="Total Employer ESIC"/>
+                <field name="hds_in_govt_pt" widget="monetary" sum="Total Professional Tax"/>
+                <field name="hds_in_govt_ee_lwf" widget="monetary" sum="Total Employee LWF" optional="show"/>
+                <field name="hds_in_govt_er_lwf" widget="monetary" sum="Total Employer LWF" optional="show"/>
+                <field name="hds_in_govt_tds" widget="monetary" sum="Total TDS" class="fw-bold text-info"/>
+                <field name="hds_in_govt_deposit_total" widget="monetary" sum="Total Govt Deposit" class="fw-bold text-primary"/>
+                <field name="state" widget="badge" decoration-info="state == 'draft'" decoration-warning="state == 'verify'" decoration-success="state in ('done', 'paid')" decoration-danger="state == 'cancel'"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- 9. TDS This Month (Payroll dashboard card): TDS of each payslip of the month -->
+    <record id="view_hr_payslip_list_tds" model="ir.ui.view">
+        <field name="name">hr.payslip.list.tds</field>
+        <field name="model">hr.payslip</field>
+        <field name="priority">99</field>
+        <field name="arch" type="xml">
+            <list string="TDS This Month" decoration-success="state in ('done', 'paid')" create="false">
+                <field name="currency_id" column_invisible="1"/>
+                <field name="employee_id" widget="many2one_avatar_employee"/>
+                <field name="hds_in_employee_pan" optional="show" decoration-danger="not hds_in_employee_pan"/>
+                <field name="date_from" string="Period From"/>
+                <field name="date_to" string="Period To"/>
+                <field name="gross_wage" widget="monetary" sum="Total Gross Wage"/>
+                <field name="hds_in_govt_tds" widget="monetary" sum="Total TDS" class="fw-bold text-info"/>
+                <field name="net_wage" widget="monetary" sum="Total Net Salary" optional="show"/>
+                <field name="state" widget="badge" decoration-info="state == 'draft'" decoration-warning="state == 'verify'" decoration-success="state in ('done', 'paid')" decoration-danger="state == 'cancel'"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- 10. Net Salary (Payroll dashboard card): gross less the employee deductions of each payslip -->
+    <record id="view_hr_payslip_list_net" model="ir.ui.view">
+        <field name="name">hr.payslip.list.net</field>
+        <field name="model">hr.payslip</field>
+        <field name="priority">99</field>
+        <field name="arch" type="xml">
+            <list string="Net Salary" decoration-success="state == 'paid'" create="false">
+                <field name="currency_id" column_invisible="1"/>
+                <field name="employee_id" widget="many2one_avatar_employee"/>
+                <field name="date_from" string="Period From"/>
+                <field name="date_to" string="Period To"/>
+                <field name="gross_wage" string="Gross Salary" widget="monetary" sum="Total Gross Salary"/>
+                <field name="hds_in_govt_ee_epf" widget="monetary" sum="Total Employee EPF"/>
+                <field name="hds_in_govt_ee_esic" widget="monetary" sum="Total Employee ESIC"/>
+                <field name="hds_in_govt_pt" widget="monetary" sum="Total Professional Tax"/>
+                <field name="hds_in_govt_ee_lwf" widget="monetary" sum="Total Employee LWF" optional="show"/>
+                <field name="hds_in_govt_tds" widget="monetary" sum="Total TDS"/>
+                <field name="hds_in_net_other_deductions" widget="monetary" sum="Total Other Deductions" optional="show"/>
+                <field name="hds_in_net_salary" widget="monetary" sum="Total Net Salary" class="fw-bold text-primary"/>
+                <field name="hds_in_payment_mode" optional="hide"/>
+                <field name="payment_date" optional="show"/>
+                <field name="state" widget="badge" decoration-info="state == 'draft'" decoration-warning="state == 'verify'" decoration-success="state in ('done', 'paid')" decoration-danger="state == 'cancel'"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- 8. Total Payroll Cost (CTC) (Payroll dashboard card): gross salary and employer cost of each payslip -->
+    <record id="view_hr_payslip_list_ctc" model="ir.ui.view">
+        <field name="name">hr.payslip.list.ctc</field>
+        <field name="model">hr.payslip</field>
+        <field name="priority">99</field>
+        <field name="arch" type="xml">
+            <list string="Total Payroll Cost (CTC)" decoration-success="state in ('done', 'paid')" create="false">
+                <field name="currency_id" column_invisible="1"/>
+                <field name="employee_id" widget="many2one_avatar_employee"/>
+                <field name="date_from" string="Period From"/>
+                <field name="date_to" string="Period To"/>
+                <field name="hds_in_ctc_gross" widget="monetary" sum="Total Gross Salary"/>
+                <field name="hds_in_ctc_er_epf" widget="monetary" sum="Total Employer EPF"/>
+                <field name="hds_in_ctc_er_edli" widget="monetary" sum="Total EDLI" optional="show"/>
+                <field name="hds_in_ctc_er_admin" widget="monetary" sum="Total EPF Admin" optional="show"/>
+                <field name="hds_in_ctc_er_esic" widget="monetary" sum="Total Employer ESIC"/>
+                <field name="hds_in_ctc_er_lwf" widget="monetary" sum="Total Employer LWF" optional="show"/>
+                <field name="hds_in_ctc_er_other" widget="monetary" sum="Total Other Employer Cost" optional="hide"/>
+                <field name="hds_in_ctc_employer_cost" widget="monetary" sum="Total Employer Cost" class="fw-bold text-info"/>
+                <field name="hds_in_ctc_total" widget="monetary" sum="Total CTC" class="fw-bold text-primary"/>
+                <field name="state" widget="badge" decoration-info="state == 'draft'" decoration-warning="state == 'verify'" decoration-success="state in ('done', 'paid')" decoration-danger="state == 'cancel'"/>
+            </list>
         </field>
     </record>
 </odoo>

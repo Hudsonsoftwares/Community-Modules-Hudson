@@ -5,28 +5,35 @@
     
     
 
-    <record model="res.groups.privilege" id="res_groups_privilege_field_service">
-        <field name="name">Field Service</field>
-        <field name="sequence">5</field>
-        <field name="category_id" ref="base.module_category_services" />
-    </record>
-
+    <!-- Field service is part of the Planning app: its rights are given by the
+         Planning rights (User / Administrator) of the user settings. These
+         groups have no privilege, so they are not shown there (only in Extra
+         Rights in developer mode); the ACLs, rules and views still use them.
+         The former "Field Service" privilege is removed with this record. -->
     <record id="group_field_service_user" model="res.groups">
-        <field name="name">User</field>
-        <field name="comment">User: Can view and manage their own field service orders.</field>
+        <field name="name">Field Service User</field>
+        <field name="comment">Given by Planning / User: can view and manage their own field service orders.</field>
         <field name="sequence">10</field>
-        <!-- Field service is part of the Planning app: technicians plan their jobs as shifts. -->
-        <field name="implied_ids" eval="[(4, ref('base.group_user')), (4, ref('hudson_planning.group_planning_user'))]" />
-        <field name="privilege_id" ref="res_groups_privilege_field_service" />
+        <field name="privilege_id" eval="False" />
+        <field name="implied_ids" eval="[Command.set([ref('base.group_user')])]" />
     </record>
 
     <record id="group_field_service_manager" model="res.groups">
-        <field name="name">Administrator</field>
-        <field name="comment">Administrator: Full access to all field service orders, configuration, and reports.</field>
+        <field name="name">Field Service Administrator</field>
+        <field name="comment">Given by Planning / Administrator: full access to all field service orders, configuration, and reports.</field>
         <field name="sequence">20</field>
-        <field name="privilege_id" ref="res_groups_privilege_field_service" />
-        <field name="implied_ids" eval="[(4, ref('hudson_field_service.group_field_service_user')), (4, ref('hudson_planning.group_planning_manager'))]" />
-        <field name="user_ids" eval="[(4, ref('base.user_root')), (4, ref('base.user_admin'))]" />
+        <field name="privilege_id" eval="False" />
+        <field name="implied_ids" eval="[Command.set([ref('hudson_field_service.group_field_service_user')])]" />
+    </record>
+
+    <record id="hudson_planning.group_planning_user" model="res.groups">
+        <field name="comment">User: Can view their own shifts and work on their field service jobs.</field>
+        <field name="implied_ids" eval="[Command.link(ref('hudson_field_service.group_field_service_user'))]" />
+    </record>
+
+    <record id="hudson_planning.group_planning_manager" model="res.groups">
+        <field name="comment">Administrator: Full access to all planning and field service orders, configuration, and reports.</field>
+        <field name="implied_ids" eval="[Command.link(ref('hudson_field_service.group_field_service_manager'))]" />
     </record>
 
     

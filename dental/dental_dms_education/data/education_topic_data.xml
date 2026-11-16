@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+    <!-- Education topics reuse the DMS category taxonomy. Editable afterwards (noupdate). -->
+    <record id="dms_category_education_root" model="dms.category">
+        <field name="name">Patient Education</field>
+    </record>
+
+    <record id="topic_braces" model="dms.category">
+        <field name="name">Braces &amp; Orthodontics</field>
+        <field name="parent_id" ref="dms_category_education_root"/>
+        <field name="dental_is_education_topic" eval="True"/>
+        <field name="dental_product_ids" eval="[(4, ref('dental_catalog.treatment_braces'))]"/>
+        <field name="dental_treatment_category_ids" eval="[(4, ref('dental_catalog.category_orthodontics'))]"/>
+    </record>
+    <record id="topic_root_canal" model="dms.category">
+        <field name="name">Root Canal Treatment</field>
+        <field name="parent_id" ref="dms_category_education_root"/>
+        <field name="dental_is_education_topic" eval="True"/>
+        <field name="dental_product_ids" eval="[(4, ref('dental_catalog.treatment_root_canal'))]"/>
+        <field name="dental_treatment_category_ids" eval="[(4, ref('dental_catalog.category_endodontics'))]"/>
+    </record>
+    <record id="topic_implants" model="dms.category">
+        <field name="name">Dental Implants</field>
+        <field name="parent_id" ref="dms_category_education_root"/>
+        <field name="dental_is_education_topic" eval="True"/>
+        <field name="dental_product_ids" eval="[(4, ref('dental_catalog.treatment_implant'))]"/>
+    </record>
+    <record id="topic_extraction" model="dms.category">
+        <field name="name">Tooth Extraction</field>
+        <field name="parent_id" ref="dms_category_education_root"/>
+        <field name="dental_is_education_topic" eval="True"/>
+        <field name="dental_product_ids" eval="[(4, ref('dental_catalog.treatment_extraction'))]"/>
+        <field name="dental_treatment_category_ids" eval="[(4, ref('dental_catalog.category_surgery'))]"/>
+    </record>
+    <record id="topic_whitening" model="dms.category">
+        <field name="name">Teeth Whitening</field>
+        <field name="parent_id" ref="dms_category_education_root"/>
+        <field name="dental_is_education_topic" eval="True"/>
+        <field name="dental_product_ids" eval="[(4, ref('dental_catalog.treatment_whitening'))]"/>
+    </record>
+    <record id="topic_crowns" model="dms.category">
+        <field name="name">Crowns &amp; Bridges</field>
+        <field name="parent_id" ref="dms_category_education_root"/>
+        <field name="dental_is_education_topic" eval="True"/>
+        <field name="dental_product_ids" eval="[(4, ref('dental_catalog.treatment_crown')), (4, ref('dental_catalog.treatment_bridge'))]"/>
+        <field name="dental_treatment_category_ids" eval="[(4, ref('dental_catalog.category_prosthodontics'))]"/>
+    </record>
+    <record id="topic_fillings" model="dms.category">
+        <field name="name">Fillings</field>
+        <field name="parent_id" ref="dms_category_education_root"/>
+        <field name="dental_is_education_topic" eval="True"/>
+        <field name="dental_product_ids" eval="[(4, ref('dental_catalog.treatment_dental_filling'))]"/>
+    </record>
+    <record id="topic_scaling" model="dms.category">
+        <field name="name">Scaling &amp; Cleaning</field>
+        <field name="parent_id" ref="dms_category_education_root"/>
+        <field name="dental_is_education_topic" eval="True"/>
+        <field name="dental_product_ids" eval="[(4, ref('dental_catalog.treatment_scaling'))]"/>
+    </record>
+    <record id="topic_oral_hygiene" model="dms.category">
+        <field name="name">Oral Hygiene &amp; Prevention</field>
+        <field name="parent_id" ref="dms_category_education_root"/>
+        <field name="dental_is_education_topic" eval="True"/>
+        <field name="dental_treatment_category_ids" eval="[(4, ref('dental_catalog.category_general'))]"/>
+    </record>
+</odoo>

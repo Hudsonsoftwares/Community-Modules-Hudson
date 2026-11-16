@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_dental_second_opinion_wizard_form" model="ir.ui.view">
+        <field name="name">dental.second.opinion.wizard.form</field>
+        <field name="model">dental.second.opinion.wizard</field>
+        <field name="arch" type="xml">
+            <form>
+                <field name="request_id" invisible="1"/>
+                <field name="action" invisible="1"/>
+                <div class="alert alert-warning" role="alert" invisible="action != 'provide_info'">
+                    <strong>The specialist asked:</strong> <field name="info_request_note" nolabel="1"/>
+                </div>
+                <div class="alert alert-info" role="status" invisible="action != 'decision'">
+                    Recording the decision closes the request. Treatment plans are not changed; update them yourself if needed.
+                </div>
+                <group>
+                    <field name="decision" invisible="action != 'decision'" required="action == 'decision'"/>
+                    <field name="note" required="action != 'decision'"
+                           placeholder="Your message for the other clinician..."/>
+                </group>
+                <footer>
+                    <button name="action_confirm" string="Confirm" type="object" class="btn-primary" data-hotkey="q"/>
+                    <button string="Discard" class="btn-secondary" special="cancel" data-hotkey="x"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>

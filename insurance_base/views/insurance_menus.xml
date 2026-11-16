@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <menuitem id="menu_insurance_root" name="Insurance" sequence="96"
+              web_icon="insurance_base,static/description/icon.png"
+              groups="insurance_base.group_insurance_user"/>
+
+    <menuitem id="menu_insurance_policy" name="Patient Policies" parent="menu_insurance_root"
+              action="action_insurance_policy" sequence="10"/>
+    <menuitem id="menu_insurance_eligibility" name="Eligibility Checks" parent="menu_insurance_root"
+              action="action_insurance_eligibility" sequence="20"/>
+
+    <menuitem id="menu_insurance_config" name="Configuration" parent="menu_insurance_root"
+              sequence="90" groups="insurance_base.group_insurance_manager"/>
+    <menuitem id="menu_insurance_insurer" name="Insurance Companies" parent="menu_insurance_config"
+              action="action_insurance_insurer" sequence="10"/>
+    <menuitem id="menu_insurance_tpa" name="TPAs" parent="menu_insurance_config"
+              action="action_insurance_tpa" sequence="20"/>
+    <menuitem id="menu_insurance_plan" name="Insurance Plans" parent="menu_insurance_config"
+              action="action_insurance_plan" sequence="30"/>
+</odoo>

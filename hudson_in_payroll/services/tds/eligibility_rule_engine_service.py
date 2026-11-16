@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import logging
+# pyrefly: ignore [missing-import]
 from odoo import fields
 from ..base import BaseStatutoryService
 from .tds_parameter_service import TdsParameterService
@@ -50,7 +51,7 @@ class EligibilityRuleEngineService(BaseStatutoryService):
             line_id = line.id if line.id else 'New'
             category = line.category
             declared_val = float(line.declared_amount or 0.0)
-            approved_val = float(line.approved_amount or 0.0)
+            approved_val = float(getattr(line, 'tax_firm_approved_amount', 0.0) or getattr(line, 'approved_amount', 0.0) or getattr(line, 'verified_amount', 0.0) or 0.0)
             decl = getattr(line, 'declaration_id', False)
             is_senior = bool(getattr(line, 'is_senior_citizen', False))
             if decl:
@@ -65,14 +66,18 @@ class EligibilityRuleEngineService(BaseStatutoryService):
             line_id = kwargs.get('line_id', 'N/A')
             category = str(declaration_line_or_category or '')
             declared_val = float(kwargs.get('declared_amount', 0.0) or 0.0)
-            approved_val = float(kwargs.get('approved_amount', 0.0) or 0.0)
+            approved_val = float(kwargs.get('tax_firm_approved_amount', 0.0) or kwargs.get('approved_amount', 0.0) or kwargs.get('verified_amount', 0.0) or 0.0)
             is_senior = bool(kwargs.get('is_senior_citizen', False))
             is_severe = bool(kwargs.get('is_severe_disability', False))
             regime_code = (kwargs.get('regime_code', 'old') or 'old').lower()
             declaration_state = kwargs.get('declaration_state', 'draft')
 
         # 1. Determine Calculation Phase & Active Source Amount
-        if declaration_state in ('proof_verified', 'approved'):
+        is_proof_phase = declaration_state in ('proof_under_review', 'proof_verified', 'approved')
+        if is_proof_phase and approved_val > 0.0:
+            phase = "Final Adjustment Phase"
+            source_amount = approved_val
+        elif declaration_state in ('proof_verified', 'approved'):
             phase = "Final Adjustment Phase"
             source_amount = approved_val if approved_val > 0.0 else declared_val
         else:
@@ -81,7 +86,7 @@ class EligibilityRuleEngineService(BaseStatutoryService):
 
         # 2. Look up Strategy & Regime Metadata from DECLARATION_BUSINESS_REGISTRY
         registry_item = next((item for item in DECLARATION_BUSINESS_REGISTRY if item['category'] == category), None)
-        allowed_regimes = registry_item.get('allowed_regimes', ['old']) if registry_item else ['old']
+        allowed_regimes = registry_item.get('allowed_regimes', ['old']) if registry_item else (['old', 'new'] if category in ('80ccd2', '57iia', '80cch') else ['old'])
 
         # 3. Resolve Statutory Parameter Code & Limit via TdsParameterService
         tds_param_svc = TdsParameterService(self.env)
@@ -122,7 +127,11 @@ class EligibilityRuleEngineService(BaseStatutoryService):
             declared_self = 0.0
             if hasattr(declaration_line_or_category, 'declaration_id') and declaration_line_or_category.declaration_id:
                 self_lines = declaration_line_or_category.declaration_id.declaration_line_ids.filtered(lambda l: l.category == '80d_self')
-                declared_self = sum(l.declared_amount for l in self_lines)
+                declared_self = sum(
+                    (float(getattr(l, 'tax_firm_approved_amount', 0.0) or getattr(l, 'approved_amount', 0.0) or getattr(l, 'declared_amount', 0.0)))
+                    if is_proof_phase else float(l.declared_amount or 0.0)
+                    for l in self_lines
+                )
             elif 'declared_self_insurance' in kwargs:
                 declared_self = float(kwargs['declared_self_insurance'] or 0.0)
 
@@ -189,7 +198,7 @@ class EligibilityRuleEngineService(BaseStatutoryService):
         elif category == '57iia':
             param_code = 'HDS_IN_TDS_FAMILY_PENSION_LIMIT_NEW' if regime_code == 'new' else 'HDS_IN_TDS_FAMILY_PENSION_LIMIT_OLD'
             configured_limit = tds_param_svc.get_family_pension_limit(regime=regime_code, eval_date=eval_date)
-            if declaration_state in ('proof_verified', 'approved') and approved_val > 0.0:
+            if is_proof_phase and approved_val > 0.0:
                 gross_family_pension = approved_val
             else:
                 gross_family_pension = declared_val if declared_val > 0.0 else source_amount
@@ -207,7 +216,7 @@ class EligibilityRuleEngineService(BaseStatutoryService):
             rule_applied = f"Section 80DD statutory flat deduction of ₹{limit:,.2f} ({param_code}) applied under {regime_code.upper()} Regime."
         else:
             if limit < float('inf'):
-                active_claim = approved_val if (declaration_state in ('proof_verified', 'approved') and approved_val > 0.0) else source_amount
+                active_claim = approved_val if (is_proof_phase and approved_val > 0.0) else source_amount
                 eligible_deduction = min(active_claim, limit)
                 excess_amount = max(0.0, active_claim - eligible_deduction)
                 rule_applied = f"Statutory ceiling of ₹{limit:,.2f} ({param_code}) applied under {regime_code.upper()} Regime."

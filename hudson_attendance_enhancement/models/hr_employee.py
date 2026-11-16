@@ -1,15 +1,24 @@
-from odoo import models, fields, api, _
+from odoo import SUPERUSER_ID, models, fields, api, _
 from odoo.exceptions import UserError
+from odoo.tools import BinaryBytes
+import base64
 import math
 from datetime import datetime
+
+# Odoo 20: an hr.employee field that is not on hr.employee.public and has no groups
+# is "private". Non-HR users reading any employee then get "The fields ... are not
+# available for employee public profiles" (even through prefetch, e.g. employee.name).
+# These fields are only shown on the HR employee form; non-HR code paths (systray
+# check-in, WFH heartbeat) read them with sudo().
+HR_PRIVATE_GROUPS = 'hr.group_hr_user'
+
 
 class HrEmployee(models.Model):
     _inherit = 'hr.employee'
 
-    last_attendance_photo = fields.Image(
+    last_attendance_photo = fields.Binary(
         string="Last Attendance Photo",
-        compute="_compute_last_attendance_photo",
-        store=True,
+        compute="_compute_last_attendance_photo", groups=HR_PRIVATE_GROUPS,
     )
 
     # -------------------------------------------------------------
@@ -18,46 +27,46 @@ class HrEmployee(models.Model):
     is_wfh_employee = fields.Boolean(
         string="Work From Home Allowed",
         default=False,
-        help="Check this if the employee is authorized to work from home / remotely.",
+        help="Check this if the employee is authorized to work from home / remotely.", groups=HR_PRIVATE_GROUPS,
     )
     wfh_type = fields.Selection([
         ('full_time', 'Full-Time Remote (Everyday)'),
         ('hybrid_days', 'Hybrid (Specific Days of the Week)'),
         ('hybrid_count', 'Hybrid (Days per Week)'),
         ('temporary', 'Temporary / Date Range'),
-    ], string="WFH Arrangement", default='full_time')
+    ], string="WFH Arrangement", default='full_time', groups=HR_PRIVATE_GROUPS)
 
     # Specific days for hybrid schedule
-    wfh_monday = fields.Boolean('Monday', default=True)
-    wfh_tuesday = fields.Boolean('Tuesday', default=True)
-    wfh_wednesday = fields.Boolean('Wednesday', default=True)
-    wfh_thursday = fields.Boolean('Thursday', default=True)
-    wfh_friday = fields.Boolean('Friday', default=True)
-    wfh_saturday = fields.Boolean('Saturday', default=False)
-    wfh_sunday = fields.Boolean('Sunday', default=False)
+    wfh_monday = fields.Boolean('Monday', default=True, groups=HR_PRIVATE_GROUPS)
+    wfh_tuesday = fields.Boolean('Tuesday', default=True, groups=HR_PRIVATE_GROUPS)
+    wfh_wednesday = fields.Boolean('Wednesday', default=True, groups=HR_PRIVATE_GROUPS)
+    wfh_thursday = fields.Boolean('Thursday', default=True, groups=HR_PRIVATE_GROUPS)
+    wfh_friday = fields.Boolean('Friday', default=True, groups=HR_PRIVATE_GROUPS)
+    wfh_saturday = fields.Boolean('Saturday', default=False, groups=HR_PRIVATE_GROUPS)
+    wfh_sunday = fields.Boolean('Sunday', default=False, groups=HR_PRIVATE_GROUPS)
 
     # Days count limit
-    wfh_max_days_per_week = fields.Integer(string="Max WFH Days / Week", default=3)
+    wfh_max_days_per_week = fields.Integer(string="Max WFH Days / Week", default=3, groups=HR_PRIVATE_GROUPS)
 
     # Temporary WFH date range
-    wfh_date_from = fields.Date(string="WFH Valid From")
-    wfh_date_to = fields.Date(string="WFH Valid To")
+    wfh_date_from = fields.Date(string="WFH Valid From", groups=HR_PRIVATE_GROUPS)
+    wfh_date_to = fields.Date(string="WFH Valid To", groups=HR_PRIVATE_GROUPS)
 
     # Approved Home Location
-    home_latitude = fields.Float(string="Home Latitude", digits=(10, 7))
-    home_longitude = fields.Float(string="Home Longitude", digits=(10, 7))
-    home_address_name = fields.Char(string="Home Address Note / Label")
+    home_latitude = fields.Float(string="Home Latitude", digits=(10, 7), groups=HR_PRIVATE_GROUPS)
+    home_longitude = fields.Float(string="Home Longitude", digits=(10, 7), groups=HR_PRIVATE_GROUPS)
+    home_address_name = fields.Char(string="Home Address Note / Label", groups=HR_PRIVATE_GROUPS)
     custom_home_radius = fields.Float(
         string="Custom Home Radius (m)",
         default=0.0,
-        help="Specific allowed radius for this employee in meters. Set to 0 to use the company-wide default.",
+        help="Specific allowed radius for this employee in meters. Set to 0 to use the company-wide default.", groups=HR_PRIVATE_GROUPS,
     )
     home_radius = fields.Float(
         string="Allowed Home Radius (m)",
         compute="_compute_home_radius",
         inverse="_inverse_home_radius",
         store=True,
-        help="Effective allowed radius around approved home geofence.",
+        help="Effective allowed radius around approved home geofence.", groups=HR_PRIVATE_GROUPS,
     )
 
     @api.depends('custom_home_radius', 'company_id.wfh_home_radius')
@@ -73,49 +82,47 @@ class HrEmployee(models.Model):
             emp.custom_home_radius = emp.home_radius
 
     # Live Real-Time Telemetry & Tracking
-    last_known_latitude = fields.Float(string="Last Known Latitude", digits=(10, 7))
-    last_known_longitude = fields.Float(string="Last Known Longitude", digits=(10, 7))
-    last_location_update = fields.Datetime(string="Last Location Update")
-    last_location_address = fields.Char(string="Last Detected Address")
-    location_log_ids = fields.One2many('hr.employee.location.log', 'employee_id', string="Location Logs")
-    location_log_count = fields.Integer(string="Location Logs Count", compute="_compute_location_log_count")
+    last_known_latitude = fields.Float(string="Last Known Latitude", digits=(10, 7), groups=HR_PRIVATE_GROUPS)
+    last_known_longitude = fields.Float(string="Last Known Longitude", digits=(10, 7), groups=HR_PRIVATE_GROUPS)
+    last_location_update = fields.Datetime(string="Last Location Update", groups=HR_PRIVATE_GROUPS)
+    last_location_address = fields.Char(string="Last Detected Address", groups=HR_PRIVATE_GROUPS)
+    location_log_ids = fields.One2many('hr.employee.location.log', 'employee_id', string="Location Logs", groups=HR_PRIVATE_GROUPS)
+    location_log_count = fields.Integer(string="Location Logs Count", compute="_compute_location_log_count", groups=HR_PRIVATE_GROUPS)
 
     # Dynamic distance metrics
     current_distance_from_home = fields.Float(
         string="Distance from Home (m)",
         compute="_compute_wfh_distances",
-        help="Current distance between last known location and registered home location.",
+        help="Current distance between last known location and registered home location.", groups=HR_PRIVATE_GROUPS,
     )
     current_distance_from_checkin = fields.Float(
         string="Distance from Check-In (m)",
         compute="_compute_wfh_distances",
-        help="Current distance between last known location and where the employee first checked in today.",
+        help="Current distance between last known location and where the employee first checked in today.", groups=HR_PRIVATE_GROUPS,
     )
     wfh_location_status = fields.Selection([
         ('at_home', 'At Home (< 150m)'),
         ('near_home', 'Near Home (< 1 km)'),
         ('offsite', 'Offsite / Away (> 1 km)'),
         ('unknown', 'No Location Data'),
-    ], string="Current Location Status", compute="_compute_wfh_distances")
+    ], string="Current Location Status", compute="_compute_wfh_distances", groups=HR_PRIVATE_GROUPS)
 
     def _compute_location_log_count(self):
-        log_data = self.env['hr.employee.location.log'].read_group(
+        log_data = self.env['hr.employee.location.log']._read_group(
             [('employee_id', 'in', self.ids)],
             ['employee_id'],
-            ['employee_id']
+            ['__count'],
         )
-        mapped = {x['employee_id'][0]: x['employee_id_count'] for x in log_data}
+        mapped = {employee.id: count for employee, count in log_data}
         for employee in self:
             employee.location_log_count = mapped.get(employee.id, 0)
 
-    @api.depends('last_attendance_id.check_in_photo', 'last_attendance_id.check_out_photo')
+    @api.depends('last_attendance_id.in_image', 'last_attendance_id.out_image')
     def _compute_last_attendance_photo(self):
         for employee in self:
-            att = employee.last_attendance_id
-            if att:
-                employee.last_attendance_photo = att.check_out_photo or att.check_in_photo
-            else:
-                employee.last_attendance_photo = False
+            att = employee.last_attendance_id.sudo()
+            image = att.out_image or att.in_image
+            employee.last_attendance_photo = base64.b64encode(bytes(image)).decode() if image else False
 
     def _haversine(self, lat1, lon1, lat2, lon2):
         if not lat1 or not lon1 or not lat2 or not lon2:
@@ -311,6 +318,7 @@ class HrEmployee(models.Model):
             'type': 'ir.actions.act_window',
             'res_model': 'hr.employee.location.log',
             'view_mode': 'list,form',
+            'views': [(False, 'list'), (False, 'form')],
             'domain': [('employee_id', '=', self.id)],
             'context': {'default_employee_id': self.id},
         }
@@ -341,60 +349,62 @@ class HrEmployee(models.Model):
                         % (closest_loc.name if closest_loc else "", min_distance, closest_loc.radius if closest_loc else 0, allowed_names)
                     )
 
-    def _attendance_action_change(self, geo_information=None):
-        photo = geo_information.pop('photo', False) if geo_information else False
-        photo_out = geo_information.pop('photo_out', False) if geo_information else False
-        is_wfh = geo_information.pop('is_wfh', False) if geo_information else False
-        wfh_status = geo_information.pop('wfh_status', False) if geo_information else False
-        dist_home = geo_information.pop('dist_home', False) if geo_information else False
-        offsite_reason = geo_information.pop('offsite_reason', False) if geo_information else False
+    def _attendance_action_change(self, geo_information=None, check_in_image_data=None,
+                                  check_out_image_data=None, wfh_data=None):
+        """Odoo 20 check in/out, extended with:
 
-        attendance = super()._attendance_action_change(geo_information)
-        
-        if attendance:
-            vals = {}
-            if photo:
-                vals['check_in_photo'] = photo
-                if not self.image_1920:
-                    self.sudo().write({'image_1920': photo})
-            if photo_out:
-                vals['check_out_photo'] = photo_out
-            if is_wfh:
-                vals['is_wfh'] = True
-            if wfh_status:
-                vals['wfh_status'] = wfh_status
-            if offsite_reason:
-                vals['wfh_offsite_reason'] = offsite_reason
-            if dist_home is not False:
-                if self.attendance_state == 'checked_in':
-                    vals['check_in_distance_from_home'] = dist_home
+        - a check-out picture, stored in ``out_image`` and posted in the chatter
+          exactly like core does for the check-in picture (``in_image``);
+        - the Work From Home verification data computed by the controller.
+        """
+        self.ensure_one()
+        wfh_data = wfh_data or {}
+        Attendance = self.env['hr.attendance']
+        open_domain = [('employee_id', '=', self.id), ('check_out', '=', False)]
+        checking_out = self.attendance_state == 'checked_in'
+        attendance = Attendance.search(open_domain, limit=1) if checking_out else Attendance
+
+        notification = super()._attendance_action_change(geo_information, check_in_image_data)
+
+        if not checking_out:
+            attendance = Attendance.search(open_domain, order='check_in desc', limit=1)
+            if check_in_image_data and not self.image_1920:
+                self.sudo().image_1920 = base64.b64encode(check_in_image_data['image']).decode()
+        elif attendance and attendance.check_out:
+            if check_out_image_data:
+                attendance.sudo().out_image = BinaryBytes(check_out_image_data['image'])
+                attachment = self.env['ir.attachment'].sudo().search([
+                    ('res_model', '=', attendance._name),
+                    ('res_id', '=', attendance.id),
+                    ('res_field', '=', 'out_image'),
+                ], limit=1)
+                attachment.name = f"{self.display_name.replace(' ', '_')}_{str(attendance.check_out).replace(' ', '_')}_UTC_out"
+                message_vals = {
+                    'body': self.env._("Check-out image captured"),
+                    'attachment_ids': [attachment.id],
+                }
+                if self.env.user._is_internal():
+                    attendance.message_post(**message_vals)
                 else:
-                    vals['check_out_distance_from_home'] = dist_home
+                    attendance.with_user(SUPERUSER_ID).message_post(**message_vals)
+            elif self.company_id.attendance_capture_check_out and not notification:
+                notification = {
+                    'type': 'warning',
+                    'message': self.env._("Check-out is recorded, but picture could not be captured"),
+                }
 
+        if attendance and wfh_data:
+            vals = {}
+            if wfh_data.get('is_wfh'):
+                vals['is_wfh'] = True
+            if wfh_data.get('wfh_status'):
+                vals['wfh_status'] = wfh_data['wfh_status']
+            if wfh_data.get('offsite_reason'):
+                vals['wfh_offsite_reason'] = wfh_data['offsite_reason']
+            if 'dist_home' in wfh_data:
+                key = 'check_out_distance_from_home' if checking_out else 'check_in_distance_from_home'
+                vals[key] = wfh_data['dist_home']
             if vals:
                 attendance.sudo().write(vals)
 
-        return attendance
-
-    def attendance_manual(self, next_action, entered_pin=None, **kwargs):
-        photo = kwargs.get('photo', False)
-        latitude = kwargs.get('latitude', False)
-        longitude = kwargs.get('longitude', False)
-        
-        for employee in self:
-            self._check_radius(employee.company_id, latitude, longitude)
-            state_before = employee.attendance_state
-            
-            res = super(HrEmployee, employee).attendance_manual(next_action, entered_pin=entered_pin, **kwargs)
-            
-            if photo:
-                attendance = employee.last_attendance_id
-                if attendance:
-                    if state_before != 'checked_in':
-                        attendance.sudo().write({'check_in_photo': photo})
-                        if not employee.image_1920:
-                            employee.sudo().write({'image_1920': photo})
-                    else:
-                        attendance.sudo().write({'check_out_photo': photo})
-            
-            return res
+        return notification

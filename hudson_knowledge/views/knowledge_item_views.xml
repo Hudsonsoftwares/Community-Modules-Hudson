@@ -16,8 +16,110 @@
         </field>
     </record>
 
+    <record id="view_knowledge_item_stage_form" model="ir.ui.view">
+        <field name="name">knowledge.management.item.stage.form</field>
+        <field name="model">knowledge.management.item.stage</field>
+        <field name="arch" type="xml">
+            <form string="Stage">
+                <sheet>
+                    <group>
+                        <field name="name"/>
+                        <field name="fold"/>
+                        <field name="article_id" readonly="1"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- ═════════════════════════════════════════════════════════════
+         Article Items — real Odoo views embedded in articles by the
+         "Build an Item Kanban / List / Calendar" commands.
+         Items are child articles (is_article_item = True).
+    ═════════════════════════════════════════════════════════════════ -->
+    <record id="view_knowledge_article_item_kanban" model="ir.ui.view">
+        <field name="name">knowledge.management.article.item.kanban</field>
+        <field name="model">knowledge.management.article</field>
+        <field name="priority">100</field>
+        <field name="arch" type="xml">
+            <kanban default_group_by="stage_id" default_order="sequence, id"
+                    quick_create="1" group_create="1" group_edit="1" group_delete="1"
+                    records_draggable="1" sample="0" class="o_knowledge_item_kanban">
+                <field name="sequence"/>
+                <field name="stage_id"/>
+                <field name="item_date_start"/>
+                <templates>
+                    <t t-name="card">
+                        <div class="d-flex align-items-start gap-2">
+                            <field name="icon" class="o_knowledge_item_card_icon"/>
+                            <field name="name" class="fw-bold text-break"/>
+                        </div>
+                        <div t-if="record.item_date_start.raw_value" class="small text-muted mt-1">
+                            <field name="item_date_start"/>
+                            <t t-if="record.item_date_end.raw_value"> → <field name="item_date_end"/></t>
+                        </div>
+                        <footer class="pt-1">
+                            <div class="d-flex ms-auto align-items-center">
+                                <field name="create_uid" widget="many2one_avatar_user"/>
+                            </div>
+                        </footer>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+
+    <record id="view_knowledge_article_item_list" model="ir.ui.view">
+        <field name="name">knowledge.management.article.item.list</field>
+        <field name="model">knowledge.management.article</field>
+        <field name="priority">100</field>
+        <field name="arch" type="xml">
+            <list string="Items" default_order="sequence, id" sample="0" class="o_knowledge_item_list">
+                <field name="sequence" widget="handle"/>
+                <field name="icon" string=" " nolabel="1" width="40px"/>
+                <field name="name" string="Article" width="240px"/>
+                <field name="stage_id" optional="show"/>
+                <field name="item_date_start" optional="show"/>
+                <field name="item_date_end" optional="show"/>
+                <field name="create_uid" string="Created by" widget="many2one_avatar_user" optional="hide"/>
+                <field name="write_date" string="Last Edited" optional="show"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_knowledge_article_item_calendar" model="ir.ui.view">
+        <field name="name">knowledge.management.article.item.calendar</field>
+        <field name="model">knowledge.management.article</field>
+        <field name="priority">100</field>
+        <field name="arch" type="xml">
+            <calendar js_class="knowledge_item_calendar" string="Items"
+                      date_start="item_date_start" date_stop="item_date_end"
+                      mode="week" quick_create="1" show_date_picker="0" color="stage_id">
+                <field name="name"/>
+                <field name="stage_id"/>
+            </calendar>
+        </field>
+    </record>
+
+    <record id="view_knowledge_article_item_search" model="ir.ui.view">
+        <field name="name">knowledge.management.article.item.search</field>
+        <field name="model">knowledge.management.article</field>
+        <field name="priority">100</field>
+        <field name="arch" type="xml">
+            <search string="Search Items">
+                <field name="name" string="Article"/>
+                <field name="body_html" string="Content"/>
+                <field name="stage_id"/>
+                <filter string="My Items" name="my_items" domain="[('create_uid', '=', uid)]"/>
+                <separator/>
+                <filter string="Stage" name="group_stage" context="{'group_by': 'stage_id'}"/>
+                <filter string="Created by" name="group_create_uid" context="{'group_by': 'create_uid'}"/>
+            </search>
+        </field>
+    </record>
+
     <!-- ─────────────────────────────────────────────────────────────
-         Item Kanban View
+         Item Kanban View (legacy knowledge.management.item model)
     ───────────────────────────────────────────────────────────────── -->
     <record id="view_knowledge_item_kanban" model="ir.ui.view">
         <field name="name">knowledge.management.item.kanban</field>

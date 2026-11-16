@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+    <record id="portal_entry_teleconsultations" model="portal.entry">
+        <field name="name">Online Consultations</field>
+        <field name="description">Join your video consultations with the dentist</field>
+        <field name="url">/my/teleconsultations</field>
+        <field name="image" type="bytes" file="dental_teleconsult/static/src/img/teleconsult.svg"/>
+        <field name="placeholder_count">teleconsult_count</field>
+        <field name="category">client_category</field>
+        <field name="sequence" eval="35"/>
+    </record>
+</odoo>

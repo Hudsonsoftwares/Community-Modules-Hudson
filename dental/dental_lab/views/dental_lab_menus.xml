@@ -123,7 +123,8 @@
         <field name="parent_id" ref="dental_base.menu_dental_root"/>
         <field name="sequence" eval="45"/>
         <field name="group_ids" eval="[(6, 0, [ref('dental_base.group_dental_manager'), ref('dental_base.group_dental_admin')])]"/>
-        <field name="active" eval="True"/>
+        <!-- Hidden from the Dental Clinic app: use the Dental Lab app -->
+        <field name="active" eval="False"/>
     </record>
 
     <menuitem id="menu_dental_lab_clinic_dashboard"

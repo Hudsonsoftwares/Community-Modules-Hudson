@@ -1,0 +1,157 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="insurance_eligibility_view_list" model="ir.ui.view">
+        <field name="name">insurance.eligibility.list</field>
+        <field name="model">insurance.eligibility</field>
+        <field name="arch" type="xml">
+            <list create="false" decoration-muted="state == 'cancel'" decoration-danger="state == 'error'">
+                <field name="name"/>
+                <field name="request_date"/>
+                <field name="partner_id"/>
+                <field name="policy_id"/>
+                <field name="payer_id" optional="show"/>
+                <field name="connector" optional="show"/>
+                <field name="service_date" optional="hide"/>
+                <field name="state" widget="badge" decoration-info="state == 'waiting'"
+                       decoration-success="state == 'done'" decoration-danger="state == 'error'"/>
+                <field name="result" widget="badge" decoration-success="result == 'eligible'"
+                       decoration-danger="result == 'not_eligible'"/>
+                <field name="company_id" groups="base.group_multi_company" optional="hide"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="insurance_eligibility_view_form" model="ir.ui.view">
+        <field name="name">insurance.eligibility.form</field>
+        <field name="model">insurance.eligibility</field>
+        <field name="arch" type="xml">
+            <form create="false">
+                <header>
+                    <button name="action_send" type="object" string="Send to Payer" class="btn-primary"
+                            icon="send" invisible="connector == 'manual' or state not in ('draft', 'error')"/>
+                    <button name="action_send" type="object" string="Payer Contacted" class="btn-secondary"
+                            invisible="connector != 'manual' or state != 'draft'"/>
+                    <button name="action_mark_eligible" type="object" string="Eligible" class="btn-primary"
+                            icon="check_circle" invisible="connector != 'manual' or state not in ('draft', 'waiting')"/>
+                    <button name="action_mark_not_eligible" type="object" string="Not Eligible"
+                            icon="cancel" invisible="connector != 'manual' or state not in ('draft', 'waiting')"/>
+                    <button name="action_check_again" type="object" string="Check Again" icon="refresh"
+                            invisible="state not in ('done', 'cancel')"/>
+                    <button name="action_reset_draft" type="object" string="Reset to Draft"
+                            invisible="state not in ('error', 'cancel')"/>
+                    <button name="action_cancel" type="object" string="Cancel"
+                            invisible="state not in ('draft', 'waiting', 'error')"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,waiting,done"/>
+                </header>
+                <sheet>
+                    <widget name="web_ribbon" title="Eligible" bg_color="text-bg-success"
+                            invisible="result != 'eligible'"/>
+                    <widget name="web_ribbon" title="Not Eligible" bg_color="text-bg-danger"
+                            invisible="result != 'not_eligible'"/>
+                    <div class="oe_title">
+                        <h1><field name="name"/></h1>
+                    </div>
+                    <div class="alert alert-info" role="status" invisible="state != 'waiting' or connector == 'manual'">
+                        Request sent. The payer's answer arrives automatically: reload the page in a moment.
+                    </div>
+                    <div class="alert alert-warning" role="status" invisible="state not in ('draft', 'waiting') or connector != 'manual'">
+                        Contact the payer (phone or portal), record the benefits below, then click
+                        "Eligible" or "Not Eligible".
+                    </div>
+                    <div class="alert alert-danger" role="alert" invisible="not error_message">
+                        <field name="error_message"/>
+                    </div>
+                    <group>
+                        <group string="Request">
+                            <field name="policy_id" readonly="state != 'draft'"/>
+                            <field name="partner_id"/>
+                            <field name="payer_id"/>
+                            <field name="connector"/>
+                            <field name="purpose" readonly="state != 'draft'"/>
+                            <field name="service_date" readonly="state != 'draft'"/>
+                            <field name="product_tmpl_ids" widget="many2many_tags" readonly="state != 'draft'"/>
+                        </group>
+                        <group string="Answer">
+                            <field name="result"/>
+                            <field name="request_date"/>
+                            <field name="response_date"/>
+                            <label for="benefit_start" string="Benefit Period"/>
+                            <div class="o_row">
+                                <field name="benefit_start" readonly="connector != 'manual'"/>
+                                <span>-</span>
+                                <field name="benefit_end" readonly="connector != 'manual'"/>
+                            </div>
+                            <field name="external_ref" invisible="not external_ref"/>
+                            <field name="payer_reference" invisible="not payer_reference"/>
+                            <field name="company_id" groups="base.group_multi_company"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Benefits" name="benefits">
+                            <field name="benefit_line_ids" readonly="connector != 'manual' or state in ('done', 'cancel')">
+                                <list editable="bottom">
+                                    <field name="sequence" widget="handle"/>
+                                    <field name="name"/>
+                                    <field name="category" optional="show"/>
+                                    <field name="service" optional="hide"/>
+                                    <field name="benefit_type" optional="hide"/>
+                                    <field name="network" optional="hide"/>
+                                    <field name="term" optional="show"/>
+                                    <field name="covered"/>
+                                    <field name="requires_preauth" optional="show"/>
+                                    <field name="allowed_amount" sum="Allowed"/>
+                                    <field name="used_amount" sum="Used"/>
+                                    <field name="remaining_amount" sum="Remaining"/>
+                                    <field name="allowed_value" optional="show"/>
+                                    <field name="used_value" optional="hide"/>
+                                    <field name="currency_id" column_invisible="True"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Payer Message" name="disposition">
+                            <field name="disposition" readonly="connector != 'manual' or state in ('done', 'cancel')"
+                                   placeholder="What the payer said, their reference number, who you spoke to..."/>
+                        </page>
+                        <page string="Raw Answer" name="raw" groups="base.group_system">
+                            <field name="response_data" readonly="1"/>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="insurance_eligibility_view_search" model="ir.ui.view">
+        <field name="name">insurance.eligibility.search</field>
+        <field name="model">insurance.eligibility</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name"/>
+                <field name="partner_id"/>
+                <field name="policy_id"/>
+                <field name="payer_id"/>
+                <field name="external_ref"/>
+                <filter string="Waiting" name="waiting" domain="[('state', '=', 'waiting')]"/>
+                <filter string="Errors" name="error" domain="[('state', '=', 'error')]"/>
+                <separator/>
+                <filter string="Eligible" name="eligible" domain="[('result', '=', 'eligible')]"/>
+                <filter string="Not Eligible" name="not_eligible" domain="[('result', '=', 'not_eligible')]"/>
+                <group>
+                    <filter string="Payer" name="group_payer" context="{'group_by': 'payer_id'}"/>
+                    <filter string="Status" name="group_state" context="{'group_by': 'state'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_insurance_eligibility" model="ir.actions.act_window">
+        <field name="name">Eligibility Checks</field>
+        <field name="res_model">insurance.eligibility</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">No eligibility check yet</p>
+            <p>Open a patient policy and click "Check Eligibility".</p>
+        </field>
+    </record>
+</odoo>

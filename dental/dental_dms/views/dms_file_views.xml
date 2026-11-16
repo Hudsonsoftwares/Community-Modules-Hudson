@@ -1,0 +1,204 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        Dental views of dms.file. All of them are NEW views (primary mode or standalone) used only
+        by the dental actions below: the Document module's own views and menus are not changed.
+    -->
+
+    <record id="view_dms_file_search_dental" model="ir.ui.view">
+        <field name="name">dms.file.search.dental</field>
+        <field name="model">dms.file</field>
+        <field name="inherit_id" ref="dms.search_dms_file"/>
+        <field name="mode">primary</field>
+        <field name="priority">90</field>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='name']" position="after">
+                <field name="dental_patient_id"/>
+                <field name="dental_case_id"/>
+                <field name="dental_examination_id"/>
+                <field name="dental_treatment_plan_id"/>
+                <field name="dental_appointment_id"/>
+                <field name="dental_employee_id"/>
+                <field name="dental_tooth_reference"/>
+                <field name="dental_doc_type"/>
+            </xpath>
+            <xpath expr="//search" position="inside">
+                <separator/>
+                <filter string="X-Rays &amp; Imaging" name="dental_imaging" domain="[('dental_doc_type', '=', 'imaging')]"/>
+                <filter string="Clinical Reports" name="dental_clinical" domain="[('dental_doc_type', '=', 'clinical')]"/>
+                <filter string="Odontogram" name="dental_odontogram" domain="[('dental_doc_type', '=', 'odontogram')]"/>
+                <filter string="Treatment Plans" name="dental_treatment" domain="[('dental_doc_type', '=', 'treatment')]"/>
+                <filter string="Prescriptions" name="dental_prescription" domain="[('dental_doc_type', '=', 'prescription')]"/>
+                <filter string="Consent Forms" name="dental_consent" domain="[('dental_doc_type', '=', 'consent')]"/>
+                <filter string="Laboratory" name="dental_lab" domain="[('dental_doc_type', '=', 'lab')]"/>
+                <filter string="Invoices &amp; Billing" name="dental_billing" domain="[('dental_doc_type', '=', 'billing')]"/>
+                <separator/>
+                <filter string="Patient Documents" name="dental_has_patient" domain="[('dental_patient_id', '!=', False)]"/>
+                <filter string="Document Date" name="dental_document_date" date="dental_document_date"/>
+                <group>
+                    <filter string="Patient" name="groupby_dental_patient" context="{'group_by': 'dental_patient_id'}"/>
+                    <filter string="Document Type" name="groupby_dental_doc_type" context="{'group_by': 'dental_doc_type'}"/>
+                    <filter string="Dental Case" name="groupby_dental_case" context="{'group_by': 'dental_case_id'}"/>
+                    <filter string="Branch" name="groupby_dental_company" context="{'group_by': 'company_id'}"/>
+                </group>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_dms_file_list_dental" model="ir.ui.view">
+        <field name="name">dms.file.list.dental</field>
+        <field name="model">dms.file</field>
+        <field name="priority">90</field>
+        <field name="arch" type="xml">
+            <list string="Dental Documents" create="false">
+                <field name="dental_document_date" optional="show"/>
+                <field name="name"/>
+                <field name="dental_doc_type" optional="show"/>
+                <field name="dental_patient_id" optional="show"/>
+                <field name="dental_case_id" optional="show"/>
+                <field name="dental_treatment_plan_id" optional="hide"/>
+                <field name="dental_examination_id" optional="hide"/>
+                <field name="dental_employee_id" optional="hide"/>
+                <field name="dental_tooth_reference" optional="hide"/>
+                <field name="directory_id" optional="hide"/>
+                <field name="mimetype" optional="hide"/>
+                <field name="human_size" optional="show"/>
+                <field name="create_uid" string="Uploaded By" optional="show"/>
+                <field name="company_id" groups="base.group_multi_company" optional="show"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_dms_file_form_dental" model="ir.ui.view">
+        <field name="name">dms.file.form.dental</field>
+        <field name="model">dms.file</field>
+        <field name="inherit_id" ref="dms.view_dms_file_form"/>
+        <field name="mode">primary</field>
+        <field name="priority">90</field>
+        <field name="arch" type="xml">
+            <xpath expr="//sheet" position="inside">
+                <separator string="Dental Record"/>
+                <group name="dental_links">
+                    <group>
+                        <field name="dental_doc_type"/>
+                        <field name="dental_patient_id" options="{'no_create': True}"/>
+                        <field name="dental_case_id" options="{'no_create': True}"/>
+                        <field name="dental_examination_id" options="{'no_create': True}"/>
+                        <field name="dental_treatment_plan_id" options="{'no_create': True}"/>
+                    </group>
+                    <group>
+                        <field name="dental_document_date"/>
+                        <field name="dental_tooth_reference"/>
+                        <field name="dental_appointment_id" options="{'no_create': True}"/>
+                        <field name="dental_employee_id" options="{'no_create': True}" invisible="not dental_employee_id"/>
+                        <field name="dental_source_ref" string="Filed From" readonly="1"/>
+                        <button name="action_dental_open_source" type="object" string="Open Source Record"
+                                class="btn-link ps-0" icon="fa-external-link" invisible="not dental_source_model"/>
+                        <field name="dental_source_model" invisible="1"/>
+                    </group>
+                </group>
+                <field name="dental_notes" placeholder="Clinical notes about this document..."/>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- Used by the smart buttons of dental records (domain set by the button) -->
+    <record id="action_dental_documents_record" model="ir.actions.act_window">
+        <field name="name">Documents</field>
+        <field name="res_model">dms.file</field>
+        <field name="view_mode">kanban,list,form</field>
+        <field name="search_view_id" ref="view_dms_file_search_dental"/>
+        <field name="context">{'create': False}</field>
+        <field name="view_ids" eval="[(5, 0, 0),
+            (0, 0, {'view_mode': 'kanban', 'view_id': ref('dms.view_dms_file_kanban')}),
+            (0, 0, {'view_mode': 'list', 'view_id': ref('view_dms_file_list_dental')}),
+            (0, 0, {'view_mode': 'form', 'view_id': ref('view_dms_file_form_dental')})]"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_empty_folder">No documents yet</p>
+            <p>Use <b>Add Document</b> on the record, or attach files in its chatter: they are filed here automatically.</p>
+        </field>
+    </record>
+
+    <!-- Central Dental Documents search -->
+    <record id="action_dental_document_center" model="ir.actions.act_window">
+        <field name="name">All Dental Documents</field>
+        <field name="res_model">dms.file</field>
+        <field name="view_mode">list,kanban,form</field>
+        <field name="domain">[('dental_doc_type', '!=', False)]</field>
+        <field name="search_view_id" ref="view_dms_file_search_dental"/>
+        <field name="context">{'create': False, 'search_default_groupby_dental_patient': 1}</field>
+        <field name="view_ids" eval="[(5, 0, 0),
+            (0, 0, {'view_mode': 'list', 'view_id': ref('view_dms_file_list_dental')}),
+            (0, 0, {'view_mode': 'kanban', 'view_id': ref('dms.view_dms_file_kanban')}),
+            (0, 0, {'view_mode': 'form', 'view_id': ref('view_dms_file_form_dental')})]"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_empty_folder">No dental documents yet</p>
+            <p>Patient records, X-rays, consents, prescriptions, lab reports, invoices and staff files appear
+               here as soon as they are attached to a dental record.</p>
+        </field>
+    </record>
+
+    <record id="action_dental_documents_imaging" model="ir.actions.act_window">
+        <field name="name">X-Rays &amp; Imaging</field>
+        <field name="res_model">dms.file</field>
+        <field name="view_mode">kanban,list,form</field>
+        <field name="domain">[('dental_doc_type', '=', 'imaging')]</field>
+        <field name="search_view_id" ref="view_dms_file_search_dental"/>
+        <field name="context">{'create': False}</field>
+        <field name="view_ids" eval="[(5, 0, 0),
+            (0, 0, {'view_mode': 'kanban', 'view_id': ref('dms.view_dms_file_kanban')}),
+            (0, 0, {'view_mode': 'list', 'view_id': ref('view_dms_file_list_dental')}),
+            (0, 0, {'view_mode': 'form', 'view_id': ref('view_dms_file_form_dental')})]"/>
+    </record>
+
+    <record id="action_dental_documents_consent" model="ir.actions.act_window">
+        <field name="name">Signed Consent Forms</field>
+        <field name="res_model">dms.file</field>
+        <field name="view_mode">list,kanban,form</field>
+        <field name="domain">[('dental_doc_type', '=', 'consent')]</field>
+        <field name="search_view_id" ref="view_dms_file_search_dental"/>
+        <field name="context">{'create': False}</field>
+        <field name="view_ids" eval="[(5, 0, 0),
+            (0, 0, {'view_mode': 'list', 'view_id': ref('view_dms_file_list_dental')}),
+            (0, 0, {'view_mode': 'kanban', 'view_id': ref('dms.view_dms_file_kanban')}),
+            (0, 0, {'view_mode': 'form', 'view_id': ref('view_dms_file_form_dental')})]"/>
+    </record>
+
+    <record id="action_dental_documents_clinical" model="ir.actions.act_window">
+        <field name="name">Clinical &amp; Lab Reports</field>
+        <field name="res_model">dms.file</field>
+        <field name="view_mode">list,kanban,form</field>
+        <field name="domain">[('dental_doc_type', 'in', ('clinical', 'odontogram', 'treatment', 'prescription', 'lab', 'second_opinion'))]</field>
+        <field name="search_view_id" ref="view_dms_file_search_dental"/>
+        <field name="context">{'create': False, 'search_default_groupby_dental_doc_type': 1}</field>
+        <field name="view_ids" eval="[(5, 0, 0),
+            (0, 0, {'view_mode': 'list', 'view_id': ref('view_dms_file_list_dental')}),
+            (0, 0, {'view_mode': 'kanban', 'view_id': ref('dms.view_dms_file_kanban')}),
+            (0, 0, {'view_mode': 'form', 'view_id': ref('view_dms_file_form_dental')})]"/>
+    </record>
+
+    <record id="action_dental_documents_billing" model="ir.actions.act_window">
+        <field name="name">Invoices &amp; Billing</field>
+        <field name="res_model">dms.file</field>
+        <field name="view_mode">list,kanban,form</field>
+        <field name="domain">[('dental_doc_type', '=', 'billing')]</field>
+        <field name="search_view_id" ref="view_dms_file_search_dental"/>
+        <field name="context">{'create': False}</field>
+        <field name="view_ids" eval="[(5, 0, 0),
+            (0, 0, {'view_mode': 'list', 'view_id': ref('view_dms_file_list_dental')}),
+            (0, 0, {'view_mode': 'form', 'view_id': ref('view_dms_file_form_dental')})]"/>
+    </record>
+
+    <record id="action_dental_documents_staff_admin" model="ir.actions.act_window">
+        <field name="name">Staff, Purchase &amp; Administration</field>
+        <field name="res_model">dms.file</field>
+        <field name="view_mode">list,kanban,form</field>
+        <field name="domain">[('dental_doc_type', 'in', ('staff', 'purchase', 'admin'))]</field>
+        <field name="search_view_id" ref="view_dms_file_search_dental"/>
+        <field name="context">{'create': False, 'search_default_groupby_dental_doc_type': 1}</field>
+        <field name="view_ids" eval="[(5, 0, 0),
+            (0, 0, {'view_mode': 'list', 'view_id': ref('view_dms_file_list_dental')}),
+            (0, 0, {'view_mode': 'kanban', 'view_id': ref('dms.view_dms_file_kanban')}),
+            (0, 0, {'view_mode': 'form', 'view_id': ref('view_dms_file_form_dental')})]"/>
+    </record>
+</odoo>

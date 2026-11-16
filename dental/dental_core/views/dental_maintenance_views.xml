@@ -196,8 +196,11 @@
     <record id="action_dental_equipment_registry" model="ir.actions.act_window">
         <field name="name">Dental Equipment Registry</field>
         <field name="res_model">maintenance.equipment</field>
-        <field name="view_mode">list,form,kanban</field>
-        <field name="view_id" ref="view_dental_equipment_tree"/>
+        <field name="view_mode">kanban,list,form</field>
+        <field name="view_ids" eval="[(5, 0, 0),
+            (0, 0, {'view_mode': 'kanban'}),
+            (0, 0, {'view_mode': 'list', 'view_id': ref('view_dental_equipment_tree')}),
+            (0, 0, {'view_mode': 'form'})]"/>
         <field name="search_view_id" ref="view_dental_equipment_search"/>
         <field name="help" type="html">
             <p class="o_view_nocontent_smiling_face">
@@ -361,8 +364,11 @@
     <record id="action_dental_maintenance_requests" model="ir.actions.act_window">
         <field name="name">Maintenance &amp; Repair Requests</field>
         <field name="res_model">maintenance.request</field>
-        <field name="view_mode">list,kanban,form</field>
-        <field name="view_id" ref="view_dental_maintenance_request_tree"/>
+        <field name="view_mode">kanban,list,form</field>
+        <field name="view_ids" eval="[(5, 0, 0),
+            (0, 0, {'view_mode': 'kanban'}),
+            (0, 0, {'view_mode': 'list', 'view_id': ref('view_dental_maintenance_request_tree')}),
+            (0, 0, {'view_mode': 'form'})]"/>
         <field name="search_view_id" ref="view_dental_maintenance_request_search"/>
         <field name="context">{'search_default_filter_open': 1}</field>
     </record>
@@ -380,21 +386,46 @@
         }</field>
     </record>
 
-    <!-- Filtered action for Receptionist to view unavailable equipment requests -->
+    <!-- Filtered action for Receptionist to view unavailable equipment requests (including scrap) -->
     <record id="action_reception_unavailable_equipment" model="ir.actions.act_window">
-        <field name="name">Equipment Under Maintenance</field>
+        <field name="name">Equipment Under Maintenance &amp; Scrap</field>
         <field name="res_model">maintenance.request</field>
+        <field name="view_mode">kanban,list,form</field>
+        <field name="domain">['|', '&amp;', ('equipment_availability_impact', 'in', ('unavailable', 'reduced_capacity')), ('stage_id.fold', '=', False), ('stage_id.name', 'ilike', 'scrap')]</field>
+        <field name="view_ids" eval="[(5, 0, 0),
+            (0, 0, {'view_mode': 'kanban'}),
+            (0, 0, {'view_mode': 'list', 'view_id': ref('view_dental_maintenance_request_tree')}),
+            (0, 0, {'view_mode': 'form'})]"/>
+    </record>
+
+    <!-- Filtered action for Receptionist to view Scrapped / Decommissioned equipment -->
+    <record id="action_reception_scrapped_equipment" model="ir.actions.act_window">
+        <field name="name">Scrapped / Decommissioned Equipment</field>
+        <field name="res_model">maintenance.equipment</field>
         <field name="view_mode">list,form</field>
-        <field name="domain">[('equipment_availability_impact', '=', 'unavailable'), ('stage_id.fold', '=', False)]</field>
-        <field name="view_id" ref="view_dental_maintenance_request_tree"/>
+        <field name="domain">[('equipment_condition', '=', 'scrapped')]</field>
+        <field name="view_ids" eval="[(5, 0, 0),
+            (0, 0, {'view_mode': 'list', 'view_id': ref('view_dental_equipment_tree')}),
+            (0, 0, {'view_mode': 'form'})]"/>
+    </record>
+
+    <!-- Filtered action for Receptionist to view Appointments impacted by equipment conflicts -->
+    <record id="action_reception_affected_appointments" model="ir.actions.act_window">
+        <field name="name">Appointments with Equipment Conflict</field>
+        <field name="res_model">dental.appointment</field>
+        <field name="view_mode">list,calendar,form</field>
+        <field name="domain">[('has_equipment_conflict', '=', True)]</field>
     </record>
 
     <!-- Action for Preventive Maintenance Schedules -->
     <record id="action_dental_preventive_schedule" model="ir.actions.act_window">
         <field name="name">Preventive Maintenance Schedules</field>
         <field name="res_model">maintenance.equipment</field>
-        <field name="view_mode">list,form</field>
-        <field name="view_id" ref="view_dental_equipment_tree"/>
+        <field name="view_mode">kanban,list,form</field>
+        <field name="view_ids" eval="[(5, 0, 0),
+            (0, 0, {'view_mode': 'kanban'}),
+            (0, 0, {'view_mode': 'list', 'view_id': ref('view_dental_equipment_tree')}),
+            (0, 0, {'view_mode': 'form'})]"/>
         <field name="context">{'search_default_group_by_category': 1}</field>
     </record>
 </odoo>

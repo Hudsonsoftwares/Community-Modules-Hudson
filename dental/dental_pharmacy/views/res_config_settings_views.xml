@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Per-branch switch: in-house pharmacy, or prescriptions issued to the patient -->
+    <record id="res_config_settings_view_form_inherit_dental_pharmacy" model="ir.ui.view">
+        <field name="name">res.config.settings.view.form.inherit.dental.pharmacy</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="dental_core.res_config_settings_view_form_inherit_dental_billing"/>
+        <field name="arch" type="xml">
+            <xpath expr="//block[@name='dental_billing_settings']" position="after">
+                <block title="Prescriptions &amp; Pharmacy" name="dental_pharmacy_settings">
+                    <setting id="dental_has_pharmacy_setting"
+                             help="This branch has its own pharmacy: confirmed prescriptions go to the pharmacy queue and medicines are billed by the pharmacy. Turn off for clinics without a pharmacy: prescriptions are printed / emailed to the patient to buy outside, and the front desk bills only the visit.">
+                        <field name="dental_has_pharmacy"/>
+                    </setting>
+                </block>
+            </xpath>
+        </field>
+    </record>
+</odoo>

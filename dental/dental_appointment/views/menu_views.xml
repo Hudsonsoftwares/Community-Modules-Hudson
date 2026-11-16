@@ -39,8 +39,13 @@
     <record id="action_dental_appointment_today" model="ir.actions.act_window">
         <field name="name">Today's Appointments</field>
         <field name="res_model">dental.appointment</field>
-        <field name="view_mode">list,calendar,form</field>
-        <field name="view_id" ref="view_dental_appointment_tree"/>
+        <field name="view_mode">dental_gantt,kanban,list,calendar,form</field>
+        <field name="view_ids" eval="[(5, 0, 0),
+            (0, 0, {'sequence': 1, 'view_mode': 'dental_gantt', 'view_id': ref('view_dental_appointment_gantt')}),
+            (0, 0, {'sequence': 2, 'view_mode': 'kanban'}),
+            (0, 0, {'sequence': 3, 'view_mode': 'list', 'view_id': ref('view_dental_appointment_tree')}),
+            (0, 0, {'sequence': 4, 'view_mode': 'calendar'}),
+            (0, 0, {'sequence': 5, 'view_mode': 'form'})]"/>
         <field name="domain">[('date_start', '&gt;=', context_today().strftime('%Y-%m-%d 00:00:00')), ('date_start', '&lt;=', context_today().strftime('%Y-%m-%d 23:59:59'))]</field>
     </record>
     <menuitem id="menu_reception_todays_appointments"
@@ -62,13 +67,21 @@
     <record id="action_dental_appointment_calendar" model="ir.actions.act_window">
         <field name="name">Calendar</field>
         <field name="res_model">dental.appointment</field>
-        <field name="view_mode">calendar,list,form</field>
+        <field name="view_mode">calendar,dental_gantt,list,form</field>
     </record>
     <menuitem id="menu_dental_appointment_calendar"
               name="Calendar"
               parent="menu_dental_appointment_subroot"
               action="action_dental_appointment_calendar"
               sequence="30"
+              groups="dental_base.group_dental_receptionist,dental_base.group_dental_assistant,dental_base.group_dental_manager,dental_base.group_dental_admin"/>
+
+    <!-- Doctor Schedule (Gantt planning board, one row per doctor) -->
+    <menuitem id="menu_dental_appointment_gantt"
+              name="Doctor Schedule"
+              parent="menu_dental_appointment_subroot"
+              action="action_dental_appointment_gantt"
+              sequence="35"
               groups="dental_base.group_dental_receptionist,dental_base.group_dental_assistant,dental_base.group_dental_manager,dental_base.group_dental_admin"/>
 
     <!-- Waiting Queue (Consolidated clinic-wide waiting list) -->
@@ -83,7 +96,7 @@
     <record id="action_dental_patient_checkin" model="ir.actions.act_window">
         <field name="name">Patient Check-in</field>
         <field name="res_model">dental.appointment</field>
-        <field name="view_mode">list,form</field>
+        <field name="view_mode">kanban,list,form</field>
         <field name="domain">[('state', '=', 'confirmed'), ('date_start', '&gt;=', context_today().strftime('%Y-%m-%d 00:00:00')), ('date_start', '&lt;=', context_today().strftime('%Y-%m-%d 23:59:59'))]</field>
     </record>
 
@@ -108,6 +121,13 @@
               sequence="10"
               groups="dental_base.group_dental_admin"/>
 
+    <menuitem id="menu_dental_appointment_icon_top"
+              name="Appointment Icons"
+              parent="menu_dental_appointment_config_top"
+              action="action_dental_appointment_icon"
+              sequence="15"
+              groups="dental_base.group_dental_admin"/>
+
     <menuitem id="menu_dental_recall_rule_top"
               name="Recall Rules"
               parent="menu_dental_appointment_config_top"
@@ -120,7 +140,8 @@
               name="Appointments"
               parent="dental_base.menu_dental_root"
               sequence="30"
-              groups="dental_base.group_dental_manager,dental_base.group_dental_admin"/>
+              groups="dental_base.group_dental_manager,dental_base.group_dental_admin"
+              active="False"/>
     <menuitem id="menu_clinic_book_appointment"
               name="Book Appointment"
               parent="menu_dental_appointment_clinic_shortcut"
@@ -185,6 +206,13 @@
               parent="dental_base.menu_dental_configuration"
               action="action_dental_appointment_type"
               sequence="40"
+              groups="dental_base.group_dental_admin"/>
+
+    <menuitem id="menu_dental_appointment_icon"
+              name="Appointment Icons"
+              parent="dental_base.menu_dental_configuration"
+              action="action_dental_appointment_icon"
+              sequence="45"
               groups="dental_base.group_dental_admin"/>
 
     <menuitem id="menu_dental_recall_rule"

@@ -1,0 +1,375 @@
+/* ==========================================================================
+   Consultation > Prescriptions tab: today's prescription composer and the
+   patient's prescription history as compact cards.
+   Same palette as the case form (dental_core/dental_case_form.scss).
+   ========================================================================== */
+
+$rx-teal: #0f5f5a;
+$rx-teal-600: #137a73;
+$rx-teal-100: #e3f2ef;
+$rx-teal-50: #f1f8f7;
+$rx-ink: #0f172a;
+$rx-text: #1e293b;
+$rx-muted: #64748b;
+$rx-line: #e3e8ee;
+$rx-radius: 14px;
+$rx-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 6px 18px -8px rgba(15, 23, 42, 0.12);
+
+/* ---------- Composer ---------- */
+.o_form_view .o_rx_composer {
+    background: #ffffff;
+    border: 1px solid $rx-line;
+    border-radius: $rx-radius;
+    box-shadow: $rx-shadow;
+    padding: 0 1.25rem 1rem;
+    margin-bottom: 1.5rem;
+
+    .o_rx_composer_head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.75rem;
+        margin: 0 -1.25rem 1rem;
+        padding: 0.85rem 1.25rem;
+        background: $rx-teal-50;
+        border-bottom: 1px solid $rx-line;
+        border-radius: $rx-radius $rx-radius 0 0;
+    }
+
+    .o_rx_head_icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 38px;
+        height: 38px;
+        border-radius: 10px;
+        background: $rx-teal;
+        color: #ffffff;
+        font-size: 1.15rem;
+        flex-shrink: 0;
+    }
+
+    .o_rx_head_text {
+        flex: 1 1 200px;
+        min-width: 0;
+    }
+
+    .o_rx_head_title {
+        font-size: 1.05rem;
+        font-weight: 700;
+        color: $rx-ink;
+    }
+
+    .o_rx_head_sub {
+        font-size: 0.82rem;
+        color: $rx-muted;
+
+        .o_field_widget, .o_field_widget > *, .o_field_widget span {
+            display: inline !important;
+            width: auto !important;
+            font-weight: 600;
+            color: $rx-text;
+        }
+    }
+
+    .o_rx_template_picker {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        flex: 0 1 300px;
+        min-width: 220px;
+        padding: 0.3rem 0.75rem;
+        background: #ffffff;
+        border: 1px solid $rx-line;
+        border-radius: 999px;
+        color: $rx-teal;
+
+        .o_field_widget { flex: 1 1 auto; margin: 0; }
+        input { border: none !important; box-shadow: none !important; padding: 0.15rem 0; }
+    }
+
+    .o_rx_alert {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.35rem;
+        margin-bottom: 0.75rem;
+        padding: 0.5rem 0.85rem;
+        border-radius: 10px;
+        font-size: 0.88rem;
+
+        .o_field_widget, .o_field_widget span { display: inline !important; width: auto !important; }
+
+        &.o_rx_alert_danger { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
+        &.o_rx_alert_warning { background: #fffbeb; color: #92400e; border: 1px solid #fde68a; }
+    }
+
+    .o_rx_indication {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin-bottom: 0.75rem;
+
+        > label, .o_form_label {
+            flex: 0 0 auto;
+            margin: 0;
+            font-weight: 600;
+            color: $rx-muted;
+        }
+
+        > .o_field_widget { flex: 1 1 auto; }
+    }
+
+    /* Medicines: one card per medicine, each value labelled, no spreadsheet grid */
+    .o_rx_lines {
+        margin-bottom: 0.75rem;
+
+        &.o_field_x2many { box-shadow: none; }
+
+        .o_list_renderer {
+            overflow: visible !important;
+            border: none !important;
+            background: transparent;
+        }
+
+        table.o_list_table {
+            border-collapse: separate !important;
+            border-spacing: 0 0.5rem;
+            margin: -0.5rem 0 0 0 !important;
+            background: transparent !important;
+        }
+
+        thead { display: none; }
+        tfoot { display: none; }
+
+        /* no empty filler rows under the medicines */
+        tbody tr:not(.o_data_row):not(:has(.o_field_x2many_list_row_add)) { display: none; }
+
+        tbody tr.o_data_row {
+            > td {
+                padding: 0.55rem 0.7rem !important;
+                vertical-align: middle;
+                background: #ffffff !important;
+                border-top: 1px solid $rx-line !important;
+                border-bottom: 1px solid $rx-line !important;
+                color: $rx-text;
+                font-size: 0.92rem;
+            }
+
+            > td:first-child {
+                border-left: 4px solid $rx-teal-600 !important;
+                border-radius: 12px 0 0 12px;
+            }
+
+            > td:last-child {
+                border-right: 1px solid $rx-line !important;
+                border-radius: 0 12px 12px 0;
+            }
+
+            &:hover > td { background: $rx-teal-50 !important; }
+            &.o_selected_row > td { background: #fbfdfd !important; border-color: $rx-teal-600 !important; }
+            &.text-danger > td:first-child, &.table-danger > td:first-child { border-left-color: #dc2626 !important; }
+
+            /* Small caption above every value */
+            > td.o_field_cell::before {
+                display: block;
+                margin-bottom: 0.1rem;
+                font-size: 0.66rem;
+                font-weight: 700;
+                letter-spacing: 0.05em;
+                text-transform: uppercase;
+                color: $rx-muted;
+                white-space: nowrap;
+            }
+
+            > td[name="medicine_id"] { font-weight: 700; color: $rx-ink; }
+            > td[name="medicine_id"]::before { content: "Medicine"; }
+            > td[name="dose"]::before { content: "Dose"; }
+            > td[name="frequency"]::before { content: "Frequency"; }
+            > td[name="duration"]::before { content: "Days"; }
+            > td[name="quantity"]::before { content: "Qty"; }
+            > td[name="uom_id"]::before { content: "Unit"; }
+            > td[name="route"]::before { content: "Route"; }
+            > td[name="instructions"]::before { content: "Instructions"; }
+            > td[name="allergy_conflict_note"]::before { content: "Allergy"; }
+
+            > td[name="duration"], > td[name="quantity"] { text-align: left !important; }
+
+            /* The header is hidden, so the first row sets the column widths */
+            > td[name="medicine_id"] { width: 28%; }
+            > td.o_data_cell:not([name]) { width: 36px; padding-left: 0 !important; padding-right: 0 !important; }
+            > td[name="dose"] { width: 10%; }
+            > td[name="frequency"] { width: 21%; }
+            > td[name="duration"] { width: 7%; }
+            > td[name="quantity"] { width: 7%; }
+            > td.o_list_record_remove { width: 44px; text-align: center; }
+
+            .o_field_widget input, .o_field_widget select { padding-top: 0; padding-bottom: 0; }
+            .o_list_record_remove button { color: $rx-muted; }
+            .o_list_record_remove button:hover { color: #b91c1c; }
+        }
+
+        /* "+ Add medicine" as a dashed button */
+        .o_field_x2many_list_row_add {
+            padding: 0 !important;
+            border: none !important;
+            background: transparent !important;
+
+            > button, > a {
+                display: block;
+                width: 100%;
+                padding: 0.6rem 1rem;
+                border: 1.5px dashed #b9d6d1;
+                border-radius: 12px;
+                background: $rx-teal-50;
+                color: $rx-teal !important;
+                font-weight: 600;
+                text-align: left;
+                text-decoration: none;
+            }
+
+            > button:hover, > a:hover { border-color: $rx-teal-600; background: $rx-teal-100; }
+            > button::before, > a::before { content: "+ "; font-weight: 700; }
+        }
+    }
+
+    .o_rx_advice {
+        width: 100%;
+
+        textarea {
+            min-height: 3.2rem;
+            padding: 0.5rem 0.75rem;
+            background: #f8fafc;
+            border: 1px solid $rx-line !important;
+            border-radius: 10px;
+        }
+    }
+
+    .o_rx_composer_foot {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+        margin-top: 0.85rem;
+        padding-top: 0.85rem;
+        border-top: 1px solid $rx-line;
+    }
+
+    .o_rx_foot_tools {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.1rem;
+
+        .btn-link { padding: 0.3rem 0.5rem; font-weight: 600; color: $rx-teal; }
+        .btn-link.text-danger { color: #b91c1c !important; }
+    }
+
+    .o_rx_foot_hint {
+        font-size: 0.82rem;
+        color: $rx-muted;
+    }
+
+    .o_rx_foot_send {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-left: auto;
+
+        .btn { padding: 0.45rem 1rem; font-weight: 600; border-radius: 10px; }
+        .o_rx_send_pharmacy { background: $rx-teal; border-color: $rx-teal; color: #ffffff; }
+        .o_rx_send_pharmacy:hover { background: $rx-teal-600; border-color: $rx-teal-600; }
+        .o_rx_send_patient { background: #ffffff; border: 1px solid $rx-teal; color: $rx-teal; }
+        .o_rx_send_patient:hover { background: $rx-teal-100; }
+    }
+}
+
+/* ---------- History ---------- */
+.o_form_view .o_rx_empty {
+    padding: 1.25rem;
+    text-align: center;
+    color: $rx-muted;
+    background: #f8fafc;
+    border: 1px dashed $rx-line;
+    border-radius: $rx-radius;
+}
+
+.o_form_view .o_rx_history {
+    .o_kanban_renderer {
+        display: grid !important;
+        grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+        gap: 0.85rem;
+        padding: 0 !important;
+        background: transparent;
+    }
+
+    .o_kanban_ghost { display: none !important; }
+
+    .o_kanban_record.o_rx_card {
+        display: flex !important;
+        flex-direction: column;
+        gap: 0.35rem;
+        width: auto !important;
+        min-width: 0;
+        margin: 0 !important;
+        padding: 0.85rem 1rem 0.6rem;
+        background: #ffffff;
+        border: 1px solid $rx-line;
+        border-left: 4px solid $rx-teal-600;
+        border-radius: 12px;
+        box-shadow: $rx-shadow;
+        cursor: default;
+    }
+
+    .o_rx_card_top {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .o_rx_card_no { font-weight: 700; color: $rx-ink; }
+
+    .o_rx_card_meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.3rem;
+        font-size: 0.8rem;
+        color: $rx-muted;
+    }
+
+    .o_rx_card_dx {
+        font-size: 0.86rem;
+        font-weight: 600;
+        color: $rx-text;
+    }
+
+    .o_rx_card_meds {
+        display: -webkit-box;
+        overflow: hidden;
+        white-space: pre-line;
+        font-size: 0.82rem;
+        color: $rx-text;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+    }
+
+    .o_rx_card_foot {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+        margin-top: auto;
+        padding-top: 0.45rem;
+        border-top: 1px solid $rx-line;
+    }
+
+    .o_rx_card_count { font-size: 0.78rem; color: $rx-muted; }
+
+    .o_rx_card_actions {
+        display: flex;
+        align-items: center;
+
+        .btn-link { padding: 0.15rem 0.4rem; font-weight: 600; color: $rx-teal; }
+    }
+
+    .o_x2m_control_panel { margin-bottom: 0.5rem; }
+}

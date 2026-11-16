@@ -1,3 +1,4 @@
+import re
 from datetime import date
 from unittest.mock import patch
 
@@ -229,14 +230,61 @@ class TestBudget(AccountTestInvoicingCommon):
         self.budget.action_budget_draft()
         line.planned_amount = 10.0
 
-    def test_only_managers_approve(self):
+    def test_only_managers_open(self):
         accountant = new_test_user(self.env, login='budget_accountant', groups='account.group_account_user')
         budget = self.budget.with_user(accountant)
-        budget.action_budget_confirm()
         with self.assertRaises(AccessError):
-            budget.action_budget_validate()
+            budget.action_budget_confirm()
+        self.budget.action_budget_confirm()
+        self.assertEqual(self.budget.state, 'validate')
+        with self.assertRaises(AccessError):
+            budget.action_budget_revise()
+        # the former "Approve" step leaves an open budget as it is
         self.budget.action_budget_validate()
         self.assertEqual(self.budget.state, 'validate')
+
+    def test_state_flow(self):
+        """ Draft -> Open -> Done, as in Odoo Enterprise; Cancel from draft, Reset to Draft from open """
+        self._create_line(position_id=self.position.id)
+        with self.assertRaises(UserError):
+            self.budget.action_budget_done()
+        self.budget.action_budget_confirm()
+        with self.assertRaises(UserError):
+            self.budget.action_budget_confirm()
+        self.budget.action_budget_draft()
+        self.assertEqual(self.budget.state, 'draft')
+        self.budget.action_budget_cancel()
+        self.assertEqual(self.budget.state, 'cancel')
+        self.budget.action_budget_draft()
+        self.budget.action_budget_confirm()
+        self.budget.action_budget_done()
+        self.assertEqual(self.budget.state, 'done')
+
+    def test_revise(self):
+        line = self._create_line(position_id=self.position.id, planned_amount=500.0)
+        with self.assertRaises(UserError):
+            self.budget.action_budget_revise()  # only open budgets
+        self.budget.action_budget_confirm()
+        action = self.budget.action_budget_revise()
+
+        revision = self.env['account.budget'].browse(action['res_id'])
+        self.assertEqual((action['res_model'], action['view_mode'], action['target']),
+                         ('account.budget', 'form', 'current'))
+        self.assertEqual(self.budget.state, 'revised')
+        self.assertEqual(revision.state, 'draft')
+        self.assertEqual(revision.parent_id, self.budget)
+        self.assertEqual(self.budget.revision_ids, revision)
+        self.assertRegex(revision.name, r'^%s - REV\(\d{4}-\d{2}-\d{2} \d{2}:\d{2}\)$' % re.escape(self.budget.name))
+        self.assertEqual((revision.date_from, revision.date_to, revision.company_id, revision.budget_type),
+                         (self.budget.date_from, self.budget.date_to, self.budget.company_id, self.budget.budget_type))
+        self.assertEqual(revision.line_ids.mapped('planned_amount'), [500.0])
+        self.assertNotEqual(revision.line_ids, line)
+        # the revised budget no longer counts: it cannot be opened, reset or revised again
+        for action_name in ('action_budget_confirm', 'action_budget_draft', 'action_budget_revise'):
+            with self.assertRaises(UserError):
+                getattr(self.budget, action_name)()
+        revision.action_budget_confirm()
+        self.assertEqual(revision.state, 'validate')
 
     def test_archive_position(self):
         self.position.action_archive()

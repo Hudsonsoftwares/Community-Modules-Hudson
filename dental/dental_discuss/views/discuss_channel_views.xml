@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Inherit discuss.channel form -->
+    <record id="view_discuss_channel_form_inherit_dental" model="ir.ui.view">
+        <field name="name">discuss.channel.form.inherit.dental</field>
+        <field name="model">discuss.channel</field>
+        <field name="inherit_id" ref="mail.discuss_channel_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//header" position="inside">
+                <button name="action_log_to_record_chatter" type="object" string="Log to Record Chatter"
+                        class="btn-outline-primary" icon="fa-clipboard"
+                        invisible="not dental_channel_type"/>
+            </xpath>
+
+            <xpath expr="//sheet" position="inside">
+                <notebook invisible="not dental_channel_type">
+                    <page string="Dental Hospital Clinical &amp; Operational Context" name="dental_context">
+                        <group>
+                            <group string="Classification &amp; Security">
+                                <field name="dental_channel_type"/>
+                                <field name="dental_department"/>
+                                <field name="company_id" options="{'no_create': True}"/>
+                                <field name="is_confidential_phi" widget="boolean_toggle"/>
+                            </group>
+                            <group string="Linked Dental Records">
+                                <field name="dental_patient_id" options="{'no_create': True}"/>
+                                <field name="dental_case_id" options="{'no_create': True}" invisible="not dental_case_id"/>
+                                <field name="dental_appointment_id" options="{'no_create': True}" invisible="not dental_appointment_id"/>
+                                <field name="dental_examination_id" options="{'no_create': True}" invisible="not dental_examination_id"/>
+                                <field name="dental_lab_order_id" options="{'no_create': True}" invisible="not dental_lab_order_id"/>
+                                <field name="dental_prescription_id" options="{'no_create': True}" invisible="not dental_prescription_id"/>
+                                <field name="dental_second_opinion_id" options="{'no_create': True}" invisible="not dental_second_opinion_id"/>
+                            </group>
+                        </group>
+                    </page>
+                </notebook>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- Inherit discuss.channel search -->
+    <record id="view_discuss_channel_search_inherit_dental" model="ir.ui.view">
+        <field name="name">discuss.channel.search.inherit.dental</field>
+        <field name="model">discuss.channel</field>
+        <field name="inherit_id" ref="mail.discuss_channel_view_search"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='discuss_category_id']" position="after">
+                <field name="dental_channel_type"/>
+                <field name="dental_department"/>
+                <field name="dental_patient_id"/>
+                <field name="company_id"/>
+            </xpath>
+            <xpath expr="//filter[@name='filter_archived']" position="after">
+                <separator/>
+                <filter string="Dental Channels" name="dental_channels" domain="[('dental_channel_type', '!=', False)]"/>
+                <filter string="Clinical Consultations" name="clinical_channels" domain="[('dental_channel_type', '=', 'clinical')]"/>
+                <filter string="Front Desk Coordination" name="coordination_channels" domain="[('dental_channel_type', '=', 'coordination')]"/>
+                <filter string="Lab Discussions" name="lab_channels" domain="[('dental_channel_type', '=', 'lab')]"/>
+                <filter string="Pharmacy Discussions" name="pharmacy_channels" domain="[('dental_channel_type', '=', 'pharmacy')]"/>
+                <filter string="Specialist Referrals" name="referral_channels" domain="[('dental_channel_type', '=', 'referral')]"/>
+                <filter string="Announcements" name="announcement_channels" domain="[('dental_channel_type', '=', 'announcement')]"/>
+                <group>
+                    <filter string="Dental Channel Type" name="group_dental_channel_type" context="{'group_by': 'dental_channel_type'}"/>
+                    <filter string="Department" name="group_dental_department" context="{'group_by': 'dental_department'}"/>
+                    <filter string="Clinic / Branch" name="group_company" context="{'group_by': 'company_id'}"/>
+                </group>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- Dedicated Action for Dental Channels -->
+    <record id="action_dental_discuss_channels" model="ir.actions.act_window">
+        <field name="name">Dental Communication Channels</field>
+        <field name="res_model">discuss.channel</field>
+        <field name="view_mode">kanban,list,form</field>
+        <field name="domain">[('dental_channel_type', '!=', False)]</field>
+        <field name="context">{'search_default_dental_channels': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                No dental communication channels created yet!
+            </p>
+            <p>
+                Dental channels enable dentist consultations, receptionist coordination, laboratory discussions, and pharmacy queries.
+            </p>
+        </field>
+    </record>
+
+</odoo>

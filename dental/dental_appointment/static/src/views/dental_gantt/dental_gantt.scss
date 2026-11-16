@@ -1,0 +1,153 @@
+// Dental Gantt view (planning board) styles
+$o-dg-resource-width: 220px;
+$o-dg-lane-height: 30px; // keep in sync with LANE_HEIGHT in the controller
+$o-dg-bar-height: 26px;
+
+.o_dental_gantt_view {
+    .o_dg_board {
+        position: relative;
+    }
+
+    .o_dg_grid {
+        min-width: 100%;
+        &.o_dg_scale_day .o_dg_track { min-width: 1200px; }
+        &.o_dg_scale_week .o_dg_track { min-width: 980px; }
+        &.o_dg_scale_month .o_dg_track { min-width: 1240px; }
+    }
+
+    .o_dg_row {
+        display: flex;
+        border-bottom: 1px solid var(--border-color, #dee2e6);
+
+        &.o_dg_drop_target > .o_dg_resource,
+        &.o_dg_drop_target > .o_dg_track {
+            background-color: rgba(var(--primary-rgb, 113, 75, 103), 0.08);
+        }
+    }
+
+    .o_dg_header_row {
+        position: sticky;
+        top: 0;
+        z-index: 3;
+        background-color: var(--body-bg, #fff);
+    }
+
+    .o_dg_resource {
+        position: sticky;
+        left: 0;
+        z-index: 2;
+        flex: 0 0 $o-dg-resource-width;
+        width: $o-dg-resource-width;
+        padding: 4px 12px;
+        background-color: var(--body-bg, #fff);
+        border-right: 1px solid var(--border-color, #dee2e6);
+    }
+
+    .o_dg_avatar {
+        width: 30px;
+        height: 30px;
+        background-color: rgba(13, 110, 253, 0.1);
+        color: #0d6efd;
+    }
+
+    .o_dg_track {
+        position: relative;
+        flex: 1 1 auto;
+        &.o_dg_can_create { cursor: copy; }
+    }
+
+    .o_dg_header_track {
+        display: flex;
+        .o_dg_header_cell { padding: 6px 2px; }
+    }
+
+    .o_dg_bg {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+    }
+
+    .o_dg_column {
+        flex: 1 1 0;
+        min-width: 0;
+        border-left: 1px solid var(--border-color, #dee2e6);
+        &.o_dg_weekend { background-color: rgba(0, 0, 0, 0.025); }
+        &.o_dg_today { background-color: rgba(255, 193, 7, 0.12); }
+    }
+
+    .o_dg_now {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        margin-left: -1px;
+        background-color: #dc3545;
+        z-index: 1;
+        pointer-events: none;
+    }
+
+    .o_dg_bar {
+        position: absolute;
+        margin-left: 2px;
+        min-width: 6px;
+        height: $o-dg-bar-height;
+        display: flex;
+        align-items: center;
+        padding: 0 6px;
+        overflow: hidden;
+        white-space: nowrap;
+        font-size: 0.8rem;
+        line-height: $o-dg-bar-height;
+        border-radius: 4px;
+        border-left: 3px solid rgba(0, 0, 0, 0.25);
+        color: #fff;
+        cursor: pointer;
+        user-select: none;
+        touch-action: none;
+        z-index: 1;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+        transition: box-shadow 0.15s;
+
+        &:hover { box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3); }
+        &.o_dg_draggable { cursor: grab; }
+        &.o_dg_dragging {
+            cursor: grabbing;
+            overflow: visible;
+            opacity: 0.85;
+            z-index: 10;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+            transition: none;
+        }
+        .o_dg_bar_time { opacity: 0.85; font-variant-numeric: tabular-nums; }
+        .oi { font-size: 1rem; }
+        .o_dg_bar_label { overflow: hidden; text-overflow: ellipsis; }
+        .o_dg_drag_hint {
+            position: absolute;
+            left: 0;
+            bottom: calc(100% + 4px);
+            line-height: 1.2;
+        }
+    }
+
+    .o_dg_swatch {
+        display: inline-block;
+        width: 12px;
+        height: 12px;
+        border-radius: 3px;
+    }
+
+    // Appointment status colours (bars and legend)
+    .o_dg_color_none, .o_dg_color_pending { background-color: #6c757d; }
+    .o_dg_color_confirmed { background-color: #0d6efd; }
+    .o_dg_color_checked_in { background-color: #fd7e14; }
+    .o_dg_color_in_consultation { background-color: #6f42c1; }
+    .o_dg_color_completed { background-color: #198754; }
+    .o_dg_color_cancelled {
+        background-color: #dc3545;
+        &.o_dg_bar { opacity: 0.6; text-decoration: line-through; }
+    }
+    .o_dg_color_no_show {
+        background-color: #343a40;
+        &.o_dg_bar { opacity: 0.6; }
+    }
+}

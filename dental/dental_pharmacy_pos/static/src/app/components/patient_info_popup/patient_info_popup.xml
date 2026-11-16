@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates id="template" xml:space="preserve">
+
+    <t t-name="dental_pharmacy_pos.PatientInfoPopup">
+        <Dialog title="this.props.partnerName" size="'lg'" contentClass="'o_dental_patient_popup'">
+            <div class="alert o_dental_patient_allergy" t-att-class="this.allergyClass" role="alert">
+                <div class="fs-5 fw-bold">Allergies: <t t-out="this.props.info.allergy.status_label"/></div>
+                <div t-if="this.props.info.allergy.text" t-out="this.props.info.allergy.text"/>
+                <div t-if="this.props.info.allergy.status === 'unknown'">Allergies are not recorded. Ask the patient before dispensing.</div>
+            </div>
+
+            <div class="d-flex align-items-center justify-content-between mb-3" t-if="this.props.info.is_patient">
+                <span>
+                    Pending prescriptions:
+                    <span class="badge text-bg-primary fs-6 o_dental_pending_count" t-out="this.props.info.pending_count"/>
+                </span>
+                <button t-if="this.props.info.pending_count" class="btn btn-primary o_dental_open_rx" t-on-click="this.openPrescriptions">
+                    Open Prescriptions
+                </button>
+            </div>
+
+            <h6 class="mb-2">Recent medicines</h6>
+            <div t-if="!this.props.info.history.length" class="text-muted">No medicine dispensed yet.</div>
+            <div t-else="" class="table-responsive">
+                <table class="table table-sm">
+                    <thead>
+                        <tr><th>Date</th><th>Medicine</th><th class="text-end">Qty</th><th>Prescription</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr t-foreach="this.props.info.history" t-as="row" t-key="row_index" t-att-class="{ 'text-muted text-decoration-line-through': row.returned }">
+                            <td class="text-nowrap" t-out="row.date.slice(0, 10)"/>
+                            <td t-out="row.medicine"/>
+                            <td class="text-end" t-out="row.qty"/>
+                            <td t-out="row.prescription"/>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <t t-set-slot="footer">
+                <button class="btn btn-secondary btn-lg" t-on-click="this.props.close">Close</button>
+            </t>
+        </Dialog>
+    </t>
+
+</templates>

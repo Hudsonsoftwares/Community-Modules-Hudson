@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 import calendar
+# pyrefly: ignore [missing-import]
 from odoo import api, fields, models, _
+# pyrefly: ignore [missing-import]
 from odoo.exceptions import UserError, ValidationError
 import logging
 
@@ -183,9 +185,9 @@ class HdsInBonus(models.Model):
     # -------------------------------------------------------------------------
     struct_id = fields.Many2one(
         'hr.payroll.structure',
-        string="Bonus Payroll Structure",
+        string="Payroll Structure",
         domain="[('company_id', '=', company_id)]",
-        default=lambda self: self.env.ref('hudson_in_payroll.hds_in_structure_bonus', raise_if_not_found=False)
+        default=lambda self: self.company_id.hds_in_regular_struct_id or self.env.ref('hudson_payroll_base.structure_base', raise_if_not_found=False)
     )
 
     payslip_run_id = fields.Many2one(
@@ -484,13 +486,11 @@ class HdsInBonus(models.Model):
 
     def _process_separate_payroll(self, lines):
         """Option 2: Separate Bonus Payroll - creates Payslip Batch and Bonus Payslips."""
-        struct = self.struct_id or self.company_id.hds_in_bonus_struct_id
+        struct = self.struct_id or self.company_id.hds_in_regular_struct_id or self.env.ref('hudson_payroll_base.structure_base', raise_if_not_found=False)
         if not struct:
-            struct = self.env.ref('hudson_in_payroll.hds_in_structure_bonus', raise_if_not_found=False)
+            struct = self.env['hr.payroll.structure'].search([('code', '=', 'REGULAR')], limit=1)
         if not struct:
-            struct = self.env['hr.payroll.structure'].search([('code', '=', 'BONUS_STRUCT')], limit=1)
-        if not struct:
-            raise UserError(_("No Bonus Payroll Structure configured."))
+            raise UserError(_("No Payroll Structure configured."))
 
         if not self.payslip_run_id:
             batch = self.env['hr.payslip.run'].create({

@@ -44,7 +44,7 @@
     <record id="action_dental_duty_schedules" model="ir.actions.act_window">
         <field name="name">Duty Schedules</field>
         <field name="res_model">resource.calendar</field>
-        <field name="view_mode">list,form</field>
+        <field name="view_mode">kanban,list,form</field>
         <field name="domain">['|', ('company_id', '=', False), ('company_id', 'in', allowed_company_ids)]</field>
         <field name="help" type="html">
             <p class="o_view_nocontent_smiling_face">
@@ -60,6 +60,15 @@
         parent="menu_dental_staff_root"
         action="action_dental_staff"
         sequence="10"/>
+
+    <!-- 1b. Users & Access Rights: the single place where system permissions are granted -->
+    <menuitem
+        id="menu_dental_users"
+        name="Users &amp; Access Rights"
+        parent="menu_dental_staff_root"
+        action="base.action_res_users"
+        groups="dental_base.group_dental_admin"
+        sequence="15"/>
 
     <!-- 2. Clinic Departments -->
     <menuitem
@@ -109,6 +118,15 @@
         groups="dental_base.group_dental_manager,dental_base.group_dental_admin"
         sequence="80"/>
 
+    <!-- 0. Clinic Configuration: per-clinic hours and operations (selected company) -->
+    <menuitem
+        id="menu_dental_clinic_configuration"
+        name="Clinic Configuration"
+        parent="dental_base.menu_dental_configuration"
+        action="dental_base.action_dental_clinic_configuration"
+        groups="dental_base.group_dental_admin"
+        sequence="5"/>
+
     <!-- 1. Clinic Settings -->
     <menuitem
         id="menu_dental_settings"
@@ -118,12 +136,12 @@
         groups="dental_base.group_dental_admin"
         sequence="10"/>
 
-    <!-- 2. Clinic Branches -->
+    <!-- 2. Clinic Branches (dedicated branch management, no multi-company creation) -->
     <menuitem
         id="menu_dental_branches"
         name="Clinic Branches"
         parent="dental_base.menu_dental_configuration"
-        action="base.action_res_company_form"
+        action="action_dental_clinic_branches"
         groups="dental_base.group_dental_manager,dental_base.group_dental_admin"
         sequence="20"/>
 
@@ -132,15 +150,6 @@
         <field name="name">Staff &amp; Doctors</field>
         <field name="active" eval="False"/>
     </record>
-
-    <!-- 4. User & Role Management -->
-    <menuitem
-        id="menu_dental_users"
-        name="User &amp; Role Management"
-        parent="dental_base.menu_dental_configuration"
-        action="base.action_res_users"
-        groups="dental_base.group_dental_admin"
-        sequence="90"/>
 
     <!-- 5. Email & Notifications -->
     <menuitem

@@ -4,14 +4,20 @@ import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
 import { Component, onWillStart, proxy } from "@odoo/owl";
 import { user } from "@web/core/user";
+import { DentalFloorPlan } from "./floor_plan";
 
 export class AdminDashboard extends Component {
+    static components = { DentalFloorPlan };
+
     setup() {
         this.orm = useService("orm");
         this.action = useService("action");
         this.notification = useService("notification");
         this.userName = user.name;
-        
+        // The clinic selected in the company switcher (title + clinic-scoped figures)
+        this.companyId = user.activeCompany ? user.activeCompany.id : false;
+        this.companyName = user.activeCompany ? user.activeCompany.name : "Dental Clinic";
+
         const now = new Date();
         const weekday = now.toLocaleDateString('en-GB', { weekday: 'short' });
         const day = now.getDate();
@@ -72,330 +78,90 @@ export class AdminDashboard extends Component {
     async loadDashboardData() {
         this.state.loading = true;
         try {
-            const now = new Date();
-            const year = now.getFullYear();
-            const month = String(now.getMonth() + 1).padStart(2, '0');
-            const day = String(now.getDate()).padStart(2, '0');
-            const todayStr = `${year}-${month}-${day}`;
-            const utcStart = `${todayStr} 00:00:00`;
-            const utcEnd = `${todayStr} 23:59:59`;
-
-            // 1. Appointments Today (Pure Real-time from database)
-            const appts = await this.orm.searchRead(
+            // Ultra-fast single RPC call: retrieves complete clinical & operational data in one round-trip (zero lag)
+            const res = await this.orm.call(
                 "dental.appointment",
-                [
-                    ["date_start", ">=", utcStart],
-                    ["date_start", "<=", utcEnd]
-                ],
-                ["name", "patient_id", "doctor_id", "treatment_id", "date_start", "state", "reason"],
-                { order: "date_start ASC" }
+                "get_admin_dashboard_data",
+                [],
+                { branch_id: this.companyId || undefined }
             );
 
-            const totalApptsCount = appts.length;
-            const inConsultation = appts.filter(a => a.state === 'in_consultation').length;
-            const checkedIn = appts.filter(a => a.state === 'checked_in').length;
-            const completed = appts.filter(a => a.state === 'completed').length;
-            const cancelled = appts.filter(a => a.state === 'cancelled').length;
-            const followups = appts.filter(a => (a.reason || '').toLowerCase().includes('follow')).length;
+            if (res) {
+                // Real Hourly Slot SVG Distribution
+                const hourlySlots = res.patient_flow && res.patient_flow.hourly_points ? res.patient_flow.hourly_points : [
+                    { hour: '8AM', count: 0 },
+                    { hour: '10AM', count: 0 },
+                    { hour: '12PM', count: 0 },
+                    { hour: '2PM', count: 0 },
+                    { hour: '4PM', count: 0 },
+                    { hour: '6PM', count: 0 },
+                ];
 
-            // 2. New Patients Today & Recent Patients
-            const newPatientsCount = await this.orm.searchCount("res.partner", [
-                ["is_dental_patient", "=", true],
-                ["create_date", ">=", utcStart],
-                ["create_date", "<=", utcEnd]
-            ]);
+                const xCoords = [20, 80, 150, 220, 290, 350];
+                const maxY = 85;
+                const minY = 20;
+                const rangeY = maxY - minY;
+                const counts = hourlySlots.map(s => s.count || 0);
+                const peakVal = Math.max(...counts, 1);
 
-            const recentPartners = await this.orm.searchRead(
-                "res.partner",
-                [["is_dental_patient", "=", true]],
-                ["name", "email", "phone", "create_date"],
-                { order: "create_date DESC, id DESC", limit: 5 }
-            );
+                const points = hourlySlots.map((s, idx) => {
+                    const x = xCoords[idx] !== undefined ? xCoords[idx] : (20 + idx * 60);
+                    const ratio = (s.count || 0) / peakVal;
+                    const y = maxY - (ratio * rangeY);
+                    return { x, y: Math.round(y) };
+                });
 
-            // 3. Clinical Cases
-            let activeClinicalCases = 0;
-            try {
-                activeClinicalCases = await this.orm.searchCount("dental.case", [
-                    ["state", "in", ["open", "under_treatment"]]
-                ]);
-            } catch (ignore) {}
+                let lineD = "M 20 75 C 50 75, 55 55, 80 55 C 110 55, 125 20, 150 20 C 180 20, 195 48, 220 48 C 250 48, 265 65, 290 65 C 315 65, 335 82, 350 82";
+                let areaD = `${lineD} L 350 100 L 20 100 Z`;
+                let peakX = 180;
 
-            // 4. Prescriptions
-            let prescriptionsCount = 0;
-            try {
-                prescriptionsCount = await this.orm.searchCount("dental.prescription", [
-                    "|",
-                    ["prescription_date", "=", todayStr],
-                    ["create_date", ">=", utcStart]
-                ]);
-            } catch (ignore) {}
+                if (points.length >= 6) {
+                    lineD = `M ${points[0].x} ${points[0].y} ` +
+                        `C 50 ${points[0].y}, 55 ${points[1].y}, ${points[1].x} ${points[1].y} ` +
+                        `C 110 ${points[1].y}, 125 ${points[2].y}, ${points[2].x} ${points[2].y} ` +
+                        `C 180 ${points[2].y}, 195 ${points[3].y}, ${points[3].x} ${points[3].y} ` +
+                        `C 250 ${points[3].y}, 265 ${points[4].y}, ${points[4].x} ${points[4].y} ` +
+                        `C 315 ${points[4].y}, 335 ${points[5].y}, ${points[5].x} ${points[5].y}`;
+                    areaD = `${lineD} L ${points[5].x} 100 L ${points[0].x} 100 Z`;
 
-            // 5. Lab Orders
-            let labOrdersCount = 0;
-            try {
-                labOrdersCount = await this.orm.searchCount("dental.lab.order", [
-                    "|",
-                    ["order_date", "=", todayStr],
-                    ["create_date", ">=", utcStart]
-                ]);
-            } catch (ignore) {}
-
-            // 6. Radiology
-            let xrayCount = 0;
-            try {
-                xrayCount = await this.orm.searchCount("ir.attachment", [
-                    ["res_model", "in", ["dental.case", "dental.clinical.examination", "dental.treatment.plan", "res.partner"]]
-                ]);
-            } catch (ignore) {}
-
-            // 7. Company Branch
-            let branchName = "Main Branch";
-            try {
-                const companies = await this.orm.searchRead("res.company", [], ["name"], { limit: 1 });
-                if (companies.length > 0) {
-                    branchName = companies[0].name;
+                    let maxIdx = 2;
+                    let maxC = -1;
+                    counts.forEach((c, idx) => {
+                        if (c > maxC) { maxC = c; maxIdx = idx; }
+                    });
+                    peakX = points[maxIdx].x;
                 }
-            } catch (ignore) {}
 
-            // Format Real Today's Appointments List
-            const statusMap = {
-                'checked_in': { label: 'Checked In', class: 'badge-checked-in' },
-                'waiting': { label: 'Waiting', class: 'badge-waiting' },
-                'in_consultation': { label: 'Ongoing', class: 'badge-ongoing' },
-                'confirmed': { label: 'Scheduled', class: 'badge-scheduled' },
-                'pending': { label: 'Scheduled', class: 'badge-scheduled' },
-                'completed': { label: 'Completed', class: 'badge-completed' },
-                'cancelled': { label: 'Cancelled', class: 'badge-cancelled' },
-            };
+                const peakPct = Math.round((peakX / 360) * 100);
 
-            const formattedAppts = appts.map(a => {
-                let timeStr = "09:00";
-                if (a.date_start) {
-                    const dt = new Date(a.date_start.replace(' ', 'T') + "Z");
-                    timeStr = dt.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
-                }
-                const stInfo = statusMap[a.state] || { label: 'Scheduled', class: 'badge-scheduled' };
-                let tName = 'Consultation';
-                if (a.treatment_id && a.treatment_id[1]) {
-                    tName = typeof a.treatment_id[1] === 'object' ? (a.treatment_id[1].en_US || 'Consultation') : a.treatment_id[1];
-                } else if (a.reason) {
-                    tName = a.reason;
-                }
-                return {
-                    id: a.id,
-                    time: timeStr,
-                    patient_id: a.patient_id ? a.patient_id[0] : null,
-                    patient_name: a.patient_id ? a.patient_id[1] : 'Patient',
-                    treatment: tName,
-                    state: a.state,
-                    status_label: stInfo.label,
-                    status_class: stInfo.class
+                // Update state cleanly with clear real-time numbers
+                this.state.data = {
+                    header: {
+                        clinic_name: this.companyName,
+                        current_branch_name: this.companyName,
+                        date_str: res.header && res.header.date_str ? res.header.date_str : this.currentDateStr,
+                    },
+                    floorplan: res.floorplan || this.state.data.floorplan,
+                    kpis: res.kpis || this.state.data.kpis,
+                    patient_flow: {
+                        ...(res.patient_flow || {}),
+                        filter: 'Today',
+                        peak_time: (res.patient_flow && res.patient_flow.peak_time) || '12:00 PM',
+                        peak_count: (res.patient_flow && res.patient_flow.peak_count) || 0,
+                        peak_x: peakX,
+                        peak_y: 20,
+                        peak_pct: peakPct,
+                        line_path: lineD,
+                        area_path: areaD,
+                        opd_visits: (res.patient_flow && res.patient_flow.opd_visits) || 0,
+                        new_patients: (res.patient_flow && res.patient_flow.new_patients) || 0,
+                        follow_ups: (res.patient_flow && res.patient_flow.follow_ups) || 0,
+                        cancellations: (res.patient_flow && res.patient_flow.cancellations) || 0,
+                    },
+                    today_appointments: res.today_appointments || [],
+                    recent_patients: res.recent_patients || []
                 };
-            });
-
-            // Format Real Recent Patients
-            const formattedPatients = recentPartners.map(p => {
-                let timeStr = "Today";
-                if (p.create_date) {
-                    const dt = new Date(p.create_date.replace(' ', 'T') + "Z");
-                    timeStr = dt.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-                }
-                return {
-                    id: p.id,
-                    name: p.name,
-                    treatment: 'OPD Patient',
-                    time: timeStr,
-                    badge: 'OPD'
-                };
-            });
-
-            // Chairs Occupancy
-            const totalChairs = 16;
-            const chairsOccupancyPct = totalChairs > 0 ? Math.round((inConsultation / totalChairs) * 100) : 0;
-
-            // Real Hourly Slot distribution
-            const hourlySlots = [
-                { label: '8AM', start: 8, end: 9, count: 0, x: 20 },
-                { label: '10AM', start: 10, end: 11, count: 0, x: 80 },
-                { label: '12PM', start: 12, end: 13, count: 0, x: 150 },
-                { label: '2PM', start: 14, end: 15, count: 0, x: 220 },
-                { label: '4PM', start: 16, end: 17, count: 0, x: 290 },
-                { label: '6PM', start: 18, end: 20, count: 0, x: 350 },
-            ];
-
-            for (const a of appts) {
-                if (a.date_start) {
-                    const dt = new Date(a.date_start.replace(' ', 'T') + "Z");
-                    const hr = dt.getHours();
-                    for (const slot of hourlySlots) {
-                        if (hr >= slot.start && hr <= slot.end) {
-                            slot.count++;
-                            break;
-                        }
-                    }
-                }
             }
-
-            let maxCount = 0;
-            let peakSlot = hourlySlots[2];
-            for (const slot of hourlySlots) {
-                if (slot.count > maxCount) {
-                    maxCount = slot.count;
-                    peakSlot = slot;
-                }
-            }
-            if (maxCount === 0) {
-                maxCount = totalApptsCount > 0 ? totalApptsCount : 1;
-            }
-
-            const maxY = 85;
-            const minY = 20;
-            const rangeY = maxY - minY;
-            const peakVal = Math.max(...hourlySlots.map(s => s.count), 1);
-            
-            const points = hourlySlots.map(s => {
-                const ratio = s.count / peakVal;
-                const y = maxY - (ratio * rangeY);
-                return { x: s.x, y: Math.round(y) };
-            });
-
-            const lineD = `M ${points[0].x} ${points[0].y} ` +
-                          `C 50 ${points[0].y}, 55 ${points[1].y}, ${points[1].x} ${points[1].y} ` +
-                          `C 110 ${points[1].y}, 125 ${points[2].y}, ${points[2].x} ${points[2].y} ` +
-                          `C 180 ${points[2].y}, 195 ${points[3].y}, ${points[3].x} ${points[3].y} ` +
-                          `C 250 ${points[3].y}, 265 ${points[4].y}, ${points[4].x} ${points[4].y} ` +
-                          `C 315 ${points[4].y}, 335 ${points[5].y}, ${points[5].x} ${points[5].y}`;
-            const areaD = `${lineD} L ${points[5].x} 100 L ${points[0].x} 100 Z`;
-
-            const peakX = peakSlot.x;
-            const peakPct = Math.round((peakX / 360) * 100);
-
-            // Real comparison vs yesterday for trend percentages
-            const yesterdayDate = new Date(now);
-            yesterdayDate.setDate(yesterdayDate.getDate() - 1);
-            const yYear = yesterdayDate.getFullYear();
-            const yMonth = String(yesterdayDate.getMonth() + 1).padStart(2, '0');
-            const yDay = String(yesterdayDate.getDate()).padStart(2, '0');
-            const yStart = `${yYear}-${yMonth}-${yDay} 00:00:00`;
-            const yEnd = `${yYear}-${yMonth}-${yDay} 23:59:59`;
-
-            let yesterdayApptsCount = 0;
-            try {
-                yesterdayApptsCount = await this.orm.searchCount("dental.appointment", [
-                    ["date_start", ">=", yStart],
-                    ["date_start", "<=", yEnd]
-                ]);
-            } catch (ignore) {}
-
-            const calcTrend = (curr, prev) => {
-                if (prev > 0) {
-                    const pct = Math.round(Math.abs((curr - prev) / prev) * 100);
-                    const dir = curr >= prev ? 'up' : 'down';
-                    return { pct, dir };
-                }
-                return { pct: 0, dir: 'up' };
-            };
-
-            const apptTrend = calcTrend(totalApptsCount, yesterdayApptsCount);
-
-            // Real 6-day sparkline from actual database counts
-            const sparklineAppts = [];
-            for (let i = 5; i >= 0; i--) {
-                const d = new Date(now);
-                d.setDate(d.getDate() - i);
-                const dYear = d.getFullYear();
-                const dMonth = String(d.getMonth() + 1).padStart(2, '0');
-                const dDay = String(d.getDate()).padStart(2, '0');
-                const dStart = `${dYear}-${dMonth}-${dDay} 00:00:00`;
-                const dEnd = `${dYear}-${dMonth}-${dDay} 23:59:59`;
-                try {
-                    const c = await this.orm.searchCount("dental.appointment", [
-                        ["date_start", ">=", dStart],
-                        ["date_start", "<=", dEnd]
-                    ]);
-                    sparklineAppts.push(c);
-                } catch (ignore) {
-                    sparklineAppts.push(0);
-                }
-            }
-
-            this.state.data = {
-                header: {
-                    clinic_name: branchName,
-                    current_branch_name: branchName,
-                    date_str: this.currentDateStr,
-                },
-                floorplan: {
-                    opd: { count: totalApptsCount, capacity: 24 },
-                    chairs: { occupied: inConsultation, total: totalChairs },
-                    radiology: { count: xrayCount, capacity: 4 },
-                    lab: { count: labOrdersCount, capacity: 6 },
-                    reception: { waiting: checkedIn, label: `${checkedIn} Waiting` },
-                    clinical: { active: activeClinicalCases, capacity: 8 },
-                    pharmacy: { status: 'Active', count: prescriptionsCount },
-                    sterilization: { status: 'Active' }
-                },
-                kpis: {
-                    opd_patients: { 
-                        val: totalApptsCount, 
-                        trend_pct: apptTrend.pct, 
-                        trend_dir: apptTrend.dir, 
-                        trend_label: 'vs yesterday', 
-                        sparkline: sparklineAppts 
-                    },
-                    appointments: { 
-                        val: totalApptsCount, 
-                        trend_pct: apptTrend.pct, 
-                        trend_dir: apptTrend.dir, 
-                        trend_label: 'vs yesterday', 
-                        sparkline: sparklineAppts 
-                    },
-                    chairs_occupancy: { 
-                        pct: chairsOccupancyPct, 
-                        occupied: inConsultation, 
-                        total: totalChairs, 
-                        label: `${inConsultation} / ${totalChairs} chairs in use` 
-                    },
-                    prescriptions: { 
-                        val: prescriptionsCount, 
-                        trend_pct: 0, 
-                        trend_dir: 'up', 
-                        trend_label: 'vs yesterday', 
-                        sparkline: [prescriptionsCount] 
-                    },
-                    lab_tests: { 
-                        val: labOrdersCount, 
-                        trend_pct: 0, 
-                        trend_dir: 'up', 
-                        trend_label: 'vs yesterday', 
-                        sparkline: [labOrdersCount] 
-                    },
-                    radiology: { 
-                        val: xrayCount, 
-                        trend_pct: 0, 
-                        trend_dir: 'up', 
-                        trend_label: 'vs yesterday', 
-                        sparkline: [xrayCount] 
-                    }
-                },
-                patient_flow: {
-                    filter: 'Today',
-                    peak_time: peakSlot.label === '12PM' ? '12:00 PM' : peakSlot.label,
-                    peak_count: maxCount,
-                    peak_x: peakX,
-                    peak_y: 20,
-                    peak_pct: peakPct,
-                    line_path: lineD,
-                    area_path: areaD,
-                    opd_visits: totalApptsCount,
-                    new_patients: newPatientsCount,
-                    follow_ups: followups,
-                    cancellations: cancelled
-                },
-                today_appointments: formattedAppts,
-                recent_patients: formattedPatients
-            };
-
         } catch (err) {
             console.error("Dashboard real-time data load failed:", err);
             this.notification.add("Could not fetch real-time dashboard data.", { type: "warning" });
@@ -422,7 +188,7 @@ export class AdminDashboard extends Component {
                 this.action.doAction('dental_core.action_dental_clinical_images');
                 break;
             case 'laboratory':
-                this.action.doAction('dental_lab.action_dental_lab_order');
+                this.action.doAction('dental_lab.action_dental_lab_orders');
                 break;
             case 'pharmacy':
                 this.action.doAction('dental_pharmacy.action_dental_prescription');
@@ -460,7 +226,7 @@ export class AdminDashboard extends Component {
                 this.action.doAction('dental_core.action_dental_clinical_images');
                 break;
             case 'lab':
-                this.action.doAction('dental_lab.action_dental_lab_order');
+                this.action.doAction('dental_lab.action_dental_lab_orders');
                 break;
             case 'reception':
                 this.action.doAction('dental_appointment.action_dental_patient_checkin');

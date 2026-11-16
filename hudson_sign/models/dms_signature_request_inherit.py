@@ -28,6 +28,45 @@ class DMSFileSignatureItem(models.Model):
 
     type_id = fields.Many2one("hudson.sign.item.type", string="Field Type", ondelete="set null")
 
+    # Signer page: value proposed when the signer clicks an empty field
+    _AUTOFILL_ITEM_TYPES = ('text', 'multiline', 'selection', 'date', 'name', 'email', 'phone', 'company')
+    _AUTOFILL_DEFAULT_KEYS = ('name', 'email', 'phone', 'company')
+
+    def _hudson_autofill_values(self, user):
+        """{item id: value} proposed to ``user`` (res.users) for the empty fields.
+
+        Dates without a linked field are filled with the signer's today by the page itself.
+        """
+        values = {}
+        if not user:
+            return values
+        for item in self:
+            if item.readonly or item.item_type not in self._AUTOFILL_ITEM_TYPES or (item.value_text or '').strip():
+                continue
+            value = item._hudson_autofill_value(user)
+            if value:
+                values[item.id] = value[:10] if item.item_type == 'date' else value
+        return values
+
+    def _hudson_autofill_value(self, user):
+        self.ensure_one()
+        item_type = self.type_id.sudo()
+        if item_type.linked_field:
+            return item_type._get_autofill_value(user) or ''
+        key = self.item_type if self.item_type in self._AUTOFILL_DEFAULT_KEYS else (item_type.name or '').strip().lower()
+        user = user.sudo()
+        partner = user.partner_id
+        if key == 'name':
+            return partner.name or user.name or ''
+        if key == 'email':
+            return partner.email or user.email or ''
+        if key == 'phone':
+            return partner.phone or (partner.mobile if 'mobile' in partner._fields else '') or ''
+        if key == 'company':
+            return (partner.commercial_company_name or partner.parent_id.name
+                    or (user.company_id.name if user._is_internal() else '') or '')
+        return ''
+
 
 class DMSFileSignatureRequest(models.Model):
     _inherit = "dms.file.signature.request"

@@ -21,6 +21,7 @@ Seamlessly links Hudson Payroll Base with Odoo 19 Financial Accounting:
         'views/hr_contract_views.xml',
         'views/hr_payslip_views.xml',
         'views/hr_payslip_run_views.xml',
+        'views/res_config_settings_views.xml',
     ],
     'license': 'LGPL-3',
     'installable': True,

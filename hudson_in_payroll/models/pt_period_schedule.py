@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 import logging
+# pyrefly: ignore [missing-import]
 from odoo import api, fields, models, _
+# pyrefly: ignore [missing-import]
 from odoo.exceptions import ValidationError
 
 _logger = logging.getLogger(__name__)
@@ -31,6 +33,27 @@ class PtPeriodSchedule(models.Model):
     _description = 'Professional Tax Period Schedule'
     _order = 'state_id, periodicity, window_start_month, date_from desc, id desc'
 
+    def _auto_init(self):
+        """
+        Ensure authoritative Indian statutory PT period schedules are global (company_id = NULL)
+        so they are automatically visible and usable by all sister companies.
+        """
+        res = super()._auto_init()
+        cr = self.env.cr
+        try:
+            cr.execute("""
+                UPDATE pt_period_schedule
+                SET company_id = NULL
+                WHERE id IN (
+                    SELECT res_id FROM ir_model_data
+                    WHERE model = 'pt.period.schedule'
+                      AND module = 'hudson_in_payroll'
+                );
+            """)
+        except Exception:
+            pass
+        return res
+
     name = fields.Char(
         string="Schedule Name",
         compute="_compute_name",
@@ -47,14 +70,12 @@ class PtPeriodSchedule(models.Model):
     company_id = fields.Many2one(
         'res.company',
         string="Company Scope",
-        default=lambda self: self.env.company,
+        default=False,
         help="Optional company-specific override. Leave blank for global state default."
     )
     periodicity = fields.Selection([
         ('monthly', 'Monthly'),
-        ('quarterly', 'Quarterly'),
         ('half_yearly', 'Half-Yearly'),
-        ('annual', 'Annual'),
     ], string="Periodicity", default='monthly', required=True,
         help="Statutory periodicity for Professional Tax calculation and reporting.")
 
@@ -81,10 +102,8 @@ class PtPeriodSchedule(models.Model):
 
     non_monthly_deduction_strategy = fields.Selection([
         ('end_of_period', 'End of Period'),
-        ('beginning_of_period', 'Beginning of Period'),
-        ('specific_month', 'Specific Month'),
     ], string="Deduction Strategy", compute="_compute_non_monthly_deduction_strategy", inverse="_inverse_non_monthly_deduction_strategy",
-        help="Strategy determining when Professional Tax is deducted for quarterly/half-yearly schedules.")
+        help="Strategy determining when Professional Tax is deducted for half-yearly schedules.")
 
     distribution_method = fields.Selection([
         ('full_amount', 'Full Amount'),
@@ -127,11 +146,7 @@ class PtPeriodSchedule(models.Model):
     @api.depends('deduction_strategy')
     def _compute_non_monthly_deduction_strategy(self):
         for rec in self:
-            rec.non_monthly_deduction_strategy = (
-                rec.deduction_strategy
-                if rec.deduction_strategy in ('end_of_period', 'beginning_of_period', 'specific_month')
-                else 'end_of_period'
-            )
+            rec.non_monthly_deduction_strategy = 'end_of_period'
 
     def _inverse_non_monthly_deduction_strategy(self):
         for rec in self:
@@ -159,20 +174,6 @@ class PtPeriodSchedule(models.Model):
             self.non_monthly_deduction_strategy = 'end_of_period'
             self.distribution_method = 'full_amount'
             self.deduction_month = '9'
-        elif self.periodicity == 'quarterly':
-            self.window_start_month = '4'
-            self.window_end_month = '6'
-            self.deduction_strategy = 'end_of_period'
-            self.non_monthly_deduction_strategy = 'end_of_period'
-            self.distribution_method = 'full_amount'
-            self.deduction_month = '6'
-        elif self.periodicity == 'annual':
-            self.window_start_month = '4'
-            self.window_end_month = '3'
-            self.deduction_strategy = 'end_of_period'
-            self.non_monthly_deduction_strategy = 'end_of_period'
-            self.distribution_method = 'full_amount'
-            self.deduction_month = '3'
 
     @api.onchange('window_start_month')
     def _onchange_window_start_month(self):
@@ -181,10 +182,6 @@ class PtPeriodSchedule(models.Model):
         start_m = int(self.window_start_month)
         if self.periodicity == 'half_yearly':
             self.window_end_month = str((start_m + 5 - 1) % 12 + 1)
-        elif self.periodicity == 'quarterly':
-            self.window_end_month = str((start_m + 2 - 1) % 12 + 1)
-        elif self.periodicity == 'annual':
-            self.window_end_month = str((start_m + 11 - 1) % 12 + 1)
         if self.deduction_strategy == 'end_of_period':
             self.deduction_month = self.window_end_month
         elif self.deduction_strategy == 'beginning_of_period':
@@ -305,22 +302,18 @@ class PtPeriodSchedule(models.Model):
         for rec in self:
             if rec.periodicity == 'monthly':
                 continue
-            if rec.periodicity in ('quarterly', 'half_yearly', 'annual'):
+            if rec.periodicity == 'half_yearly':
                 if rec.deduction_strategy == 'every_payroll':
                     raise ValidationError(_(
-                        "For %s periodicity, 'Every Payroll' (Equal Contribution) is not allowed. "
-                        "Professional Tax must be deducted in full at End of Period, Beginning of Period, or a Specific Month."
-                    ) % (rec.periodicity or '').replace('_', '-').title())
+                        "For Half-Yearly periodicity, 'Every Payroll' (Equal Contribution) is not allowed. "
+                        "Professional Tax must be deducted in full at End of Period."
+                    ))
                 if rec.distribution_method == 'equal_distribution':
                     raise ValidationError(_(
-                        "For %s periodicity, 'Equal Distribution' is not permitted. Distribution Method must be Full Amount."
-                    ) % (rec.periodicity or '').replace('_', '-').title())
-            if rec.periodicity == 'half_yearly':
+                        "For Half-Yearly periodicity, 'Equal Distribution' is not permitted. Distribution Method must be Full Amount."
+                    ))
                 if not rec.window_start_month or not rec.window_end_month:
                     raise ValidationError(_("Window Start Month and Window End Month are required for Half-Yearly periodicity."))
-            elif rec.periodicity in ('quarterly', 'annual'):
-                if not rec.window_start_month or not rec.window_end_month:
-                    raise ValidationError(_("Window Start Month and Window End Month are required for %s periodicity.") % rec.periodicity.title())
             if rec.deduction_strategy == 'specific_month' and not rec.deduction_month:
                 raise ValidationError(_("Deduction Month is required when Deduction Strategy is set to Specific Month."))
 

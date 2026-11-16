@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 import logging
-from odoo import fields
+from odoo import fields, models
 from ..base import BaseStatutoryService
 
 _logger = logging.getLogger(__name__)
@@ -110,8 +110,9 @@ class BonusService(BaseStatutoryService):
     def compute_retention_bonus(self, payslip=None):
         """
         Public calculation entry point for Retention Bonus (RETENTION_BONUS).
-        Validates minimum service period, employment status, and notice period exclusion.
-        Returns payable amount in INR.
+        One-time amount: paid in full on the first payslip ending on or after the contract's
+        'Eligible On' date (Counted From + Retention Period), never twice, and only while the
+        employee is active and not in notice period. Returns payable amount in INR.
         """
         slip, employee, contract, eval_date, company = self._extract_context_data(payslip)
         if not contract:
@@ -121,8 +122,19 @@ class BonusService(BaseStatutoryService):
         if bonus_amt <= 0:
             return 0.0
 
-        # Active status check
+        # Retention period completed?
         date_to = getattr(slip, 'date_to', eval_date) or eval_date
+        eligible_date = getattr(contract, 'retention_eligible_date', False)
+        if not eligible_date or date_to < eligible_date:
+            return 0.0
+
+        # Already paid on a validated payslip (this payslip excluded, so recomputing it keeps the amount)
+        if hasattr(contract, '_hds_retention_paid_line'):
+            other_slips = slip if isinstance(slip, models.BaseModel) else None
+            if contract._hds_retention_paid_line(exclude_slips=other_slips):
+                return 0.0
+
+        # Active status check
         if not self.is_employee_active(employee, date_to):
             return 0.0
 
@@ -130,32 +142,6 @@ class BonusService(BaseStatutoryService):
         exclude_notice = self._is_notice_period_excluded('RETENTION_BONUS', company)
         if exclude_notice and self.is_in_notice_period(employee, slip):
             _logger.info("[BonusService] Retention bonus 0.0 for employee %s: In Notice Period", employee.name)
-            return 0.0
-
-        # Minimum service period check
-        min_months = company.hds_in_retention_min_service_months or 12
-        join_date = False
-        if getattr(contract, 'contract_date_start', False):
-            join_date = contract.contract_date_start
-        elif getattr(employee, 'contract_date_start', False):
-            join_date = employee.contract_date_start
-        elif getattr(contract, 'date_start', False):
-            join_date = contract.date_start
-        elif getattr(contract, 'date_version', False):
-            join_date = contract.date_version
-        elif getattr(employee, 'first_contract_date', False):
-            join_date = employee.first_contract_date
-
-        if not join_date:
-            return 0.0
-
-        service_days = (date_to - join_date).days
-        required_days = int(min_months * 30.4375)
-        if service_days < required_days:
-            _logger.info(
-                "[BonusService] Retention bonus 0.0 for employee %s: Service days %s < required %s",
-                employee.name, service_days, required_days
-            )
             return 0.0
 
         return bonus_amt

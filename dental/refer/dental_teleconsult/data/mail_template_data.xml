@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <record id="mail_template_teleconsult_invitation" model="mail.template">
+            <field name="name">Dental Online Consultation: Invitation</field>
+            <field name="model_id" ref="dental_appointment.model_dental_appointment"/>
+            <field name="subject">Your online video consultation {{ object.name }} with Dr. {{ object.doctor_id.name }}</field>
+            <field name="email_to">{{ object.patient_id.email_formatted }}</field>
+            <field name="auto_delete" eval="True"/>
+            <field name="body_html" type="html">
+<div style="margin: 0px; padding: 0px; font-family: Arial, Helvetica, sans-serif;">
+    <div style="max-width: 600px; margin: 0 auto; border: 1px solid #e1e1e1; border-radius: 6px; overflow: hidden;">
+        <div style="background-color: #00A09D; padding: 20px; text-align: center; color: white;">
+            <h2 style="margin: 0;">Online Video Consultation Confirmed</h2>
+        </div>
+        <div style="padding: 20px; color: #333333; font-size: 14px; line-height: 1.5;">
+            <p>Dear <strong><t t-out="object.patient_id.name or 'Patient'"/></strong>,</p>
+            <p>Your consultation will take place by secure video call. No app is needed: you join from your browser.</p>
+            <table style="width: 100%; font-size: 14px; background-color: #f6fbfb; border-radius: 6px; padding: 12px; margin: 16px 0;">
+                <tr><td style="padding: 4px 0; width: 40%;"><strong>Reference</strong></td><td><t t-out="object.name or ''"/></td></tr>
+                <tr><td style="padding: 4px 0;"><strong>Date &amp; time</strong></td><td><t t-out="object.teleconsult_start_display or ''"/></td></tr>
+                <tr><td style="padding: 4px 0;"><strong>Dentist</strong></td><td>Dr. <t t-out="object.doctor_id.name or ''"/></td></tr>
+                <tr><td style="padding: 4px 0;"><strong>Clinic</strong></td><td><t t-out="object.branch_id.name or ''"/></td></tr>
+            </table>
+            <t t-if="object.teleconsult_payment_state == 'due'">
+                <p><strong>Please pay the consultation fee before your visit</strong>: the waiting room opens once payment is received.</p>
+                <p t-if="object.teleconsult_payment_url" style="text-align: center; margin: 16px 0;">
+                    <a t-att-href="object.teleconsult_payment_url" style="background-color: #714B67; color: #ffffff; padding: 10px 22px; text-decoration: none; border-radius: 4px; display: inline-block;">Pay consultation fee</a>
+                </p>
+            </t>
+            <p style="text-align: center; margin: 24px 0;">
+                <a t-att-href="object.teleconsult_join_url" style="background-color: #00A09D; color: #ffffff; padding: 12px 28px; text-decoration: none; border-radius: 4px; display: inline-block; font-weight: bold;">Join the consultation</a>
+            </p>
+            <p style="font-size: 13px; color: #555555;">
+                Before you join:<br/>
+                • Open the link a few minutes early on a phone, tablet or computer with a camera and microphone.<br/>
+                • You will be asked to confirm your identity and will wait in a virtual waiting room until the dentist lets you in.<br/>
+                • Choose a quiet, well-lit place and have your list of medicines and any photos or X-rays ready.<br/>
+                • This link is personal: please do not share it.
+            </p>
+            <p>Best regards,<br/><strong><t t-out="object.branch_id.name or 'Our Dental Clinic'"/></strong></p>
+        </div>
+    </div>
+</div>
+            </field>
+        </record>
+
+        <record id="mail_template_teleconsult_summary" model="mail.template">
+            <field name="name">Dental Online Consultation: Visit Summary</field>
+            <field name="model_id" ref="dental_appointment.model_dental_appointment"/>
+            <field name="subject">Your visit summary from Dr. {{ object.doctor_id.name }} ({{ object.name }})</field>
+            <field name="email_to">{{ object.patient_id.email_formatted }}</field>
+            <field name="auto_delete" eval="True"/>
+            <field name="body_html" type="html">
+<div style="margin: 0px; padding: 0px; font-family: Arial, Helvetica, sans-serif;">
+    <div style="max-width: 600px; margin: 0 auto; border: 1px solid #e1e1e1; border-radius: 6px; overflow: hidden;">
+        <div style="background-color: #00A09D; padding: 20px; text-align: center; color: white;">
+            <h2 style="margin: 0;">Your Online Consultation Summary</h2>
+        </div>
+        <div style="padding: 20px; color: #333333; font-size: 14px; line-height: 1.5;">
+            <p>Dear <strong><t t-out="object.patient_id.name or 'Patient'"/></strong>,</p>
+            <p>Thank you for your online consultation with Dr. <t t-out="object.doctor_id.name or ''"/> on
+               <t t-out="object.teleconsult_start_display or ''"/>.</p>
+            <div style="background-color: #f6fbfb; border-radius: 6px; padding: 14px; margin: 16px 0;">
+                <t t-out="object.teleconsult_summary"/>
+            </div>
+            <p t-if="object.teleconsult_outcome in ('in_clinic', 'referral')">
+                <strong>Your dentist recommends an in-person visit.</strong> Please contact the clinic to book it if it has not been scheduled yet.
+            </p>
+            <p t-if="object.teleconsult_outcome == 'emergency'" style="color: #b00020;">
+                <strong>Your dentist advises urgent care.</strong> If symptoms worsen, go to the nearest emergency service.
+            </p>
+            <p t-if="object.teleconsult_prescription_ids">Your prescription is attached to this email.</p>
+            <p>You can also view this summary at any time from your
+               <a t-att-href="object.teleconsult_join_url">consultation page</a>.</p>
+            <p>Best regards,<br/><strong><t t-out="object.branch_id.name or 'Our Dental Clinic'"/></strong></p>
+        </div>
+    </div>
+</div>
+            </field>
+        </record>
+
+        <record id="mail_template_teleconsult_reminder" model="mail.template">
+            <field name="name">Dental Online Consultation: Reminder</field>
+            <field name="model_id" ref="dental_appointment.model_dental_appointment"/>
+            <field name="subject">Starting soon: your online consultation with Dr. {{ object.doctor_id.name }}</field>
+            <field name="email_to">{{ object.patient_id.email_formatted }}</field>
+            <field name="auto_delete" eval="True"/>
+            <field name="body_html" type="html">
+<div style="margin: 0px; padding: 0px; font-family: Arial, Helvetica, sans-serif;">
+    <div style="max-width: 600px; margin: 0 auto; border: 1px solid #e1e1e1; border-radius: 6px; overflow: hidden;">
+        <div style="padding: 20px; color: #333333; font-size: 14px; line-height: 1.5;">
+            <p>Dear <strong><t t-out="object.patient_id.name or 'Patient'"/></strong>,</p>
+            <p>Your online video consultation with Dr. <t t-out="object.doctor_id.name or ''"/> starts at
+               <strong><t t-out="object.teleconsult_start_display or ''"/></strong>.</p>
+            <p t-if="object.teleconsult_payment_state == 'due'">
+                Your consultation fee is still unpaid: please
+                <a t-att-href="object.teleconsult_payment_url">pay it now</a> so you can enter the waiting room.
+            </p>
+            <p style="text-align: center; margin: 24px 0;">
+                <a t-att-href="object.teleconsult_join_url" style="background-color: #00A09D; color: #ffffff; padding: 12px 28px; text-decoration: none; border-radius: 4px; display: inline-block; font-weight: bold;">Join now</a>
+            </p>
+            <p>Best regards,<br/><strong><t t-out="object.branch_id.name or 'Our Dental Clinic'"/></strong></p>
+        </div>
+    </div>
+</div>
+            </field>
+        </record>
+        <record id="mail_template_teleconsult_request_received" model="mail.template">
+            <field name="name">Dental Online Consultation: Request Received</field>
+            <field name="model_id" ref="dental_appointment.model_dental_appointment"/>
+            <field name="subject">We received your online consultation request {{ object.name }}</field>
+            <field name="email_to">{{ object.patient_id.email_formatted }}</field>
+            <field name="auto_delete" eval="True"/>
+            <field name="body_html" type="html">
+<div style="margin: 0px; padding: 0px; font-family: Arial, Helvetica, sans-serif;">
+    <div style="max-width: 600px; margin: 0 auto; border: 1px solid #e1e1e1; border-radius: 6px; overflow: hidden;">
+        <div style="background-color: #00A09D; padding: 20px; text-align: center; color: white;">
+            <h2 style="margin: 0;">Online Consultation Requested</h2>
+        </div>
+        <div style="padding: 20px; color: #333333; font-size: 14px; line-height: 1.5;">
+            <p>Dear <strong><t t-out="object.patient_id.name or 'Patient'"/></strong>,</p>
+            <p>Thank you for booking an online video consultation. The clinic will review and confirm your request shortly.</p>
+            <table style="width: 100%; font-size: 14px; background-color: #f6fbfb; border-radius: 6px; padding: 12px; margin: 16px 0;">
+                <tr><td style="padding: 4px 0; width: 40%;"><strong>Reference</strong></td><td><t t-out="object.name or ''"/></td></tr>
+                <tr><td style="padding: 4px 0;"><strong>Requested time</strong></td><td><t t-out="object.teleconsult_start_display or ''"/></td></tr>
+                <tr><td style="padding: 4px 0;"><strong>Dentist</strong></td><td>Dr. <t t-out="object.doctor_id.name or ''"/></td></tr>
+                <tr><td style="padding: 4px 0;"><strong>Clinic</strong></td><td><t t-out="object.branch_id.name or ''"/></td></tr>
+            </table>
+            <p>Once confirmed, you will receive a second email with your <strong>secure join link</strong>
+               and, if the clinic requires it, a link to pay the consultation fee before the call.</p>
+            <p style="font-size: 13px; color: #555555;">You will need a phone, tablet or computer with a camera and microphone.
+               No app is needed: the consultation runs in your web browser.</p>
+            <p>Best regards,<br/><strong><t t-out="object.branch_id.name or 'Our Dental Clinic'"/></strong></p>
+        </div>
+    </div>
+</div>
+            </field>
+        </record>
+    </data>
+</odoo>

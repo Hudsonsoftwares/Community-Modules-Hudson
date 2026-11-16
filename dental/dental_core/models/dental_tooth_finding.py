@@ -64,17 +64,50 @@ TOOTH_NAMES = {
     '85': ('Primary Lower Right 2nd Molar', 'T', 'E\u2510'),
 }
 
+# Endodontic (pulp vitality) tests recorded per finding: key -> label
+ENDO_TESTS = {
+    'cold': 'Cold',
+    'heat': 'Heat',
+    'electric': 'Electric (EPT)',
+    'percussion': 'Percussion',
+    'palpation': 'Palpation',
+    'bite': 'Bite',
+    'chewing': 'Chewing',
+    'air': 'Air',
+    'occlusal_trauma': 'Occlusal Trauma',
+    'sinus_tract': 'Sinus Tract',
+}
+ENDO_RESULTS = {'positive': '+', 'negative': '\u2212'}
+
+# Extra surface areas beyond the 5/6 classic surface letters stored in `surfaces`
+SURFACE_DETAILS = {
+    'cervical_buccal': 'Cervical Buccal',
+    'cervical_lingual': 'Cervical Palatal/Lingual',
+    'class4_mesial': 'Class IV Mesial',
+    'class4_distal': 'Class IV Distal',
+}
+
+# Six-point periodontal probing sites: field name -> label
+PERIO_SITES = {
+    'perio_db': 'Disto-Buccal',
+    'perio_b': 'Buccal',
+    'perio_mb': 'Mesio-Buccal',
+    'perio_dl': 'Disto-Palatal/Lingual',
+    'perio_l': 'Palatal/Lingual',
+    'perio_ml': 'Mesio-Palatal/Lingual',
+}
+
 
 class DentalToothFinding(models.Model):
     _name = 'dental.tooth.finding'
     _description = 'Dental Tooth Finding'
-    _inherit = ['mail.thread', 'mail.activity.mixin']
+    _inherit = ['mail.thread', 'mail.activity.mixin', 'dental.company.mixin']
     _order = 'finding_date desc, id desc'
 
     name = fields.Char(string='Finding Reference', required=True, copy=False, readonly=True, default=lambda self: _('New'))
     patient_id = fields.Many2one('res.partner', string='Patient', required=True, domain=[('is_dental_patient', '=', True)], index=True, tracking=True)
-    case_id = fields.Many2one('dental.case', string='Dental Case', index=True, ondelete='cascade', tracking=True)
-    examination_id = fields.Many2one('dental.clinical.examination', string='Clinical Examination', index=True)
+    case_id = fields.Many2one('dental.case', string='Dental Case', index=True, ondelete='cascade', tracking=True, check_company=True)
+    examination_id = fields.Many2one('dental.clinical.examination', string='Clinical Examination', index=True, check_company=True)
     doctor_id = fields.Many2one('hr.employee.public', string='Dentist / Doctor', tracking=True)
 
     tooth_number = fields.Char(string='Tooth Number (FDI)', required=True, index=True, tracking=True)
@@ -120,6 +153,72 @@ class DentalToothFinding(models.Model):
     ], string='Status', default='active', tracking=True)
 
     active = fields.Boolean(default=True)
+
+    # Restoration details
+    restoration_type = fields.Selection([
+        ('filling', 'Filling'),
+        ('veneer', 'Veneer'),
+        ('crown', 'Crown'),
+        ('inlay', 'Inlay / Onlay'),
+    ], string='Restoration Type', tracking=True)
+    restoration_material = fields.Selection([
+        ('composite', 'Composite'),
+        ('ceramic', 'Ceramic'),
+        ('amalgam', 'Amalgam'),
+        ('gold', 'Gold'),
+        ('non_precious_metal', 'Non-Precious Metal'),
+        ('temporary', 'Temporary'),
+    ], string='Material', tracking=True)
+    restoration_quality = fields.Selection([
+        ('sufficient', 'Sufficient'),
+        ('uncertain', 'Uncertain'),
+        ('insufficient', 'Insufficient'),
+    ], string='Restoration Quality', tracking=True)
+    restoration_detail = fields.Selection([
+        ('overhang', 'Overhang'),
+        ('flush', 'Flush'),
+        ('shortfall', 'Shortfall'),
+    ], string='Margin Detail', tracking=True)
+    surface_details = fields.Char(
+        string='Additional Surface Areas',
+        help='Comma-separated codes: cervical_buccal, cervical_lingual, class4_mesial, class4_distal',
+    )
+    clinical_action = fields.Selection([
+        ('monitor', 'Monitor'),
+        ('treat', 'Treat'),
+    ], string='Clinical Action', tracking=True)
+
+    # Endodontic tests: {"cold": "positive", "percussion": "negative", ...}
+    endo_tests = fields.Json(string='Endodontic Tests')
+    endo_summary = fields.Char(string='Endodontic Test Results', compute='_compute_endo_summary', store=True)
+
+    # Periodontal probing depths (mm)
+    perio_db = fields.Integer(string='Disto-Buccal (mm)')
+    perio_b = fields.Integer(string='Buccal (mm)')
+    perio_mb = fields.Integer(string='Mesio-Buccal (mm)')
+    perio_dl = fields.Integer(string='Disto-Palatal/Lingual (mm)')
+    perio_l = fields.Integer(string='Palatal/Lingual (mm)')
+    perio_ml = fields.Integer(string='Mesio-Palatal/Lingual (mm)')
+    perio_max_depth = fields.Integer(string='Deepest Pocket (mm)', compute='_compute_perio_max_depth', store=True)
+
+    @api.depends('endo_tests')
+    def _compute_endo_summary(self):
+        for rec in self:
+            tests = rec.endo_tests if isinstance(rec.endo_tests, dict) else {}
+            rec.endo_summary = ', '.join(
+                f"{label} {ENDO_RESULTS[tests[key]]}"
+                for key, label in ENDO_TESTS.items()
+                if tests.get(key) in ENDO_RESULTS
+            )
+
+    @api.depends(*PERIO_SITES)
+    def _compute_perio_max_depth(self):
+        for rec in self:
+            rec.perio_max_depth = max(rec[site] or 0 for site in PERIO_SITES)
+
+    @api.depends('case_id.company_id', 'examination_id.company_id')
+    def _compute_company_id(self):
+        self._set_company_from('case_id', 'examination_id')
 
     @api.depends('tooth_number')
     def _compute_notations(self):

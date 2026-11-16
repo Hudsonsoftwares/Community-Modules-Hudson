@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<templates xml:space="preserve">
+
+    <t t-name="dental_pharmacy.RxStock">
+        <a t-att-tabindex="this.visible ? '0' : '-1'"
+           t-on-click="this.showPopup"
+           t-attf-class="oi cursor-pointer {{ this.visible ? this.colorClass : 'invisible' }}"
+           data-icon="area_chart" title="Pharmacy availability"/>
+    </t>
+
+    <t t-name="dental_pharmacy.RxStockPopover">
+        <div class="p-2">
+            <h6>Pharmacy Availability</h6>
+            <table class="table table-borderless table-sm mb-1">
+                <tbody>
+                    <tr>
+                        <td><strong>On Hand</strong></td>
+                        <td class="text-end">
+                            <b t-out="this.format(this.data.stock_on_hand)"
+                               t-att-class="this.data.stock_on_hand >= this.needed ? 'text-success' : 'text-danger'"/>
+                            <t t-out="' ' + this.uomName"/>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td><strong>Free to Use</strong><br/><small>Not reserved for other orders</small></td>
+                        <td class="text-end">
+                            <b t-out="this.format(this.data.stock_free_qty)"
+                               t-att-class="this.data.stock_free_qty >= this.needed ? 'text-success' : 'text-danger'"/>
+                            <t t-out="' ' + this.uomName"/>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td><strong>Forecasted</strong><br/><small>Incoming and outgoing included</small></td>
+                        <td class="text-end">
+                            <b t-out="this.format(this.data.stock_forecast_qty)"
+                               t-att-class="this.data.stock_forecast_qty >= this.needed ? 'text-success' : 'text-danger'"/>
+                            <t t-out="' ' + this.uomName"/>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td><strong>Prescribed</strong></td>
+                        <td class="text-end"><t t-out="this.format(this.needed) + ' ' + this.uomName"/></td>
+                    </tr>
+                </tbody>
+            </table>
+            <div t-if="this.data.stock_alert_note" class="small text-muted mb-1" t-out="this.data.stock_alert_note"/>
+            <div class="small text-muted">Prescribing is never blocked: an unavailable medicine can be bought outside.</div>
+            <button t-if="this.data.stock_forecast_access" class="text-start btn btn-link px-0"
+                    type="button" t-on-click="this.openForecast">
+                <i class="oi oi-fw o_button_icon" data-icon="east"/>
+                View Forecast
+            </button>
+        </div>
+    </t>
+</templates>

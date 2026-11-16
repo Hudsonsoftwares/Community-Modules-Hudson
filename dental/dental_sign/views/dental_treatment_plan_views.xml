@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_dental_treatment_plan_form_dental_sign" model="ir.ui.view">
+        <field name="name">dental.treatment.plan.form.dental.sign</field>
+        <field name="model">dental.treatment.plan</field>
+        <field name="inherit_id" ref="dental_core.view_dental_treatment_plan_form"/>
+        <field name="priority">96</field>
+        <field name="arch" type="xml">
+            <!-- Add Sign Consent action button in header -->
+            <xpath expr="//header" position="inside">
+                <button name="action_open_consent_wizard" type="object" string="Sign Consent"
+                        class="btn-primary" icon="fa-pencil-square-o"/>
+            </xpath>
+
+            <!-- Add stat button to see all consent requests -->
+            <xpath expr="//div[@name='button_box']" position="inside">
+                <button name="action_view_consent_requests" type="object" class="oe_stat_button" icon="fa-pencil-square-o">
+                    <field name="sign_request_count" widget="statinfo" string="Consent Forms"/>
+                </button>
+            </xpath>
+
+            <!-- Add Consent Status badge in form -->
+            <xpath expr="//field[@name='plan_date']" position="before">
+                <field name="consent_status" widget="badge"
+                       decoration-info="consent_status == 'to_sign'"
+                       decoration-warning="consent_status == 'sent'"
+                       decoration-success="consent_status == 'signed'"
+                       decoration-muted="consent_status == 'not_required'"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>
+

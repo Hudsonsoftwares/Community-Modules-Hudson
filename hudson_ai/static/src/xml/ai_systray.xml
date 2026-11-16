@@ -1,133 +1,23 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <templates xml:space="preserve">
 
-    <!-- ============================================================
-         Hudson AI Systray Button
-         ============================================================ -->
-    <t t-name="hudson_ai.HudsonAISystray">
-        <div class="o_hudson_ai_systray" t-on-click="togglePanel">
-            <button class="o_hudson_ai_systray_btn" title="Hudson AI Assistant">
-                <span class="ai-icon">✦</span>
-                <span>Ask AI</span>
+    <t t-name="hudson_ai.Systray">
+        <div class="o_hudson_ai_systray d-flex align-items-center">
+            <button type="button" class="o_hudson_ai_systray_btn" title="Ask Hudson AI"
+                    t-on-click="() => this.onClick()">
+                <span class="o_ai_spark">✦</span>
+                <span class="d-none d-md-inline">Ask AI</span>
             </button>
         </div>
     </t>
 
-    <!-- ============================================================
-         Hudson AI Chat Panel
-         ============================================================ -->
-    <t t-name="hudson_ai.HudsonAIPanel">
-        <div class="o_hudson_ai_panel">
-
-            <!-- Header -->
-            <div class="o_ai_panel_header">
-                <div class="o_ai_panel_header_icon">✦</div>
-                <div class="o_ai_panel_header_info">
-                    <div class="o_ai_panel_header_title">Hudson AI</div>
-                    <div class="o_ai_panel_header_subtitle"
-                         t-out="state.modelName ? ('Model: ' + state.modelName) : 'Powered by LM Studio'"/>
-                </div>
-                <div class="o_ai_panel_header_actions">
-                    <button class="o_ai_panel_header_btn"
-                            title="Clear conversation"
-                            t-on-click="clearConversation">
-                        <i class="fa fa-trash-o"/>
-                    </button>
-                    <button class="o_ai_panel_header_btn"
-                            title="Open AI Settings"
-                            t-on-click="openSettings">
-                        <i class="fa fa-cog"/>
-                    </button>
-                    <button class="o_ai_panel_header_btn"
-                            title="Close"
-                            t-on-click="closePanel">
-                        <i class="fa fa-times"/>
-                    </button>
-                </div>
-            </div>
-
-            <!-- Quick Action Chips -->
-            <div class="o_ai_chips">
-                <t t-foreach="quickActions" t-as="action" t-key="action.label">
-                    <button class="o_ai_chip"
-                            t-out="action.label"
-                            t-on-click="() => this.sendQuickAction(action.prompt)"/>
-                </t>
-            </div>
-
-            <!-- Messages -->
-            <div class="o_ai_panel_messages" t-ref="messagesEl">
-
-                <!-- Welcome state -->
-                <t t-if="state.messages.length === 0">
-                    <div class="o_ai_welcome">
-                        <div class="o_ai_welcome_icon">✦</div>
-                        <h3>Hello! I'm Hudson AI</h3>
-                        <p>
-                            Ask me anything — I can search your database,
-                            create records, generate reports, and more.
-                            Try the quick actions above or type your own request.
-                        </p>
-                    </div>
-                </t>
-
-                <!-- Message list -->
-                <t t-foreach="state.messages" t-as="msg" t-key="msg.id">
-                    <div t-att-class="'o_ai_msg_row ' + msg.role">
-
-                        <!-- Avatar (only for assistant) -->
-                        <t t-if="msg.role === 'assistant'">
-                            <div class="o_ai_msg_avatar">✦</div>
-                        </t>
-
-                        <!-- Bubble -->
-                        <div class="o_ai_msg_bubble" t-out="msg.content"/>
-                    </div>
-                </t>
-
-                <!-- Typing indicator -->
-                <t t-if="state.isLoading">
-                    <div class="o_ai_typing">
-                        <div class="o_ai_msg_avatar">✦</div>
-                        <div class="o_ai_typing_dots">
-                            <div class="o_ai_typing_dot"/>
-                            <div class="o_ai_typing_dot"/>
-                            <div class="o_ai_typing_dot"/>
-                        </div>
-                    </div>
-                </t>
-
-            </div>
-
-            <!-- Input Area -->
-            <div class="o_ai_panel_input">
-                <textarea class="o_ai_input_box"
-                          t-ref="inputEl"
-                          placeholder="Ask anything — create a lead, check stock, find employees..."
-                          t-on-keydown="onKeyDown"
-                          rows="1"/>
-                <div class="o_ai_input_actions">
-                    <button class="o_ai_btn_icon o_ai_btn_mic"
-                            t-att-class="state.isRecording ? 'recording' : ''"
-                            title="Voice input"
-                            t-on-click="toggleVoice">
-                        <i t-att-class="state.isRecording ? 'fa fa-stop' : 'fa fa-microphone'"/>
-                    </button>
-                    <button class="o_ai_btn_icon o_ai_btn_send"
-                            title="Send"
-                            t-att-disabled="state.isLoading"
-                            t-on-click="sendMessage">
-                        <t t-if="state.isLoading">
-                            <span class="o_ai_spinner"/>
-                        </t>
-                        <t t-else="">
-                            <i class="fa fa-paper-plane"/>
-                        </t>
-                    </button>
-                </div>
-            </div>
-
-        </div>
+    <t t-inherit="mail.Chatter" t-inherit-mode="extension">
+        <xpath expr="//button[hasclass('o-mail-Chatter-logNote')]" position="after">
+            <button t-if="this.state.thread.id" class="o_hudson_ai_chatter_btn btn btn-secondary text-nowrap"
+                    title="Ask Hudson AI about this record" t-on-click="() => this.onClickHudsonAI()">
+                <span class="o_ai_spark">✦</span> AI
+            </button>
+        </xpath>
     </t>
 
 </templates>

@@ -15,6 +15,7 @@
                             <field name="dental_treatment_category_id"/>
                             <field name="treatment_duration" widget="float_time"/>
                             <field name="number_of_visits"/>
+                            <field name="visit_interval" invisible="number_of_visits &lt; 2" placeholder="e.g. 1 Month"/>
                             <field name="followup_interval"/>
                         </group>
                         <group string="Requirements">

@@ -1,3 +1,5 @@
 id,name,model_id,group_id/id,operation
-access_hudson_ai_config_user,hudson.ai.config user,hudson.ai.config,base.group_user,r
-access_hudson_ai_config_admin,hudson.ai.config admin,hudson.ai.config,base.group_system,crud
+access_hudson_ai_usage_admin,hudson.ai.usage admin,hudson.ai.usage,base.group_system,r
+access_hudson_ai_client_admin,hudson.ai.client admin,hudson.ai.client,base.group_system,crud
+access_hudson_ai_client_key_admin,hudson.ai.client.key admin,hudson.ai.client.key,base.group_system,crud
+access_hudson_ai_access_rule_admin,hudson.ai.access.rule admin,hudson.ai.access.rule,base.group_system,crud

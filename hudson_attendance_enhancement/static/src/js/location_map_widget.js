@@ -4,19 +4,18 @@ import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
 import { rpc } from "@web/core/network/rpc";
 import { standardWidgetProps } from "@web/views/widgets/standard_widget_props";
-import { Component, useState, useRef, onMounted, onWillUnmount, useEffect } from "@odoo/owl";
+import { Component, proxy, signal, useProps, onMounted, onWillUnmount } from "@odoo/owl";
+import { useLayoutEffect } from "@web/owl2/utils";
 
 export class LocationMapPickerWidget extends Component {
     static template = "hudson_attendance_enhancement.LocationMapPickerWidget";
-    static props = {
-        ...standardWidgetProps,
-    };
+    props = useProps({ ...standardWidgetProps });
 
     setup() {
         this.notification = useService("notification");
-        this.mapContainerRef = useRef("mapContainer");
+        this.mapContainerRef = signal.ref();
 
-        this.state = useState({
+        this.state = proxy({
             searchQuery: "",
             searchResults: [],
             isSearching: false,
@@ -38,7 +37,7 @@ export class LocationMapPickerWidget extends Component {
             }
         });
 
-        useEffect(
+        useLayoutEffect(
             (lat, lon, rad) => {
                 this.syncMapWithRecord(lat, lon, rad);
             },
@@ -81,7 +80,7 @@ export class LocationMapPickerWidget extends Component {
     }
 
     initMap(retries = 5) {
-        if (!this.mapContainerRef.el) {
+        if (!this.mapContainerRef()) {
             return;
         }
         if (!window.L) {
@@ -99,7 +98,7 @@ export class LocationMapPickerWidget extends Component {
         const defaultLon = hasCoords ? lon : 55.2708;
         const defaultZoom = hasCoords ? 16 : 4;
 
-        this.map = window.L.map(this.mapContainerRef.el).setView([defaultLat, defaultLon], defaultZoom);
+        this.map = window.L.map(this.mapContainerRef()).setView([defaultLat, defaultLon], defaultZoom);
 
         window.L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 19,

@@ -1,6 +1,9 @@
 id,name,model_id,group_id/id,operation,domain
 access_dental_appointment_type,dental.appointment.type,dental.appointment.type,base.group_user,r,
 access_dental_appointment_type_manager,dental.appointment.type.manager,dental.appointment.type,dental_base.group_dental_manager,crud,
+access_dental_appointment_icon,dental.appointment.icon,dental.appointment.icon,base.group_user,r,
+access_dental_appointment_icon_manager,dental.appointment.icon.manager,dental.appointment.icon,dental_base.group_dental_manager,crud,
+access_dental_appointment_icon_admin,dental.appointment.icon.admin,dental.appointment.icon,dental_base.group_dental_admin,crud,
 access_dental_appointment_receptionist,dental.appointment.receptionist,dental.appointment,dental_base.group_dental_receptionist,crud,
 access_dental_appointment_dentist,dental.appointment.dentist,dental.appointment,dental_base.group_dental_dentist,crud,"['|', ('doctor_id.user_id', '=', user.id), ('doctor_id', '=', False)]"
 access_dental_appointment_assistant,dental.appointment.assistant,dental.appointment,dental_base.group_dental_assistant,r,
@@ -24,3 +27,7 @@ rule_dental_appointment_branch,Dental Appointment Branch Rule,dental.appointment
 rule_dental_appointment_dentist_branch,Dental Appointment Dentist Branch Rule,dental.appointment,dental_base.group_dental_dentist,crud,"['|', ('branch_id', '=', False), ('branch_id', 'in', company_ids)]"
 rule_dental_appointment_all_branches,Dental Appointment All Branches,dental.appointment,dental_base.group_dental_manager,crud,"[(1, '=', 1)]"
 rule_dental_appointment_admin_branches,Dental Appointment Admin All Branches,dental.appointment,dental_base.group_dental_admin,crud,"[(1, '=', 1)]"
+dental_appointment_company_rule,Dental Appointment: company isolation,dental.appointment,,crud,"['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]"
+dental_follow_up_company_rule,Dental Follow-up: company isolation,dental.follow.up,,crud,"['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]"
+dental_recall_company_rule,Dental Recall: company isolation,dental.recall,,crud,"['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]"
+dental_waiting_list_company_rule,Dental Waiting List: company isolation,dental.waiting.list,,crud,"['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]"

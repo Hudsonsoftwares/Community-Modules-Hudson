@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <record id="treatment_stage_planning" model="dental.treatment.stage">
+            <field name="name">Diagnosis &amp; Planning</field>
+            <field name="sequence">10</field>
+            <field name="stage_type">planned</field>
+            <field name="description">Initial diagnosis, assessment and treatment planning.</field>
+        </record>
+        <record id="treatment_stage_preparation" model="dental.treatment.stage">
+            <field name="name">Preparation</field>
+            <field name="sequence">20</field>
+            <field name="stage_type">in_progress</field>
+            <field name="description">Tooth or site preparation, impressions, access opening or cleaning.</field>
+        </record>
+        <record id="treatment_stage_procedure" model="dental.treatment.stage">
+            <field name="name">Procedure / Execution</field>
+            <field name="sequence">30</field>
+            <field name="stage_type">in_progress</field>
+            <field name="description">Active clinical procedure, restoration, shaping or surgery.</field>
+        </record>
+        <record id="treatment_stage_restoration" model="dental.treatment.stage">
+            <field name="name">Restoration &amp; Post-Care</field>
+            <field name="sequence">40</field>
+            <field name="stage_type">in_progress</field>
+            <field name="description">Final cementation, polish, post-procedure assessment.</field>
+        </record>
+        <record id="treatment_stage_completed" model="dental.treatment.stage">
+            <field name="name">Completed</field>
+            <field name="sequence">50</field>
+            <field name="stage_type">completed</field>
+            <field name="description">Treatment fully executed and completed.</field>
+        </record>
+    </data>
+</odoo>
+

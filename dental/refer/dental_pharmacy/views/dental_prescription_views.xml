@@ -1,0 +1,282 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Prescription Form View -->
+    <record id="view_dental_prescription_form" model="ir.ui.view">
+        <field name="name">dental.prescription.form</field>
+        <field name="model">dental.prescription</field>
+        <field name="arch" type="xml">
+            <form string="Dental Prescription" class="o_dental_rx_form">
+                <header>
+                    <button name="action_confirm" string="Send to Pharmacy" type="object" class="btn-primary"
+                            invisible="state != 'draft' or not branch_has_pharmacy" groups="dental_base.group_dental_dentist,dental_base.group_dental_manager,dental_base.group_dental_admin"/>
+                    <button name="action_confirm" string="Issue &amp; Email to Patient" type="object" class="btn-primary"
+                            invisible="state != 'draft' or branch_has_pharmacy" groups="dental_base.group_dental_dentist,dental_base.group_dental_manager,dental_base.group_dental_admin"/>
+                    <button name="action_dispense" string="Dispense Medication" type="object" class="btn-success"
+                            invisible="state not in ('confirmed', 'partially_dispensed')" groups="dental_pharmacy.group_dental_pharmacist,dental_base.group_dental_manager,dental_base.group_dental_admin"/>
+                    <button name="action_print_for_patient" string="Print" type="object" icon="print"
+                            invisible="state in ('draft', 'cancelled')"
+                            groups="dental_base.group_dental_dentist,dental_base.group_dental_receptionist,dental_base.group_dental_manager,dental_pharmacy.group_dental_pharmacist"/>
+                    <button name="action_send_to_patient" string="Email to Patient" type="object" icon="mail"
+                            invisible="state != 'issued'"
+                            groups="dental_base.group_dental_dentist,dental_base.group_dental_receptionist,dental_base.group_dental_manager,dental_pharmacy.group_dental_pharmacist"/>
+                    <button name="action_issue_to_patient" string="Patient Buys Outside" type="object"
+                            invisible="state != 'confirmed' or total_dispensed_qty &gt; 0"
+                            confirm="Remove this prescription from the pharmacy queue and give it to the patient to buy the medicines outside? The clinic will not bill these medicines."
+                            groups="dental_base.group_dental_dentist,dental_base.group_dental_receptionist,dental_base.group_dental_manager,dental_pharmacy.group_dental_pharmacist"/>
+                    <button name="action_draft" string="Reset to Draft" type="object"
+                            invisible="state not in ('confirmed', 'issued', 'cancelled') or total_dispensed_qty &gt; 0"
+                            groups="dental_base.group_dental_dentist,dental_base.group_dental_manager,dental_base.group_dental_admin"/>
+                    <button name="action_cancel" string="Cancel" type="object" class="btn-secondary"
+                            invisible="state in ('cancelled', 'fully_dispensed')"
+                            groups="dental_base.group_dental_dentist,dental_base.group_dental_manager,dental_base.group_dental_admin"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,confirmed,partially_dispensed,fully_dispensed"
+                           invisible="not branch_has_pharmacy"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,issued"
+                           invisible="branch_has_pharmacy"/>
+                </header>
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <field name="sale_order_id" invisible="1"/>
+                        <button name="action_view_sale_order" type="object" class="oe_stat_button" icon="shopping_cart"
+                                invisible="not sale_order_id"
+                                groups="sales_team.group_sale_salesman,dental_pharmacy.group_dental_pharmacist,dental_base.group_dental_manager">
+                            <div class="o_stat_info">
+                                <span class="o_stat_text">Sales Order</span>
+                            </div>
+                        </button>
+                        <button name="action_view_dispenses" type="object" class="oe_stat_button" icon="format_list_bulleted"
+                                invisible="not dispense_count">
+                            <field name="dispense_count" widget="statinfo" string="Dispenses"/>
+                        </button>
+                        <button name="action_view_invoices" type="object" class="oe_stat_button" icon="payments"
+                                invisible="not invoice_count">
+                            <field name="invoice_count" widget="statinfo" string="Invoices"/>
+                        </button>
+                    </div>
+
+                    <widget name="web_ribbon" title="Fully Dispensed" bg_color="text-bg-success" invisible="state != 'fully_dispensed'"/>
+                    <widget name="web_ribbon" title="Partially Dispensed" bg_color="text-bg-warning" invisible="state != 'partially_dispensed'"/>
+                    <widget name="web_ribbon" title="Cancelled" bg_color="text-bg-danger" invisible="state != 'cancelled'"/>
+                    <widget name="web_ribbon" title="Issued to Patient" bg_color="text-bg-info" invisible="state != 'issued'"/>
+
+                    <div class="oe_title">
+                        <h1><field name="name"/></h1>
+                    </div>
+
+                    <!-- Safety first: allergies and conflicts, shown only when there is something to say -->
+                    <field name="patient_allergy_status" invisible="1"/>
+                    <field name="has_allergy_warning" invisible="1"/>
+                    <div class="alert alert-danger d-flex align-items-start gap-2 p-2 mb-2" role="alert" invisible="not has_allergy_warning">
+                        <i class="oi oi-lg mt-1" data-icon="block" title="Allergy conflict"/>
+                        <div><strong>Allergy conflict:</strong> <field name="allergy_warning_msg" readonly="1" class="d-inline"/></div>
+                    </div>
+                    <div class="alert alert-warning d-flex align-items-start gap-2 p-2 mb-2" role="alert"
+                         invisible="has_allergy_warning or patient_allergy_status != 'known'">
+                        <i class="oi oi-lg mt-1" data-icon="warning" title="Allergies"/>
+                        <div><strong>Allergies:</strong> <field name="patient_allergies_text" readonly="1" class="d-inline"/></div>
+                    </div>
+                    <div class="alert alert-warning d-flex align-items-start gap-2 p-2 mb-2" role="alert"
+                         invisible="patient_allergy_status in ('known', 'none') or not patient_id or state != 'draft'">
+                        <i class="oi oi-lg mt-1" data-icon="warning" title="Allergy status unknown"/>
+                        <div><strong>Allergy status not recorded.</strong> Ask the patient before prescribing.</div>
+                    </div>
+                    <div class="alert alert-info d-flex align-items-start gap-2 p-2 mb-2" role="status" invisible="state != 'issued'">
+                        <i class="oi oi-lg mt-1" data-icon="info" title="Issued"/>
+                        <div>The patient buys these medicines outside; the clinic does not dispense or bill them.</div>
+                    </div>
+
+                    <group>
+                        <group>
+                            <field name="patient_id" readonly="state != 'draft'" options="{'no_create': True}"/>
+                            <field name="patient_dental_id" string="Patient ID" invisible="not patient_dental_id"/>
+                            <label for="patient_age" string="Age / Gender" invisible="not patient_id"/>
+                            <div class="d-flex gap-1" invisible="not patient_id">
+                                <field name="patient_age" class="oe_inline"/> yrs ·
+                                <field name="patient_gender" class="oe_inline"/>
+                            </div>
+                            <field name="diagnosis" string="Indication" readonly="state != 'draft'"
+                                   placeholder="e.g. Irreversible pulpitis 36, post-extraction 48"/>
+                            <field name="template_id" string="Regimen" readonly="state != 'draft'" invisible="state != 'draft'"
+                                   options="{'no_create': True}" placeholder="Pick a regimen to add its medicines"/>
+                        </group>
+                        <group>
+                            <field name="dentist_id" readonly="state != 'draft'" options="{'no_create': True}"/>
+                            <field name="prescription_date" readonly="state != 'draft'"/>
+                            <field name="case_id" readonly="state != 'draft'" options="{'no_create': True}"/>
+                            <field name="appointment_id" string="Visit" readonly="state != 'draft'" options="{'no_create': True}"/>
+                            <field name="branch_has_pharmacy" invisible="1"/>
+                            <field name="fulfillment" invisible="not fulfillment"/>
+                            <field name="issued_date" invisible="not issued_date"/>
+                            <field name="company_id" groups="base.group_multi_company" readonly="state != 'draft'"/>
+                        </group>
+                    </group>
+
+                    <notebook>
+                        <page string="Medicines" name="medicines">
+                            <field name="line_ids" readonly="state in ('fully_dispensed', 'cancelled', 'issued')"
+                                   context="{'dental_rx_patient_id': patient_id, 'dental_rx_company_id': company_id}">
+                                <list editable="bottom" decoration-danger="has_allergy_conflict">
+                                    <field name="has_allergy_conflict" column_invisible="1"/>
+                                    <field name="medicine_id" options="{'no_create': True}" placeholder="Search medicine..."/>
+                                    <widget name="dental_rx_stock" width="20px"/>
+                                    <field name="allergy_conflict_note" string="Allergy" widget="badge" decoration-danger="has_allergy_conflict"
+                                           invisible="not has_allergy_conflict" optional="hide"/>
+                                    <field name="generic_name" optional="hide"/>
+                                    <field name="strength" optional="hide"/>
+                                    <field name="dose"/>
+                                    <field name="route" optional="hide"/>
+                                    <field name="frequency" width="190px"/>
+                                    <field name="duration" string="Days"/>
+                                    <field name="quantity" string="Qty"/>
+                                    <field name="uom_id" string="Unit" optional="show"/>
+                                    <field name="instructions" optional="show"/>
+                                    <field name="dispensed_qty" string="Dispensed" column_invisible="parent.state in ('draft', 'issued')"/>
+                                    <field name="remaining_qty" string="To Dispense" column_invisible="parent.state in ('draft', 'issued')"/>
+                                </list>
+                            </field>
+                            <field name="clinical_notes" nolabel="1" readonly="state in ('fully_dispensed', 'cancelled')"
+                                   placeholder="Advice to the patient: warm saline rinses, soft diet, no hot drinks for 24 hours..."/>
+                        </page>
+                        <page string="Prescriber" name="prescriber">
+                            <group>
+                                <group>
+                                    <field name="dentist_reg_no"/>
+                                    <field name="dentist_specialization"/>
+                                </group>
+                                <group>
+                                    <field name="dentist_signature" widget="image" class="oe_avatar" readonly="1"/>
+                                </group>
+                            </group>
+                        </page>
+                    </notebook>
+                    <field name="total_prescribed_qty" invisible="1"/>
+                    <field name="total_dispensed_qty" invisible="1"/>
+                    <field name="total_remaining_qty" invisible="1"/>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <!-- Prescription List View -->
+    <record id="view_dental_prescription_list" model="ir.ui.view">
+        <field name="name">dental.prescription.list</field>
+        <field name="model">dental.prescription</field>
+        <field name="arch" type="xml">
+            <list string="Dental Prescriptions">
+                <field name="name"/>
+                <field name="prescription_date"/>
+                <field name="patient_id"/>
+                <field name="dentist_id"/>
+                <field name="case_id"/>
+                <field name="diagnosis"/>
+                <field name="total_prescribed_qty" sum="Prescribed"/>
+                <field name="total_dispensed_qty" sum="Dispensed"/>
+                <field name="total_remaining_qty" sum="Remaining"/>
+                <field name="state" widget="badge"
+                       decoration-info="state in ('confirmed', 'issued')"
+                       decoration-warning="state == 'partially_dispensed'"
+                       decoration-success="state == 'fully_dispensed'"
+                       decoration-muted="state == 'draft'"
+                       decoration-danger="state == 'cancelled'"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- Prescription Kanban View -->
+    <record id="view_dental_prescription_kanban" model="ir.ui.view">
+        <field name="name">dental.prescription.kanban</field>
+        <field name="model">dental.prescription</field>
+        <field name="arch" type="xml">
+            <kanban string="Prescriptions" default_group_by="state" sample="1">
+                <field name="id"/>
+                <field name="name"/>
+                <field name="patient_id"/>
+                <field name="dentist_id"/>
+                <field name="prescription_date"/>
+                <field name="state"/>
+                <field name="total_remaining_qty"/>
+                <templates>
+                    <t t-name="card">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div>
+                                <h5 class="mb-1 fw-bold text-primary"><field name="name"/></h5>
+                                <div class="text-muted"><field name="patient_id"/></div>
+                            </div>
+                            <span t-if="record.state.raw_value == 'confirmed'" class="badge text-bg-info">Ready</span>
+                            <span t-elif="record.state.raw_value == 'partially_dispensed'" class="badge text-bg-warning">Partial</span>
+                            <span t-elif="record.state.raw_value == 'fully_dispensed'" class="badge text-bg-success">Done</span>
+                            <span t-elif="record.state.raw_value == 'draft'" class="badge text-bg-secondary">Draft</span>
+                            <span t-elif="record.state.raw_value == 'issued'" class="badge text-bg-primary">Issued to Patient</span>
+                        </div>
+                        <div class="small text-muted mb-2">
+                            <i class="fa fa-user-md me-1"/><field name="dentist_id"/>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center pt-2 border-top">
+                            <span class="small text-muted"><field name="prescription_date"/></span>
+                            <span class="badge text-bg-light border">Remaining: <field name="total_remaining_qty"/></span>
+                        </div>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+
+    <!-- Prescription Search View -->
+    <record id="view_dental_prescription_search" model="ir.ui.view">
+        <field name="name">dental.prescription.search</field>
+        <field name="model">dental.prescription</field>
+        <field name="arch" type="xml">
+            <search string="Search Prescriptions">
+                <field name="name" string="Prescription / Patient" filter_domain="['|', ('name', 'ilike', self), ('patient_id', 'ilike', self)]"/>
+                <field name="patient_id"/>
+                <field name="dentist_id"/>
+                <field name="case_id"/>
+                <field name="diagnosis"/>
+                <separator/>
+                <filter string="Today's Prescriptions" name="filter_today" domain="[('prescription_date', '=', context_today())]"/>
+                <filter string="Pending Dispense (Ready)" name="filter_pending" domain="[('state', 'in', ('confirmed', 'partially_dispensed'))]"/>
+                <filter string="Partially Dispensed" name="filter_partial" domain="[('state', '=', 'partially_dispensed')]"/>
+                <filter string="Fully Dispensed" name="filter_done" domain="[('state', '=', 'fully_dispensed')]"/>
+                <filter string="Draft" name="filter_draft" domain="[('state', '=', 'draft')]"/>
+                <separator/>
+                <filter string="Group By: Patient" name="group_by_patient" context="{'group_by': 'patient_id'}"/>
+                <filter string="Group By: Prescribing Dentist" name="group_by_dentist" context="{'group_by': 'dentist_id'}"/>
+                <filter string="Group By: Status" name="group_by_status" context="{'group_by': 'state'}"/>
+                <filter string="Group By: Prescription Date" name="group_by_date" context="{'group_by': 'prescription_date:month'}"/>
+            </search>
+        </field>
+    </record>
+
+    <!-- Action: All Prescriptions -->
+    <record id="action_dental_prescription" model="ir.actions.act_window">
+        <field name="name">Prescriptions Queue</field>
+        <field name="res_model">dental.prescription</field>
+        <field name="view_mode">kanban,list,form</field>
+        <field name="search_view_id" ref="view_dental_prescription_search"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Create clinical prescriptions for dental patients!
+            </p>
+        </field>
+    </record>
+
+    <!-- Action: Pending Prescriptions (Pharmacist Queue) -->
+    <record id="action_dental_prescription_pending" model="ir.actions.act_window">
+        <field name="name">Prescriptions Pending Dispense</field>
+        <field name="res_model">dental.prescription</field>
+        <field name="view_mode">kanban,list,form</field>
+        <field name="domain">[('state', 'in', ('confirmed', 'partially_dispensed'))]</field>
+        <field name="search_view_id" ref="view_dental_prescription_search"/>
+        <field name="context">{'search_default_filter_pending': 1}</field>
+    </record>
+
+    <!-- Action: Fully Dispensed Prescriptions -->
+    <record id="action_dental_prescription_dispensed" model="ir.actions.act_window">
+        <field name="name">Dispensed Prescriptions History</field>
+        <field name="res_model">dental.prescription</field>
+        <field name="view_mode">kanban,list,form</field>
+        <field name="domain">[('state', '=', 'fully_dispensed')]</field>
+        <field name="search_view_id" ref="view_dental_prescription_search"/>
+    </record>
+</odoo>

@@ -274,7 +274,7 @@ class AccountBudgetLine(models.Model):
 
     @api.model
     def _get_budget_overruns(self, company, items):
-        """ Expense lines of the confirmed and validated budgets that `items` would push over their planned amount.
+        """ Expense lines of the open budgets that `items` would push over their planned amount.
 
         :param items: list of dictionaries, see `_get_item_amount`
         :return: list of dictionaries with line, planned, actual, committed, new, over
@@ -285,7 +285,7 @@ class AccountBudgetLine(models.Model):
         dates = [item['date'] for item in items]
         lines = self.search([
             ('company_id', '=', company.id),
-            ('budget_state', 'in', ('confirm', 'validate')),
+            ('budget_state', '=', 'validate'),
             ('budget_type', '=', 'expense'),
             ('date_from', '<=', max(dates)),
             ('date_to', '>=', min(dates)),

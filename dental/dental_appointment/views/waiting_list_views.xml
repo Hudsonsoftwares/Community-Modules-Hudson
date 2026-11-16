@@ -51,6 +51,6 @@
     <record id="action_dental_waiting_list" model="ir.actions.act_window">
         <field name="name">Waiting List</field>
         <field name="res_model">dental.waiting.list</field>
-        <field name="view_mode">list,form</field>
+        <field name="view_mode">kanban,list,form</field>
     </record>
 </odoo>

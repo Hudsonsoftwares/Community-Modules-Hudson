@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Kanban cards: title + status on top, patient/people in the middle, date/amount in the footer -->
+
+    <record id="view_dental_appointment_kanban" model="ir.ui.view">
+        <field name="name">dental.appointment.kanban</field>
+        <field name="model">dental.appointment</field>
+        <field name="arch" type="xml">
+            <kanban class="o_kanban_mobile" sample="1">
+                <templates>
+                    <t t-name="card">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <field name="patient_id" class="fw-bold fs-6"/>
+                            <field name="state" widget="badge"
+                                   decoration-info="state in ('pending', 'confirmed')"
+                                   decoration-warning="state in ('checked_in', 'in_consultation')"
+                                   decoration-success="state == 'completed'"
+                                   decoration-danger="state in ('cancelled', 'no_show')"/>
+                        </div>
+                        <div class="text-muted small"><field name="name"/> <span invisible="not token_number">· Token <field name="token_number"/></span></div>
+                        <div class="mt-1"><i class="fa fa-user-md me-1" title="Doctor"/><field name="doctor_id"/></div>
+                        <div invisible="not treatment_id"><i class="fa fa-stethoscope me-1" title="Service"/><field name="treatment_id"/></div>
+                        <footer class="pt-1">
+                            <span class="small"><i class="fa fa-clock-o me-1" title="Start"/><field name="date_start"/></span>
+                            <span class="badge text-bg-danger ms-auto" invisible="not is_emergency">Emergency</span>
+                            <field name="is_emergency" invisible="1"/>
+                        </footer>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+
+    <record id="view_dental_appointment_type_kanban" model="ir.ui.view">
+        <field name="name">dental.appointment.type.kanban</field>
+        <field name="model">dental.appointment.type</field>
+        <field name="arch" type="xml">
+            <kanban class="o_kanban_mobile" sample="1">
+                <templates>
+                    <t t-name="card">
+                        <field name="name" class="fw-bold fs-6"/>
+                        <field name="description" class="text-muted small"/>
+                        <footer class="pt-1">
+                            <span class="small"><i class="fa fa-clock-o me-1" title="Duration"/><field name="duration"/> min</span>
+                            <field name="price" class="ms-auto fw-bold" invisible="not price"/>
+                        </footer>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+
+    <record id="view_dental_follow_up_kanban" model="ir.ui.view">
+        <field name="name">dental.follow.up.kanban</field>
+        <field name="model">dental.follow.up</field>
+        <field name="arch" type="xml">
+            <kanban class="o_kanban_mobile" sample="1">
+                <templates>
+                    <t t-name="card">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <field name="patient_id" class="fw-bold fs-6"/>
+                            <field name="state" widget="badge"
+                                   decoration-warning="state == 'pending'"
+                                   decoration-success="state == 'done'"
+                                   decoration-muted="state == 'cancelled'"/>
+                        </div>
+                        <field name="reason" class="small"/>
+                        <div class="text-muted small" invisible="not doctor_id"><i class="fa fa-user-md me-1" title="Doctor"/><field name="doctor_id"/></div>
+                        <footer class="pt-1">
+                            <span class="small"><i class="fa fa-calendar me-1" title="Due"/><field name="date"/></span>
+                            <field name="priority" widget="priority" class="ms-auto"/>
+                        </footer>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+
+    <record id="view_dental_recall_kanban" model="ir.ui.view">
+        <field name="name">dental.recall.kanban</field>
+        <field name="model">dental.recall</field>
+        <field name="arch" type="xml">
+            <kanban class="o_kanban_mobile" sample="1">
+                <templates>
+                    <t t-name="card">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <field name="patient_id" class="fw-bold fs-6"/>
+                            <field name="state" widget="badge"
+                                   decoration-warning="state == 'pending'"
+                                   decoration-info="state == 'called'"
+                                   decoration-success="state == 'booked'"
+                                   decoration-muted="state == 'cancelled'"/>
+                        </div>
+                        <div class="small" invisible="not treatment_id"><i class="fa fa-stethoscope me-1" title="Treatment"/><field name="treatment_id"/></div>
+                        <footer class="pt-1">
+                            <span class="small"><i class="fa fa-calendar me-1" title="Due"/><field name="due_date"/></span>
+                        </footer>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+
+    <record id="view_dental_recall_rule_kanban" model="ir.ui.view">
+        <field name="name">dental.recall.rule.kanban</field>
+        <field name="model">dental.recall.rule</field>
+        <field name="arch" type="xml">
+            <kanban class="o_kanban_mobile" sample="1">
+                <templates>
+                    <t t-name="card">
+                        <field name="name" class="fw-bold fs-6"/>
+                        <div class="small" invisible="not treatment_id"><field name="treatment_id"/></div>
+                        <footer class="pt-1 small">
+                            <span>Every <field name="interval_number"/> <field name="interval_type"/></span>
+                        </footer>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+
+    <record id="view_dental_waiting_list_kanban" model="ir.ui.view">
+        <field name="name">dental.waiting.list.kanban</field>
+        <field name="model">dental.waiting.list</field>
+        <field name="arch" type="xml">
+            <kanban class="o_kanban_mobile" sample="1">
+                <templates>
+                    <t t-name="card">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <field name="patient_id" class="fw-bold fs-6"/>
+                            <field name="state" widget="badge"/>
+                        </div>
+                        <div class="small" invisible="not doctor_id"><i class="fa fa-user-md me-1" title="Preferred doctor"/><field name="doctor_id"/></div>
+                        <div class="small" invisible="not treatment_id"><i class="fa fa-stethoscope me-1" title="Treatment"/><field name="treatment_id"/></div>
+                        <footer class="pt-1">
+                            <span class="small" invisible="not date_from"><i class="fa fa-clock-o me-1" title="Preferred from"/><field name="date_from"/></span>
+                            <field name="priority" widget="priority" class="ms-auto"/>
+                        </footer>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+</odoo>

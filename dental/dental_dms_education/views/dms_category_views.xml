@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Education topics = DMS categories flagged as such (new views, DMS category views unchanged). -->
+    <record id="view_dms_category_list_education" model="ir.ui.view">
+        <field name="name">dms.category.list.education</field>
+        <field name="model">dms.category</field>
+        <field name="priority">95</field>
+        <field name="arch" type="xml">
+            <list editable="bottom" string="Education Topics">
+                <field name="name"/>
+                <field name="parent_id" optional="hide"/>
+                <field name="dental_product_ids" widget="many2many_tags" options="{'no_create': True}"/>
+                <field name="dental_treatment_category_ids" widget="many2many_tags" options="{'no_create': True}"/>
+                <field name="dental_topic_icon" optional="hide"/>
+                <field name="dental_is_education_topic" column_invisible="1"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="action_dental_education_topics" model="ir.actions.act_window">
+        <field name="name">Education Topics</field>
+        <field name="res_model">dms.category</field>
+        <field name="view_mode">list</field>
+        <field name="domain">[('dental_is_education_topic', '=', True)]</field>
+        <field name="context" eval="{'default_dental_is_education_topic': True,
+                                     'default_parent_id': ref('dental_dms_education.dms_category_education_root')}"/>
+        <field name="view_ids" eval="[(5, 0, 0), (0, 0, {'view_mode': 'list', 'view_id': ref('view_dms_category_list_education')})]"/>
+    </record>
+</odoo>

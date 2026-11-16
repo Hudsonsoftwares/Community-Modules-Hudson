@@ -225,3 +225,43 @@ class TestTdsCompanyConfig(common.TransactionCase):
         self.assertEqual(emp.hds_in_tax_regime, 'new')
 
 
+
+    def _roll_over_wizard(self, **overrides):
+        """Roll-over wizard defaulted from the latest active FY (as opened from the UI)."""
+        Wizard = self.env['tds.financial.year.wizard']
+        vals = Wizard.default_get(list(Wizard._fields))
+        # Unique code so the test does not depend on which years already exist
+        vals.update({'code': 'ROLL-OVER-TEST', 'name': 'Tax Year: Roll-over Test', 'set_as_company_default': False})
+        vals.update(overrides)
+        return Wizard.create(vals)
+
+    def test_13_roll_over_copies_slabs_once(self):
+        """Roll-over must not create every slab twice (default_get pre-fill + wizard copy) -> no overlap error."""
+        wizard = self._roll_over_wizard()
+        source = wizard.source_fy_id
+        self.assertTrue(source, "A source financial year is needed for the roll-over")
+        wizard.action_create_financial_year()
+
+        new_fy = self.env['tds.financial.year'].search([('code', '=', 'ROLL-OVER-TEST')], limit=1)
+        self.assertEqual(len(new_fy.tax_slab_ids), len(source.tax_slab_ids))
+        self.assertEqual(len(new_fy.surcharge_ids), len(source.surcharge_ids))
+        key = lambda s: (s.regime_code, s.age_category, s.income_from, s.income_to, s.rate)
+        self.assertEqual(sorted(map(key, new_fy.tax_slab_ids)), sorted(map(key, source.tax_slab_ids)))
+        self.assertTrue(all(s.date_from == wizard.start_date for s in new_fy.tax_slab_ids))
+        self.assertTrue(all(s.date_from == wizard.start_date for s in new_fy.surcharge_ids))
+        # Source year is left untouched
+        self.assertTrue(all(s.financial_year_id == source for s in source.tax_slab_ids))
+
+    def test_14_roll_over_respects_copy_checkboxes(self):
+        """With 'Copy Tax Slabs' / 'Copy Surcharge Slabs' unticked, the new year starts without slabs."""
+        wizard = self._roll_over_wizard(copy_tax_slabs=False, copy_surcharge_slabs=False)
+        wizard.action_create_financial_year()
+        new_fy = self.env['tds.financial.year'].search([('code', '=', 'ROLL-OVER-TEST')], limit=1)
+        self.assertTrue(new_fy)
+        self.assertFalse(new_fy.tax_slab_ids)
+        self.assertFalse(new_fy.surcharge_ids)
+
+    def test_15_roll_over_duplicate_code_rejected(self):
+        self._roll_over_wizard().action_create_financial_year()
+        with self.assertRaises(ValidationError):
+            self._roll_over_wizard().action_create_financial_year()

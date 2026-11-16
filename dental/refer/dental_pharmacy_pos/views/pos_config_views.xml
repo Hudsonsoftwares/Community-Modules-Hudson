@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="pos_config_view_form_inherit_dental_pharmacy" model="ir.ui.view">
+        <field name="name">pos.config.form.inherit.dental.pharmacy</field>
+        <field name="model">pos.config</field>
+        <field name="inherit_id" ref="point_of_sale.pos_config_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//setting[@id='multiple_employee_session']" position="before">
+                <setting id="dental_pharmacy_counter" string="Pharmacy Counter"
+                         help="Load doctor prescriptions, show allergy alerts and medicine history, sell the earliest-expiring batch, refuse expired batches and invoice every sale.">
+                    <field name="dental_pharmacy_counter" readonly="has_active_session"/>
+                    <div class="content-group mt16" invisible="not dental_pharmacy_counter">
+                        <div class="row mb-2">
+                            <label string="Walk-in Customer" for="dental_walkin_partner_id" class="col-lg-4 o_light_label"/>
+                            <field name="dental_walkin_partner_id" required="dental_pharmacy_counter" options="{'no_create': True}"/>
+                        </div>
+                        <div class="row">
+                            <label string="Prescriptions of the last (days)" for="dental_rx_lookback_days" class="col-lg-4 o_light_label"/>
+                            <field name="dental_rx_lookback_days"/>
+                        </div>
+                    </div>
+                </setting>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_pos_pos_form_inherit_dental_pharmacy" model="ir.ui.view">
+        <field name="name">pos.order.form.inherit.dental.pharmacy</field>
+        <field name="model">pos.order</field>
+        <field name="inherit_id" ref="point_of_sale.view_pos_pos_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//div[@name='button_box']" position="inside">
+                <button name="action_view_dental_dispenses" type="object" class="oe_stat_button" icon="medication"
+                        invisible="not dental_dispense_count"
+                        groups="dental_pharmacy.group_dental_pharmacist,dental_base.group_dental_manager">
+                    <field name="dental_dispense_count" widget="statinfo" string="Dispenses"/>
+                </button>
+            </xpath>
+        </field>
+    </record>
+</odoo>

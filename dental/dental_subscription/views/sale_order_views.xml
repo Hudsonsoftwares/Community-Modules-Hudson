@@ -1,0 +1,206 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Dental section of the Hudson subscription form -->
+    <record id="view_sale_order_form_dental_subscription" model="ir.ui.view">
+        <field name="name">sale.order.form.dental.subscription</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="hudson_subscriptions.view_sale_subscription_form_inherit"/>
+        <field name="arch" type="xml">
+            <xpath expr="//sheet" position="before">
+                <field name="is_dental_subscription" invisible="1"/>
+                <field name="dental_benefits_active" invisible="1"/>
+                <div class="alert alert-warning text-center mb-0" role="alert"
+                     invisible="not is_dental_subscription or state != 'sale' or dental_benefits_active or subscription_state in ('5_renewed', '6_churn', '7_upsell')">
+                    Membership benefits are not usable: <field name="dental_benefit_status" readonly="1" class="fw-bold"/>
+                </div>
+            </xpath>
+            <xpath expr="//div[@name='button_box']" position="inside">
+                <button name="action_dental_view_members" type="object" class="oe_stat_button" icon="fa-users"
+                        invisible="not is_dental_subscription">
+                    <field name="dental_member_count" widget="statinfo" string="Members"/>
+                </button>
+                <button name="action_dental_view_benefits" type="object" class="oe_stat_button" icon="fa-gift"
+                        invisible="not is_dental_subscription or not dental_benefit_ids">
+                    <span class="o_stat_text">Benefits</span>
+                </button>
+            </xpath>
+            <xpath expr="//page[@name='order_lines']" position="after">
+                <page name="dental_membership" string="Dental Membership" invisible="not dental_subscription_type">
+                    <group>
+                        <group string="Membership">
+                            <field name="dental_subscription_type" readonly="1"/>
+                            <field name="dental_max_members" readonly="1"/>
+                            <field name="dental_benefit_status" readonly="1" invisible="state != 'sale'"/>
+                        </group>
+                        <group string="Payments" invisible="state != 'sale'">
+                            <field name="dental_payment_status" widget="badge"
+                                   decoration-success="dental_payment_status == 'paid'"
+                                   decoration-warning="dental_payment_status in ('due', 'draft')"
+                                   decoration-danger="dental_payment_status == 'overdue'"/>
+                            <field name="dental_amount_due" widget="monetary"/>
+                            <field name="dental_amount_overdue" widget="monetary" invisible="not dental_amount_overdue"/>
+                            <field name="dental_overdue_since" invisible="not dental_overdue_since"/>
+                            <field name="dental_overdue_reminder_date" invisible="not dental_overdue_reminder_date"/>
+                            <field name="dental_expiry_reminder_date" invisible="not dental_expiry_reminder_date"/>
+                        </group>
+                    </group>
+                    <group string="Orthodontic Installments" invisible="dental_subscription_type != 'installment'">
+                        <group>
+                            <field name="dental_treatment_plan_id" options="{'no_create': True}"
+                                   readonly="state == 'sale'"
+                                   domain="[('patient_id', 'in', dental_member_ids), ('state', 'not in', ('draft', 'cancelled'))]"/>
+                            <field name="dental_installment_count" readonly="state == 'sale'"/>
+                        </group>
+                        <group>
+                            <field name="dental_installment_total" widget="monetary" readonly="state == 'sale'"/>
+                            <field name="dental_installments_billed" invisible="state != 'sale'"/>
+                        </group>
+                    </group>
+                    <separator string="Covered Members"/>
+                    <!-- Existing patients only: no creation from here, so no duplicate patient records -->
+                    <field name="dental_member_ids" options="{'no_create': True}"
+                           readonly="state == 'cancel' or subscription_state in ('5_renewed', '6_churn')">
+                        <list>
+                            <field name="dental_patient_id"/>
+                            <field name="name"/>
+                            <field name="phone"/>
+                            <field name="age"/>
+                            <field name="gender" optional="show"/>
+                        </list>
+                    </field>
+                    <separator string="Benefits" invisible="not dental_benefit_ids"/>
+                    <field name="dental_benefit_ids" invisible="not dental_benefit_ids" readonly="1">
+                        <list>
+                            <field name="name"/>
+                            <field name="benefit_type"/>
+                            <field name="discount" invisible="benefit_type != 'discount'"/>
+                            <field name="quantity_limit" string="Allowed"/>
+                            <field name="limit_period"/>
+                            <field name="used_qty"/>
+                            <field name="is_unlimited" column_invisible="1"/>
+                            <field name="remaining_qty" invisible="is_unlimited"/>
+                            <button name="action_view_usage" type="object" icon="fa-list" title="Usage"/>
+                        </list>
+                    </field>
+                    <div invisible="state != 'sale' or dental_benefit_ids or dental_subscription_type == 'installment'" class="text-muted">
+                        No benefits on this subscription.
+                    </div>
+                    <button name="action_dental_reload_benefits" type="object" string="Reload Benefits from Product"
+                            class="btn-link" icon="fa-refresh" groups="dental_subscription.group_membership_manager"
+                            invisible="state != 'sale' or dental_subscription_type == 'installment'"
+                            confirm="Replace the benefits of this subscription with the current rules of its product? Only possible while no benefit has been used."/>
+                </page>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_dental_subscription_list" model="ir.ui.view">
+        <field name="name">sale.order.dental.subscription.list</field>
+        <field name="model">sale.order</field>
+        <field name="priority">40</field>
+        <field name="arch" type="xml">
+            <list string="Dental Subscriptions" sample="1">
+                <field name="currency_id" column_invisible="1"/>
+                <field name="name" string="Number" decoration-bf="1"/>
+                <field name="partner_id" string="Subscriber"/>
+                <field name="dental_subscription_type" string="Type"/>
+                <field name="dental_member_count" string="Members"/>
+                <field name="plan_id" string="Plan"/>
+                <field name="recurring_total" string="Recurring" widget="monetary" sum="Total"/>
+                <field name="recurring_monthly" string="MRR" widget="monetary" sum="Total MRR" optional="show"/>
+                <field name="start_date" optional="hide"/>
+                <field name="next_invoice_date" string="Next Invoice"/>
+                <field name="end_date" optional="show"/>
+                <field name="dental_payment_status" string="Payment" widget="badge"
+                       decoration-success="dental_payment_status == 'paid'"
+                       decoration-warning="dental_payment_status in ('due', 'draft')"
+                       decoration-danger="dental_payment_status == 'overdue'"/>
+                <field name="company_id" string="Branch" groups="base.group_multi_company" optional="show"/>
+                <field name="user_id" widget="many2one_avatar_user" optional="hide"/>
+                <field name="activity_ids" widget="list_activity" optional="show"/>
+                <field name="subscription_state" string="Status" widget="badge"
+                       decoration-danger="subscription_state == '6_churn'"
+                       decoration-success="subscription_state == '3_progress'"
+                       decoration-info="subscription_state in ('draft', 'sent')"
+                       decoration-warning="subscription_state == '5_renew'"
+                       decoration-muted="subscription_state in ('4_paused', '5_renewed')"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_sale_subscription_search_dental" model="ir.ui.view">
+        <field name="name">sale.subscription.search.dental</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="hudson_subscriptions.view_sale_subscription_search"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='partner_id']" position="after">
+                <field name="dental_member_ids" string="Covered Patient"/>
+                <field name="dental_treatment_plan_id"/>
+            </xpath>
+            <xpath expr="//filter[@name='filter_in_progress']" position="before">
+                <filter string="Memberships" name="filter_dental_membership"
+                        domain="[('dental_subscription_type', 'in', ('membership', 'family'))]"/>
+                <filter string="Care Packages" name="filter_dental_packages"
+                        domain="[('dental_subscription_type', 'in', ('preventive', 'maintenance'))]"/>
+                <filter string="Installment Plans" name="filter_dental_installment"
+                        domain="[('dental_subscription_type', '=', 'installment')]"/>
+                <filter string="Expiring in 30 Days" name="filter_dental_expiring"
+                        domain="[('end_date', '&gt;=', context_today().strftime('%Y-%m-%d')), ('end_date', '&lt;=', (context_today() + relativedelta(days=30)).strftime('%Y-%m-%d')), ('subscription_state', 'in', ('3_progress', '4_paused', '5_renew'))]"/>
+                <separator/>
+            </xpath>
+            <xpath expr="//filter[@name='group_by_plan']" position="after">
+                <filter string="Dental Type" name="group_by_dental_type" context="{'group_by': 'dental_subscription_type'}"/>
+                <filter string="Branch" name="group_by_company" context="{'group_by': 'company_id'}"/>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="action_dental_subscriptions" model="ir.actions.act_window">
+        <field name="name">Memberships &amp; Plans</field>
+        <field name="res_model">sale.order</field>
+        <field name="view_mode">list,kanban,form,pivot,graph,activity</field>
+        <field name="search_view_id" ref="hudson_subscriptions.view_sale_subscription_search"/>
+        <field name="domain">[('is_dental_subscription', '=', True)]</field>
+        <field name="context">{'default_is_subscription': True, 'search_default_filter_in_progress': 1, 'search_default_filter_paused': 1}</field>
+        <field name="view_ids" eval="[(5, 0, 0),
+            (0, 0, {'view_mode': 'list', 'view_id': ref('view_dental_subscription_list')}),
+            (0, 0, {'view_mode': 'kanban', 'view_id': ref('hudson_subscriptions.view_sale_subscription_kanban')}),
+            (0, 0, {'view_mode': 'pivot', 'view_id': ref('hudson_subscriptions.view_sale_subscription_pivot')}),
+            (0, 0, {'view_mode': 'graph', 'view_id': ref('hudson_subscriptions.view_sale_subscription_graph')}),
+            (0, 0, {'view_mode': 'activity', 'view_id': ref('hudson_subscriptions.view_sale_subscription_activity')})]"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Sell a dental membership or care package</p>
+            <p>Add a membership product to a new subscription, choose its covered patients and confirm it.
+               Recurring invoices, renewals and reminders then run automatically.</p>
+        </field>
+    </record>
+
+    <record id="action_dental_subscription_quotations" model="ir.actions.act_window">
+        <field name="name">Membership Quotations</field>
+        <field name="res_model">sale.order</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="hudson_subscriptions.view_sale_subscription_search"/>
+        <field name="domain">[('is_subscription', '=', True), ('state', 'in', ('draft', 'sent')), '|', ('is_dental_subscription', '=', True), ('order_line', '=', False)]</field>
+        <field name="context">{'default_is_subscription': True}</field>
+        <field name="view_ids" eval="[(5, 0, 0), (0, 0, {'view_mode': 'list', 'view_id': ref('view_dental_subscription_list')})]"/>
+    </record>
+
+    <record id="action_dental_subscriptions_to_renew" model="ir.actions.act_window">
+        <field name="name">To Renew</field>
+        <field name="res_model">sale.order</field>
+        <field name="view_mode">list,form,activity</field>
+        <field name="search_view_id" ref="hudson_subscriptions.view_sale_subscription_search"/>
+        <field name="domain">[('is_dental_subscription', '=', True), ('state', '=', 'sale'), '|', ('subscription_state', '=', '5_renew'), '&amp;', ('subscription_state', 'in', ('3_progress', '4_paused')), ('end_date', '!=', False)]</field>
+        <field name="context">{'default_is_subscription': True, 'search_default_filter_dental_expiring': 1}</field>
+        <field name="view_ids" eval="[(5, 0, 0), (0, 0, {'view_mode': 'list', 'view_id': ref('view_dental_subscription_list')})]"/>
+    </record>
+
+    <!-- Invoices of dental subscriptions (initial + recurring) -->
+    <record id="action_dental_subscription_invoices" model="ir.actions.act_window">
+        <field name="name">Membership Invoices</field>
+        <field name="res_model">account.move</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[('move_type', '=', 'out_invoice'), '|', ('subscription_order_id.is_dental_subscription', '=', True), ('invoice_line_ids.sale_line_ids.order_id.is_dental_subscription', '=', True)]</field>
+        <field name="context">{'default_move_type': 'out_invoice', 'create': False}</field>
+    </record>
+</odoo>

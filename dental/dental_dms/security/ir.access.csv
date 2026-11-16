@@ -1,0 +1,7 @@
+id,name,model_id:id,group_id:id,operation,domain
+access_dental_dms_upload_wizard_user,dental.dms.upload.wizard.user,model_dental_dms_upload_wizard,base.group_user,crud,"[('create_uid', '=', user.id)]"
+dental_dms_file_case_privacy,DMS file: dental case privacy,dms.model_dms_file,,rud,"['|', ('dental_case_id', '=', False), ('dental_case_id', 'access', 'read')]"
+dental_dms_file_examination_privacy,DMS file: consultation privacy,dms.model_dms_file,,rud,"['|', ('dental_examination_id', '=', False), ('dental_examination_id', 'access', 'read')]"
+dental_dms_file_plan_privacy,DMS file: treatment plan privacy,dms.model_dms_file,,rud,"['|', ('dental_treatment_plan_id', '=', False), ('dental_treatment_plan_id', 'access', 'read')]"
+dental_dms_file_appointment_privacy,DMS file: appointment privacy,dms.model_dms_file,,rud,"['|', ('dental_appointment_id', '=', False), ('dental_appointment_id', 'access', 'read')]"
+dental_dms_file_employee_privacy,DMS file: staff document privacy,dms.model_dms_file,,rud,"['|', ('dental_employee_id', '=', False), ('dental_employee_id', 'access', 'read')]"

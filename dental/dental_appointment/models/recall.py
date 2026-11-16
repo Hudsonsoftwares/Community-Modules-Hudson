@@ -1,4 +1,4 @@
-from odoo import models, fields
+from odoo import models, fields, api
 
 class DentalRecallRule(models.Model):
     _name = 'dental.recall.rule'
@@ -17,11 +17,15 @@ class DentalRecallRule(models.Model):
 class DentalRecall(models.Model):
     _name = 'dental.recall'
     _description = 'Dental Recall'
-    _inherit = ['mail.thread', 'mail.activity.mixin']
+    _inherit = ['mail.thread', 'mail.activity.mixin', 'dental.company.mixin']
 
     patient_id = fields.Many2one('res.partner', string='Patient', required=True, domain=[('is_dental_patient', '=', True)])
-    treatment_id = fields.Many2one('product.template', string='Treatment', domain=[('is_dental_treatment', '=', True)])
-    last_appointment_id = fields.Many2one('dental.appointment', string='Last Appointment')
+    treatment_id = fields.Many2one('product.template', string='Treatment', domain=[('is_dental_treatment', '=', True)], check_company=True)
+    last_appointment_id = fields.Many2one('dental.appointment', string='Last Appointment', check_company=True)
+
+    @api.depends('last_appointment_id.company_id')
+    def _compute_company_id(self):
+        self._set_company_from('last_appointment_id')
     due_date = fields.Date(string='Due Date', required=True)
     state = fields.Selection([
         ('pending', 'Pending'),

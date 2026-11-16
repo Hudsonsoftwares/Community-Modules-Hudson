@@ -21,14 +21,39 @@
             background: $gray-100;
         }
     }
+    .o_fs_map_notices {
+        z-index: 500; // above the Leaflet panes, below its controls' popups
+        pointer-events: none;
+        > * {
+            pointer-events: auto;
+        }
+    }
     .o_fs_map_record {
         cursor: pointer;
-        &:hover {
+        &:hover,
+        &.o_fs_map_record_hover {
             background: $gray-100;
         }
         &.o_fs_map_unlocated {
             opacity: 0.6;
         }
+    }
+    .o_fs_map_route_summary,
+    .o_fs_map_leg_line {
+        cursor: pointer;
+        &:hover {
+            color: $body-color !important;
+        }
+    }
+    .o_fs_map_leg_line {
+        padding: 2px 0;
+    }
+    .o_fs_map_leg_selected .o_fs_map_leg_line {
+        color: $body-color !important;
+        font-weight: 600;
+    }
+    .o_fs_map_path {
+        font-size: 12px;
     }
     @include media-breakpoint-down(md) {
         .o_fs_map_body {
@@ -44,6 +69,22 @@
 }
 
 // Pins are added by Leaflet outside the component
+.o_fs_map_marker {
+    background: none;
+    border: none;
+    .o_fs_map_pin {
+        transition: transform 0.15s ease, opacity 0.15s ease;
+        transform-origin: 50% 50%;
+    }
+    &.o_fs_map_marker_active .o_fs_map_pin {
+        transform: rotate(-45deg) scale(1.35);
+        box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.9), 0 4px 14px rgba(0, 0, 0, 0.45);
+    }
+    &.o_fs_map_marker_dim .o_fs_map_pin {
+        opacity: 0.35;
+    }
+}
+
 .o_fs_map_pin {
     width: 30px;
     height: 30px;

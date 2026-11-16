@@ -3,14 +3,12 @@
 import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
 import { Component, onWillStart, onMounted, onWillUnmount, proxy } from "@odoo/owl";
-import { user } from "@web/core/user";
 
 export class ReceptionistDashboard extends Component {
     setup() {
         this.orm = useService("orm");
         this.action = useService("action");
         this.notification = useService("notification");
-        this.userName = user.name || "Receptionist";
 
         this.state = proxy({
             loading: true,
@@ -29,13 +27,20 @@ export class ReceptionistDashboard extends Component {
                 crm_converted_appointments: 0,
             },
             queue_list: [],
+            canStartConsultation: false,
             timeline_list: [],
             doctors_availability: [],
             crm_enquiries: [],
             crm_source_breakdown: {},
             unavailable_equipment: [],
+            scrapped_equipment: [],
+            maintenance_equipment: [],
+            showEquipmentAlerts: false,
             enquiryFilter: "all",
             searchQuery: "",
+            patientResults: [],
+            patientSearching: false,
+            showPatientResults: false,
             statusFilter: "all",
             greeting: "Good Morning!",
             currentTimeStr: "",
@@ -58,12 +63,42 @@ export class ReceptionistDashboard extends Component {
                 }
             };
             window.addEventListener("keydown", this.handleKeyDown);
+            // Close the maintenance alerts popover when clicking outside it
+            this.handleOutsideAlertClick = (e) => {
+                if (this.state.showEquipmentAlerts && !e.target.closest(".equip-alert-box-wrap")) {
+                    this.state.showEquipmentAlerts = false;
+                }
+            };
+            document.addEventListener("mousedown", this.handleOutsideAlertClick);
         });
 
         onWillUnmount(() => {
             if (this.clockInterval) clearInterval(this.clockInterval);
+            if (this.searchTimer) clearTimeout(this.searchTimer);
             if (this.handleKeyDown) window.removeEventListener("keydown", this.handleKeyDown);
+            if (this.handleOutsideAlertClick) document.removeEventListener("mousedown", this.handleOutsideAlertClick);
         });
+    }
+
+    /** Unavailable equipment not already listed as scrapped or under maintenance. */
+    get otherUnavailableEquipment() {
+        const known = new Set([
+            ...(this.state.scrapped_equipment || []).map((e) => e.id),
+            ...(this.state.maintenance_equipment || []).map((e) => e.id),
+        ]);
+        return (this.state.unavailable_equipment || []).filter((e) => !known.has(e.id));
+    }
+
+    get equipmentAlertCount() {
+        return (
+            (this.state.scrapped_equipment || []).length +
+            (this.state.maintenance_equipment || []).length +
+            this.otherUnavailableEquipment.length
+        );
+    }
+
+    toggleEquipmentAlerts() {
+        this.state.showEquipmentAlerts = !this.state.showEquipmentAlerts;
     }
 
     updateClock() {
@@ -95,6 +130,8 @@ export class ReceptionistDashboard extends Component {
                 if (res.stats) {
                     Object.assign(this.state.stats, res.stats);
                 }
+                this.state.canStartConsultation = Boolean(res.can_start_consultation);
+                this.state.canCheckIn = Boolean(res.can_check_in);
                 if (res.queue_list) {
                     this.state.queue_list = res.queue_list;
                 }
@@ -112,6 +149,12 @@ export class ReceptionistDashboard extends Component {
                 }
                 if (res.unavailable_equipment) {
                     this.state.unavailable_equipment = res.unavailable_equipment;
+                }
+                if (res.scrapped_equipment) {
+                    this.state.scrapped_equipment = res.scrapped_equipment;
+                }
+                if (res.maintenance_equipment) {
+                    this.state.maintenance_equipment = res.maintenance_equipment;
                 }
             }
         } catch (err) {
@@ -183,6 +226,101 @@ export class ReceptionistDashboard extends Component {
 
     onSearchChange(ev) {
         this.state.searchQuery = ev.target.value;
+        this.state.showPatientResults = true;
+        if (this.searchTimer) clearTimeout(this.searchTimer);
+        const term = this.state.searchQuery.trim();
+        if (term.length < 2) {
+            this.state.patientResults = [];
+            this.state.patientSearching = false;
+            return;
+        }
+        this.state.patientSearching = true;
+        this.searchTimer = setTimeout(() => this.searchPatients(term), 250);
+    }
+
+    /** Look up registered patients (name, phone, email, Patient ID) across the whole clinic. */
+    async searchPatients(term) {
+        try {
+            const results = await this.orm.call("dental.appointment", "search_booking_patients", [term], { limit: 8 });
+            // Ignore responses for an outdated query
+            if (term === this.state.searchQuery.trim()) {
+                this.state.patientResults = results || [];
+            }
+        } catch (e) {
+            console.error("Patient search failed:", e);
+            this.state.patientResults = [];
+        } finally {
+            if (term === this.state.searchQuery.trim()) {
+                this.state.patientSearching = false;
+            }
+        }
+    }
+
+    onSearchKeyDown(ev) {
+        if (ev.key === "Escape") {
+            this.state.showPatientResults = false;
+            ev.target.blur();
+        } else if (ev.key === "Enter") {
+            ev.preventDefault();
+            const results = this.state.patientResults;
+            if (results.length === 1) {
+                this.openPatient(results[0].id);
+            } else if (this.state.searchQuery.trim()) {
+                this.openPatientSearchList();
+            }
+        }
+    }
+
+    onSearchFocus() {
+        this.state.showPatientResults = true;
+    }
+
+    onSearchBlur() {
+        // Delay so a click on a result registers before the dropdown closes
+        setTimeout(() => {
+            this.state.showPatientResults = false;
+        }, 200);
+    }
+
+    clearSearch() {
+        this.state.searchQuery = "";
+        this.state.patientResults = [];
+        this.state.patientSearching = false;
+    }
+
+    openPatient(patientId) {
+        this.state.showPatientResults = false;
+        this.openRecord("res.partner", patientId);
+    }
+
+    printPatientIdCard(patientId) {
+        this.state.showPatientResults = false;
+        this.action.doAction("dental_patient.action_report_dental_patient_id_card", {
+            additionalContext: { active_ids: [patientId], active_id: patientId },
+            resIds: [patientId],
+        });
+    }
+
+    openPatientSearchList() {
+        const term = this.state.searchQuery.trim();
+        this.state.showPatientResults = false;
+        const domain = [["is_dental_patient", "=", true]];
+        if (term) {
+            domain.push("|", "|", "|",
+                ["name", "ilike", term],
+                ["phone", "ilike", term],
+                ["email", "ilike", term],
+                ["dental_patient_id", "ilike", term]);
+        }
+        this.action.doAction({
+            name: "Patients",
+            type: "ir.actions.act_window",
+            res_model: "res.partner",
+            views: [[false, "list"], [false, "form"]],
+            domain,
+            context: { default_is_dental_patient: true },
+            target: "current",
+        });
     }
 
     onStatusFilterChange(ev) {
@@ -216,6 +354,16 @@ export class ReceptionistDashboard extends Component {
         } catch (e) {
             console.error(e);
         }
+    }
+
+    openAppointment(id) {
+        this.action.doAction({
+            type: "ir.actions.act_window",
+            res_model: "dental.appointment",
+            res_id: id,
+            views: [[false, "form"]],
+            target: "current",
+        });
     }
 
     async startVisit(id) {
@@ -261,6 +409,12 @@ export class ReceptionistDashboard extends Component {
 
     openWaitingQueue() {
         this.action.doAction("dental_core.action_dental_waiting_queue_board");
+    }
+
+    openCheckedInPatients() {
+        this.action.doAction("dental_core.action_reception_checked_in", {
+            viewType: "list",
+        });
     }
 
     openTodaysAppointments() {
@@ -389,6 +543,41 @@ export class ReceptionistDashboard extends Component {
 
     openUnavailableEquipmentList() {
         this.action.doAction("dental_core.action_reception_unavailable_equipment");
+    }
+
+    openScrappedEquipmentList() {
+        this.action.doAction("dental_core.action_reception_scrapped_equipment");
+    }
+
+    openAffectedAppointments() {
+        this.action.doAction("dental_core.action_reception_affected_appointments");
+    }
+
+    openReassignAppointments() {
+        this.action.doAction({
+            name: "Reassign Operatory / Appointments",
+            type: "ir.actions.act_window",
+            res_model: "dental.appointment",
+            views: [[false, "calendar"], [false, "list"], [false, "form"]],
+            domain: [["has_equipment_conflict", "=", true]],
+        });
+    }
+
+    async openEndOfDaySummary() {
+        try {
+            const action = await this.orm.call("dental.payment.summary", "action_open_or_create_today", []);
+            if (action && typeof action === "object") {
+                if (!action.views && action.view_mode) {
+                    action.views = action.view_mode.split(",").map((m) => [false, m.trim()]);
+                }
+                await this.action.doAction(action);
+            }
+        } catch (e) {
+            console.error("Failed to open End of Day Summary:", e);
+            if (this.notification) {
+                this.notification.add(e.message || "Failed to open End of Day Summary", { type: "danger" });
+            }
+        }
     }
 }
 

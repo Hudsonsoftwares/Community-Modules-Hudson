@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="hr_activity_app_view_list" model="ir.ui.view">
+        <field name="name">hr.activity.app.list</field>
+        <field name="model">hr.activity.app</field>
+        <field name="arch" type="xml">
+            <list string="Applications" editable="bottom" create="0">
+                <field name="name"/>
+                <field name="process"/>
+                <field name="category" widget="badge"
+                       decoration-success="category == 'productive'"
+                       decoration-danger="category == 'unproductive'"/>
+                <field name="active" widget="boolean_toggle" optional="hide"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="hr_activity_app_view_search" model="ir.ui.view">
+        <field name="name">hr.activity.app.search</field>
+        <field name="model">hr.activity.app</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name"/>
+                <field name="process"/>
+                <filter name="productive" string="Productive" domain="[('category', '=', 'productive')]"/>
+                <filter name="neutral" string="Neutral" domain="[('category', '=', 'neutral')]"/>
+                <filter name="unproductive" string="Unproductive" domain="[('category', '=', 'unproductive')]"/>
+                <separator/>
+                <filter name="archived" string="Archived" domain="[('active', '=', False)]"/>
+                <group>
+                    <filter name="group_category" string="Category" context="{'group_by': 'category'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_hr_activity_app" model="ir.actions.act_window">
+        <field name="name">Applications</field>
+        <field name="res_model">hr.activity.app</field>
+        <field name="view_mode">list</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Applications appear here automatically</p>
+            <p>Mark them Productive or Unproductive to get productivity percentages.</p>
+        </field>
+    </record>
+</odoo>

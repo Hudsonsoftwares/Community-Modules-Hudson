@@ -2,6 +2,7 @@
 import json
 import time
 import traceback
+# pyrefly: ignore [missing-import]
 from odoo import fields
 
 
@@ -29,8 +30,11 @@ class StatutoryAuditSession:
         self.enabled = False
 
     def __enter__(self):
+        if self.env.context.get('no_statutory_audit'):
+            self.enabled = False
+            return self
         company = (self.payslip.company_id if self.payslip and hasattr(self.payslip, 'company_id') else None) or self.env.company
-        self.enabled = bool(company and company.hds_in_enable_statutory_audit)
+        self.enabled = bool(not company or getattr(company, 'hds_in_enable_statutory_audit', True))
         if self.enabled:
             self.start_time = time.time()
         return self
@@ -87,6 +91,7 @@ class StatutoryAuditSession:
                 'company_id': company_id,
                 'employee_id': employee_id,
                 'payslip_id': payslip_id,
+                'user_id': self.env.uid,
                 'statutory_module': self.statutory_module,
                 'calculation_type': self.calculation_type,
                 'rule_code': self.rule_code,

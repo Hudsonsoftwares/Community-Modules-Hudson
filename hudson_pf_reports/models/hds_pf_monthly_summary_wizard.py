@@ -3,10 +3,12 @@ import base64
 import calendar
 import io
 from datetime import date
-from odoo import api, fields, models, _
-from odoo.exceptions import UserError
+# pyrefly: ignore [missing-import]
+# pyrefly: ignore [missing-import]
+from odoo import api, fields, models
 
 try:
+    # pyrefly: ignore [missing-import]
     import xlsxwriter
 except ImportError:
     xlsxwriter = None
@@ -103,15 +105,33 @@ class HdsPfMonthlySummaryWizard(models.TransientModel):
         if xlsxwriter:
             workbook = xlsxwriter.Workbook(output, {'in_memory': True})
             sheet = workbook.add_worksheet('Monthly PF Summary')
+            sheet.set_column(0, 0, 16)  # Month
+            sheet.set_column(1, 1, 14)  # Headcount
+            sheet.set_column(2, 2, 20)  # Total PF Wages
+            sheet.set_column(3, 3, 18)  # Employee EPF
+            sheet.set_column(4, 4, 18)  # Employer EPF
+            sheet.set_column(5, 5, 18)  # Employer EPS
+            sheet.set_column(6, 6, 16)  # EDLI
+            sheet.set_column(7, 7, 20)  # PF Admin Charges
+            sheet.set_column(8, 8, 22)  # Total Employer Cost
 
             title_fmt = workbook.add_format({'bold': True, 'font_size': 14})
-            header_fmt = workbook.add_format({'bold': True, 'bg_color': '#1F4E78', 'font_color': '#FFFFFF', 'border': 1})
-            num_fmt = workbook.add_format({'num_format': '#,##0.00', 'border': 1})
-            text_fmt = workbook.add_format({'border': 1})
-            total_fmt = workbook.add_format({'bold': True, 'num_format': '#,##0.00', 'bg_color': '#D9E1F2', 'border': 1})
+            header_fmt = workbook.add_format({
+                'bold': True,
+                'bg_color': '#1F4E78',
+                'font_color': '#FFFFFF',
+                'border': 1,
+                'align': 'center',
+                'valign': 'vcenter',
+                'text_wrap': True,
+            })
+            num_fmt = workbook.add_format({'num_format': '#,##0.00', 'border': 1, 'align': 'right', 'valign': 'vcenter'})
+            text_fmt = workbook.add_format({'border': 1, 'align': 'center', 'valign': 'vcenter'})
+            total_fmt = workbook.add_format({'bold': True, 'num_format': '#,##0.00', 'bg_color': '#D9E1F2', 'border': 1, 'align': 'right', 'valign': 'vcenter'})
 
             sheet.write(0, 0, f"ANNUAL MONTHLY PF SUMMARY — {year} ({self.company_id.name})", title_fmt)
 
+            sheet.set_row(2, 26)
             headers = [
                 'Month', 'Headcount', 'Total PF Wages', 'Employee EPF',
                 'Employer EPF', 'Employer EPS', 'EDLI', 'PF Admin Charges', 'Total Employer Cost'
@@ -147,16 +167,21 @@ class HdsPfMonthlySummaryWizard(models.TransientModel):
         else:
             xlsx_content = b"Excel export requires xlsxwriter library."
 
+        try:
+            # pyrefly: ignore [missing-import]
+            from odoo.tools import BinaryBytes
+            file_data = BinaryBytes(xlsx_content, filename=xlsx_filename)
+        except Exception:
+            file_data = base64.b64encode(xlsx_content).decode('utf-8')
+
         self.write({
             'state': 'generated',
-            'xlsx_file': base64.b64encode(xlsx_content),
+            'xlsx_file': file_data,
             'xlsx_filename': xlsx_filename,
         })
 
         return {
-            'type': 'ir.actions.act_window',
-            'res_model': self._name,
-            'res_id': self.id,
-            'view_mode': 'form',
-            'target': 'current',
+            'type': 'ir.actions.act_url',
+            'url': f'/web/content/?model={self._name}&id={self.id}&field=xlsx_file&filename_field=xlsx_filename&download=true',
+            'target': 'self',
         }

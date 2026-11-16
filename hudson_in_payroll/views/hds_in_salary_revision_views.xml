@@ -12,7 +12,8 @@
                 <field name="name"/>
                 <field name="effective_date" optional="show"/>
                 <field name="employee_id"/>
-                <field name="contract_id" optional="hide"/>
+                <field name="employee_code" optional="show"/>
+                <field name="contract_id" string="Employee Record" optional="show"/>
                 <field name="revision_type" widget="badge" optional="show"/>
                 <field name="old_wage" widget="monetary" optional="show"/>
                 <field name="new_wage" widget="monetary" optional="show"/>
@@ -20,7 +21,7 @@
                 <field name="old_employer_cost_monthly" widget="monetary" optional="hide"/>
                 <field name="new_employer_cost_monthly" widget="monetary" optional="show"/>
                 <field name="state" widget="badge" decoration-success="state == 'approved'" decoration-muted="state == 'draft'" decoration-danger="state == 'cancelled'" optional="show"/>
-                <field name="company_id" groups="base.group_multi_company" optional="hide"/>
+                <field name="company_id" groups="base.group_multi_company" optional="show"/>
             </list>
         </field>
     </record>
@@ -45,6 +46,7 @@
                         </h1>
                         <h2>
                             <field name="employee_id" readonly="1"/>
+                            <span class="text-muted ms-2" invisible="not employee_code">(<field name="employee_code" readonly="1" class="d-inline"/>)</span>
                         </h2>
                     </div>
 
@@ -61,6 +63,7 @@
                             <field name="computation_type" readonly="1"/>
                             <field name="increase_percentage" invisible="computation_type != 'percentage'" readonly="1"/>
                             <field name="increase_amount" invisible="computation_type != 'fixed_amount'" readonly="1"/>
+                            <field name="extra_amount" invisible="not extra_amount" readonly="1"/>
                         </group>
                     </group>
 
@@ -172,11 +175,40 @@
         </field>
     </record>
 
+    <!-- Search View for Salary Revision History -->
+    <record id="hds_in_salary_revision_view_search" model="ir.ui.view">
+        <field name="name">hds.in.salary.revision.view.search</field>
+        <field name="model">hds.in.salary.revision</field>
+        <field name="arch" type="xml">
+            <search string="Search Salary Revisions">
+                <field name="name"/>
+                <field name="employee_id"/>
+                <field name="employee_code"/>
+                <field name="contract_id"/>
+                <field name="company_id" groups="base.group_multi_company"/>
+                <filter string="Approved" name="approved" domain="[('state', '=', 'approved')]"/>
+                <filter string="Draft" name="draft" domain="[('state', '=', 'draft')]"/>
+                <filter string="Cancelled" name="cancelled" domain="[('state', '=', 'cancelled')]"/>
+                <separator/>
+                <filter string="Annual Increment" name="increment" domain="[('revision_type', '=', 'annual_increment')]"/>
+                <filter string="Promotion" name="promotion" domain="[('revision_type', '=', 'promotion')]"/>
+                <group>
+                    <filter string="Employee" name="group_by_employee" context="{'group_by': 'employee_id'}"/>
+                    <filter string="Company" name="group_by_company" context="{'group_by': 'company_id'}" groups="base.group_multi_company"/>
+                    <filter string="Status" name="group_by_state" context="{'group_by': 'state'}"/>
+                    <filter string="Revision Type" name="group_by_revision_type" context="{'group_by': 'revision_type'}"/>
+                    <filter string="Effective Date" name="group_by_date" context="{'group_by': 'effective_date'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
     <!-- Action Window for Salary Revision History -->
     <record id="action_hds_in_salary_revision_history" model="ir.actions.act_window">
         <field name="name">Salary Revision History</field>
         <field name="res_model">hds.in.salary.revision</field>
         <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="hds_in_salary_revision_view_search"/>
         <field name="help" type="html">
             <p class="o_view_nocontent_smiling_face">
                 No Salary Revisions Found!

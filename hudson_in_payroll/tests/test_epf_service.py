@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
+# pyrefly: ignore [missing-import]
 from odoo.tests.common import TransactionCase
-from odoo.exceptions import ValidationError, UserError
+# pyrefly: ignore [missing-import]
+from odoo.exceptions import UserError
 from ..services.epf.epf_service import EPFService
 
 
@@ -22,7 +24,7 @@ class TestEPFService(TransactionCase):
         })
 
     def test_01_wage_below_ceiling(self):
-        """Wage = ₹10,000 (< ₹15,000 ceiling). EPF = 1200, EPS = 833, ER EPF = 367."""
+        """Wage = ₹10,000 (< ₹25,000 ceiling). EPF = 1200, EPS = 833, ER EPF = 367."""
         service = EPFService(self.env)
         pf_wage = 10000.0
         localdict = {'rules': {'BASIC': {'total': pf_wage}}}
@@ -31,12 +33,12 @@ class TestEPFService(TransactionCase):
         self.assertEqual(basis_wage, 10000.0)
 
     def test_02_wage_above_ceiling(self):
-        """Wage = ₹25,000 (> ₹15,000 ceiling). Capped at 15000."""
+        """Wage = ₹30,000 (> ₹25,000 ceiling). Capped at 25000."""
         service = EPFService(self.env)
-        localdict = {'rules': {'BASIC': {'total': 25000.0}}}
+        localdict = {'rules': {'BASIC': {'total': 30000.0}}}
         
         basis_wage = service.wage_calc.get_pf_contribution_wage(self.payslip, localdict=localdict)
-        self.assertEqual(basis_wage, 15000.0)
+        self.assertEqual(basis_wage, 25000.0)
 
     def test_03_international_worker(self):
         """IW = True disables ceiling cap."""
@@ -81,28 +83,29 @@ class TestEPFService(TransactionCase):
 
     def test_06_employer_epf_total_vs_share(self):
         """
-        Verifies Total Employer PF (12% = ₹2,040) vs Employer EPF Share (₹790).
-        PF Wage = ₹17,000 (actual_pf_wage basis)
+        Verifies Total Employer PF (12% = ₹3,600) vs Employer EPF Share (₹1,517).
+        PF Wage = ₹30,000 (actual_pf_wage basis, EPS capped at ₹25k ceiling)
         """
-        self.employee.hds_in_pf_contribution_basis = 'actual_basic'
-        localdict = {'rules': {'BASIC': {'total': 17000.0}}}
+        self.employee.hds_in_pf_contribution_basis = 'actual_pf_wage'
+        self.employee.hds_in_pf_employer_basis = 'actual_pf_wage'
+        localdict = {'rules': {'BASIC': {'total': 30000.0}}}
         service = EPFService(self.env, localdict=localdict)
 
         # Total 12% Employer PF Contribution
         total_pf = service.compute_employer_total_pf(self.payslip)
-        self.assertEqual(total_pf, 2040.0)
+        self.assertEqual(total_pf, 3600.0)
 
         # Employer EPF (12% of Contribution Wage)
         employer_epf = service.compute_employer_epf(self.payslip)
-        self.assertEqual(employer_epf, 2040.0)
+        self.assertEqual(employer_epf, 3600.0)
 
-        # Employer EPS (8.33% capped at 15k)
+        # Employer EPS (8.33% capped at 25k -> 25000 * 0.0833 = 2083.0)
         eps = service.compute_employer_eps(self.payslip)
-        self.assertEqual(eps, 1250.0)
+        self.assertEqual(eps, 2083.0)
 
-        # Employer EPF Share (2040 - 1250 = 790)
+        # Employer EPF Share (3600 - 2083 = 1517)
         epf_share = service.compute_employer_epf_share(self.payslip)
-        self.assertEqual(epf_share, 790.0)
+        self.assertEqual(epf_share, 1517.0)
 
     def test_07_compute_pf_wage_delegation(self):
         """Verifies compute_pf_wage delegates directly to get_actual_pf_wage."""

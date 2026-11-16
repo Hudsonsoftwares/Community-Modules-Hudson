@@ -14,10 +14,22 @@ class DentalCase(models.Model):
         compute='_compute_lab_order_count'
     )
 
+    history_lab_order_ids = fields.Many2many(
+        'dental.lab.order',
+        string='All Lab Orders',
+        compute='_compute_history_lab_order_ids',
+        help="The patient's lab orders across all cases, within the user's access rights."
+    )
+
     @api.depends('lab_order_ids')
     def _compute_lab_order_count(self):
         for record in self:
             record.lab_order_count = len(record.lab_order_ids)
+
+    def _compute_history_lab_order_ids(self):
+        for record in self:
+            record.history_lab_order_ids = self.env['dental.lab.order'].search(
+                [('patient_id', '=', record.patient_id.id)]) if record.patient_id else False
 
     def action_view_lab_orders(self):
         self.ensure_one()
@@ -47,6 +59,6 @@ class DentalCase(models.Model):
                 'default_case_id': self.id,
                 'default_patient_id': self.patient_id.id,
                 'default_dentist_id': self.doctor_id.id if self.doctor_id else False,
-                'default_appointment_id': self.appointment_id.id if self.appointment_id else False,
+                'default_appointment_id': (self.current_visit_id or self.appointment_id).id,
             }
         }

@@ -5,7 +5,23 @@
         <field name="model">dental.appointment</field>
         <field name="inherit_id" ref="dental_appointment.view_dental_appointment_form"/>
         <field name="arch" type="xml">
+            <xpath expr="//header/field[@name='state']" position="before">
+                <field name="has_draft_invoice" invisible="1"/>
+                <button name="action_create_invoice" string="Create Invoice" type="object" class="btn-primary"
+                        groups="dental_base.group_dental_receptionist,dental_base.group_dental_manager"
+                        invisible="billing_state != 'to_invoice' or has_draft_invoice"/>
+                <button name="action_create_invoice" string="Add to Invoice" type="object" class="btn-primary"
+                        groups="dental_base.group_dental_receptionist,dental_base.group_dental_manager"
+                        invisible="billing_state != 'to_invoice' or not has_draft_invoice"/>
+            </xpath>
             <div name="button_box" position="inside">
+                <button name="action_view_invoices" type="object" class="oe_stat_button" icon="fa-file-text-o"
+                        groups="dental_base.group_dental_receptionist,dental_base.group_dental_manager" invisible="invoice_count == 0">
+                    <div class="o_field_widget o_stat_info">
+                        <span class="o_stat_value"><field name="invoice_count"/> Invoice(s)</span>
+                        <span class="o_stat_text" invisible="not amount_due">Due: <field name="amount_due" widget="monetary" options="{'currency_field': 'billing_currency_id'}"/></span>
+                    </div>
+                </button>
                 <button name="action_open_clinical_case" type="object" class="oe_stat_button" icon="fa-stethoscope" invisible="state not in ('in_consultation', 'completed')">
                     <div class="o_field_widget o_stat_info">
                         <span class="o_stat_value">
@@ -17,6 +33,44 @@
             </div>
             <field name="treatment_id" position="after">
                 <field name="lead_id" readonly="1" invisible="not lead_id" options="{'no_create': True}"/>
+                <field name="case_id" string="Continues Case" options="{'no_create': True}"
+                       domain="[('patient_id', '=', patient_id), ('state', 'not in', ('cancelled',))]"
+                       groups="dental_base.group_dental_dentist,dental_base.group_dental_manager"
+                       readonly="state in ('completed', 'cancelled', 'no_show')"
+                       help="Leave empty: the patient's open case is continued automatically when the consultation starts."/>
+            </field>
+            <xpath expr="//header/field[@name='state']" position="before">
+                <field name="is_case_continuation" invisible="1"/>
+                <button name="action_new_clinical_case" string="Start New Case" type="object"
+                        groups="dental_base.group_dental_dentist,dental_base.group_dental_manager"
+                        invisible="state not in ('checked_in', 'in_consultation', 'completed') or (case_id and not is_case_continuation)"
+                        confirm="Open a separate case for an unrelated new problem? This visit will move out of its current case."/>
+            </xpath>
+            <field name="branch_id" position="after">
+                <field name="billing_currency_id" invisible="1"/>
+                <field name="billing_state" widget="badge" invisible="billing_state == 'nothing'"
+                       groups="dental_base.group_dental_receptionist,dental_base.group_dental_manager"
+                       decoration-info="billing_state == 'to_invoice'"
+                       decoration-warning="billing_state in ('draft', 'due')"
+                       decoration-success="billing_state == 'paid'"/>
+            </field>
+        </field>
+    </record>
+
+    <record id="view_dental_appointment_tree_inherit_billing" model="ir.ui.view">
+        <field name="name">dental.appointment.tree.inherit.billing</field>
+        <field name="model">dental.appointment</field>
+        <field name="inherit_id" ref="dental_appointment.view_dental_appointment_tree"/>
+        <field name="arch" type="xml">
+            <field name="state" position="after">
+                <field name="billing_state" widget="badge" optional="show"
+                       groups="dental_base.group_dental_receptionist,dental_base.group_dental_manager"
+                       decoration-info="billing_state == 'to_invoice'"
+                       decoration-warning="billing_state in ('draft', 'due')"
+                       decoration-success="billing_state == 'paid'"/>
+                <button name="action_create_invoice" string="Create Invoice" type="object" icon="fa-file-text-o" class="btn-link"
+                        groups="dental_base.group_dental_receptionist,dental_base.group_dental_manager"
+                        invisible="billing_state != 'to_invoice'"/>
             </field>
         </field>
     </record>

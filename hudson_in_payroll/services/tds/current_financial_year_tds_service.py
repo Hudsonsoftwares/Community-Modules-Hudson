@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import logging
+# pyrefly: ignore [missing-import]
 from odoo import fields
 from ..base import BaseStatutoryService
 
@@ -50,7 +51,7 @@ class CurrentFinancialYearTdsService(BaseStatutoryService):
         for slip in payslips:
             slip_tds = 0.0
             for line in slip.line_ids:
-                if (line.code or '').upper() in ('TDS', 'HDS_IN_TDS', 'INCOME_TAX'):
+                if (line.code or '').upper() in ('TDS', 'HDS_IN_TDS', 'INCOME_TAX', 'TDS_GRATUITY'):
                     slip_tds += abs(line.total or 0.0)
             _logger.warning("[80E_AUDIT] PREVIOUS_PAYSLIP: id=%s date_from=%s date_to=%s name=%s tds=%s",
                 slip.id, slip.date_from, slip.date_to, slip.name, slip_tds)

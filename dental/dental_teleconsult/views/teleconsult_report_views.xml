@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="dental_appointment_view_pivot_teleconsult" model="ir.ui.view">
+        <field name="name">dental.appointment.pivot.teleconsult</field>
+        <field name="model">dental.appointment</field>
+        <field name="priority">90</field>
+        <field name="arch" type="xml">
+            <pivot string="Online Consultations" sample="1">
+                <field name="doctor_id" type="row"/>
+                <field name="date_start" interval="month" type="col"/>
+                <field name="teleconsult_call_minutes" type="measure"/>
+                <field name="teleconsult_wait_minutes" type="measure"/>
+                <field name="teleconsult_fee_amount" type="measure"/>
+            </pivot>
+        </field>
+    </record>
+
+    <record id="dental_appointment_view_graph_teleconsult" model="ir.ui.view">
+        <field name="name">dental.appointment.graph.teleconsult</field>
+        <field name="model">dental.appointment</field>
+        <field name="priority">90</field>
+        <field name="arch" type="xml">
+            <graph string="Online Consultations" type="bar" sample="1">
+                <field name="date_start" interval="month"/>
+                <field name="teleconsult_outcome"/>
+            </graph>
+        </field>
+    </record>
+
+    <record id="dental_appointment_view_list_teleconsult_report" model="ir.ui.view">
+        <field name="name">dental.appointment.list.teleconsult.report</field>
+        <field name="model">dental.appointment</field>
+        <field name="priority">90</field>
+        <field name="arch" type="xml">
+            <list string="Online Consultations" create="0">
+                <field name="name"/>
+                <field name="date_start"/>
+                <field name="patient_id"/>
+                <field name="doctor_id"/>
+                <field name="branch_id" optional="show"/>
+                <field name="teleconsult_state" widget="badge"/>
+                <field name="teleconsult_outcome" optional="show"/>
+                <field name="teleconsult_wait_minutes" optional="show"/>
+                <field name="teleconsult_call_minutes" optional="show"/>
+                <field name="teleconsult_fee_amount" sum="Total" optional="show"/>
+                <field name="teleconsult_payment_state" widget="badge" optional="show"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="action_dental_teleconsult_report" model="ir.actions.act_window">
+        <field name="name">Online Consultations</field>
+        <field name="res_model">dental.appointment</field>
+        <field name="view_mode">graph,pivot,list,form</field>
+        <field name="domain">[('consultation_mode', '=', 'online')]</field>
+        <field name="context">{'create': False}</field>
+        <field name="view_ids" eval="[(5, 0, 0),
+            (0, 0, {'view_mode': 'graph', 'view_id': ref('dental_appointment_view_graph_teleconsult')}),
+            (0, 0, {'view_mode': 'pivot', 'view_id': ref('dental_appointment_view_pivot_teleconsult')}),
+            (0, 0, {'view_mode': 'list', 'view_id': ref('dental_appointment_view_list_teleconsult_report')})]"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">No online consultations yet</p>
+            <p>Volumes, outcomes, waiting and call times, and fees of online video consultations.</p>
+        </field>
+    </record>
+
+    <menuitem id="menu_dental_report_teleconsult"
+              name="Online Consultations"
+              parent="dental_core.menu_dental_reports_root"
+              action="action_dental_teleconsult_report"
+              sequence="55"/>
+</odoo>

@@ -293,7 +293,6 @@ class CrmLead(models.Model):
         # 2. Prepare Appointment Default Times
         start_time = self.preferred_date or fields.Datetime.now()
         end_time = start_time + timedelta(minutes=30)
-        default_type = self.env['dental.appointment.type'].search([('active', '=', True)], limit=1)
         branch = self.company_id or (getattr(patient, 'active_clinic_id', False) and patient.active_clinic_id) or self.env.company
 
         # 3. Mark in-progress / contacted if currently new
@@ -313,7 +312,6 @@ class CrmLead(models.Model):
                 'default_patient_id': patient.id,
                 'default_treatment_id': self.treatment_id.id if self.treatment_id else False,
                 'default_doctor_id': self.preferred_doctor_id.id if self.preferred_doctor_id else False,
-                'default_appointment_type_id': default_type.id if default_type else False,
                 'default_date_start': start_time,
                 'default_date_end': end_time,
                 'default_branch_id': branch.id,

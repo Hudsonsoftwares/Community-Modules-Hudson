@@ -4,7 +4,6 @@ from odoo.http import request
 from odoo.exceptions import UserError
 import math
 import requests
-import base64
 from datetime import datetime, timedelta
 
 class HrAttendanceEnhancement(HrAttendance):
@@ -53,104 +52,142 @@ class HrAttendanceEnhancement(HrAttendance):
                     )
 
     @staticmethod
-    def _get_user_attendance_data(employee):
-        res = HrAttendance._get_user_attendance_data(employee)
+    def _get_user_attendance_data(employee, include_attendance_details=False, include_attendance_settings=True):
+        res = HrAttendance._get_user_attendance_data(
+            employee,
+            include_attendance_details=include_attendance_details,
+            include_attendance_settings=include_attendance_settings,
+        )
         if employee:
             company = employee.company_id
-            if company.attendance_radius_punching or company.enable_work_from_home:
+            if include_attendance_settings and (company.attendance_radius_punching or company.enable_work_from_home):
                 res['device_tracking_enabled'] = True
-
-            # Work from home frontend telemetry configuration
-            res['is_wfh_employee'] = employee.is_wfh_employee
-            res['wfh_enabled'] = company.enable_work_from_home and employee.is_wfh_employee
+            # Work from home frontend telemetry configuration. The WFH fields are
+            # HR-only (groups), so read them as superuser for the employee's own data.
+            is_wfh = employee.sudo().is_wfh_employee
+            res['is_wfh_employee'] = is_wfh
+            res['wfh_enabled'] = company.enable_work_from_home and is_wfh
             res['wfh_interval'] = int(company.wfh_tracking_interval or 10)
         return res
 
-    def _inject_photo_and_action(self, employee, geo_ip_response, photo=False, wfh_data=None):
-        if not geo_ip_response:
-            geo_ip_response = {}
-        if photo:
-            if employee.attendance_state != 'checked_in':
-                geo_ip_response['photo'] = photo
-            else:
-                geo_ip_response['photo_out'] = photo
-        if wfh_data:
-            geo_ip_response.update(wfh_data)
+    @staticmethod
+    def _get_employee_info_response(employee):
+        res = HrAttendance._get_employee_info_response(employee)
+        if employee:
+            company = employee.company_id
+            # Kiosk PIN / confirmation screens pick the camera flag matching the
+            # employee's next action (see static/src/js/kiosk_patch.js).
+            res['capture_check_in_image'] = company.attendance_capture_check_in
+            res['capture_check_out_image'] = company.attendance_capture_check_out
+        return res
 
-        return employee.sudo()._attendance_action_change(geo_ip_response)
+    @http.route()
+    def open_kiosk_mode(self, token, from_trial_mode=False):
+        response = super().open_kiosk_mode(token, from_trial_mode=from_trial_mode)
+        company = self._get_company(token)
+        info = (getattr(response, 'qcontext', None) or {}).get('kiosk_backend_info')
+        if company and info is not None:
+            # The badge scanner screen does not know the employee yet: keep the
+            # camera on when either picture is required; the server then keeps
+            # the shot only for the enabled direction (_get_attendance_images).
+            info['capture_check_in_image'] = company.attendance_capture_check_in or company.attendance_capture_check_out
+        return response
 
-    @http.route('/hr_attendance/systray_check_in_out', type="jsonrpc", auth="user")
-    def systray_attendance(self, latitude=False, longitude=False, photo=False):
-        employee = request.env.user.employee_id
-        if not employee:
-            raise UserError(_("No employee associated with current user."))
-        
+    def _get_attendance_images(self, employee, image):
+        """Core sends the camera picture as ``check_in_image`` whatever the
+        direction; use it for the check-out when the employee is checked in."""
         company = employee.company_id
-        wfh_data = {}
+        if employee.attendance_state == 'checked_in':
+            return None, self._get_validated_check_in_image_and_type(image, company.attendance_capture_check_out)
+        return self._get_validated_check_in_image_and_type(image, company.attendance_capture_check_in), None
 
-        # 1. WFH Schedule & Geofence Verification
-        if company.enable_work_from_home and employee.is_wfh_employee:
-            allowed, reason = employee.is_wfh_allowed_today()
-            if not allowed:
-                raise UserError(reason)
-
-            wfh_data['is_wfh'] = True
-            dist_home = float('inf')
-            if latitude and longitude and employee.home_latitude and employee.home_longitude:
-                dist_home = self._haversine(latitude, longitude, employee.home_latitude, employee.home_longitude)
-                wfh_data['dist_home'] = round(dist_home, 1)
-
-            home_radius = employee.home_radius or company.wfh_home_radius or 150.0
-            if dist_home <= home_radius:
-                wfh_data['wfh_status'] = 'verified_home'
-            else:
-                if company.wfh_enforce_home_radius and not company.wfh_allow_offsite_with_reason:
-                    raise UserError(
-                        _("You are outside your authorized home radius (%.0f meters away; allowed radius: %.0f meters). Check-in at home is mandatory.")
-                        % (dist_home, home_radius)
-                    )
-                wfh_data['wfh_status'] = 'offsite'
-
-        # 2. Company-wide office radius verification (only for non-WFH or if enforced)
+    def _get_wfh_data(self, employee, latitude, longitude):
+        """WFH schedule / home geofence checks, or office radius check.
+        WFH fields are HR-only: read them with sudo (this is the user's own employee)."""
+        company = employee.company_id
+        employee = employee.sudo()
         if not (company.enable_work_from_home and employee.is_wfh_employee):
             self._check_radius(company, latitude, longitude)
+            return {}
 
-        tracking_enabled = company.attendance_device_tracking or company.attendance_radius_punching or company.enable_work_from_home
+        allowed, reason = employee.is_wfh_allowed_today()
+        if not allowed:
+            raise UserError(reason)
+
+        wfh_data = {'is_wfh': True}
+        dist_home = float('inf')
+        if latitude and longitude and employee.home_latitude and employee.home_longitude:
+            dist_home = self._haversine(latitude, longitude, employee.home_latitude, employee.home_longitude)
+            wfh_data['dist_home'] = round(dist_home, 1)
+
+        home_radius = employee.home_radius or company.wfh_home_radius or 150.0
+        if dist_home <= home_radius:
+            wfh_data['wfh_status'] = 'verified_home'
+        else:
+            if company.wfh_enforce_home_radius and not company.wfh_allow_offsite_with_reason:
+                raise UserError(
+                    _("You are outside your authorized home radius (%.0f meters away; allowed radius: %.0f meters). Check-in at home is mandatory.")
+                    % (dist_home, home_radius)
+                )
+            wfh_data['wfh_status'] = 'offsite'
+        return wfh_data
+
+    @staticmethod
+    def _tracking_enabled(company):
+        return company.attendance_device_tracking or company.attendance_radius_punching or company.enable_work_from_home
+
+    def _do_attendance_change(self, employee, mode, latitude, longitude, image, wfh_data=None):
         geo_ip_response = self._get_geoip_response(
-            mode='systray',
+            mode,
             latitude=latitude,
             longitude=longitude,
-            device_tracking_enabled=tracking_enabled,
+            device_tracking_enabled=self._tracking_enabled(employee.company_id),
+        )
+        check_in_image_data, check_out_image_data = self._get_attendance_images(employee, image)
+        if mode == 'systray':
+            employee = employee.with_context(is_from_systray_check_in_out=True)
+        return employee._attendance_action_change(
+            geo_ip_response,
+            check_in_image_data,
+            check_out_image_data=check_out_image_data,
+            wfh_data=wfh_data,
         )
 
-        attendance = self._inject_photo_and_action(employee, geo_ip_response, photo, wfh_data=wfh_data)
+    @http.route('/hr_attendance/systray_check_in_out', type="jsonrpc", auth="user")
+    def systray_attendance(self, latitude=False, longitude=False, check_in_image=None):
+        employee = request.env.user.with_company(self._get_active_company(request)).employee_id
+        if not employee:
+            raise UserError(_("No employee associated with current user."))
 
-        # 3. Update employee live telemetry & initial location log
+        wfh_data = self._get_wfh_data(employee, latitude, longitude)
+        notification = self._do_attendance_change(employee, 'systray', latitude, longitude, check_in_image, wfh_data)
+
+        # Update employee live telemetry & initial location log
         if latitude and longitude:
             employee.sudo().write({
                 'last_known_latitude': latitude,
                 'last_known_longitude': longitude,
                 'last_location_update': fields.Datetime.now(),
             })
-            # Log initial tracking event
-            status_calc = 'at_home' if (wfh_data.get('wfh_status') == 'verified_home') else 'offsite'
             request.env['hr.employee.location.log'].sudo().create({
                 'employee_id': employee.id,
-                'attendance_id': attendance.id if attendance else False,
+                'attendance_id': employee.sudo().last_attendance_id.id,
                 'latitude': latitude,
                 'longitude': longitude,
                 'distance_from_home': wfh_data.get('dist_home', 0.0),
                 'distance_from_checkin': 0.0,
-                'status': status_calc,
+                'status': 'at_home' if wfh_data.get('wfh_status') == 'verified_home' else 'offsite',
                 'ip_address': request.httprequest.remote_addr,
             })
 
-        return self._get_employee_info_response(employee)
+        response = self._get_attendance_action_response(employee, notification)
+        response.update(self._get_user_attendance_data(employee, include_attendance_details=True))
+        return response
 
     @http.route('/hudson_attendance/wfh_heartbeat', type="jsonrpc", auth="user")
     def wfh_heartbeat(self, latitude, longitude, accuracy=0.0):
         """Periodic background telemetry sent by WFH employees while checked in."""
-        employee = request.env.user.employee_id
+        employee = request.env.user.employee_id.sudo()  # own employee; WFH fields are HR-only
         if not employee or not latitude or not longitude:
             return {'status': 'ignored'}
 
@@ -245,17 +282,9 @@ class HrAttendanceEnhancement(HrAttendance):
             att = emp.last_attendance_id
             check_in_str = att.check_in.strftime("%H:%M:%S") if att and att.check_in else ""
             
-            # Safe photo extraction
-            photo_b64 = False
-            if att and att.check_in_photo:
-                raw_photo = att.check_in_photo
-                if isinstance(raw_photo, bytes):
-                    try:
-                        photo_b64 = raw_photo.decode('ascii')
-                    except Exception:
-                        photo_b64 = base64.b64encode(raw_photo).decode('ascii')
-                else:
-                    photo_b64 = str(raw_photo)
+            photo_url = False
+            if att and att.in_image:
+                photo_url = f"/web/image/hr.attendance/{att.id}/in_image"
 
             lat = emp.last_known_latitude or (att.in_latitude if att else 0.0) or emp.home_latitude or 0.0
             lon = emp.last_known_longitude or (att.in_longitude if att else 0.0) or emp.home_longitude or 0.0
@@ -270,7 +299,7 @@ class HrAttendanceEnhancement(HrAttendance):
                 'job_title': emp.job_title or "",
                 'department_name': emp.department_id.name if emp.department_id else "",
                 'avatar_url': f"/web/image?model=hr.employee&id={emp.id}&field=avatar_128",
-                'check_in_photo': photo_b64,
+                'check_in_photo_url': photo_url,
                 'lat': lat,
                 'lon': lon,
                 'home_lat': emp.home_latitude or 0.0,
@@ -346,29 +375,25 @@ class HrAttendanceEnhancement(HrAttendance):
         }
 
     @http.route('/hr_attendance/attendance_barcode_scanned', type="jsonrpc", auth="public")
-    def scan_barcode_with_geolocation(self, token, barcode, latitude=False, longitude=False, photo=False):
+    def scan_barcode(self, token, barcode, latitude=False, longitude=False, check_in_image=None):
         company = self._get_company(token)
         if company:
             self._check_radius(company, latitude, longitude)
             employee = request.env['hr.employee'].sudo().search([('barcode', '=', barcode), ('company_id', '=', company.id)], limit=1)
             if employee:
-                tracking_enabled = company.attendance_device_tracking or company.attendance_radius_punching or company.enable_work_from_home
-                geo_ip_response = self._get_geoip_response('kiosk', latitude=latitude, longitude=longitude, device_tracking_enabled=tracking_enabled)
-                self._inject_photo_and_action(employee, geo_ip_response, photo)
-                return self._get_employee_info_response(employee)
+                notification = self._do_attendance_change(employee, 'kiosk', latitude, longitude, check_in_image)
+                return self._get_attendance_action_response(employee, notification)
         return {}
 
     @http.route('/hr_attendance/manual_selection', type="jsonrpc", auth="public")
-    def manual_selection(self, token, employee_id, pin_code, latitude=False, longitude=False, photo=False):
+    def manual_selection(self, token, employee_id, pin_code, latitude=False, longitude=False, check_in_image=None):
         company = self._get_company(token)
         if company:
             self._check_radius(company, latitude, longitude)
             employee = request.env['hr.employee'].sudo().browse(employee_id)
             if employee.company_id == company and ((not company.attendance_kiosk_use_pin) or (employee.pin == pin_code)):
-                tracking_enabled = company.attendance_device_tracking or company.attendance_radius_punching or company.enable_work_from_home
-                geo_ip_response = self._get_geoip_response('kiosk', latitude=latitude, longitude=longitude, device_tracking_enabled=tracking_enabled)
-                self._inject_photo_and_action(employee, geo_ip_response, photo)
-                return self._get_employee_info_response(employee)
+                notification = self._do_attendance_change(employee, 'kiosk', latitude, longitude, check_in_image)
+                return self._get_attendance_action_response(employee, notification)
         return {}
 
     @http.route('/hudson_attendance/search_location', type="jsonrpc", auth="user")

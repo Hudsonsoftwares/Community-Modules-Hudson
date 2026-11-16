@@ -1,0 +1,1253 @@
+/* ==========================================================================
+   Dental Case Form (consultation): header card, patient strip, icon tabs and
+   white section cards on a light canvas. Only styling: every field, button,
+   page name and extension anchor of the form is unchanged.
+   ========================================================================== */
+
+$dc-teal: #0f5f5a;
+$dc-teal-600: #137a73;
+$dc-teal-100: #e3f2ef;
+$dc-teal-50: #f1f8f7;
+$dc-ink: #0f172a;
+$dc-text: #1e293b;
+$dc-muted: #64748b;
+$dc-line: #e3e8ee;
+$dc-canvas: #f5f8fa;
+$dc-radius: 14px;
+$dc-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 6px 18px -8px rgba(15, 23, 42, 0.12);
+
+$dc-icons: face, mouth, gums, search, pulse, chart, user, tooth, home, grid, tools, rx, calendar, folder, clipboard, notes, heart, stethoscope, building, card, pill, flask;
+
+/* Stroke icons drawn in the current text colour */
+.o_dc_icon {
+    display: inline-block;
+    width: 1.25em;
+    height: 1.25em;
+    flex-shrink: 0;
+    background-color: currentColor;
+    mask-repeat: no-repeat;
+    mask-position: center;
+    mask-size: contain;
+    -webkit-mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    -webkit-mask-size: contain;
+
+    @each $name in $dc-icons {
+        &.o_dc_icon_#{$name} {
+            mask-image: url("/dental_core/static/src/img/case/#{$name}.svg");
+            -webkit-mask-image: url("/dental_core/static/src/img/case/#{$name}.svg");
+        }
+    }
+}
+
+.o_dental_case_form_view,
+.o_dc_form {
+    --dc-teal: #{$dc-teal};
+    color: $dc-text;
+
+    /* ---------- Chatter below the consultation, never in a side column ----------
+       In Odoo 20 the arch class sits on the view controller; the renderer below it lays the
+       sheet and the chatter out in a row on wide (xxl) screens, which made the page twice
+       as wide as the screen with a horizontal scrollbar. */
+    .o_form_renderer {
+        flex-direction: column !important;
+        flex-wrap: nowrap !important;
+        height: auto !important;
+
+        > .o_form_sheet_bg {
+            width: 100% !important;
+            max-width: 100% !important;
+            flex: 0 0 auto !important;
+        }
+
+        > .o-mail-Form-chatter,
+        > .o-mail-ChatterContainer {
+            width: 100% !important;
+            max-width: 100% !important;
+            flex: 0 0 auto !important;
+            position: static !important;
+            border-left: none !important;
+        }
+    }
+
+    /* ---------- Canvas: cards float on a light background ---------- */
+    .o_form_sheet_bg {
+        background: $dc-canvas !important;
+    }
+    .o_form_sheet_bg > .o_form_sheet,
+    .o_form_sheet {
+        background: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+        padding: 1rem 0 1.5rem !important;
+    }
+
+    /* ---------- Toolbar: status steps, then the actions, on the right ---------- */
+    .o_form_statusbar {
+        justify-content: flex-end;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        background: $dc-canvas;
+        border-bottom: none !important;
+
+        > .o_field_statusbar,
+        > .o_statusbar_status {
+            order: 1;
+            margin-left: auto !important;
+            padding: 3px;
+            background: #ffffff;
+            border: 1px solid $dc-line;
+            border-radius: 10px;
+
+            .o_statusbar_status { background: transparent; border: none; padding: 0; }
+
+            .o_arrow_button {
+                border-radius: 8px !important;
+                background: transparent;
+                color: $dc-text;
+                font-weight: 500;
+                clip-path: none !important;
+                margin: 0 1px;
+
+                &::before, &::after {
+                    display: none !important;
+                }
+
+                &.o_arrow_button_current {
+                    background: $dc-teal-100 !important;
+                    color: $dc-teal !important;
+                    font-weight: 600;
+                }
+            }
+        }
+
+        > .o_statusbar_buttons {
+            order: 2;
+            flex: 0 1 auto;
+            margin-left: 0 !important;
+
+            > .btn {
+                border-radius: 10px;
+                padding: 0.45rem 0.95rem;
+                font-weight: 600;
+            }
+            > .btn.btn-primary, > .btn.oe_highlight {
+                background: $dc-teal;
+                border-color: $dc-teal;
+                color: #ffffff;
+
+                &:hover { background: $dc-teal-600; border-color: $dc-teal-600; }
+            }
+            > .btn.btn-secondary {
+                background: #ffffff;
+                border: 1px solid $dc-line;
+                color: $dc-text;
+            }
+        }
+    }
+
+    /* ---------- Header card ---------- */
+    .o_dc_hero {
+        position: relative;
+        overflow: hidden;
+        margin-bottom: 1rem;
+        padding: 1.25rem 1.5rem 1.25rem;
+        background: #ffffff;
+        border: 1px solid $dc-line;
+        border-radius: $dc-radius;
+        box-shadow: $dc-shadow;
+    }
+
+    .o_dc_hero_art {
+        position: absolute;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        width: 320px;
+        background: url("/dental_core/static/src/img/case/hero_chair.svg") right center / cover no-repeat;
+        pointer-events: none;
+        z-index: 0;
+    }
+
+    .o_dc_hero_head {
+        position: relative;
+        z-index: 1;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        margin-bottom: 1rem;
+        padding-right: 300px;
+    }
+
+    .o_dc_hero_logo {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 64px;
+        height: 64px;
+        border-radius: 16px;
+        background: linear-gradient(145deg, #1f8f87, $dc-teal);
+        color: #ffffff;
+        box-shadow: 0 8px 18px -8px rgba(15, 95, 90, 0.7);
+        font-size: 2rem;
+        flex-shrink: 0;
+    }
+
+    .o_dc_hero_titles {
+        min-width: 0;
+
+        .oe_title {
+            margin: 0;
+            padding: 0;
+
+            h1 {
+                margin: 0 0 0.35rem;
+                font-size: 1.75rem;
+                font-weight: 700;
+                color: $dc-ink;
+                letter-spacing: -0.01em;
+            }
+        }
+    }
+
+    .o_dc_hero_badges {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.5rem 1rem;
+    }
+
+    .o_dc_chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        padding: 0.25rem 0.75rem;
+        border-radius: 8px;
+        font-size: 0.9rem;
+        font-weight: 600;
+
+        &.o_dc_chip_ok { background: #dcf5e7; color: #166534; }
+        &.o_dc_chip_danger { background: #fde2e2; color: #b91c1c; }
+        &.o_dc_chip_warning { background: #fef3c7; color: #92400e; }
+    }
+
+    .o_dc_verified {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        color: $dc-muted;
+        font-size: 0.92rem;
+
+        .o_field_widget { color: inherit; }
+    }
+
+    /* Patient strip */
+    .o_dc_strip {
+        position: relative;
+        z-index: 1;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: stretch;
+        margin-right: 230px;
+        padding: 0.9rem 0.25rem;
+        background: #ffffff;
+        border: 1px solid $dc-line;
+        border-radius: 12px;
+        box-shadow: 0 4px 14px -10px rgba(15, 23, 42, 0.25);
+    }
+
+    .o_dc_strip_item {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        min-width: 0;
+        flex: 1 1 140px;
+        padding: 0.25rem 0.85rem;
+
+        & + .o_dc_strip_item {
+            border-left: 1px solid $dc-line;
+        }
+    }
+
+    .o_dc_strip_patient {
+        flex: 1.25 1 210px;
+    }
+
+    /* Names need room; the date and the billing badge are short */
+    .o_dc_strip_item:has(div[name="doctor_id"]),
+    .o_dc_strip_item:has(div[name="appointment_id"]),
+    .o_dc_strip_item:has(div[name="current_visit_id"]) {
+        flex: 1.5 1 175px;
+    }
+    .o_dc_strip_item:has(div[name="case_date"]) {
+        flex: 0.6 1 105px;
+    }
+    .o_dc_strip_item:has(div[name="billing_state"]),
+    .o_dc_strip_item:has(div[name="branch_id"]) {
+        flex: 0.85 1 125px;
+    }
+
+    .o_dc_strip_icon {
+        width: 1.6rem;
+        height: 1.6rem;
+        color: #3b5f6b;
+    }
+
+    .o_dc_avatar_placeholder {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        background: #dbeafe;
+        color: #1e5a8a;
+        font-size: 1.9rem;
+        flex-shrink: 0;
+    }
+
+    .o_dc_avatar {
+        flex-shrink: 0;
+
+        img {
+            width: 56px !important;
+            height: 56px !important;
+            border-radius: 50%;
+            object-fit: cover;
+            background: $dc-teal-100;
+        }
+    }
+
+    .o_dc_strip_text {
+        display: flex;
+        flex-direction: column;
+        flex: 1 1 auto;
+        min-width: 0;
+        gap: 2px;
+    }
+
+    .o_dc_strip_label {
+        font-size: 0.85rem;
+        color: $dc-muted;
+    }
+
+    .o_dc_strip_value {
+        font-size: 1rem;
+        color: $dc-ink;
+        min-width: 0;
+        width: 100%;
+
+        .o_field_many2one_selection, .o_many2one, .o-autocomplete, .o_input_dropdown {
+            width: 100%;
+        }
+        input.o_input {
+            width: 100% !important;
+            min-width: 9ch;
+            padding-right: 0 !important;
+            text-overflow: ellipsis;
+        }
+        /* The dropdown caret only appears on hover/focus: keep the name readable */
+        .o_dropdown_button { display: none; }
+        &:focus-within .o_dropdown_button { display: block; }
+
+        input {
+            font-size: 1rem;
+            color: $dc-ink;
+            padding-left: 0;
+        }
+    }
+
+    .o_dc_strip_patient .o_dc_strip_value input {
+        font-weight: 700;
+        font-size: 1.1rem;
+    }
+
+    .o_dc_strip_sub {
+        font-size: 0.9rem;
+        color: $dc-muted;
+    }
+
+    /* ---------- Safety alerts under the header ---------- */
+    .o_dental_case_alerts {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+
+        &:empty { display: none; }
+    }
+
+    .o_dc_alert {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.65rem 1rem;
+        border-radius: 12px;
+        border: 1px solid transparent;
+
+        &.o_dc_alert_danger { background: #fef2f2; border-color: #fecaca; color: #991b1b; }
+        &.o_dc_alert_warning { background: #fffbeb; border-color: #fde68a; color: #78350f; }
+        &.o_dc_alert_info { background: #ffffff; border-color: $dc-line; color: $dc-text; }
+
+        .o_dental_alert_html p:last-child { margin-bottom: 0; }
+    }
+
+    /* ---------- Tabs: white bar, icons, dark teal active tab ---------- */
+    .o_notebook.horizontal {
+        $tab-icons: (
+            clinical_info: home,
+            clinical_examination: tooth,
+            clinical_chart: grid,
+            treatment_plans: tools,
+            prescriptions: rx,
+            follow_ups: calendar,
+            patient_history: folder,
+            // Clinical examination form
+            extraoral: face,
+            intraoral: mouth,
+            dental: tooth,
+            periodontal: gums,
+            findings: search,
+            diagnoses: stethoscope,
+            assessment: clipboard,
+            vitals: pulse,
+            summary: notes,
+            // Orthodontic chart (dental_orthodontics)
+            ortho_assessment: search,
+            ortho_plan: clipboard,
+            ortho_brackets: grid,
+            ortho_visits: calendar,
+            ortho_retention: tooth,
+        );
+
+        > .o_notebook_headers {
+            position: sticky;
+            top: 0;
+            z-index: 5;
+            margin: 0 0 1rem !important;
+            padding: 6px;
+            background: #ffffff;
+            border: 1px solid $dc-line;
+            border-radius: $dc-radius;
+            box-shadow: $dc-shadow;
+            overflow: visible;
+
+            > .nav-tabs {
+                display: flex;
+                flex-wrap: wrap !important;
+                gap: 4px;
+                border-bottom: none !important;
+                margin: 0;
+            }
+
+            .nav-item {
+                flex: 1 1 auto;
+                margin: 0 !important;
+            }
+
+            .nav-link {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 10px;
+                min-height: 46px;
+                padding: 8px 18px;
+                border: none !important;
+                border-radius: 10px !important;
+                background: transparent;
+                color: $dc-text;
+                font-size: 1rem;
+                font-weight: 500;
+                white-space: nowrap;
+                transition: background 0.15s ease, color 0.15s ease;
+
+                &::before {
+                    content: "";
+                    width: 22px;
+                    height: 22px;
+                    flex-shrink: 0;
+                    background-color: #3b5f6b;
+                    mask: var(--dc-tab-icon) center / contain no-repeat;
+                    -webkit-mask: var(--dc-tab-icon) center / contain no-repeat;
+                }
+
+                &::after {
+                    display: none !important;
+                    content: none !important;
+                }
+
+                &:hover {
+                    background: $dc-teal-50;
+                    color: $dc-ink;
+                }
+
+                &:focus-visible {
+                    outline: 3px solid rgba(19, 122, 115, 0.45);
+                    outline-offset: 2px;
+                }
+
+                &.active {
+                    background: $dc-teal !important;
+                    color: #ffffff !important;
+                    font-weight: 600;
+                    box-shadow: 0 6px 14px -6px rgba(15, 95, 90, 0.7);
+
+                    &::before { background-color: #ffffff; }
+                }
+
+                @each $name, $icon in $tab-icons {
+                    &[name="#{$name}"] {
+                        --dc-tab-icon: url("/dental_core/static/src/img/case/#{$icon}.svg");
+                    }
+                }
+                /* Tabs added by other modules get a neutral icon */
+                &:not([name]) , &[name=""] {
+                    --dc-tab-icon: url("/dental_core/static/src/img/case/notes.svg");
+                }
+            }
+        }
+
+        > .o_notebook_content {
+            background: transparent;
+            border: none;
+            padding: 0;
+            font-size: 0.95rem;
+
+            > .tab-pane {
+                padding: 0;
+            }
+        }
+    }
+
+    /* ---------- Cards ---------- */
+    .o_dc_card {
+        background: #ffffff;
+        border: 1px solid $dc-line;
+        border-radius: $dc-radius;
+        box-shadow: $dc-shadow;
+        padding: 1rem 1.25rem;
+        min-width: 0;
+    }
+
+    .o_dc_card_head {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin-bottom: 0.5rem;
+
+        &.o_dc_card_head_tinted {
+            margin: -1rem -1.25rem 0.5rem;
+            padding: 0.85rem 1.25rem;
+            background: $dc-teal-50;
+            border-bottom: 1px solid $dc-line;
+            border-radius: $dc-radius $dc-radius 0 0;
+        }
+    }
+
+    .o_dc_card_icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 38px;
+        height: 38px;
+        border-radius: 10px;
+        background: $dc-teal-100;
+        color: $dc-teal;
+        font-size: 1.15rem;
+        flex-shrink: 0;
+    }
+
+    .o_dc_card_head_tinted .o_dc_card_icon {
+        background: transparent;
+        width: auto;
+        font-size: 1.4rem;
+    }
+
+    .o_dc_card_title {
+        font-size: 1.08rem;
+        font-weight: 700;
+        color: $dc-ink;
+    }
+
+    .o_dc_card_title_sub {
+        font-weight: 400;
+        color: $dc-muted;
+    }
+
+    .o_dc_card_field {
+        display: block;
+        height: auto !important;
+        min-height: 0;
+
+        .o_dental_dictation { height: auto !important; }
+        padding-left: calc(38px + 0.75rem);
+        color: $dc-text;
+
+        textarea, input {
+            color: $dc-text;
+        }
+    }
+
+    /* Label / value rows inside a card (Medical History, Patient File) */
+    .o_dc_card_table .o_dc_rows {
+        margin: 0;
+
+        &.o_inner_group, .o_inner_group {
+            grid-template-columns: minmax(190px, 36%) minmax(0, 1fr) !important;
+            row-gap: 0 !important;
+        }
+        .o_wrap_label, .o_wrap_input, .o_cell {
+            padding: 0.6rem 0;
+        }
+        .o_form_label {
+            white-space: nowrap;
+        }
+
+        > .o_inner_group, &.o_inner_group {
+            margin: 0;
+        }
+
+        .o_wrap_field, .o_cell {
+            border-bottom: 1px solid #eef2f6;
+        }
+        .o_form_label {
+            font-weight: 600;
+            color: $dc-text;
+        }
+    }
+
+    /* Overview layout (left: complaint, medical history; right: notes, dental history) */
+    .o_dc_overview {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        grid-template-areas:
+            "complaint notes"
+            "history dental";
+        gap: 1rem;
+        align-items: stretch;
+        margin-bottom: 1.25rem;
+
+        .o_dc_area_complaint { grid-area: complaint; }
+        .o_dc_area_notes { grid-area: notes; }
+        .o_dc_area_history { grid-area: history; }
+        .o_dc_area_dental { grid-area: dental; }
+    }
+
+    /* Overview: previous visits as cards (click opens the case of that visit) */
+    .o_dc_visit_cards {
+        .o_kanban_renderer {
+            display: grid !important; // overrides the renderer's d-flex
+
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            gap: 0.75rem;
+            padding: 0;
+            background: transparent;
+        }
+        .o_kanban_ghost { display: none !important; }
+        .o_kanban_record.o_dc_visit_card {
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
+            width: auto;
+            min-width: 0;
+            margin: 0;
+            padding: 0.85rem 1rem;
+            background: #ffffff;
+            border: 1px solid $dc-line;
+            border-left: 4px solid $dc-teal-600;
+            border-radius: $dc-radius;
+            box-shadow: $dc-shadow;
+            transition: border-color 0.15s ease, box-shadow 0.15s ease;
+
+            &:hover {
+                border-color: $dc-teal-600;
+                box-shadow: 0 4px 14px rgba(15, 23, 42, 0.10);
+            }
+        }
+        .o_dc_visit_date {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-size: 1.05rem;
+            font-weight: 700;
+            color: $dc-ink;
+
+            .oi { color: $dc-teal-600; }
+        }
+        .o_dc_visit_meta {
+            color: $dc-muted;
+            font-size: 0.9rem;
+
+            .o_field_widget { display: inline; }
+        }
+        .o_dc_visit_complaint {
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            color: $dc-text;
+        }
+        .o_dc_visit_treatment { align-self: flex-start; }
+    }
+
+    /* ---------- Other tabs: sections read as cards ---------- */
+    .o_dental_section_title {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.25rem 0.75rem;
+        margin: 1.25rem 0 0.6rem;
+        padding: 0;
+        border-bottom: none;
+
+        > span:first-child {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.6rem;
+            font-size: 1.05rem;
+            font-weight: 700;
+            color: $dc-ink;
+
+            &::before {
+                content: "";
+                width: 6px;
+                height: 1.25rem;
+                border-radius: 3px;
+                background: $dc-teal-600;
+            }
+        }
+
+        > small {
+            color: $dc-muted;
+        }
+
+        &:first-child {
+            margin-top: 0;
+        }
+    }
+
+    .tab-pane .o_horizontal_separator {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        margin: 1.5rem 0 0.6rem;
+        padding: 0;
+        border: none;
+        font-size: 1.05rem;
+        font-weight: 700;
+        text-transform: none !important;
+        letter-spacing: 0;
+        color: $dc-ink;
+
+        &::before {
+            content: "";
+            width: 6px;
+            height: 1.25rem;
+            border-radius: 3px;
+            background: $dc-teal-600;
+        }
+    }
+
+    .tab-pane .o_field_x2many:not(.o_field_x2many_kanban) {
+        background: #ffffff;
+        border: 1px solid $dc-line;
+        border-radius: $dc-radius;
+        box-shadow: $dc-shadow;
+        overflow: hidden;
+
+        .o_list_renderer {
+            border: none;
+            margin-left: 0 !important;
+            margin-right: 0 !important;
+            max-width: 100%;
+        }
+        .o_list_table th:first-child, .o_list_table td:first-child {
+            padding-left: 1rem;
+        }
+        .o_list_table thead th {
+            background: $dc-teal-50;
+            color: #334155;
+            font-weight: 600;
+            border-bottom: 1px solid $dc-line;
+        }
+    }
+
+    /* Groups placed directly in a tab (e.g. today's prescription header) */
+    .tab-pane > .o_group,
+    .tab-pane > div > .o_group {
+        background: #ffffff;
+        border: 1px solid $dc-line;
+        border-radius: $dc-radius;
+        padding: 0.75rem 1rem;
+        margin-bottom: 0.75rem;
+    }
+
+    /* Examination tab */
+    .o_dental_exam_card {
+        padding: 1.1rem 1.25rem;
+        margin-bottom: 0.5rem;
+        background: #ffffff;
+        border: 1px solid $dc-line;
+        border-left: 4px solid $dc-teal-600;
+        border-radius: $dc-radius;
+        box-shadow: $dc-shadow;
+
+        &.is-empty {
+            border-left-color: $dc-line;
+            border-style: dashed;
+        }
+
+        .o_dental_exam_card_icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex: 0 0 48px;
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            background: $dc-teal-100;
+            color: $dc-teal;
+            font-size: 1.5rem;
+        }
+
+        > .btn-primary {
+            background: $dc-teal;
+            border-color: $dc-teal;
+            border-radius: 10px;
+        }
+
+        .o_dental_exam_title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: $dc-ink;
+        }
+        .o_dental_exam_signoff {
+            font-size: 0.85rem;
+            color: $dc-muted;
+
+            // field widgets wrap their value in block / d-flex divs: keep the whole sentence on one line
+            .o_field_widget, .o_field_widget > div, .o_field_widget span {
+                display: inline !important;
+                width: auto !important;
+            }
+            .o_field_widget { color: $dc-text; font-weight: 600; }
+        }
+
+        /* Section chips run along the bottom of the card */
+        .o_dental_exam_steps {
+            flex: 1 1 100%;
+            margin: 0.25rem 0 0;
+            padding-top: 0.85rem;
+            border-top: 1px solid #eef2f6;
+        }
+    }
+
+    /* Examination progress bars in the clinic's teal instead of the default primary */
+    :is(.o_dental_exam_progress, .o_dc_exam_progress) .progress-bar {
+        background-color: $dc-teal-600 !important;
+    }
+
+    /* Previous examinations: same card look as Previous Visits, with clinical tags and a Continue action */
+    .o_dc_exam_cards {
+        .o_dc_visit_date .o_field_badge { margin-left: auto; }
+        .o_dc_exam_tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.35rem;
+            font-size: 0.82rem;
+        }
+        .o_dc_exam_doctor {
+            font-weight: 600;
+            color: $dc-text;
+        }
+        .o_dc_exam_ref {
+            margin-top: -0.2rem;
+            font-size: 0.82rem;
+            color: $dc-muted;
+
+            .o_field_widget { display: inline; }
+        }
+        .o_dc_exam_tag {
+            padding: 0.1rem 0.55rem;
+            border-radius: 999px;
+            background: $dc-teal-50;
+            color: $dc-text;
+
+            .o_field_widget { display: inline; font-weight: 600; }
+
+            &.is-alert {
+                background: #fee2e2;
+                color: #991b1b;
+            }
+        }
+        .o_dc_exam_foot {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-top: auto;
+            padding-top: 0.5rem;
+
+            .o_dc_exam_progress {
+                flex: 1 1 auto;
+                min-width: 0;
+                font-size: 0.82rem;
+                color: $dc-muted;
+            }
+            .btn { white-space: nowrap; border-radius: 8px; }
+        }
+    }
+
+    /* Clinical Chart tab */
+    .o_dental_chart_block {
+        background: #ffffff;
+        border: 1px solid $dc-line;
+        border-radius: $dc-radius;
+        box-shadow: $dc-shadow;
+        padding: 0.75rem;
+        margin-bottom: 0.75rem;
+    }
+
+    /* Treatment plan cards (Treatment tab): same look as the visit cards */
+    .o_dx_plan_cards {
+        .o_kanban_renderer { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+        .o_dc_visit_date .o_field_badge { margin-left: auto; }
+        .o_dx_plan_figures {
+            display: flex;
+            align-items: baseline;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: $dc-text;
+
+            .o_field_widget { display: inline; }
+        }
+        .o_dx_plan_actions {
+            display: flex;
+            gap: 0.35rem;
+
+            .btn { white-space: nowrap; border-radius: 8px; }
+        }
+    }
+
+    /* Diagnosis cards under the odontogram: tooth badge | diagnosis | status + actions */
+    .o_dx_diag_empty {
+        padding: 1rem 1.25rem;
+        border: 1px dashed $dc-line;
+        border-radius: $dc-radius;
+        background: #ffffff;
+        color: $dc-muted;
+        font-style: italic;
+    }
+
+    .o_dx_diag_cards {
+        .o_kanban_renderer {
+            display: grid !important; // overrides the renderer's d-flex
+            grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+            gap: 0.6rem;
+            padding: 0;
+            background: transparent;
+        }
+        .o_kanban_ghost { display: none !important; }
+
+        .o_kanban_record.o_dx_diag_card {
+            display: flex;
+            flex-direction: row;
+            align-items: flex-start;
+            gap: 0.85rem;
+            width: auto;
+            min-width: 0;
+            margin: 0;
+            padding: 0.75rem 0.9rem;
+            background: #ffffff;
+            border: 1px solid $dc-line;
+            border-radius: $dc-radius;
+            box-shadow: $dc-shadow;
+            cursor: default;
+        }
+
+        /* Resolved in this visit: kept for the record, visually quiet */
+        .o_dx_diag_main.is-resolved { opacity: 0.6; }
+        .o_dx_diag_main.is-resolved .o_dx_diag_title { text-decoration: line-through; }
+
+        .o_dx_diag_tooth {
+            display: inline-flex;
+            flex: 0 0 auto;
+            align-items: center;
+            justify-content: center;
+            min-width: 44px;
+            height: 44px;
+            padding: 0 6px;
+            border-radius: 10px;
+            background: #eef6e6;
+            color: #3b7d23;
+            font-size: 1.05rem;
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+            white-space: nowrap;
+
+            &.is-general { background: #f3f4f6; color: $dc-muted; font-size: 0.8rem; }
+            .o_field_widget, span { display: inline; }
+        }
+
+        .o_dx_diag_main {
+            flex: 1 1 auto;
+            min-width: 0;
+        }
+
+        .o_dx_diag_title {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: baseline;
+            gap: 0 0.45rem;
+            font-weight: 600;
+            color: $dc-ink;
+
+            .o_field_widget { display: inline; }
+        }
+
+        .o_dx_diag_code {
+            color: #3b7d23;
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .o_dx_diag_name { min-width: 0; }
+
+        .o_dx_diag_meta {
+            margin-top: 0.15rem;
+            font-size: 0.8rem;
+            color: $dc-muted;
+
+            .o_field_widget, .o_field_widget > div, .o_field_widget span {
+                display: inline !important;
+                width: auto !important;
+            }
+        }
+
+        .o_dx_diag_earlier {
+            display: inline-block;
+            margin-left: 0.4rem;
+            padding: 0 0.45rem;
+            border-radius: 999px;
+            background: #eef2ff;
+            color: #3730a3;
+            font-size: 0.72rem;
+            font-weight: 600;
+        }
+
+        .o_dx_diag_notes {
+            display: -webkit-box;
+            margin-top: 0.3rem;
+            overflow: hidden;
+            font-size: 0.82rem;
+            color: $dc-text;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+        }
+
+        .o_dx_diag_side {
+            display: flex;
+            flex: 0 0 auto;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 0.2rem;
+        }
+
+        .o_dx_diag_actions {
+            display: flex;
+            gap: 0.1rem;
+
+            .btn-link { padding: 0.1rem 0.35rem; font-size: 0.8rem; font-weight: 600; }
+        }
+    }
+
+    /* Prescriptions tab: styled by dental_pharmacy/static/src/css/rx_case_tab.scss */
+
+    .o_field_x2many_kanban .o_kanban_record {
+        border-radius: 12px;
+        border-color: $dc-line;
+    }
+
+    .btn-primary {
+        --btn-bg: #{$dc-teal};
+    }
+
+    /* ---------- Narrower screens ---------- */
+    @media (max-width: 1400px) {
+        .o_dc_hero_art { width: 220px; opacity: 0.55; }
+        .o_dc_hero_head { padding-right: 200px; }
+        .o_dc_strip { margin-right: 0; }
+    }
+
+    @media (max-width: 992px) {
+        .o_dc_hero_art { display: none; }
+        .o_dc_hero_head { padding-right: 0; }
+        .o_dc_strip_item { flex-basis: 45%; }
+        .o_dc_strip_item + .o_dc_strip_item { border-left: none; }
+        .o_dc_overview {
+            grid-template-columns: minmax(0, 1fr);
+            grid-template-areas: "complaint" "notes" "history" "dental";
+        }
+        .o_notebook.horizontal > .o_notebook_headers .nav-link {
+            padding: 8px 12px;
+            font-size: 0.92rem;
+        }
+    }
+}
+
+
+/* ==========================================================================
+   Clinical examination form: same header card, strip and icon tabs as the case;
+   each titled group of a section is its own card.
+   ========================================================================== */
+.o_dc_form:is(.o_dental_exam_form, .o_dental_ortho_form, .o_dental_ortho_visit_form) {
+    .o_dc_hero_head { padding-right: 0; }
+    .o_dc_strip { margin-right: 0; }
+
+    .o_dc_strip_item:has(div[name="sections_progress"]) {
+        flex: 1.3 1 180px;
+
+        .o_progressbar { min-width: 140px; }
+    }
+
+    .o_dc_chip.o_dc_chip_info { background: #e0f2fe; color: #075985; }
+
+    /* Complaint and section progress */
+    .o_dc_exam_intro {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        gap: 1rem;
+        margin-bottom: 1rem;
+
+        > .o_dc_card { margin: 0; }
+        .o_dental_exam_steps { margin: 0.25rem 0 0; }
+    }
+
+    .o_dc_rows.o_inner_group, .o_dc_rows .o_inner_group {
+        grid-template-columns: minmax(170px, 30%) minmax(0, 1fr) !important;
+    }
+
+    /* Inside the section tabs, a group with a title becomes a card */
+    .o_notebook_content .tab-pane {
+        > .o_group, > .o_inner_group {
+            display: grid;
+            gap: 1rem;
+            margin: 0 0 1rem;
+            background: transparent;
+            border: none;
+            padding: 0;
+        }
+
+        > .o_group {
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)) !important;
+
+            > .o_inner_group {
+                grid-column: auto !important;
+                width: auto !important;
+                max-width: none !important;
+            }
+        }
+
+        .o_inner_group {
+            background: #ffffff;
+            border: 1px solid $dc-line;
+            border-radius: $dc-radius;
+            box-shadow: $dc-shadow;
+            padding: 1rem 1.25rem;
+            margin: 0;
+            align-content: start;
+        }
+
+        .o_inner_group .o_horizontal_separator {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            margin: 0 0 0.5rem;
+            padding: 0;
+            border: none;
+            font-size: 1.02rem;
+            font-weight: 700;
+            text-transform: none !important;
+            letter-spacing: 0;
+            color: $dc-ink;
+
+            &::before {
+                content: "";
+                width: 6px;
+                height: 1.15rem;
+                border-radius: 3px;
+                background: $dc-teal-600;
+            }
+        }
+
+        .o_form_label { font-weight: 600; color: $dc-text; }
+    }
+
+    .o_dental_exam_section_title {
+        margin: 1.25rem 0 0.6rem;
+        padding: 0;
+        border: none;
+
+        > span {
+            display: inline-flex;
+            align-items: center;
+            font-size: 1.05rem;
+            font-weight: 700;
+            color: $dc-ink;
+        }
+        .oi { color: $dc-teal-600; }
+    }
+
+    .o_dental_bpe_grid > div {
+        background: $dc-teal-50;
+        border-color: $dc-line;
+        border-radius: 10px;
+    }
+
+    .o_dental_exam_summary {
+        display: block;
+        background: #ffffff;
+        border: 1px solid $dc-line;
+        border-radius: $dc-radius;
+        box-shadow: $dc-shadow;
+        padding: 1rem 1.25rem;
+    }
+
+    @media (max-width: 992px) {
+        .o_dc_exam_intro { grid-template-columns: minmax(0, 1fr); }
+    }
+}
+
+
+/* Embedded lists show their whole text: read-only cells wrap instead of being cut with an
+   ellipsis (frequency labels, instructions, long medicine names). Applies to the case,
+   examination and prescription forms. */
+.o_dental_case_form_view,
+.o_dc_form,
+.o_dental_rx_form {
+    .o_field_x2many .o_list_renderer .o_list_table {
+        td.o_data_cell:not(.o_list_button) {
+            white-space: normal !important;
+            overflow: visible !important;
+            text-overflow: clip !important;
+            overflow-wrap: anywhere;
+            word-break: normal;
+
+            > span, > .o_field_widget, .text-truncate {
+                white-space: normal !important;
+                overflow: visible !important;
+                text-overflow: clip !important;
+            }
+        }
+        /* Editable row: inputs keep one line but use the whole cell */
+        tr.o_selected_row td.o_data_cell input {
+            text-overflow: clip;
+        }
+    }
+}
+
+/* Treatment plan form (shares the case form look): its field group is a Bootstrap row whose
+   negative side margins would stick out of the sheet, which has no side padding here */
+.o_dental_plan_form .o_form_sheet > .o_group.row {
+    margin-left: 0;
+    margin-right: 0;
+}

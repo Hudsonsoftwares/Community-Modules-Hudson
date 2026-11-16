@@ -1,0 +1,10 @@
+id,name,model_id:id,group_id:id,operation,domain
+access_dental_ortho_chart_dentist,dental.ortho.chart.dentist,model_dental_ortho_chart,dental_base.group_dental_dentist,cru,"['|', ('doctor_id.user_id', '=', user.id), ('doctor_id', '=', False)]"
+access_dental_ortho_chart_manager,dental.ortho.chart.manager,model_dental_ortho_chart,dental_base.group_dental_manager,crud,
+dental_ortho_chart_company_rule,Orthodontic chart: company isolation,model_dental_ortho_chart,,crud,"['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]"
+access_dental_ortho_tooth_dentist,dental.ortho.tooth.dentist,model_dental_ortho_tooth,dental_base.group_dental_dentist,crud,"['|', ('chart_id.doctor_id.user_id', '=', user.id), ('chart_id.doctor_id', '=', False)]"
+access_dental_ortho_tooth_manager,dental.ortho.tooth.manager,model_dental_ortho_tooth,dental_base.group_dental_manager,crud,
+dental_ortho_tooth_company_rule,Orthodontic bracket chart: company isolation,model_dental_ortho_tooth,,crud,"['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]"
+access_dental_ortho_visit_dentist,dental.ortho.visit.dentist,model_dental_ortho_visit,dental_base.group_dental_dentist,cru,"['|', ('chart_id.doctor_id.user_id', '=', user.id), ('chart_id.doctor_id', '=', False)]"
+access_dental_ortho_visit_manager,dental.ortho.visit.manager,model_dental_ortho_visit,dental_base.group_dental_manager,crud,
+dental_ortho_visit_company_rule,Orthodontic visit: company isolation,model_dental_ortho_visit,,crud,"['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]"

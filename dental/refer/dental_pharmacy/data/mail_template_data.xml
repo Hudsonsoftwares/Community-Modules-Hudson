@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <!-- Prescription handed to the patient (branch without pharmacy, or patient buys outside) -->
+        <record id="mail_template_prescription_to_patient" model="mail.template">
+            <field name="name">Dental Prescription: Issued to Patient</field>
+            <field name="model_id" ref="model_dental_prescription"/>
+            <field name="subject">Your prescription {{ object.name }} from {{ object.company_id.name }}</field>
+            <field name="partner_to">{{ object.patient_id.id }}</field>
+            <field name="email_from">{{ (object.company_id.email_formatted or user.email_formatted) }}</field>
+            <field name="report_template_ids" eval="[(4, ref('dental_pharmacy.action_report_dental_prescription'))]"/>
+            <field name="auto_delete" eval="True"/>
+            <field name="body_html" type="html">
+<div style="font-family: Arial, Helvetica, sans-serif; font-size: 14px; color: #333333; line-height: 1.5;">
+    <p>Dear <t t-out="object.patient_id.name or 'Patient'"/>,</p>
+    <p>
+        Please find attached your prescription <strong t-out="object.name or ''"/>
+        from Dr. <t t-out="object.dentist_id.name or ''"/>, dated <t t-out="format_date(object.prescription_date)"/>.
+    </p>
+    <p>You can buy the prescribed medicines at any pharmacy of your choice. Show this prescription to the pharmacist.</p>
+    <table style="width: 100%; border-collapse: collapse; margin: 12px 0;">
+        <tr style="background-color: #f3f6f9;">
+            <th style="text-align: left; padding: 6px; border-bottom: 1px solid #ddd;">Medicine</th>
+            <th style="text-align: left; padding: 6px; border-bottom: 1px solid #ddd;">Dose</th>
+            <th style="text-align: left; padding: 6px; border-bottom: 1px solid #ddd;">Frequency</th>
+            <th style="text-align: left; padding: 6px; border-bottom: 1px solid #ddd;">Duration</th>
+        </tr>
+        <t t-foreach="object.line_ids" t-as="line">
+            <tr>
+                <td style="padding: 6px; border-bottom: 1px solid #eee;"><t t-out="line.medicine_id.name or ''"/></td>
+                <td style="padding: 6px; border-bottom: 1px solid #eee;"><t t-out="line.dose or ''"/></td>
+                <td style="padding: 6px; border-bottom: 1px solid #eee;"><t t-out="line.frequency_label or ''"/></td>
+                <td style="padding: 6px; border-bottom: 1px solid #eee;"><t t-out="line.duration or ''"/> day(s)</td>
+            </tr>
+        </t>
+    </table>
+    <p t-if="object.clinical_notes"><strong>Advice:</strong> <t t-out="object.clinical_notes"/></p>
+    <p>Take the medicines exactly as prescribed. Contact the clinic if you notice any side effects.</p>
+    <p>Regards,<br/><t t-out="object.company_id.name or ''"/></p>
+</div>
+            </field>
+        </record>
+    </data>
+</odoo>

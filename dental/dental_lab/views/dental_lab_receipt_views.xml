@@ -61,6 +61,6 @@
     <record id="action_dental_lab_receipts" model="ir.actions.act_window">
         <field name="name">Clinic Receipts &amp; Intake</field>
         <field name="res_model">dental.lab.receipt</field>
-        <field name="view_mode">list,form</field>
+        <field name="view_mode">kanban,list,form</field>
     </record>
 </odoo>

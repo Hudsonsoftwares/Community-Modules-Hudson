@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-from odoo.tests.common import TransactionCase
-from odoo import fields
+from odoo.tests.common import TransactionCase# pyrefly: ignore [missing-import]
+from odoo import fields# pyrefly: ignore [missing-import]
 
 
 class TestTdsPhase6TaxComputation(TransactionCase):
@@ -19,7 +19,7 @@ class TestTdsPhase6TaxComputation(TransactionCase):
 
     def test_01_taxable_income_service(self):
         """Test TaxableIncomeService calculating Net Taxable Income = max(0, GTI - Deductions)."""
-        from odoo.addons.hudson_in_payroll.services.tds.taxable_income_service import TaxableIncomeService
+        from odoo.addons.hudson_in_payroll.services.tds.taxable_income_service import TaxableIncomeService# pyrefly: ignore [missing-import]
         svc = TaxableIncomeService(self.env)
 
         res = svc.calculate_taxable_income(gross_total_income=1000000.0, total_approved_deductions=250000.0)
@@ -31,7 +31,7 @@ class TestTdsPhase6TaxComputation(TransactionCase):
 
     def test_02_income_tax_slab_service_new_regime(self):
         """Test IncomeTaxSlabService progressive slab rates under New Regime FY 2025-26."""
-        from odoo.addons.hudson_in_payroll.services.tds.income_tax_slab_service import IncomeTaxSlabService
+        from odoo.addons.hudson_in_payroll.services.tds.income_tax_slab_service import IncomeTaxSlabService# pyrefly: ignore [missing-import]
         svc = IncomeTaxSlabService(self.env)
 
         # Taxable Income = ₹12,00,000 under New Regime
@@ -41,7 +41,7 @@ class TestTdsPhase6TaxComputation(TransactionCase):
 
     def test_03_rebate_engine_service_section_87a_and_marginal_relief(self):
         """Test Section 87A rebate and Section 115BAC marginal relief."""
-        from odoo.addons.hudson_in_payroll.services.tds.rebate_engine_service import RebateEngineService
+        from odoo.addons.hudson_in_payroll.services.tds.rebate_engine_service import RebateEngineService# pyrefly: ignore [missing-import]
         svc = RebateEngineService(self.env)
 
         # 1. New Regime Taxable Income ₹6,50,000 (<= 7.0L threshold) -> Full 87A rebate
@@ -56,8 +56,8 @@ class TestTdsPhase6TaxComputation(TransactionCase):
 
     def test_04_surcharge_and_cess_services(self):
         """Test SurchargeEngineService and HealthEducationCessService."""
-        from odoo.addons.hudson_in_payroll.services.tds.surcharge_engine_service import SurchargeEngineService
-        from odoo.addons.hudson_in_payroll.services.tds.health_education_cess_service import HealthEducationCessService
+        from odoo.addons.hudson_in_payroll.services.tds.surcharge_engine_service import SurchargeEngineService# pyrefly: ignore [missing-import]
+        from odoo.addons.hudson_in_payroll.services.tds.health_education_cess_service import HealthEducationCessService# pyrefly: ignore [missing-import]
 
         sur_svc = SurchargeEngineService(self.env)
         cess_svc = HealthEducationCessService(self.env)
@@ -73,3 +73,38 @@ class TestTdsPhase6TaxComputation(TransactionCase):
         cess_res = cess_svc.calculate_cess(tax_plus_surcharge=50000.0)
         self.assertEqual(cess_res.cess_amount, 2000.0)
         self.assertEqual(cess_res.total_annual_tax_liability, 52000.0)
+
+    def test_05_section_288b_cess_and_tax_rounding(self):
+        """Test Section 288B statutory rounding to nearest ₹10 on Health & Education Cess and Total Annual Tax."""
+        # pyrefly: ignore [missing-import]
+        from odoo.addons.hudson_in_payroll.services.tds.health_education_cess_service import HealthEducationCessService
+        cess_svc = HealthEducationCessService(self.env)
+
+        # 1. Real-world case from unrounded payroll trace:
+        # Tax + Surcharge = ₹1,538,090.40, Cess (4%) = ₹61,523.62, Unrounded = ₹1,599,614.02
+        # Section 288B: 0.02 paise ignored -> ₹1,599,614 -> last digit 4 (< 5) -> rounds down to ₹1,599,610.00
+        res1 = cess_svc.calculate_cess(tax_plus_surcharge=1538090.40)
+        self.assertEqual(res1.cess_amount, 61523.62)
+        self.assertEqual(res1.unrounded_annual_tax, 1599614.02)
+        self.assertEqual(res1.total_annual_tax_liability, 1599610.0)
+        self.assertEqual(res1.rounding_factor_288b, -4.02)
+        self.assertEqual(res1.cess_rate, 4.0)
+
+        # 2. Rounding up case (remainder >= 5):
+        # Tax + Surcharge = ₹10,005.00, Cess (4%) = ₹400.20, Unrounded = ₹10,405.20
+        # Section 288B: 0.20 paise ignored -> ₹10,405 -> last digit 5 (>= 5) -> rounds up to ₹10,410.00
+        res2 = cess_svc.calculate_cess(tax_plus_surcharge=10005.0)
+        self.assertEqual(res2.cess_amount, 400.20)
+        self.assertEqual(res2.unrounded_annual_tax, 10405.20)
+        self.assertEqual(res2.total_annual_tax_liability, 10410.0)
+        self.assertEqual(res2.rounding_factor_288b, 4.80)
+
+        # 3. Direct Section 288B static method tests:
+        # 35,804.99: paise ignored -> 35,804 -> last digit 4 -> 35,800.0
+        self.assertEqual(HealthEducationCessService.round_tax_to_nearest_10(35804.99), 35800.0)
+        # 35,805.01: paise ignored -> 35,805 -> last digit 5 -> 35,810.0
+        self.assertEqual(HealthEducationCessService.round_tax_to_nearest_10(35805.01), 35810.0)
+        # 0 or None:
+        self.assertEqual(HealthEducationCessService.round_tax_to_nearest_10(0.0), 0.0)
+        self.assertEqual(HealthEducationCessService.round_tax_to_nearest_10(None), 0.0)
+

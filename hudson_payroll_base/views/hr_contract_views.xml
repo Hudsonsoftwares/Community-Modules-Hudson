@@ -17,6 +17,20 @@
                 </xpath>
                 <xpath expr="//div[@name='wage']" position="after">
                     <field name="pay_by_attendance" widget="boolean_toggle"/>
+                    <field name="enable_attendance_threshold" invisible="pay_by_attendance"/>
+                    <field name="threshold_days_manually_set" invisible="1"/>
+                    <field name="threshold_enabled_manually_set" invisible="1"/>
+                    <label for="min_attendance_threshold_days" invisible="pay_by_attendance or not enable_attendance_threshold"/>
+                    <div class="o_row" invisible="pay_by_attendance or not enable_attendance_threshold">
+                        <field name="min_attendance_threshold_days" class="oe_inline"/>
+                        <span>days</span>
+                        <button name="action_reset_to_company_threshold"
+                                string="Reset to Company Default"
+                                type="object"
+                                class="btn btn-sm btn-link p-0 text-decoration-none"
+                                invisible="not threshold_days_manually_set and not threshold_enabled_manually_set"
+                                help="Reset threshold to follow company global setting"/>
+                    </div>
                 </xpath>
                 <xpath expr="//group[@name='contract']" position="after">
                     <group string="Salary Breakdown" name="salary_breakdown">
@@ -50,12 +64,6 @@
                             <span>/ month</span>
                             <span class="ms-2 text-muted">(<field name="performance_bonus_percent" readonly="1"/>%)</span>
                         </div>
-                        <label for="retention_bonus"/>
-                        <div class="o_row">
-                            <field name="retention_bonus" nolabel="1"/>
-                            <span>/ month</span>
-                            <span class="ms-2 text-muted">(<field name="retention_bonus_percent" readonly="1"/>%)</span>
-                        </div>
                         <label for="lta_allowance"/>
                         <div class="o_row">
                             <field name="lta_allowance" nolabel="1"/>
@@ -72,6 +80,18 @@
                         <field name="breakdown_diff" widget="monetary" decoration-danger="breakdown_diff != 0"/>
                         <field name="breakdown_is_equal" invisible="1"/>
                     </group>
+                    <group string="Retention" name="retention">
+                        <field name="retention_bonus" widget="monetary"/>
+                        <label for="retention_period"/>
+                        <div class="o_row">
+                            <field name="retention_period" class="oe_inline" nolabel="1"/>
+                            <field name="retention_period_unit" class="oe_inline" nolabel="1"/>
+                        </div>
+                        <field name="retention_start_date" placeholder="Joining date"/>
+                        <field name="retention_eligible_date" invisible="not retention_bonus"/>
+                        <field name="retention_status" invisible="not retention_bonus"/>
+                        <field name="retention_payslip_id" string="Payslip" invisible="not retention_payslip_id"/>
+                    </group>
                 </xpath>
             </field>
         </record>
@@ -83,6 +103,20 @@
             <field name="arch" type="xml">
                 <xpath expr="//div[@name='wage']" position="after">
                     <field name="pay_by_attendance" widget="boolean_toggle"/>
+                    <field name="enable_attendance_threshold" invisible="pay_by_attendance"/>
+                    <field name="threshold_days_manually_set" invisible="1"/>
+                    <field name="threshold_enabled_manually_set" invisible="1"/>
+                    <label for="min_attendance_threshold_days" invisible="pay_by_attendance or not enable_attendance_threshold"/>
+                    <div class="o_row" invisible="pay_by_attendance or not enable_attendance_threshold">
+                        <field name="min_attendance_threshold_days" class="oe_inline"/>
+                        <span>days</span>
+                        <button name="action_reset_to_company_threshold"
+                                string="Reset to Company Default"
+                                type="object"
+                                class="btn btn-sm btn-link p-0 text-decoration-none"
+                                invisible="not threshold_days_manually_set and not threshold_enabled_manually_set"
+                                help="Reset threshold to follow company global setting"/>
+                    </div>
                 </xpath>
             </field>
         </record>

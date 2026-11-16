@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="dental_teleconsult_invite_view_form" model="ir.ui.view">
+        <field name="name">dental.teleconsult.invite.form</field>
+        <field name="model">dental.teleconsult.invite</field>
+        <field name="arch" type="xml">
+            <form string="Invite a Colleague">
+                <p class="text-muted">
+                    The colleagues join the video call from Discuss. They see the call chat and are removed
+                    from the room when the consultation ends.
+                </p>
+                <group>
+                    <field name="appointment_id"/>
+                    <field name="user_ids" widget="many2many_tags" options="{'no_create': True}"/>
+                    <field name="note" placeholder="e.g. Please give a second opinion on tooth 36"/>
+                </group>
+                <footer>
+                    <button name="action_invite" type="object" string="Invite" class="btn-primary"
+                            icon="person_add"/>
+                    <button special="cancel" string="Cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>

@@ -25,7 +25,7 @@
         <menuitem
             name="By Resource"
             id="menu_fs_map_by_resource"
-            action="action_fs_job_map_by_resource"
+            action="action_fs_map_by_resource"
             sequence="1"
         />
         <menuitem

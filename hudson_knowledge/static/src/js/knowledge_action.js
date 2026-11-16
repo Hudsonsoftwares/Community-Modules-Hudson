@@ -12,9 +12,13 @@ import {
     onWillUnmount,
     markup,
     useProps,
+    useApp,
 } from "@odoo/owl";
 
 const useState = proxy || ((obj) => obj);
+
+// Fields that can't be changed while an article is locked (see Lock Content).
+const LOCKED_CONTENT_FIELDS = ["name", "icon", "cover_image_url", "cover_position", "body_html"];
 
 function useRef(name) {
     const s = signal.ref();
@@ -45,9 +49,13 @@ function enableOwl2TemplateScope(comp) {
             }
             return undefined;
         },
-        set(t, prop, val) {
-            t[prop] = val;
-            return true;
+        set(t, prop, val, receiver) {
+            // Owl creates loop / t-set scopes with Object.create(ctx): a write
+            // on such a child scope must land on the child itself (receiver),
+            // not on the shared root target, otherwise every t-foreach
+            // iteration overwrites the same variable and all click handlers
+            // see the last item of the loop.
+            return Reflect.set(t, prop, val, receiver);
         },
         has(t, prop) {
             return prop in t || prop in comp || (typeof globalThis !== "undefined" && prop in globalThis);
@@ -57,7 +65,24 @@ function enableOwl2TemplateScope(comp) {
 }
 import { Wysiwyg } from "@html_editor/wysiwyg";
 import { MAIN_PLUGINS } from "@html_editor/plugin_sets";
-import { KnowledgeEditorPlugin } from "./knowledge_wysiwyg_commands";
+import { KnowledgeEditorPlugin, isHudsonAIAvailable } from "./knowledge_wysiwyg_commands";
+import { EmbeddedComponentPlugin } from "@html_editor/others/embedded_component_plugin";
+import { HtmlViewer } from "@html_editor/components/html_viewer/html_viewer";
+import { ConfirmationDialog } from "@web/core/confirmation_dialog/confirmation_dialog";
+import { router } from "@web/core/browser/router";
+import { useSetupAction } from "@web/search/action_hook";
+import { FormStatusIndicator } from "@web/views/form/form_status_indicator/form_status_indicator";
+
+// Captured before the action service rewrites the URL.
+const INITIAL_ARTICLE_ID = parseInt(router.current?.article_id) || false;
+let initialArticleConsumed = false;
+import { KnowledgeShareDialog, KnowledgeMoveDialog } from "./knowledge_share_dialog";
+import {
+    createItemViewHost,
+    getItemViewEmbedding,
+    upgradeLegacyItemViews,
+} from "./knowledge_item_view";
+import { rpc } from "@web/core/network/rpc";
 import { usePopover } from "@web/core/popover/popover_hook";
 import { EmojiPicker, loader } from "@web/core/emoji_picker/emoji_picker";
 import { MediaDialog } from "@html_editor/main/media/media_dialog/media_dialog";
@@ -80,11 +105,19 @@ function cleanHtmlContent(html) {
 
     // Strip any legacy data-placeholder attributes
     str = str.replace(/\s*data-placeholder="[^"]*"/gi, "");
+    // Old hand-made item kanban/list/calendar blocks -> embedded Odoo views
+    str = upgradeLegacyItemViews(str);
 
     if (!/<h1\b/i.test(str)) {
         str = `<h1><br></h1>` + str;
     }
     return str;
+}
+
+function escapeHtml(text) {
+    const div = document.createElement("div");
+    div.textContent = text;
+    return div.innerHTML;
 }
 
 function getInitialArticleHtml() {
@@ -161,199 +194,6 @@ function computeHtmlDiff(olderHtml, currentHtml) {
         }
     }
     return result.join("");
-}
-
-// ─────────────────────────────────────────────────────────────────
-// Embedded View Component (Kanban / List / Calendar inside article)
-// ─────────────────────────────────────────────────────────────────
-export class KnowledgeEmbeddedView extends Component {
-    static template = "hudson_knowledge.KnowledgeEmbeddedView";
-    props = useProps();
-
-    setup() {
-        this.orm = useService("orm");
-        this.notification = useService("notification");
-        this.state = useState({
-            items: [],
-            stages: [],
-            calYear: new Date().getFullYear(),
-            calMonth: new Date().getMonth(),
-            showItemModal: false,
-            modalTitle: "",
-            modalValue: "",
-        });
-        this._modalResolver = null;
-        onMounted(async () => {
-            await this.loadData();
-        });
-        enableOwl2TemplateScope(this);
-    }
-
-    promptDialog({ title, defaultValue = "" }) {
-        return new Promise((resolve) => {
-            this.state.modalTitle = title || "Item Details";
-            this.state.modalValue = defaultValue || "";
-            this.state.showItemModal = true;
-            this._modalResolver = resolve;
-        });
-    }
-
-    onConfirmModal() {
-        const val = (this.state.modalValue || "").trim();
-        this.state.showItemModal = false;
-        if (this._modalResolver) {
-            this._modalResolver(val);
-            this._modalResolver = null;
-        }
-    }
-
-    onCloseModal() {
-        this.state.showItemModal = false;
-        if (this._modalResolver) {
-            this._modalResolver(null);
-            this._modalResolver = null;
-        }
-    }
-
-    async loadData() {
-        try {
-            const [items, stages] = await Promise.all([
-                this.orm.call(
-                    "knowledge.management.item",
-                    "get_items_for_view",
-                    [this.props.articleId, this.props.viewRefId]
-                ),
-                this.orm.call(
-                    "knowledge.management.item",
-                    "get_stages_for_view",
-                    [this.props.articleId]
-                ),
-            ]);
-            this.state.items = items || [];
-            this.state.stages = stages || [];
-        } catch (e) {
-            console.error("Failed to load embedded view data", e);
-        }
-    }
-
-    get items() { return this.state.items; }
-    get stages() { return this.state.stages; }
-    get viewType() { return this.props.viewType; }
-    get viewRefId() { return this.props.viewRefId; }
-    get viewName() { return this.props.viewName || "Items"; }
-
-    getItemsForStage(stageId) {
-        return this.state.items.filter(i => i.stage_id === stageId);
-    }
-
-    getMonthLabel() {
-        return new Date(this.state.calYear, this.state.calMonth, 1)
-            .toLocaleDateString("en-US", { month: "long", year: "numeric" });
-    }
-
-    prevMonth() {
-        if (this.state.calMonth === 0) {
-            this.state.calMonth = 11;
-            this.state.calYear--;
-        } else {
-            this.state.calMonth--;
-        }
-    }
-
-    nextMonth() {
-        if (this.state.calMonth === 11) {
-            this.state.calMonth = 0;
-            this.state.calYear++;
-        } else {
-            this.state.calMonth++;
-        }
-    }
-
-    get calendarCells() {
-        const { calYear, calMonth } = this.state;
-        const firstDay = new Date(calYear, calMonth, 1).getDay();
-        const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
-        const today = new Date();
-
-        const cells = [];
-        for (let i = 0; i < firstDay; i++) {
-            cells.push({ day: null, events: [], isEmpty: true });
-        }
-        for (let d = 1; d <= daysInMonth; d++) {
-            const dateStr = `${calYear}-${String(calMonth + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-            const isToday =
-                d === today.getDate() &&
-                calMonth === today.getMonth() &&
-                calYear === today.getFullYear();
-            const events = this.state.items.filter(
-                i => i.date && i.date.startsWith(dateStr.substring(0, 10))
-            );
-            cells.push({ day: d, dateStr, events, isToday, isEmpty: false });
-        }
-        return cells;
-    }
-
-    getCellClass(cell) {
-        const classes = [];
-        if (cell.isEmpty) classes.push("o_knowledge_cal_empty");
-        if (cell.isToday) classes.push("o_knowledge_cal_today");
-        return classes.join(" ");
-    }
-
-    onCalendarDayClick(cell) {
-        if (!cell.day || this.props.isLocked) return;
-        this.openItemDialog(null, { date: cell.dateStr });
-    }
-
-    async onAddItem() {
-        if (this.props.isLocked) return;
-        await this.openItemDialog(null, {});
-    }
-
-    async onAddItemToStage(stageId) {
-        if (this.props.isLocked) return;
-        await this.openItemDialog(null, { stage_id: stageId });
-    }
-
-    async onEditItem(itemId) {
-        await this.openItemDialog(itemId, {});
-    }
-
-    async openItemDialog(itemId, defaults) {
-        const name = await this.promptDialog({
-            title: itemId ? "Edit Item Name" : "New Item Name",
-            defaultValue: "",
-        });
-        if (!name) return;
-
-        if (itemId) {
-            await this.orm.write("knowledge.management.item", [itemId], { name });
-        } else {
-            await this.orm.create("knowledge.management.item", [{
-                name,
-                article_id: this.props.articleId,
-                view_ref_id: this.props.viewRefId,
-                view_type: this.props.viewType,
-                stage_id: defaults.stage_id || false,
-                date: defaults.date || false,
-            }]);
-        }
-        await this.loadData();
-    }
-
-    async onAddStage() {
-        if (this.props.isLocked) return;
-        const name = await this.promptDialog({
-            title: "New Stage Name",
-            defaultValue: "",
-        });
-        if (!name) return;
-        await this.orm.create("knowledge.management.item.stage", [{
-            name,
-            article_id: this.props.articleId,
-        }]);
-        await this.loadData();
-    }
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -961,7 +801,7 @@ const CURATED_COVERS = [
 // ─────────────────────────────────────────────────────────────────
 export class KnowledgeClientAction extends Component {
     static template = "hudson_knowledge.KnowledgeClientAction";
-    static components = { KnowledgeEmbeddedView, Wysiwyg, KnowledgeEmojiPicker };
+    static components = { Wysiwyg, HtmlViewer, KnowledgeEmojiPicker, FormStatusIndicator };
     props = useProps();
 
     setup() {
@@ -969,6 +809,9 @@ export class KnowledgeClientAction extends Component {
         this.action = useService("action");
         this.notification = useService("notification");
         this.dialogService = useService("dialog");
+        this.app = useApp();
+        this.itemViewEmbeddings = [getItemViewEmbedding(this)];
+        this.readonlyItemViewEmbeddings = [getItemViewEmbedding(this, true)];
 
         this.bodyContainer = useRef("bodyContainer");
         this.kebabMenu = useRef("kebabMenu");
@@ -980,6 +823,19 @@ export class KnowledgeClientAction extends Component {
         this.toolbarEmoji = this.toolbarEmojiRef;
         this.kebabBtn = useRef("kebabBtn");
         this.coverImg = useRef("coverImg");
+
+        // Save like an Odoo form view: when leaving the action (breadcrumbs,
+        // menus), when the browser tab gets hidden and when the page closes.
+        useSetupAction({
+            beforeLeave: () => this.saveArticle(),
+            beforeVisibilityChange: () => {
+                if (document.visibilityState === "hidden") {
+                    return this.saveArticle();
+                }
+            },
+            beforeUnload: () => this._urgentSave(),
+        });
+        this._boundDocumentClick = this._onDocumentClick.bind(this);
 
         this.emojiPopover = usePopover(KnowledgeEmojiPicker, {
             position: "bottom-start",
@@ -996,6 +852,7 @@ export class KnowledgeClientAction extends Component {
             },
             currentArticle: null,
             expandedIds: [],
+            isDragging: false,
             childrenMap: {},
             showKebab: false,
             editorKey: 0,
@@ -1005,6 +862,13 @@ export class KnowledgeClientAction extends Component {
             aiGenerating: false,
             showTemplateDialog: false,
             availableTemplates: [],
+            templateCategories: [],
+            selectedTemplateId: false,
+            showSaveTemplateDialog: false,
+            saveTemplateName: "",
+            saveTemplateCategoryId: false,
+            saveTemplateCategories: [],
+            savingTemplate: false,
             showInsertViewModal: false,
             insertViewType: "kanban",
             insertViewName: "",
@@ -1041,7 +905,7 @@ export class KnowledgeClientAction extends Component {
             historyLoading: false,
         });
 
-        this._autoSaveTimer = null;
+        this._savePromise = null;
         this._lastSavedTitle = "";
         this._lastSavedBodyHtml = "";
         this._savedRange = null;
@@ -1066,7 +930,11 @@ export class KnowledgeClientAction extends Component {
 
         onMounted(async () => {
             await this._loadSidebar();
-            const resId = this.props.action?.params?.res_id;
+            // "Open in new tab" / invitation links: /odoo/action-...?article_id=ID
+            const urlArticleId = parseInt(router.current?.article_id)
+                || (!initialArticleConsumed && INITIAL_ARTICLE_ID);
+            initialArticleConsumed = true;
+            const resId = this.props.action?.params?.res_id || this.props.action?.params?.article_id || urlArticleId;
             if (resId) {
                 await this.openArticle(resId);
             } else {
@@ -1081,14 +949,13 @@ export class KnowledgeClientAction extends Component {
                     this.state.loading = false;
                 }
             }
-            document.addEventListener("click", this._onDocumentClick.bind(this));
+            document.addEventListener("click", this._boundDocumentClick);
             document.addEventListener("selectionchange", this._onDocSelectionChange);
         });
 
         onWillUnmount(() => {
-            document.removeEventListener("click", this._onDocumentClick.bind(this));
+            document.removeEventListener("click", this._boundDocumentClick);
             document.removeEventListener("selectionchange", this._onDocSelectionChange);
-            if (this._autoSaveTimer) clearTimeout(this._autoSaveTimer);
             this.editor = null;
         });
         enableOwl2TemplateScope(this);
@@ -1109,8 +976,13 @@ export class KnowledgeClientAction extends Component {
             content: markup(bodyHtml),
             Plugins: [
                 ...MAIN_PLUGINS,
+                EmbeddedComponentPlugin,
                 KnowledgeEditorPlugin,
             ],
+            resources: {
+                embedded_components: this.itemViewEmbeddings,
+            },
+            embeddedComponentInfo: { app: this.app, env: this.env },
             knowledgeAction: this,
             classList: ["o_knowledge_body", "note-editable"],
             onChange: () => this.onEditorChange(),
@@ -1124,12 +996,41 @@ export class KnowledgeClientAction extends Component {
         return markup(cleanHtmlContent(this.state.currentArticle?.body_html || ""));
     }
 
+    get readonlyViewerConfig() {
+        return {
+            value: this.getReadonlyBody(),
+            embeddedComponents: this.readonlyItemViewEmbeddings,
+        };
+    }
+
     async onEditorLoad(editor) {
         this.editor = editor;
         const artId = this.state.currentArticle?.id;
         setTimeout(() => {
             if (this.editor?.editable && this.state.currentArticle) {
+                // The editor normalizes the stored HTML: use its output as the
+                // clean state, so merely opening an article never looks dirty.
+                if (
+                    this.state.currentArticle.id === artId &&
+                    this.state.saveStatus === "saved" &&
+                    !this._savePromise
+                ) {
+                    this._lastSavedBodyHtml = this._getEditorHtml();
+                }
                 updateEmptyHeadingClasses(this.editor.editable);
+                if (this._focusTitleOnLoad === this.state.currentArticle.id) {
+                    this._focusTitleOnLoad = null;
+                    const h1 = this.editor.editable.querySelector("h1");
+                    if (h1 && !(h1.textContent || "").trim()) {
+                        this.editor.editable.focus();
+                        const range = document.createRange();
+                        range.setStart(h1, 0);
+                        range.collapse(true);
+                        const sel = window.getSelection();
+                        sel.removeAllRanges();
+                        sel.addRange(range);
+                    }
+                }
                 this.editor.editable.addEventListener("input", () => {
                     updateEmptyHeadingClasses(this.editor.editable);
                     this.onEditorChange();
@@ -1158,40 +1059,13 @@ export class KnowledgeClientAction extends Component {
                 this.editor.editable.addEventListener("click", savePointerLocation);
             }
         }, 40);
-        this._ensureEmbeddedViewsRendered(artId);
-    }
-
-    async _ensureEmbeddedViewsRendered(articleId, attempts = 0) {
-        if (!articleId) return;
-        if (!this.editor?.editable || !document.body.contains(this.editor.editable)) {
-            if (attempts < 30) {
-                setTimeout(() => this._ensureEmbeddedViewsRendered(articleId, attempts + 1), 50);
-            }
-            return;
-        }
-        if (this.state.currentArticle?.id !== articleId) return;
-        await this._renderEmbeddedViews(this.editor.editable, articleId);
-        // Double check after 180ms to ensure any delayed DOM attach didn't wipe views
-        if (attempts === 0) {
-            setTimeout(() => {
-                if (this.editor?.editable && this.state.currentArticle?.id === articleId) {
-                    const emptyBoxes = this.editor.editable.querySelectorAll(
-                        ".o_knowledge_embedded_view_container:empty, .o_knowledge_embedded_view_block:empty"
-                    );
-                    if (emptyBoxes.length > 0) {
-                        this._renderEmbeddedViews(this.editor.editable, articleId);
-                    }
-                }
-            }, 180);
-        }
     }
 
     onToolbarTitleInput(ev) {
-        if (!this.state.currentArticle) return;
+        if (this.isArticleReadonly) return;
         const val = ev.target.value;
         this.state.currentArticle.name = val;
         this._syncArticleToSidebar(this.state.currentArticle.id, { name: val || "Untitled" });
-        this.state.saveStatus = "unsaved";
         if (this.editor?.editable) {
             const h1 = this.editor.editable.querySelector("h1");
             if (h1 && h1.innerText.trim() !== val.trim()) {
@@ -1199,50 +1073,134 @@ export class KnowledgeClientAction extends Component {
             }
             updateEmptyHeadingClasses(this.editor.editable);
         }
-        this._scheduleAutoSave(false);
+        this._refreshDirty();
     }
 
     onToolbarTitleChange(ev) {
-        if (!this.state.currentArticle) return;
+        if (this.isArticleReadonly) return;
         const val = ev.target.value.trim() || "Untitled";
         this.state.currentArticle.name = val;
         this._syncArticleToSidebar(this.state.currentArticle.id, { name: val });
-        this.state.saveStatus = "unsaved";
-        this._scheduleAutoSave(true);
+        this._refreshDirty();
     }
 
     onCloseArticle() {
         this.state.currentArticle = null;
     }
 
-    async onDiscardChanges() {
-        if (!this.state.currentArticle) return;
-        if (this._autoSaveTimer) clearTimeout(this._autoSaveTimer);
-        this._autoSaveTimer = null;
-        this.state.saveStatus = "saved";
-        await this.openArticle(this.state.currentArticle.id);
-        this.notification.add("Changes discarded", { type: "info" });
+    // ── Save / Discard (Odoo's FormStatusIndicator) ───────────────
+
+    /** Unsaved title/body changes, like a dirty form record. */
+    get isDirty() {
+        return Boolean(
+            this.state.currentArticle &&
+            !this.isArticleReadonly &&
+            this.state.saveStatus === "unsaved"
+        );
     }
 
-    async onForceSave() {
-        if (!this.state.currentArticle) return;
-        if (this._autoSaveTimer) clearTimeout(this._autoSaveTimer);
-        this._autoSaveTimer = null;
-        let content = this.state.currentArticle.body_html;
-        if (this.editor?.editable) {
+    _getEditorHtml() {
+        if (this.editor?.editable && !this.editor.isDestroyed) {
             const el = this.editor.getElContent ? this.editor.getElContent() : null;
-            if (el) content = el.innerHTML;
+            if (el) return el.innerHTML;
         }
-        const title = this.state.currentArticle.name || "Untitled";
-        await this.orm.write("knowledge.management.article", [this.state.currentArticle.id], {
-            name: title,
-            body_html: content,
-        });
-        this._lastSavedTitle = title;
-        this._lastSavedBodyHtml = content;
-        await this._loadSidebar();
+        return this.state.currentArticle?.body_html || "";
+    }
+
+    /** Values to write: only the fields that differ from the last save. */
+    _getChanges() {
+        const article = this.state.currentArticle;
+        if (!article || this.isArticleReadonly) return null;
+        const name = (article.name || "Untitled").trim() || "Untitled";
+        const body = this._getEditorHtml();
+        const vals = {};
+        if (name !== this._lastSavedTitle) vals.name = name;
+        if (body !== this._lastSavedBodyHtml) vals.body_html = body;
+        return Object.keys(vals).length ? { id: article.id, vals, name, body } : null;
+    }
+
+    _refreshDirty() {
+        this.state.saveStatus = this._getChanges() ? "unsaved" : "saved";
+    }
+
+    _markDirty() {
+        if (this.state.currentArticle && !this.isArticleReadonly) {
+            this.state.saveStatus = "unsaved";
+        }
+    }
+
+    /**
+     * Saves the pending changes of the open article (no-op when clean).
+     * Concurrent calls wait for the running write; edits typed during the
+     * write keep the article dirty.
+     */
+    async saveArticle() {
+        if (this._savePromise) {
+            await this._savePromise.catch(() => {});
+        }
+        const changes = this._getChanges();
+        if (!changes) {
+            if (this.state.currentArticle) this.state.saveStatus = "saved";
+            return true;
+        }
+        this._savePromise = (async () => {
+            try {
+                await this.orm.write("knowledge.management.article", [changes.id], changes.vals);
+                this._lastSavedTitle = changes.name;
+                this._lastSavedBodyHtml = changes.body;
+                if (this.state.currentArticle?.id === changes.id) {
+                    this.state.currentArticle.body_html = changes.body;
+                    this._refreshDirty();
+                }
+                if (changes.vals.name) {
+                    await this._loadSidebar();
+                }
+                return true;
+            } catch (e) {
+                // Stay dirty: the user can retry or discard (the RPC error
+                // dialog explains what went wrong).
+                this.state.saveStatus = "unsaved";
+                throw e;
+            } finally {
+                this._savePromise = null;
+            }
+        })();
+        return this._savePromise;
+    }
+
+    /** Page is closing: no time for an awaited RPC, send it as a beacon. */
+    _urgentSave() {
+        const changes = this._getChanges();
+        if (!changes || !navigator.sendBeacon) return;
+        const payload = {
+            jsonrpc: "2.0",
+            method: "call",
+            id: Date.now(),
+            params: {
+                model: "knowledge.management.article",
+                method: "write",
+                args: [[changes.id], changes.vals],
+                kwargs: {},
+            },
+        };
+        navigator.sendBeacon(
+            "/web/dataset/call_kw/knowledge.management.article/write",
+            new Blob([JSON.stringify(payload)], { type: "application/json" })
+        );
+    }
+
+    /** Status indicator "Save manually" (cloud) button. */
+    async onForceSave() {
+        await this.saveArticle();
+    }
+
+    /** Status indicator "Discard all changes" button: back to the last save. */
+    async onDiscardChanges() {
+        if (!this.state.currentArticle) return;
+        const articleId = this.state.currentArticle.id;
         this.state.saveStatus = "saved";
-        this.notification.add("All changes saved!", { type: "info" });
+        await this.openArticle(articleId, { discard: true });
+        await this._loadSidebar();
     }
 
     onEditorBlur() {
@@ -1256,7 +1214,7 @@ export class KnowledgeClientAction extends Component {
             if (content !== undefined) {
                 this.state.currentArticle.body_html = content;
                 this._syncTitleFromEditor();
-                this._scheduleAutoSave(true);
+                this._refreshDirty();
             }
         } catch (e) {
             console.warn("Editor blur save skipped:", e);
@@ -1275,71 +1233,47 @@ export class KnowledgeClientAction extends Component {
                 this.state.currentArticle.body_html = content;
                 this._syncTitleFromEditor();
 
-                const currentTitle = (this.state.currentArticle.name || "Untitled").trim();
-                const hasChanges = (content !== this._lastSavedBodyHtml) || (currentTitle !== this._lastSavedTitle);
-                if (hasChanges) {
-                    this.state.saveStatus = "unsaved";
-                    this._scheduleAutoSave(false);
-                }
+                // Typing back the saved text makes the article clean again.
+                this._refreshDirty();
             }
         } catch (e) {
             console.warn("Editor change save skipped:", e);
         }
     }
 
+    /**
+     * The article title is the first <h1>. When it is left empty (e.g. the
+     * user started typing in the paragraph below it), fall back to the first
+     * line of text written in the article so the sidebar never stays
+     * "Untitled" for an article that has content.
+     */
+    _getTitleFromEditable(editable) {
+        const clean = (txt) => (txt || "").replace(/[\n\r﻿​]/g, " ").replace(/\s+/g, " ").trim();
+        const h1 = editable.querySelector("h1");
+        let title = h1 ? clean(h1.innerText) : "";
+        if (!title) {
+            for (const block of editable.children) {
+                if (block === h1 || block.matches("[data-oe-protected], [data-embedded], .o_knowledge_behavior_anchor")) {
+                    continue;
+                }
+                title = clean(block.innerText);
+                if (title) break;
+            }
+        }
+        if (title.length > 100) {
+            title = title.slice(0, 100).trim() + "…";
+        }
+        return title || "Untitled";
+    }
+
     _syncTitleFromEditor() {
         if (!this.editor?.editable || !this.state.currentArticle) return;
-        const h1 = this.editor.editable.querySelector("h1");
-        const titleText = h1 ? h1.innerText.replace(/[\n\r]/g, "").trim() : "";
-        const title = titleText || "Untitled";
+        const title = this._getTitleFromEditable(this.editor.editable);
         if (this.state.currentArticle.name !== title) {
             this.state.currentArticle.name = title;
             this._syncArticleToSidebar(this.state.currentArticle.id, { name: title });
-            this._scheduleAutoSave(false);
+            this._markDirty();
         }
-    }
-
-    _scheduleAutoSave(immediate = false) {
-        if (!this.state.currentArticle) return;
-        const articleId = this.state.currentArticle.id;
-        if (this._autoSaveTimer) clearTimeout(this._autoSaveTimer);
-
-        const delay = immediate ? 50 : 800;
-        this._autoSaveTimer = setTimeout(async () => {
-            try {
-                if (!this.state.currentArticle || this.state.currentArticle.id !== articleId) {
-                    return;
-                }
-                const currentTitle = (this.state.currentArticle.name || "Untitled").trim();
-                let currentBody = this.state.currentArticle.body_html || "";
-                if (this.editor?.editable) {
-                    const el = this.editor.getElContent ? this.editor.getElContent() : null;
-                    if (el) currentBody = el.innerHTML;
-                }
-
-                const vals = {};
-                if (currentTitle !== this._lastSavedTitle) {
-                    vals.name = currentTitle;
-                }
-                if (currentBody !== this._lastSavedBodyHtml) {
-                    vals.body_html = currentBody;
-                }
-
-                if (Object.keys(vals).length > 0) {
-                    await this.orm.write("knowledge.management.article", [articleId], vals);
-                    this._lastSavedTitle = currentTitle;
-                    this._lastSavedBodyHtml = currentBody;
-                    if (vals.name) {
-                        await this._loadSidebar();
-                    }
-                }
-                this.state.saveStatus = "saved";
-            } catch (e) {
-                console.warn("Auto-save failed", e);
-            } finally {
-                this._autoSaveTimer = null;
-            }
-        }, delay);
     }
 
     // ── Click Handlers for In-Editor Jump Buttons ──────────────────
@@ -1457,7 +1391,11 @@ export class KnowledgeClientAction extends Component {
         }
     }
 
-    async openArticle(articleId) {
+    async openArticle(articleId, { discard = false } = {}) {
+        // Switching article saves the current one, like a form pager.
+        if (!discard) {
+            await this.saveArticle();
+        }
         this.state.loading = true;
         try {
             const records = await this.orm.call(
@@ -1471,7 +1409,9 @@ export class KnowledgeClientAction extends Component {
                     [["id", "=", articleId]],
                     ["id", "name", "icon", "cover_image_url", "cover_position", "body_html",
                      "visibility", "is_locked", "full_width",
-                     "write_uid", "write_date", "parent_id", "favorite_user_ids"]
+                     "write_uid", "write_date", "parent_id", "favorite_user_ids",
+                     "active", "to_delete_date"],
+                    { context: { active_test: false } }
                 );
                 if (!recs || !recs.length) return null;
                 const r = recs[0];
@@ -1479,7 +1419,7 @@ export class KnowledgeClientAction extends Component {
                 return {
                     id: r.id,
                     name: r.name,
-                    icon: r.icon || "📄",
+                    icon: r.icon || "",
                     cover_image_url: r.cover_image_url || false,
                     cover_position: r.cover_position || "50%",
                     body_html: cleanHtmlContent(r.body_html),
@@ -1493,6 +1433,8 @@ export class KnowledgeClientAction extends Component {
                     write_date: r.write_date,
                     parent_id: r.parent_id ? r.parent_id[0] : false,
                     parent_name: r.parent_id ? r.parent_id[1] : false,
+                    active: r.active,
+                    to_delete_date: r.to_delete_date || false,
                 };
             });
 
@@ -1502,8 +1444,19 @@ export class KnowledgeClientAction extends Component {
             }
 
             records.body_html = cleanHtmlContent(records.body_html);
+            if (records.is_article_item && records.name && records.name !== "Untitled") {
+                // Items created from a view only have a name: show it as the title.
+                records.body_html = records.body_html.replace(
+                    /^<h1>(<br\s*\/?>)?<\/h1>/i,
+                    () => `<h1>${escapeHtml(records.name)}</h1>`
+                );
+            }
             this.state.currentArticle = records;
             this.state.saveStatus = "saved";
+            // Name of this action in the breadcrumbs of views opened from the article.
+            this.env.config?.setDisplayName?.(records.name || "Untitled");
+            // Keep the article in the URL (reload / share keeps it open).
+            this.props.updateActionState?.({ article_id: records.id });
             this._lastSavedTitle = (records.name || "Untitled").trim();
             this._lastSavedBodyHtml = records.body_html || "";
             this.state.showKebab = false;
@@ -1513,7 +1466,6 @@ export class KnowledgeClientAction extends Component {
                     updateEmptyHeadingClasses(this.editor.editable);
                 }
             }, 60);
-            this._ensureEmbeddedViewsRendered(records.id);
         } catch (e) {
             console.error("Failed to open article", e);
         }
@@ -1544,7 +1496,7 @@ export class KnowledgeClientAction extends Component {
         return null;
     }
 
-    async onNewArticle(parentId = false, visibility = "workspace") {
+    async onNewArticle(parentId = false, visibility = "private") {
         let vis = visibility;
         if (parentId) {
             const parent = this._findArticleById(parentId);
@@ -1555,12 +1507,13 @@ export class KnowledgeClientAction extends Component {
         const initialHtml = getInitialArticleHtml();
         const newArt = await this.orm.create("knowledge.management.article", [{
             name: "Untitled",
-            icon: "📄",
+            icon: "",
             parent_id: parentId || false,
             visibility: vis,
             body_html: initialHtml,
         }]);
         const newId = newArt[0];
+        this._focusTitleOnLoad = newId;
         await this._loadSidebar();
         await this.openArticle(newId);
     }
@@ -1658,775 +1611,82 @@ export class KnowledgeClientAction extends Component {
         }
     }
 
-    _exportViewToXlsx(viewName, items) {
-        const headers = ["Name", "Stage", "Assigned To", "Date", "Description"];
-        const rows = (items || []).map(i => [
-            `"${(i.name || '').replace(/"/g, '""')}"`,
-            `"${(i.stage_name || '').replace(/"/g, '""')}"`,
-            `"${(i.user_name || '').replace(/"/g, '""')}"`,
-            `"${(i.date || '').replace(/"/g, '""')}"`,
-            `"${(i.description || '').replace(/"/g, '""')}"`,
-        ]);
-        const csvContent = "\uFEFF" + [headers.join(","), ...rows.map(r => r.join(","))].join("\r\n");
-        const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.setAttribute("href", url);
-        link.setAttribute("download", `${(viewName || "Items").replace(/[^a-zA-Z0-9_-]/g, "_")}.csv`);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-        this.notification.add(`Exported ${(items || []).length} items to file!`, { type: "success" });
-    }
-
     async onConfirmInsertView() {
         if (!this.state.currentArticle) return;
         const viewType = this.state.insertViewType || "kanban";
         const articleId = this.state.currentArticle.id;
-        const viewRefId = `emb_${viewType}_${Date.now()}`;
-        const defaultName = viewType === "kanban" ? "Nandu" : viewType === "list" ? "My List" : "My Calendar";
-        const viewName = this.state.insertViewName.trim() || defaultName;
-
+        const viewName = this.state.insertViewName.trim() || this.state.currentArticle.name || "";
         this.onCloseInsertViewModal();
 
-        // Create default stages for kanban matching Image 2 (New, Ongoing, Done folded)
-        if (viewType === "kanban") {
-            await this.orm.create("knowledge.management.item.stage", [{
-                name: "New",
-                article_id: articleId,
-                sequence: 10,
-                fold: false,
-            }, {
-                name: "Ongoing",
-                article_id: articleId,
-                sequence: 20,
-                fold: false,
-            }, {
-                name: "Done",
-                article_id: articleId,
-                sequence: 30,
-                fold: true,
-            }]);
+        // Creates the default stages (New / Ongoing / Done) of the parent article.
+        await this.orm.call("knowledge.management.article", "action_prepare_item_view", [[articleId], viewType]);
+        if (!this.editor?.editable || this.state.currentArticle?.id !== articleId) return;
+
+        const editable = this.editor.editable;
+        const doc = editable.ownerDocument;
+        const host = createItemViewHost(doc, viewType, viewName);
+        const paragraph = doc.createElement("p");
+        paragraph.append(doc.createElement("br"));
+
+        const toTopBlock = (node) => {
+            let el = node && (node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement);
+            while (el && el.parentElement && el.parentElement !== editable) {
+                el = el.parentElement;
+            }
+            return el && el.parentElement === editable ? el : null;
+        };
+        let anchor = toTopBlock(this._targetInsertionBlock) || toTopBlock(this._lastTargetBlock);
+        if (!anchor && this._savedRange && editable.contains(this._savedRange.commonAncestorContainer)) {
+            anchor = toTopBlock(this._savedRange.commonAncestorContainer);
         }
-
-        // Full inline view block with paragraph afterwards so user can type below it
-        const containerHtml = `<div class="o_knowledge_behavior_anchor o_knowledge_embedded_view_container" contenteditable="false"
-                data-view-type="${viewType}"
-                data-view-ref="${viewRefId}"
-                data-view-name="${viewName}"
-                data-article-id="${articleId}"></div><p><br></p>`;
-
-        const targetBlock = this._targetInsertionBlock || this._lastTargetBlock;
-        if (this.editor?.editable) {
-            let inserted = false;
-            if (targetBlock && this.editor.editable.contains(targetBlock)) {
-                targetBlock.insertAdjacentHTML("beforebegin", containerHtml);
-                if (!targetBlock.innerText.trim() && !targetBlock.classList.contains("o_knowledge_behavior_anchor")) {
-                    targetBlock.remove();
-                }
-                inserted = true;
-            } else if (this._savedRange && this.editor.editable.contains(this._savedRange.commonAncestorContainer)) {
-                try {
-                    let containerEl = this._savedRange.commonAncestorContainer;
-                    if (containerEl.nodeType !== Node.ELEMENT_NODE) containerEl = containerEl.parentElement;
-                    let topBlock = containerEl;
-                    while (topBlock && topBlock.parentElement && topBlock.parentElement !== this.editor.editable) {
-                        topBlock = topBlock.parentElement;
-                    }
-                    if (topBlock && topBlock.parentElement === this.editor.editable) {
-                        topBlock.insertAdjacentHTML("beforebegin", containerHtml);
-                        inserted = true;
-                    }
-                } catch (e) {
-                    console.warn("Could not insert at range, appending instead", e);
-                }
-            }
-            if (!inserted) {
-                this.editor.editable.insertAdjacentHTML("beforeend", containerHtml);
-            }
-            this._savedRange = null;
-            this._lastTargetBlock = null;
-            this._targetInsertionBlock = null;
-            this.onEditorChange();
-            await this._renderEmbeddedViews(this.editor.editable, articleId);
+        if (anchor && anchor.tagName !== "H1" && !anchor.dataset.embedded && !anchor.textContent.trim()
+            && !anchor.querySelector("img, iframe, [data-embedded]")) {
+            anchor.replaceWith(host, paragraph);
+        } else if (anchor) {
+            anchor.after(host, paragraph);
         } else {
-            let currentBody = this.state.currentArticle.body_html || "";
-            const newBody = currentBody + containerHtml;
-            this.state.currentArticle.body_html = newBody;
-            this.state.editorKey++;
-            await this.orm.write("knowledge.management.article", [articleId], { body_html: newBody });
+            editable.append(host, paragraph);
         }
+        this._savedRange = null;
+        this._lastTargetBlock = null;
+        this._targetInsertionBlock = null;
 
-        this.notification.add(`${viewType.toUpperCase()} view inserted!`, { type: "success" });
+        // Committing makes the EmbeddedComponentPlugin mount the Odoo view.
+        this.editor.shared.history.commit();
+        this.onEditorChange();
+        this.saveArticle();
     }
 
-    // ── Full Inline Embedded Views Renderer (Matches Image 2) ─────
-
-    async _renderEmbeddedViews(container, articleId) {
-        if (!container) return;
-        const blocks = container.querySelectorAll(".o_knowledge_embedded_view_container, .o_knowledge_embedded_view_block");
-        for (const block of blocks) {
-            const viewType = block.dataset.viewType || "kanban";
-            const viewRef = block.dataset.viewRef;
-            const viewName = block.dataset.viewName || "Items";
-            const artId = parseInt(block.dataset.articleId) || articleId;
-
-            block.setAttribute("contenteditable", "false");
-            block.className = "o_knowledge_behavior_anchor o_knowledge_embedded_view_container";
-
-            try {
-                const [items, stages] = await Promise.all([
-                    this.orm.call("knowledge.management.item", "get_items_for_view", [artId, viewRef]),
-                    this.orm.call("knowledge.management.item", "get_stages_for_view", [artId]),
-                ]);
-
-                if (viewType === "kanban") {
-                    this._renderKanbanBoard(block, artId, viewRef, viewName, items || [], stages || []);
-                } else if (viewType === "list") {
-                    this._renderListView(block, artId, viewRef, viewName, items || [], stages || []);
-                } else if (viewType === "calendar") {
-                    this._renderCalendarView(block, artId, viewRef, viewName, items || []);
-                }
-            } catch (e) {
-                console.error("Failed to render embedded view", e);
-            }
-        }
+    /**
+     * Opens an article item (from the embedded kanban / list / calendar)
+     * inside the Knowledge app, like in Odoo.
+     */
+    async openItemArticle(resId) {
+        if (!resId) return;
+        await this._flushPendingSave();
+        await this.openArticle(resId);
     }
 
-    _renderKanbanBoard(block, articleId, viewRef, viewName, items, stages) {
-        const topBarHtml = `
-            <div class="d-flex align-items-center gap-2 mb-3 pb-2 border-bottom position-relative">
-                <button class="btn btn-sm text-white fw-semibold o_kanban_new_btn" style="background:#714B67; padding:4px 14px; border-radius:4px; font-size:13px;">New</button>
-                <span class="fw-bold text-dark fs-6 ms-1">${viewName}</span>
-                <div class="position-relative d-inline-block">
-                    <i class="fa fa-cog text-muted o_kanban_settings_btn ms-1" style="cursor:pointer; padding:4px;" title="View Options"></i>
-                    <div class="o_settings_dropdown_menu d-none position-absolute bg-white border rounded shadow-sm py-1" style="z-index:1050; min-width:180px; top:100%; left:0;">
-                        <button class="dropdown-item py-2 px-3 d-flex align-items-center gap-2 o_settings_rename_btn" style="font-size:13px; cursor:pointer; background:transparent; border:none; width:100%; text-align:left;">
-                            <i class="fa fa-pencil text-muted"></i> Rename View
-                        </button>
-                        <button class="dropdown-item py-2 px-3 d-flex align-items-center gap-2 o_settings_export_btn" style="font-size:13px; cursor:pointer; background:transparent; border:none; width:100%; text-align:left;">
-                            <i class="fa fa-file-excel-o text-success"></i> Export (XLSX)
-                        </button>
-                        <div class="dropdown-divider my-1 border-top"></div>
-                        <button class="dropdown-item py-2 px-3 d-flex align-items-center gap-2 o_settings_expand_btn" style="font-size:13px; cursor:pointer; background:transparent; border:none; width:100%; text-align:left;">
-                            <i class="fa fa-arrows-alt text-muted"></i> Expand View
-                        </button>
-                    </div>
-                </div>
-                <div class="ms-auto d-flex align-items-center">
-                    <div class="input-group input-group-sm" style="width:220px;">
-                        <span class="input-group-text bg-white border-end-0 py-1"><i class="fa fa-search text-muted"></i></span>
-                        <input type="text" class="form-control border-start-0 border-end-0 py-1 o_kanban_search_input" placeholder="Search..."/>
-                        <span class="input-group-text bg-white border-start-0 py-1"><i class="fa fa-caret-down text-muted"></i></span>
-                    </div>
-                </div>
-            </div>
-        `;
-
-        let colsHtml = `<div class="d-flex gap-3 overflow-auto pb-2 o_kanban_columns_row" style="min-height:220px;">`;
-        for (const stage of stages) {
-            const stageItems = items.filter(i => i.stage_id === stage.id);
-            if (stage.fold) {
-                colsHtml += `
-                    <div class="o_stage_folded d-flex flex-column align-items-center justify-content-between p-2 rounded" data-stage-id="${stage.id}" style="width:38px; min-width:38px; background:#f8fafc; border:1px solid #e2e8f0; cursor:pointer;" title="Click to unfold ${stage.name}">
-                        <span style="writing-mode:vertical-rl; transform:rotate(180deg); font-weight:600; font-size:13px; color:#475569; margin-top:12px;">${stage.name} (${stageItems.length})</span>
-                        <i class="fa fa-angle-double-right text-muted mb-2"></i>
-                    </div>
-                `;
-            } else {
-                colsHtml += `
-                    <div class="o_stage_column flex-grow-1 p-2 rounded" data-stage-id="${stage.id}" style="min-width:280px; max-width:360px; background:#f8fafc; border:1px solid #e2e8f0; display:flex; flex-direction:column;">
-                        <div class="d-flex align-items-center justify-content-between mb-2 px-1">
-                            <span class="fw-semibold text-secondary" style="font-size:13px;">${stage.name} (${stageItems.length})</span>
-                            <div class="d-flex align-items-center gap-2">
-                                <button class="btn btn-link btn-sm p-0 text-muted o_add_stage_item_btn" data-stage-id="${stage.id}" title="Add Item" style="text-decoration:none; font-size:14px;">
-                                    <i class="fa fa-plus"></i>
-                                </button>
-                                <button class="btn btn-link btn-sm p-0 text-muted o_fold_stage_btn" data-stage-id="${stage.id}" title="Fold column" style="text-decoration:none; font-size:13px;">
-                                    <i class="fa fa-angle-double-left"></i>
-                                </button>
-                            </div>
-                        </div>
-                        <div class="o_cards_container flex-grow-1 d-flex flex-column gap-2">
-                            ${stageItems.length === 0 ? `
-                                <div class="o_empty_stage_box text-center py-4 px-3 rounded" style="background:#ffffff; border:1px dashed #cbd5e1; cursor:pointer;" data-stage-id="${stage.id}">
-                                    <div class="mb-2">
-                                        <svg width="68" height="68" viewBox="0 0 100 100" fill="none" style="display:inline-block;">
-                                            <circle cx="50" cy="50" r="38" fill="#714B67" opacity="0.9"/>
-                                            <path d="M42 20L58 20L68 30L68 76L32 76L32 20Z" fill="#FFFFFF" stroke="#374151" stroke-width="2" stroke-linejoin="round"/>
-                                            <path d="M58 20L58 30L68 30" stroke="#374151" stroke-width="2" stroke-linejoin="round"/>
-                                            <circle cx="44" cy="46" r="2.2" fill="#374151"/>
-                                            <circle cx="56" cy="46" r="2.2" fill="#374151"/>
-                                            <path d="M44 54C47 58 53 58 56 54" stroke="#374151" stroke-width="2" stroke-linecap="round"/>
-                                            <path d="M38 64H62M38 68H54" stroke="#E5E7EB" stroke-width="2" stroke-linecap="round"/>
-                                            <path d="M28 30L22 26M50 14L50 8M72 30L78 26" stroke="#9CA3AF" stroke-width="2" stroke-linecap="round"/>
-                                        </svg>
-                                    </div>
-                                    <div class="fw-bold text-dark mb-1" style="font-size:14px;">Create an Article Item</div>
-                                    <div class="text-muted" style="font-size:11px; line-height:1.45;">Article items are articles that exist inside their parents but are not displayed in the menu. They can be used to handle lists (Buildings, Tasks, ...).</div>
-                                </div>
-                            ` : stageItems.map(itm => `
-                                <div class="o_kanban_card p-2 bg-white rounded border shadow-sm" data-item-id="${itm.id}" data-item-name="${itm.name}" data-child-article-id="${itm.child_article_id || ''}" style="cursor:pointer;" title="Click to open article">
-                                    <div class="fw-medium text-dark d-flex align-items-center justify-content-between" style="font-size:13px;">
-                                        <span>${itm.name}</span>
-                                        <i class="fa fa-file-text-o text-muted ms-1" style="font-size:11px;"></i>
-                                    </div>
-                                    ${itm.user_name ? `<div class="text-muted mt-1" style="font-size:11px;"><i class="fa fa-user me-1"></i>${itm.user_name}</div>` : ''}
-                                </div>
-                            `).join('')}
-                        </div>
-                    </div>
-                `;
-            }
-        }
-        colsHtml += `</div>`;
-
-        block.innerHTML = topBarHtml + colsHtml;
-
-        // Attach Interactive Event Listeners
-        const createItemHandler = async (stId) => {
-            const name = await this.promptDialog({
-                title: "Create Article Item",
-                label: "Item Name",
-                defaultValue: "Building " + (items.length + 1),
-            });
-            if (!name) return;
-            await this.orm.create("knowledge.management.item", [{
-                name,
-                article_id: articleId,
-                view_ref_id: viewRef,
-                view_type: "kanban",
-                stage_id: stId || (stages[0] ? stages[0].id : false),
-            }]);
-            await this._renderEmbeddedViews(this.editor?.editable, articleId);
-        };
-
-        // New button
-        const newBtn = block.querySelector(".o_kanban_new_btn");
-        if (newBtn) {
-            newBtn.addEventListener("click", (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                createItemHandler(stages[0]?.id);
-            });
-        }
-
-        // Add to stage buttons
-        block.querySelectorAll(".o_add_stage_item_btn").forEach(btn => {
-            btn.addEventListener("click", (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                createItemHandler(parseInt(btn.dataset.stageId));
-            });
-        });
-
-        // Empty stage click
-        block.querySelectorAll(".o_empty_stage_box").forEach(box => {
-            box.addEventListener("click", (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                createItemHandler(parseInt(box.dataset.stageId));
-            });
-        });
-
-        // Fold column click
-        block.querySelectorAll(".o_fold_stage_btn").forEach(btn => {
-            btn.addEventListener("click", async (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                const stId = parseInt(btn.dataset.stageId);
-                await this.orm.write("knowledge.management.item.stage", [stId], { fold: true });
-                await this._renderEmbeddedViews(this.editor?.editable, articleId);
-            });
-        });
-
-        // Unfold column click
-        block.querySelectorAll(".o_stage_folded").forEach(col => {
-            col.addEventListener("click", async (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                const stId = parseInt(col.dataset.stageId);
-                await this.orm.write("knowledge.management.item.stage", [stId], { fold: false });
-                await this._renderEmbeddedViews(this.editor?.editable, articleId);
-            });
-        });
-
-        // Card open article or edit / delete
-        block.querySelectorAll(".o_kanban_card").forEach(card => {
-            card.addEventListener("click", async (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                const childArtId = parseInt(card.dataset.childArticleId);
-                if (childArtId) {
-                    await this.openArticle(childArtId);
-                } else {
-                    const itmId = parseInt(card.dataset.itemId);
-                    const oldName = card.dataset.itemName || "";
-                    const res = await this.promptDialog({
-                        title: "Edit Item",
-                        label: "Item Name",
-                        defaultValue: oldName,
-                        showDelete: true,
-                    });
-                    if (res === "__DELETE__" || res === "") {
-                        await this.orm.unlink("knowledge.management.item", [itmId]);
-                        await this._renderEmbeddedViews(this.editor?.editable, articleId);
-                    } else if (res && res !== oldName) {
-                        await this.orm.write("knowledge.management.item", [itmId], { name: res });
-                        await this._renderEmbeddedViews(this.editor?.editable, articleId);
-                    }
-                }
-            });
-        });
-
-        // Search filter with Backspace fix
-        const searchInput = block.querySelector(".o_kanban_search_input");
-        if (searchInput) {
-            searchInput.setAttribute("contenteditable", "false");
-            searchInput.addEventListener("keydown", (e) => {
-                e.stopPropagation();
-            });
-            searchInput.addEventListener("keyup", (e) => {
-                e.stopPropagation();
-            });
-            searchInput.addEventListener("input", (e) => {
-                e.stopPropagation();
-                const query = e.target.value.toLowerCase().trim();
-                block.querySelectorAll(".o_kanban_card").forEach(c => {
-                    const text = (c.dataset.itemName || "").toLowerCase();
-                    c.style.display = text.includes(query) ? "" : "none";
-                });
-            });
-        }
-
-        // Settings gear with dropdown menu (Rename, Export, Expand)
-        const settingsBtn = block.querySelector(".o_kanban_settings_btn");
-        const settingsMenu = block.querySelector(".o_settings_dropdown_menu");
-        if (settingsBtn && settingsMenu) {
-            settingsBtn.addEventListener("click", (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                settingsMenu.classList.toggle("d-none");
-            });
-
-            document.addEventListener("click", (e) => {
-                if (!settingsMenu.contains(e.target) && e.target !== settingsBtn) {
-                    settingsMenu.classList.add("d-none");
-                }
-            });
-
-            const renameBtn = settingsMenu.querySelector(".o_settings_rename_btn");
-            if (renameBtn) {
-                renameBtn.addEventListener("click", async (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    settingsMenu.classList.add("d-none");
-                    const newName = await this.promptDialog({
-                        title: "Rename Kanban View",
-                        label: "View Title",
-                        defaultValue: viewName,
-                    });
-                    if (newName && newName !== viewName) {
-                        block.dataset.viewName = newName;
-                        this.onEditorChange();
-                        await this._renderEmbeddedViews(this.editor?.editable, articleId);
-                    }
-                });
-            }
-
-            const exportBtn = settingsMenu.querySelector(".o_settings_export_btn");
-            if (exportBtn) {
-                exportBtn.addEventListener("click", (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    settingsMenu.classList.add("d-none");
-                    this._exportViewToXlsx(viewName, items);
-                });
-            }
-
-            const expandBtn = settingsMenu.querySelector(".o_settings_expand_btn");
-            if (expandBtn) {
-                expandBtn.addEventListener("click", (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    settingsMenu.classList.add("d-none");
-                    this._openEmbeddedViewAction(articleId, viewRef, "kanban", viewName);
-                });
-            }
-        }
-    }
-
-    _renderListView(block, articleId, viewRef, viewName, items, stages) {
-        const topBarHtml = `
-            <div class="d-flex align-items-center gap-2 mb-3 pb-2 border-bottom position-relative">
-                <button class="btn btn-sm text-white fw-semibold o_list_new_btn" style="background:#714B67; padding:4px 14px; border-radius:4px; font-size:13px;">New</button>
-                <span class="fw-bold text-dark fs-6 ms-1">${viewName}</span>
-                <div class="position-relative d-inline-block">
-                    <i class="fa fa-cog text-muted o_list_settings_btn ms-1" style="cursor:pointer; padding:4px;" title="View Options"></i>
-                    <div class="o_settings_dropdown_menu d-none position-absolute bg-white border rounded shadow-sm py-1" style="z-index:1050; min-width:180px; top:100%; left:0;">
-                        <button class="dropdown-item py-2 px-3 d-flex align-items-center gap-2 o_settings_rename_btn" style="font-size:13px; cursor:pointer; background:transparent; border:none; width:100%; text-align:left;">
-                            <i class="fa fa-pencil text-muted"></i> Rename View
-                        </button>
-                        <button class="dropdown-item py-2 px-3 d-flex align-items-center gap-2 o_settings_export_btn" style="font-size:13px; cursor:pointer; background:transparent; border:none; width:100%; text-align:left;">
-                            <i class="fa fa-file-excel-o text-success"></i> Export (XLSX)
-                        </button>
-                        <div class="dropdown-divider my-1 border-top"></div>
-                        <button class="dropdown-item py-2 px-3 d-flex align-items-center gap-2 o_settings_expand_btn" style="font-size:13px; cursor:pointer; background:transparent; border:none; width:100%; text-align:left;">
-                            <i class="fa fa-arrows-alt text-muted"></i> Expand View
-                        </button>
-                    </div>
-                </div>
-                <div class="ms-auto d-flex align-items-center">
-                    <div class="input-group input-group-sm" style="width:220px;">
-                        <span class="input-group-text bg-white border-end-0 py-1"><i class="fa fa-search text-muted"></i></span>
-                        <input type="text" class="form-control border-start-0 border-end-0 py-1 o_list_search_input" placeholder="Search..."/>
-                        <span class="input-group-text bg-white border-start-0 py-1"><i class="fa fa-caret-down text-muted"></i></span>
-                    </div>
-                </div>
-            </div>
-        `;
-
-        const tableHtml = `
-            <div class="table-responsive">
-                <table class="table table-sm table-hover align-middle mb-0" style="font-size:13px;">
-                    <thead class="table-light">
-                        <tr>
-                            <th style="width:40%;">Name</th>
-                            <th style="width:20%;">Stage</th>
-                            <th style="width:20%;">Assigned To</th>
-                            <th style="width:20%;">Date</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${items.length === 0 ? `
-                            <tr><td colspan="4" class="text-center text-muted py-4">No items yet. Click <strong>New</strong> to add an item.</td></tr>
-                        ` : items.map(itm => `
-                            <tr class="o_list_row" data-item-id="${itm.id}" data-item-name="${itm.name}" data-child-article-id="${itm.child_article_id || ''}" style="cursor:pointer;" title="Click to open article">
-                                <td class="fw-medium">
-                                    <span>${itm.name}</span>
-                                    <i class="fa fa-file-text-o text-muted ms-2" style="font-size:11px;"></i>
-                                </td>
-                                <td><span class="badge bg-light text-dark border">${itm.stage_name || 'New'}</span></td>
-                                <td class="text-muted">${itm.user_name || '—'}</td>
-                                <td class="text-muted">${itm.date || '—'}</td>
-                            </tr>
-                        `).join('')}
-                    </tbody>
-                </table>
-            </div>
-            <div class="mt-2 pt-2 border-top">
-                <button class="btn btn-sm btn-link text-muted p-0 o_list_add_item_btn" style="text-decoration:none; font-size:13px;">
-                    <i class="fa fa-plus me-1"></i>Add an Item
-                </button>
-            </div>
-        `;
-
-        block.innerHTML = topBarHtml + tableHtml;
-
-        const createItemHandler = async () => {
-            const name = await this.promptDialog({
-                title: "Create Article Item",
-                label: "Item Name",
-                defaultValue: "Item " + (items.length + 1),
-            });
-            if (!name) return;
-            await this.orm.create("knowledge.management.item", [{
-                name,
-                article_id: articleId,
-                view_ref_id: viewRef,
-                view_type: "list",
-                stage_id: stages[0]?.id || false,
-            }]);
-            await this._renderEmbeddedViews(this.editor?.editable, articleId);
-        };
-
-        const newBtn = block.querySelector(".o_list_new_btn");
-        if (newBtn) newBtn.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); createItemHandler(); });
-
-        const addRowBtn = block.querySelector(".o_list_add_item_btn");
-        if (addRowBtn) addRowBtn.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); createItemHandler(); });
-
-        block.querySelectorAll(".o_list_row").forEach(row => {
-            row.addEventListener("click", async (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                const childArtId = parseInt(row.dataset.childArticleId);
-                if (childArtId) {
-                    await this.openArticle(childArtId);
-                } else {
-                    const itmId = parseInt(row.dataset.itemId);
-                    const oldName = row.dataset.itemName || "";
-                    const res = await this.promptDialog({
-                        title: "Edit Item",
-                        label: "Item Name",
-                        defaultValue: oldName,
-                        showDelete: true,
-                    });
-                    if (res === "__DELETE__" || res === "") {
-                        await this.orm.unlink("knowledge.management.item", [itmId]);
-                        await this._renderEmbeddedViews(this.editor?.editable, articleId);
-                    } else if (res && res !== oldName) {
-                        await this.orm.write("knowledge.management.item", [itmId], { name: res });
-                        await this._renderEmbeddedViews(this.editor?.editable, articleId);
-                    }
-                }
-            });
-        });
-
-        const searchInput = block.querySelector(".o_list_search_input");
-        if (searchInput) {
-            searchInput.setAttribute("contenteditable", "false");
-            searchInput.addEventListener("keydown", (e) => { e.stopPropagation(); });
-            searchInput.addEventListener("keyup", (e) => { e.stopPropagation(); });
-            searchInput.addEventListener("input", (e) => {
-                e.stopPropagation();
-                const query = e.target.value.toLowerCase().trim();
-                block.querySelectorAll(".o_list_row").forEach(r => {
-                    const text = (r.dataset.itemName || "").toLowerCase();
-                    r.style.display = text.includes(query) ? "" : "none";
-                });
-            });
-        }
-
-        const settingsBtn = block.querySelector(".o_list_settings_btn");
-        const settingsMenu = block.querySelector(".o_settings_dropdown_menu");
-        if (settingsBtn && settingsMenu) {
-            settingsBtn.addEventListener("click", (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                settingsMenu.classList.toggle("d-none");
-            });
-
-            document.addEventListener("click", (e) => {
-                if (!settingsMenu.contains(e.target) && e.target !== settingsBtn) {
-                    settingsMenu.classList.add("d-none");
-                }
-            });
-
-            const renameBtn = settingsMenu.querySelector(".o_settings_rename_btn");
-            if (renameBtn) {
-                renameBtn.addEventListener("click", async (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    settingsMenu.classList.add("d-none");
-                    const newName = await this.promptDialog({
-                        title: "Rename List View",
-                        label: "View Title",
-                        defaultValue: viewName,
-                    });
-                    if (newName && newName !== viewName) {
-                        block.dataset.viewName = newName;
-                        this.onEditorChange();
-                        await this._renderEmbeddedViews(this.editor?.editable, articleId);
-                    }
-                });
-            }
-
-            const exportBtn = settingsMenu.querySelector(".o_settings_export_btn");
-            if (exportBtn) {
-                exportBtn.addEventListener("click", (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    settingsMenu.classList.add("d-none");
-                    this._exportViewToXlsx(viewName, items);
-                });
-            }
-
-            const expandBtn = settingsMenu.querySelector(".o_settings_expand_btn");
-            if (expandBtn) {
-                expandBtn.addEventListener("click", (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    settingsMenu.classList.add("d-none");
-                    this._openEmbeddedViewAction(articleId, viewRef, "list", viewName);
-                });
-            }
-        }
-    }
-
-    _renderCalendarView(block, articleId, viewRef, viewName, items) {
-        const today = new Date();
-        const year = today.getFullYear();
-        const month = today.getMonth();
-        const firstDay = new Date(year, month, 1).getDay();
-        const daysInMonth = new Date(year, month + 1, 0).getDate();
-        const monthName = today.toLocaleDateString("en-US", { month: "long", year: "numeric" });
-
-        let daysHtml = "";
-        for (let i = 0; i < firstDay; i++) {
-            daysHtml += `<div class="p-2 border bg-light" style="min-height:50px;"></div>`;
-        }
-        for (let d = 1; d <= daysInMonth; d++) {
-            const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-            const dayEvents = items.filter(i => i.date && i.date.startsWith(dateStr));
-            const isToday = d === today.getDate();
-            daysHtml += `
-                <div class="p-2 border o_cal_cell ${isToday ? 'bg-info-subtle fw-bold' : 'bg-white'}" data-date="${dateStr}" style="min-height:50px; cursor:pointer;" title="Click to add event on ${dateStr}">
-                    <div class="d-flex justify-content-between mb-1" style="font-size:11px;">
-                        <span>${d}</span>
-                        ${isToday ? '<span class="badge bg-primary" style="font-size:9px;">Today</span>' : ''}
-                    </div>
-                    ${dayEvents.map(ev => `<div class="badge bg-purple text-white text-truncate w-100 mb-1" style="background:#714B67; font-size:11px;">${ev.name}</div>`).join('')}
-                </div>
-            `;
-        }
-
-        const topBarHtml = `
-            <div class="d-flex align-items-center gap-2 mb-3 pb-2 border-bottom position-relative">
-                <button class="btn btn-sm text-white fw-semibold o_cal_new_btn" style="background:#714B67; padding:4px 14px; border-radius:4px; font-size:13px;">New</button>
-                <span class="fw-bold text-dark fs-6 ms-1">${viewName}</span>
-                <div class="position-relative d-inline-block">
-                    <i class="fa fa-cog text-muted o_cal_settings_btn ms-1" style="cursor:pointer; padding:4px;" title="View Options"></i>
-                    <div class="o_settings_dropdown_menu d-none position-absolute bg-white border rounded shadow-sm py-1" style="z-index:1050; min-width:180px; top:100%; left:0;">
-                        <button class="dropdown-item py-2 px-3 d-flex align-items-center gap-2 o_settings_rename_btn" style="font-size:13px; cursor:pointer; background:transparent; border:none; width:100%; text-align:left;">
-                            <i class="fa fa-pencil text-muted"></i> Rename View
-                        </button>
-                        <button class="dropdown-item py-2 px-3 d-flex align-items-center gap-2 o_settings_export_btn" style="font-size:13px; cursor:pointer; background:transparent; border:none; width:100%; text-align:left;">
-                            <i class="fa fa-file-excel-o text-success"></i> Export (XLSX)
-                        </button>
-                        <div class="dropdown-divider my-1 border-top"></div>
-                        <button class="dropdown-item py-2 px-3 d-flex align-items-center gap-2 o_settings_expand_btn" style="font-size:13px; cursor:pointer; background:transparent; border:none; width:100%; text-align:left;">
-                            <i class="fa fa-arrows-alt text-muted"></i> Expand View
-                        </button>
-                    </div>
-                </div>
-                <div class="ms-auto fw-semibold text-dark fs-6">${monthName}</div>
-            </div>
-            <div class="d-grid" style="grid-template-columns:repeat(7, 1fr); gap:1px; background:#e2e8f0; border:1px solid #e2e8f0; border-radius:6px; overflow:hidden;">
-                ${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(day => `
-                    <div class="p-2 text-center fw-semibold text-muted bg-light" style="font-size:12px;">${day}</div>
-                `).join('')}
-                ${daysHtml}
-            </div>
-        `;
-
-        block.innerHTML = topBarHtml;
-
-        const addEventOnDate = async (dateStr) => {
-            const name = await this.promptDialog({
-                title: `Create Event on ${dateStr}`,
-                label: "Event Name",
-                defaultValue: "Event",
-            });
-            if (!name) return;
-            await this.orm.create("knowledge.management.item", [{
-                name,
-                article_id: articleId,
-                view_ref_id: viewRef,
-                view_type: "calendar",
-                date: dateStr,
-            }]);
-            await this._renderEmbeddedViews(this.editor?.editable, articleId);
-        };
-
-        const newBtn = block.querySelector(".o_cal_new_btn");
-        if (newBtn) {
-            newBtn.addEventListener("click", (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                const todayStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
-                addEventOnDate(todayStr);
-            });
-        }
-
-        block.querySelectorAll(".o_cal_cell").forEach(cell => {
-            cell.addEventListener("click", (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                addEventOnDate(cell.dataset.date);
-            });
-        });
-
-        const settingsBtn = block.querySelector(".o_cal_settings_btn");
-        const settingsMenu = block.querySelector(".o_settings_dropdown_menu");
-        if (settingsBtn && settingsMenu) {
-            settingsBtn.addEventListener("click", (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                settingsMenu.classList.toggle("d-none");
-            });
-
-            document.addEventListener("click", (e) => {
-                if (!settingsMenu.contains(e.target) && e.target !== settingsBtn) {
-                    settingsMenu.classList.add("d-none");
-                }
-            });
-
-            const renameBtn = settingsMenu.querySelector(".o_settings_rename_btn");
-            if (renameBtn) {
-                renameBtn.addEventListener("click", async (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    settingsMenu.classList.add("d-none");
-                    const newName = await this.promptDialog({
-                        title: "Rename Calendar View",
-                        label: "View Title",
-                        defaultValue: viewName,
-                    });
-                    if (newName && newName !== viewName) {
-                        block.dataset.viewName = newName;
-                        this.onEditorChange();
-                        await this._renderEmbeddedViews(this.editor?.editable, articleId);
-                    }
-                });
-            }
-
-            const exportBtn = settingsMenu.querySelector(".o_settings_export_btn");
-            if (exportBtn) {
-                exportBtn.addEventListener("click", (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    settingsMenu.classList.add("d-none");
-                    this._exportViewToXlsx(viewName, items);
-                });
-            }
-
-            const expandBtn = settingsMenu.querySelector(".o_settings_expand_btn");
-            if (expandBtn) {
-                expandBtn.addEventListener("click", (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    settingsMenu.classList.add("d-none");
-                    this._openEmbeddedViewAction(articleId, viewRef, "calendar", viewName);
-                });
-            }
-        }
-    }
-
-    async _openEmbeddedViewAction(articleId, viewRefId, viewType, viewName) {
-        this.action.doAction({
-            type: "ir.actions.act_window",
-            name: viewName,
-            res_model: "knowledge.management.item",
-            views: viewType === "kanban"
-                ? [[false, "kanban"], [false, "list"], [false, "form"]]
-                : viewType === "list"
-                ? [[false, "list"], [false, "kanban"], [false, "form"]]
-                : [[false, "calendar"], [false, "list"], [false, "form"]],
-            domain: [
-                ["article_id", "=", articleId],
-                ["view_ref_id", "=", viewRefId],
-            ],
-            context: {
-                default_article_id: articleId,
-                default_view_ref_id: viewRefId,
-                default_view_type: viewType,
-                search_default_group_stage: 1,
-                group_by: "stage_id",
-            },
-        });
+    async _flushPendingSave() {
+        await this.saveArticle();
     }
 
     // ── AI Article Generator Modal ────────────────────────────────
 
     onOpenAIGenerator() {
+        if (!isHudsonAIAvailable()) {
+            // The generator needs the Hudson AI module.
+            return;
+        }
         this.state.showAIDialog = true;
         this.state.aiGenerating = false;
         this.selectAIPreset(this.state.aiPreset || "plan");
     }
 
     onCloseAIDialog() {
+        if (this.state.aiGenerating) {
+            return;
+        }
         this.state.showAIDialog = false;
     }
 
@@ -2443,138 +1703,83 @@ export class KnowledgeClientAction extends Component {
     }
 
     async onConfirmAIGenerate() {
-        if (!this.state.currentArticle) return;
+        if (!this.state.currentArticle || this.state.aiGenerating) return;
+        const instruction = (this.state.aiPrompt || "").trim();
+        if (!instruction) {
+            this.notification.add("Describe what the article should be about.", { type: "warning" });
+            return;
+        }
+        const articleId = this.state.currentArticle.id;
         this.state.aiGenerating = true;
-
-        const preset = this.state.aiPreset;
-        const userPrompt = this.state.aiPrompt || "Overview and Documentation";
-
-        let title = "Generated Article";
-        let bodyHtml = "";
-
-        if (preset === "plan") {
-            title = "Project Roadmap & Execution Plan";
-            bodyHtml = `<h1>Project Roadmap &amp; Execution Plan 📊</h1>
-<p class="lead"><strong>Objective:</strong> ${userPrompt}</p>
-<hr/>
-<h2>1. Executive Summary</h2>
-<p>This document outlines the strategic timeline, deliverables, resource allocation, and key risks for the initiative.</p>
-<h2>2. Project Phases &amp; Milestones</h2>
-<ul>
-    <li><strong>Phase 1: Discovery &amp; Scope Alignment</strong> — Finalize specifications, technical requirements, and stakeholder buy-in.</li>
-    <li><strong>Phase 2: Execution &amp; Sprint Development</strong> — Bi-weekly sprint deliverables with continuous quality assurance.</li>
-    <li><strong>Phase 3: Testing &amp; UAT</strong> — User acceptance testing, performance benchmarks, and bug fixes.</li>
-    <li><strong>Phase 4: Launch &amp; Rollout</strong> — Phased release to customers, enablement sessions, and monitoring.</li>
-</ul>
-<h2>3. Key Deliverables</h2>
-<ol>
-    <li>Architecture documentation and database schema design</li>
-    <li>Core functional modules and integration endpoints</li>
-    <li>User guides and operational runbooks</li>
-</ol>
-<h2>4. Risk Assessment &amp; Mitigation</h2>
-<p><strong>Identified Risks:</strong> Dependency delays and scope creep. <em>Mitigation:</em> Strict change request process and weekly status checkpoints.</p>`;
-        } else if (preset === "meeting") {
-            title = "Team Meeting Minutes";
-            bodyHtml = `<h1>Team Meeting Minutes 📝</h1>
-<p><strong>Date:</strong> ${new Date().toLocaleDateString()} | <strong>Time:</strong> 10:00 AM</p>
-<p><strong>Attendees:</strong> Product Team, Engineering Leads, Design Lead</p>
-<p><strong>Focus:</strong> ${userPrompt}</p>
-<hr/>
-<h2>Discussion Topics</h2>
-<ul>
-    <li>Reviewed sprint progress and resolved blocking dependencies.</li>
-    <li>Aligned on user feedback regarding recent feature releases.</li>
-    <li>Prioritized upcoming roadmap backlog items.</li>
-</ul>
-<h2>Decisions Made</h2>
-<ul>
-    <li>Approved implementation roadmap for Q4 deliverables.</li>
-    <li>Adopted new workflow templates across workspace documentation.</li>
-</ul>
-<h2>Action Items</h2>
-<ol>
-    <li><strong>Engineering:</strong> Finalize API contracts by Friday.</li>
-    <li><strong>Product:</strong> Share revised user stories with stakeholders.</li>
-    <li><strong>Design:</strong> Provide high-fidelity prototypes for next sprint.</li>
-</ol>`;
-        } else if (preset === "sop") {
-            title = "Standard Operating Procedure";
-            bodyHtml = `<h1>Standard Operating Procedure (SOP) 📋</h1>
-<p><strong>Procedure:</strong> ${userPrompt}</p>
-<p><strong>Version:</strong> 1.0 | <strong>Effective Date:</strong> ${new Date().toLocaleDateString()}</p>
-<hr/>
-<h2>1. Purpose &amp; Scope</h2>
-<p>To establish a consistent, reproducible standard across team operations and ensure quality compliance.</p>
-<h2>2. Prerequisites</h2>
-<ul>
-    <li>Standard system access credentials</li>
-    <li>Approved verification checklist</li>
-</ul>
-<h2>3. Step-by-Step Procedure</h2>
-<ol>
-    <li><strong>Step 1: Preparation</strong> — Verify all prerequisites and environment readiness before initiating the task.</li>
-    <li><strong>Step 2: Execution</strong> — Execute designated steps according to standard operational parameters.</li>
-    <li><strong>Step 3: Verification &amp; Quality Check</strong> — Audit output against acceptance criteria.</li>
-    <li><strong>Step 4: Reporting &amp; Handover</strong> — Log task completion in knowledge records and notify relevant stakeholders.</li>
-</ol>
-<h2>4. Escalation Path</h2>
-<p>In case of deviations or issues, escalate to the team lead within 1 hour.</p>`;
-        } else {
-            title = "Product Requirements Document";
-            bodyHtml = `<h1>Product Requirements Document (PRD) 🚀</h1>
-<p><strong>Initiative:</strong> ${userPrompt}</p>
-<hr/>
-<h2>1. Problem Statement</h2>
-<p>Users require a seamless, intuitive workflow to achieve higher productivity and minimize manual overhead.</p>
-<h2>2. Target Audience &amp; Personas</h2>
-<ul>
-    <li><strong>Primary:</strong> Department Managers and Team Leads</li>
-    <li><strong>Secondary:</strong> Operational team members and contributors</li>
-</ul>
-<h2>3. Key Features &amp; Functional Requirements</h2>
-<ul>
-    <li><strong>Native Editor Integration:</strong> Rich text styling, inline slash commands, and block insertions.</li>
-    <li><strong>Collaboration:</strong> Easy sharing across workspace, shared groups, and private domains.</li>
-    <li><strong>Embedded Views:</strong> Dynamic Kanban, List, and Calendar items embedded in articles.</li>
-</ul>
-<h2>4. Success Metrics</h2>
-<ol>
-    <li>Adoption rate across active users exceeding 80%</li>
-    <li>Reduction in task completion time by 30%</li>
-</ol>`;
+        let result;
+        try {
+            // Route provided by the Hudson AI module.
+            result = await rpc("/hudson_ai/write", { instruction }, { silent: true });
+        } catch (e) {
+            console.error("AI generation failed", e);
+            result = { error: "Hudson AI could not be reached. Please try again." };
+        } finally {
+            this.state.aiGenerating = false;
+        }
+        if (result.error || !result.html) {
+            // Keep the dialog open so the prompt is not lost.
+            this.notification.add(result.error || "The AI returned an empty answer.", {
+                title: "Hudson AI",
+                type: "danger",
+                sticky: true,
+            });
+            return;
+        }
+        this.state.showAIDialog = false;
+        if (!this.state.currentArticle || this.state.currentArticle.id !== articleId) {
+            // The user switched to another article while the AI was writing.
+            return;
         }
 
-        const articleId = this.state.currentArticle.id;
+        const title = result.title || this.state.currentArticle.name;
         this.state.currentArticle.name = title;
-        this.state.currentArticle.body_html = bodyHtml;
-        this.state.showAIDialog = false;
-        this.state.aiGenerating = false;
+        this.state.currentArticle.body_html = result.html;
         this.state.editorKey++;
 
         await this.orm.write("knowledge.management.article", [articleId], {
             name: title,
-            body_html: bodyHtml,
+            body_html: result.html,
         });
         await this._loadSidebar();
 
-        this.notification.add("Article successfully generated with AI!", { type: "success" });
+        this.notification.add("Article generated with Hudson AI.", { type: "success" });
     }
 
     // ── Template Browser & Loader ─────────────────────────────────
 
     async onBrowseTemplates() {
         try {
-            const templates = await this.orm.searchRead(
+            const categories = await this.orm.call(
                 "knowledge.management.article.template",
-                [],
-                ["id", "name", "icon", "body_html"]
+                "get_templates_by_category",
+                []
             );
-            this.state.availableTemplates = templates || [];
+            this.state.templateCategories = categories || [];
+            this.state.availableTemplates = this.state.templateCategories.flatMap((c) => c.templates);
+            const first = this.state.availableTemplates[0];
+            this.state.selectedTemplateId = first ? first.id : false;
             this.state.showTemplateDialog = true;
         } catch (e) {
             console.error("Failed to load templates", e);
+            this.notification.add("Could not load the templates.", { type: "danger" });
         }
+    }
+
+    get selectedTemplate() {
+        return this.state.availableTemplates.find((t) => t.id === this.state.selectedTemplateId) || null;
+    }
+
+    getTemplatePreviewHtml(tmpl) {
+        return markup(cleanHtmlContent(tmpl?.body_html || ""));
+    }
+
+    onPreviewTemplate(tmpl) {
+        this.state.selectedTemplateId = tmpl.id;
     }
 
     onCloseTemplateDialog() {
@@ -2582,49 +1787,64 @@ export class KnowledgeClientAction extends Component {
     }
 
     async onSelectTemplate(tmpl) {
-        if (!this.state.currentArticle) return;
-        const articleId = this.state.currentArticle.id;
+        if (!tmpl) return;
         const bodyHtml = tmpl.body_html || "<h1>Template</h1><p><br></p>";
-
-        this.state.currentArticle.name = tmpl.name;
-        this.state.currentArticle.icon = tmpl.icon || "📄";
-        this.state.currentArticle.body_html = bodyHtml;
-        this.state.showTemplateDialog = false;
-        this.state.editorKey++;
-
-        await this.orm.write("knowledge.management.article", [articleId], {
+        const vals = {
             name: tmpl.name,
-            icon: tmpl.icon || "📄",
+            icon: tmpl.icon || "",
             body_html: bodyHtml,
-        });
-        await this._loadSidebar();
+            cover_image_url: tmpl.cover_image_url || false,
+            cover_position: tmpl.cover_position || "50%",
+        };
+        this.state.showTemplateDialog = false;
+
+        if (!this.state.currentArticle) {
+            // No article open: create a new private article from the template.
+            const created = await this.orm.create("knowledge.management.article", [{
+                ...vals,
+                visibility: "private",
+            }]);
+            await this._loadSidebar();
+            await this.openArticle(created[0]);
+        } else {
+            const articleId = this.state.currentArticle.id;
+            Object.assign(this.state.currentArticle, vals);
+            this.state.editorKey++;
+            await this.orm.write("knowledge.management.article", [articleId], vals);
+            this._lastSavedTitle = vals.name;
+            this._lastSavedBodyHtml = bodyHtml;
+            await this._loadSidebar();
+        }
 
         this.notification.add(`Template "${tmpl.name}" applied!`, { type: "success" });
     }
 
-    // ── Auto-save ─────────────────────────────────────────────────
-
-    _scheduleBodySave(articleId, html, urgent = false) {
-        if (this._bodySaveTimer) clearTimeout(this._bodySaveTimer);
-        const delay = urgent ? 0 : 700;
-        this._bodySaveTimer = setTimeout(async () => {
-            try {
-                await this.orm.write("knowledge.management.article", [articleId], {
-                    body_html: html,
-                });
-                if (this.state.currentArticle && this.state.currentArticle.id === articleId) {
-                    this.state.currentArticle.body_html = html;
-                }
-            } catch (e) {
-                console.warn("Auto-save failed", e);
-            }
-        }, delay);
+    async onDeleteTemplate(tmpl) {
+        if (!tmpl) return;
+        const confirmed = await new Promise((resolve) => {
+            this.dialogService.add(ConfirmationDialog, {
+                title: "Delete Template",
+                body: `Do you really want to delete the template "${tmpl.name}"?`,
+                confirmLabel: "Delete",
+                confirm: () => resolve(true),
+                cancel: () => resolve(false),
+            }, { onClose: () => resolve(false) });
+        });
+        if (!confirmed) return;
+        await this.orm.call(
+            "knowledge.management.article.template",
+            "action_delete_template",
+            [[tmpl.id]]
+        );
+        await this.onBrowseTemplates();
+        this.notification.add("Template deleted", { type: "info" });
     }
 
     // ── Sidebar Interactions ──────────────────────────────────────
 
     async onSelectArticle(articleId) {
         if (this.state.currentArticle?.id === articleId) return;
+        await this._flushPendingSave();
         await this.openArticle(articleId);
     }
 
@@ -2679,7 +1899,7 @@ export class KnowledgeClientAction extends Component {
     onSidebarOpenNewTab(article) {
         this.onCloseSidebarMenu();
         if (!article) return;
-        const url = window.location.origin + window.location.pathname + `?action=hudson_knowledge.action_knowledge_management#id=${article.id}&model=knowledge.management.article`;
+        const url = `${window.location.origin}/odoo/action-hudson_knowledge.action_knowledge_home?article_id=${article.id}`;
         window.open(url, "_blank");
     }
 
@@ -2703,30 +1923,251 @@ export class KnowledgeClientAction extends Component {
         this.onCloseSidebarMenu();
         this.state.showKebab = false;
         if (!article || !newVisibility) return;
-        await this.orm.write(
-            "knowledge.management.article",
-            [article.id],
-            { visibility: newVisibility }
-        );
-        article.visibility = newVisibility;
-        if (this.state.currentArticle && this.state.currentArticle.id === article.id) {
-            this.state.currentArticle.visibility = newVisibility;
+        await this.moveArticle(article, { category: newVisibility });
+    }
+
+    // ── Sidebar move: drag & drop / Move To ───────────────────────
+
+    /**
+     * Moves an article to the root of a section (category) or under another
+     * article (parentId), before `beforeId` (or last). Odoo rules:
+     *  - Private: only you; other users lose their access (confirmation)
+     *  - Shared: the article must be shared with at least one person, so the
+     *    Share dialog opens first when nobody is invited yet
+     */
+    async moveArticle(article, { category = false, parentId = false, beforeId = false } = {}) {
+        if (!article) return false;
+        if (parentId && parentId === article.id) return false;
+        if (!parentId && category === "private") {
+            const data = await this.orm.call("knowledge.management.article", "get_share_data", [[article.id]]);
+            const others = data.members.filter((m) => !m.is_me && m.permission !== "none");
+            if (others.length || data.visibility === "workspace") {
+                const body = data.visibility === "workspace"
+                    ? `"${article.name}" will only be accessible by you. The other users of the workspace will lose access to it and to its sub-articles.`
+                    : `"${article.name}" will only be accessible by you. ${others.length} member(s) will lose access to it and to its sub-articles.`;
+                const confirmed = await new Promise((resolve) => {
+                    this.dialogService.add(ConfirmationDialog, {
+                        title: "Move to Private",
+                        body,
+                        confirmLabel: "Move to Private",
+                        confirm: () => resolve(true),
+                        cancel: () => resolve(false),
+                    }, { onClose: () => resolve(false) });
+                });
+                if (!confirmed) return false;
+            }
         }
-        this._syncArticleToSidebar(article.id, { visibility: newVisibility });
+        if (!parentId && category === "shared") {
+            const data = await this.orm.call("knowledge.management.article", "get_share_data", [[article.id]]);
+            const others = data.members.filter((m) => !m.is_me && m.permission !== "none");
+            if (!others.length) {
+                this.notification.add("Invite at least one person to move this article to Shared.", { type: "info" });
+                this.openShareDialog(article.id, { pendingCategory: "shared", beforeId });
+                return false;
+            }
+        }
+        try {
+            await this.orm.call("knowledge.management.article", "action_move_article", [
+                [article.id], category || false, parentId || false, beforeId || false,
+            ]);
+        } finally {
+            if (parentId && !(this.state.expandedIds || []).includes(parentId)) {
+                this.state.expandedIds.push(parentId);
+            }
+            await this._reloadAfterAccessChange(article.id);
+        }
+        return true;
+    }
+
+    async _reloadAfterAccessChange(articleId) {
         await this._loadSidebar();
+        await this._refreshExpandedChildren();
+        const current = this.state.currentArticle;
+        if (!current || !articleId) return;
+        try {
+            const data = await this.orm.call("knowledge.management.article", "get_article_data", [], {
+                context: { active_id: current.id },
+            });
+            Object.assign(current, {
+                visibility: data.visibility,
+                parent_id: data.parent_id,
+                parent_name: data.parent_name,
+                user_permission: data.user_permission,
+                user_can_write: data.user_can_write,
+            });
+        } catch {
+            // The current article is not accessible anymore.
+            this.state.currentArticle = null;
+            const topId = await this.orm.call("knowledge.management.article", "get_top_article", []);
+            if (topId) await this.openArticle(topId);
+        }
+    }
+
+    openShareDialog(articleId, { pendingCategory = false, beforeId = false } = {}) {
+        let moved = false;
+        this.dialogService.add(KnowledgeShareDialog, {
+            articleId,
+            onChanged: async (data) => {
+                if (pendingCategory === "shared" && !moved
+                        && data.members.some((m) => !m.is_me && m.permission !== "none")) {
+                    moved = true;
+                    if (data.visibility !== "shared" && data.is_root) {
+                        await this.orm.call("knowledge.management.article", "action_move_article", [
+                            [articleId], "shared", false, beforeId || false,
+                        ]);
+                    }
+                }
+                await this._reloadAfterAccessChange(articleId);
+            },
+        });
+    }
+
+    openMoveDialog(article) {
+        this.dialogService.add(KnowledgeMoveDialog, {
+            article,
+            onMove: async (target) => {
+                if (target.kind === "section") {
+                    await this.moveArticle(article, { category: target.id });
+                } else {
+                    await this.moveArticle(article, { parentId: target.id });
+                }
+            },
+        });
+    }
+
+    // Sidebar handlers read the article from the DOM (data-article-id): the
+    // loop variable of the recursive t-call is not reliable at event time.
+    _evArticleId(ev) {
+        const el = ev.target.closest?.("[data-article-id]") || ev.currentTarget;
+        return parseInt(el?.dataset?.articleId) || false;
+    }
+
+    _evArticle(ev) {
+        const id = this._evArticleId(ev);
+        const lists = [
+            this.state.sidebar.favorites, this.state.sidebar.workspace,
+            this.state.sidebar.shared, this.state.sidebar.private,
+            ...Object.values(this.state.childrenMap || {}),
+        ];
+        for (const list of lists) {
+            const found = (list || []).find((a) => a.id === id);
+            if (found) return found;
+        }
+        return { id };
+    }
+
+    _evSection(ev) {
+        return ev.target.closest?.("[data-section]")?.dataset.section || false;
+    }
+
+    // Native HTML5 drag & drop in the sidebar tree
+    onSidebarDragStart(ev, article) {
+        if (!article.user_can_write) {
+            ev.preventDefault();
+            this.notification.add("You need \"Can Edit\" access to move this article.", { type: "warning" });
+            return;
+        }
+        this._dragArticle = article;
+        ev.stopPropagation();
+        ev.dataTransfer.effectAllowed = "move";
+        // Defer: changing the DOM in dragstart cancels the drag in Chrome.
+        setTimeout(() => { this.state.isDragging = true; }, 0);
+        ev.dataTransfer.setData("text/plain", String(article.id));
+        ev.currentTarget.classList.add("o_knowledge_dragging");
+    }
+
+    onSidebarDragEnd(ev) {
+        ev.currentTarget.classList.remove("o_knowledge_dragging");
+        this._clearDropMarkers();
+        this._dragArticle = null;
+        this.state.isDragging = false;
+    }
+
+    _clearDropMarkers() {
+        for (const el of document.querySelectorAll(
+            ".o_knowledge_drop_before, .o_knowledge_drop_after, .o_knowledge_drop_inside, .o_knowledge_drop_section"
+        )) {
+            el.classList.remove("o_knowledge_drop_before", "o_knowledge_drop_after",
+                "o_knowledge_drop_inside", "o_knowledge_drop_section");
+        }
+    }
+
+    _dropPosition(ev) {
+        const rect = ev.currentTarget.getBoundingClientRect();
+        const y = ev.clientY - rect.top;
+        if (y < rect.height * 0.28) return "before";
+        if (y > rect.height * 0.72) return "after";
+        return "inside";
+    }
+
+    onSidebarItemDragOver(ev, target) {
+        const dragged = this._dragArticle;
+        if (!dragged || dragged.id === target.id) return;
+        ev.preventDefault();
+        ev.stopPropagation();
+        ev.dataTransfer.dropEffect = "move";
+        this._clearDropMarkers();
+        ev.currentTarget.classList.add(`o_knowledge_drop_${this._dropPosition(ev)}`);
+    }
+
+    async onSidebarItemDrop(ev, target, section) {
+        const dragged = this._dragArticle;
+        ev.preventDefault();
+        ev.stopPropagation();
+        const position = this._dropPosition(ev);
+        this._clearDropMarkers();
+        this._dragArticle = null;
+        this.state.isDragging = false;
+        if (!dragged || dragged.id === target.id) return;
+        try {
+            if (position === "inside") {
+                await this.moveArticle(dragged, { parentId: target.id });
+                return;
+            }
+            const siblings = target.parent_id
+                ? (this.state.childrenMap[target.parent_id] || [])
+                : (this.state.sidebar[section] || []);
+            const list = siblings.filter((s) => s.id !== dragged.id);
+            const idx = list.findIndex((s) => s.id === target.id);
+            const beforeId = position === "before" ? target.id : (list[idx + 1]?.id || false);
+            if (target.parent_id && section !== "favorites") {
+                await this.moveArticle(dragged, { parentId: target.parent_id, beforeId });
+            } else if (section === "favorites") {
+                await this.moveArticle(dragged, { category: target.visibility });
+            } else {
+                await this.moveArticle(dragged, { category: section, beforeId });
+            }
+        } catch (e) {
+            this.notification.add(e.data?.message || e.message || String(e), { type: "danger" });
+        }
+    }
+
+    onSidebarSectionDragOver(ev) {
+        if (!this._dragArticle) return;
+        ev.preventDefault();
+        ev.dataTransfer.dropEffect = "move";
+        this._clearDropMarkers();
+        ev.currentTarget.classList.add("o_knowledge_drop_section");
+    }
+
+    async onSidebarSectionDrop(ev, section) {
+        const dragged = this._dragArticle;
+        ev.preventDefault();
+        this._clearDropMarkers();
+        this._dragArticle = null;
+        this.state.isDragging = false;
+        if (!dragged) return;
+        try {
+            await this.moveArticle(dragged, { category: section });
+        } catch (e) {
+            this.notification.add(e.data?.message || e.message || String(e), { type: "danger" });
+        }
     }
 
     onSidebarShare(article) {
         this.onCloseSidebarMenu();
         if (!article) return;
-        this.action.doAction({
-            type: "ir.actions.act_window",
-            name: "Share Article",
-            res_model: "knowledge.management.article",
-            res_id: article.id,
-            views: [[false, "form"]],
-            target: "new",
-        });
+        this.openShareDialog(article.id);
     }
 
     async onSidebarRename(article) {
@@ -2750,14 +2191,7 @@ export class KnowledgeClientAction extends Component {
     onSidebarMoveTo(article) {
         this.onCloseSidebarMenu();
         if (!article) return;
-        this.action.doAction({
-            type: "ir.actions.act_window",
-            name: "Move Article To",
-            res_model: "knowledge.management.article",
-            views: [[false, "list"]],
-            target: "new",
-            domain: [["id", "!=", article.id]],
-        });
+        this.openMoveDialog(article);
     }
 
     async onSidebarCreateCopy(article) {
@@ -2819,26 +2253,59 @@ export class KnowledgeClientAction extends Component {
 
     onShare() {
         if (!this.state.currentArticle) return;
-        this.action.doAction({
-            type: "ir.actions.act_window",
-            name: "Share Article",
-            res_model: "knowledge.management.article",
-            res_id: this.state.currentArticle.id,
-            views: [[false, "form"]],
-            target: "new",
-        });
+        this.openShareDialog(this.state.currentArticle.id);
     }
 
     onOpenTrash() {
-        this.action.doAction({
-            type: "ir.actions.act_window",
-            name: "Trash",
-            res_model: "knowledge.management.article",
-            views: [[false, "list"], [false, "form"]],
-            domain: [["active", "=", false]],
-            context: { search_default_trash: 1 },
-            target: "current",
+        this.action.doAction("hudson_knowledge.action_knowledge_trash");
+    }
+
+    // ── Trash (article opened from the Trash list) ────────────────
+
+    get isInTrash() {
+        return this.state.currentArticle?.active === false;
+    }
+
+    /** Locked, in the trash or without write access: nothing is editable
+     *  (body, title, icon, cover). */
+    /** Breadcrumbs of the actions below Knowledge (e.g. the vendor bill the
+     *  article was opened from with the Knowledge button). */
+    get appBreadcrumbs() {
+        return (this.env.config?.breadcrumbs || []).slice(0, -1).filter(Boolean);
+    }
+
+    onAppBreadcrumbClick(ev) {
+        const index = parseInt(ev.currentTarget.dataset.crumbIndex);
+        this.appBreadcrumbs[index]?.onSelected();
+    }
+
+    get isArticleReadonly() {
+        const art = this.state.currentArticle;
+        return !art || art.is_locked || art.active === false || art.user_can_write === false;
+    }
+
+    getTrashDeletionDate() {
+        const d = this.state.currentArticle?.to_delete_date;
+        if (!d) return "";
+        const [y, m, day] = d.split("-").map(Number);
+        return new Date(y, m - 1, day).toLocaleDateString(undefined, {
+            day: "numeric",
+            month: "short",
         });
+    }
+
+    async onRestoreFromTrash() {
+        const art = this.state.currentArticle;
+        if (!art) return;
+        await this.orm.call(
+            "knowledge.management.article",
+            "action_restore_from_trash",
+            [[art.id]]
+        );
+        await this._loadSidebar();
+        await this._refreshExpandedChildren();
+        await this.openArticle(art.id);
+        this.notification.add("Article restored", { type: "success" });
     }
 
     // ── Toolbar & Kebab Actions ───────────────────────────────────
@@ -2892,7 +2359,7 @@ export class KnowledgeClientAction extends Component {
             onRemove: () => {
                 if (!this.state.currentArticle) return;
                 this.state.currentArticle.icon = "";
-                this._syncArticleToSidebar(this.state.currentArticle.id, { icon: "📄" });
+                this._syncArticleToSidebar(this.state.currentArticle.id, { icon: "" });
                 this._updateArticleField("icon", "");
                 this.emojiPopover.close();
             },
@@ -2902,11 +2369,13 @@ export class KnowledgeClientAction extends Component {
 
     onEmojiClick(ev) {
         ev.stopPropagation();
+        if (this.isArticleReadonly) return;
         this.openEmojiPicker(ev.currentTarget);
     }
 
     onAddIcon(ev) {
         this.state.showKebab = false;
+        if (this.isArticleReadonly) return;
         const target = ev?.currentTarget || this.titleEmojiRef?.el || this.toolbarEmojiRef?.el;
         this.openEmojiPicker(target);
     }
@@ -2941,13 +2410,13 @@ export class KnowledgeClientAction extends Component {
 
     async onAddCover() {
         this.state.showKebab = false;
-        if (!this.state.currentArticle) return;
+        if (this.isArticleReadonly) return;
         this.openCoverMediaDialog();
     }
 
     async onOpenCoverModal() {
         this.state.showKebab = false;
-        if (!this.state.currentArticle) return;
+        if (this.isArticleReadonly) return;
         this.openCoverMediaDialog();
     }
 
@@ -3024,13 +2493,13 @@ export class KnowledgeClientAction extends Component {
     }
 
     onStartRepositionCover() {
-        if (!this.state.currentArticle) return;
+        if (this.isArticleReadonly) return;
         this.state.isRepositioningCover = true;
         this.state.savedCoverPosition = this.state.currentArticle.cover_position || "50%";
     }
 
     onCoverMouseDown(ev) {
-        if (!this.state.isRepositioningCover) return;
+        if (!this.state.isRepositioningCover || this.isArticleReadonly) return;
         ev.preventDefault();
         const startY = ev.clientY;
         const startPos = parseFloat(this.state.currentArticle.cover_position || "50%") || 50;
@@ -3070,7 +2539,7 @@ export class KnowledgeClientAction extends Component {
     }
 
     async onRemoveCover() {
-        if (!this.state.currentArticle) return;
+        if (this.isArticleReadonly) return;
         this.state.currentArticle.cover_image_url = false;
         await this._updateArticleField("cover_image_url", false);
     }
@@ -3085,14 +2554,7 @@ export class KnowledgeClientAction extends Component {
     onMoveTo() {
         this.state.showKebab = false;
         if (!this.state.currentArticle) return;
-        this.action.doAction({
-            type: "ir.actions.act_window",
-            name: "Move Article To",
-            res_model: "knowledge.management.article",
-            views: [[false, "list"]],
-            target: "new",
-            domain: [["id", "!=", this.state.currentArticle.id]],
-        });
+        this.openMoveDialog(this.state.currentArticle);
     }
 
     async onToggleLock() {
@@ -3104,6 +2566,10 @@ export class KnowledgeClientAction extends Component {
             [[this.state.currentArticle.id]]
         );
         this.state.currentArticle.is_locked = !this.state.currentArticle.is_locked;
+        if (this.state.currentArticle.is_locked && this.state.isRepositioningCover) {
+            this.state.currentArticle.cover_position = this.state.savedCoverPosition || "50%";
+            this.state.isRepositioningCover = false;
+        }
         this.state.editorKey++;
     }
 
@@ -3119,25 +2585,72 @@ export class KnowledgeClientAction extends Component {
         if (copied && copied[0]) await this.openArticle(copied[0]);
     }
 
-    onDownloadPdf() {
+    async onDownloadPdf() {
         this.state.showKebab = false;
-        if (!this.state.currentArticle) return;
-        window.open(
-            `/knowledge/article/${this.state.currentArticle.id}/pdf`,
-            "_blank"
-        );
+        const art = this.state.currentArticle;
+        if (!art) return;
+        // Pending edits must be in the PDF.
+        await this.saveArticle();
+        await this.action.doAction("hudson_knowledge.action_report_knowledge_article", {
+            additionalContext: { active_id: art.id, active_ids: [art.id], active_model: "knowledge.management.article" },
+        });
     }
 
     async onAddToTemplates() {
         this.state.showKebab = false;
         if (!this.state.currentArticle) return;
+        try {
+            const categories = await this.orm.call(
+                "knowledge.management.article.template",
+                "get_template_categories",
+                []
+            );
+            this.state.saveTemplateCategories = categories || [];
+        } catch (e) {
+            this.state.saveTemplateCategories = [];
+        }
+        this.state.saveTemplateName = this.state.currentArticle.name || "Untitled";
+        this.state.saveTemplateCategoryId = this.state.saveTemplateCategories[0]?.id || false;
+        this.state.showSaveTemplateDialog = true;
+    }
+
+    onCloseSaveTemplateDialog() {
+        if (this.state.savingTemplate) return;
+        this.state.showSaveTemplateDialog = false;
+    }
+
+    onSaveTemplateCategoryChange(ev) {
+        this.state.saveTemplateCategoryId = parseInt(ev.target.value) || false;
+    }
+
+    async onConfirmSaveTemplate() {
         const art = this.state.currentArticle;
-        await this.orm.create("knowledge.management.article.template", [{
-            name: art.name,
-            icon: art.icon || "📄",
-            body_html: art.body_html || "<p><br></p>",
-        }]);
-        this.notification.add("Article added to Templates!", { type: "success" });
+        if (!art || this.state.savingTemplate) return;
+        this.state.savingTemplate = true;
+        try {
+            // Save the latest editor content first so the template is up to date.
+            await this._flushPendingSave();
+            await this.orm.call(
+                "knowledge.management.article",
+                "action_save_as_template",
+                [[art.id]],
+                {
+                    name: this.state.saveTemplateName || art.name,
+                    category_id: this.state.saveTemplateCategoryId || false,
+                }
+            );
+            this.state.showSaveTemplateDialog = false;
+            this.notification.add("Article added to Templates!", { type: "success" });
+        } catch (e) {
+            console.error("Failed to save template", e);
+            const detail = e?.data?.message || e?.message || "";
+            this.notification.add(
+                `Could not save the article as a template.${detail ? " " + detail : ""}`,
+                { type: "danger" }
+            );
+        } finally {
+            this.state.savingTemplate = false;
+        }
     }
 
     async onMoveToTrash() {
@@ -3164,6 +2677,7 @@ export class KnowledgeClientAction extends Component {
 
     async _updateArticleField(field, value) {
         if (!this.state.currentArticle) return;
+        if (LOCKED_CONTENT_FIELDS.includes(field) && this.isArticleReadonly) return;
         await this.orm.write(
             "knowledge.management.article",
             [this.state.currentArticle.id],
@@ -3255,6 +2769,8 @@ export class KnowledgeClientAction extends Component {
     _replaceDynamicBlocks(html) {
         if (!html) return "";
         let clean = html.replace(/<div[^>]*class="[^"]*o_knowledge_embedded_view_container[^"]*"[^>]*>[\s\S]*?<\/div>/gi,
+            '<div class="o_history_dynamic_block"><span class="o_history_cube_icon">📦</span> Dynamic element</div>');
+        clean = clean.replace(/<div[^>]*data-embedded="knowledgeItemView"[^>]*>\s*<\/div>/gi,
             '<div class="o_history_dynamic_block"><span class="o_history_cube_icon">📦</span> Dynamic element</div>');
         clean = clean.replace(/<div[^>]*data-embedded-view="[^"]*"[^>]*>[\s\S]*?<\/div>/gi,
             '<div class="o_history_dynamic_block"><span class="o_history_cube_icon">📦</span> Dynamic element</div>');

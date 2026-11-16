@@ -127,7 +127,9 @@ class ESICContributionPeriodService(BaseStatutoryService):
         if slips:
             g_line = slips.line_ids.filtered(lambda l: l.category_id.code == 'GROSS')
             if g_line and g_line.total > 0:
-                return g_line.total
+                # The one-time Retention Bonus is not an ESIC wage
+                retention = sum(slips.line_ids.filtered(lambda l: l.code == 'RETENTION_BONUS').mapped('total'))
+                return max(sum(g_line.mapped('total')) - retention, 0.0)
             w_line = slips.line_ids.filtered(lambda l: l.code == 'ESIC_WAGE')
             if w_line and w_line.total > 0:
                 return w_line.total
@@ -232,6 +234,8 @@ class ESICContributionPeriodService(BaseStatutoryService):
                 # Or was the wage in that payslip <= ceiling?
                 gross_line = slip.line_ids.filtered(lambda l: l.category_id.code == 'GROSS')
                 slip_gross = gross_line.total if gross_line else (slip.net_wage or 0.0)
+                # The one-time Retention Bonus is not an ESIC wage
+                slip_gross -= sum(slip.line_ids.filtered(lambda l: l.code == 'RETENTION_BONUS').mapped('total'))
                 if 0 < slip_gross <= ceiling:
                     _logger.info("[ESIC] Employee %s had payslip %s with wage %s <= ceiling in period -> Covered till %s",
                                  employee.name, slip.name, slip_gross, period_end)

@@ -420,7 +420,7 @@
         </record>
         <record id="hds_in_tds_comp_57iia" model="tds.tax.component.config">
             <field name="section_id" ref="hds_in_tds_section_both_regimes"/>
-            <field name="name">Family Pension Received (annual)</field>
+            <field name="name">Family Pension Section 93(1)(d)</field>
             <field name="code">57iia</field>
             <field name="python_field_name">decl_57iia_family_pension</field>
             <field name="old_regime_allowed">1</field>

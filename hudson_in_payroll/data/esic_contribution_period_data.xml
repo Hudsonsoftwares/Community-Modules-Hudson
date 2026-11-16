@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <data noupdate="1">
+    <data noupdate="0">
         <record id="esic_contribution_period_default_standard" model="esic.contribution.period">
             <field name="name">April–September &amp; October–March</field>
+            <field name="company_id" eval="False"/>
             <field name="period1_start_month">4</field>
             <field name="period1_end_month">9</field>
             <field name="period2_start_month">10</field>

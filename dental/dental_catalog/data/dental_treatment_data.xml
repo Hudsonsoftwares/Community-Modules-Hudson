@@ -121,6 +121,7 @@
             <field name="list_price">3000.0</field>
             <field name="treatment_duration">1.0</field>
             <field name="number_of_visits">10</field>
+            <field name="visit_interval">1 Month</field>
             <field name="is_consent_required">True</field>
         </record>
 

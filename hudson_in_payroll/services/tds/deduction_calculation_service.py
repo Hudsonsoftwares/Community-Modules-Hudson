@@ -1,9 +1,12 @@
 # -*- coding: utf-8 -*-
 import logging
+# pyrefly: ignore [missing-import]
 from odoo import fields
+# pyrefly: ignore [missing-import]
 from odoo.exceptions import ValidationError
 from ..base import BaseStatutoryService
 from .standard_deduction_service import StandardDeductionService
+from .professional_tax_deduction_service import ProfessionalTaxDeductionService
 from .chapter6a_deduction_service import Chapter6aDeductionService
 from .home_loan_deduction_service import HomeLoanDeductionService
 from .section10_hra_exemption_service import Section10HraExemptionService
@@ -19,11 +22,13 @@ class DeductionSummary:
     def __init__(self, employee_id, financial_year_id, regime_code, standard_deduction,
                  chapter_6a_deductions, hra_exemption, home_loan_interest_24b,
                  section_80eea_deduction, employer_nps_80ccd2, family_pension_57iia,
-                 other_approved_deductions, total_allowable_deductions, lta_exemption=0.0):
+                 other_approved_deductions, total_allowable_deductions, lta_exemption=0.0,
+                 professional_tax_16iii=0.0):
         self.employee_id = employee_id
         self.financial_year_id = financial_year_id
         self.regime_code = regime_code
         self.standard_deduction = standard_deduction
+        self.professional_tax_16iii = float(professional_tax_16iii or 0.0)
         self.chapter_6a_deductions = chapter_6a_deductions
         self.hra_exemption = hra_exemption
         self.lta_exemption = lta_exemption
@@ -59,7 +64,7 @@ class DeductionCalculationService(BaseStatutoryService):
     - New Regime: Standard Deduction (₹75k for FY 2025-26 under Finance Act 2025) + Employer NPS 80CCD(2) + Family Pension 57(iia). Prohibits Old Regime deductions.
     """
 
-    def calculate_deductions(self, employee, financial_year, regime_context=None, eval_date=None, gross_salary_income=None):
+    def calculate_deductions(self, employee, financial_year, regime_context=None, eval_date=None, gross_salary_income=None, payslip=None, annual_projection=None):
         """
         Master method for calculating statutory deductions.
 
@@ -68,6 +73,8 @@ class DeductionCalculationService(BaseStatutoryService):
         :param regime_context: RegimeCalculationContext DTO (optional)
         :param eval_date: Date (optional)
         :param gross_salary_income: float (Gross Salary Income projected in Phase 4)
+        :param payslip: hr.payslip record (optional)
+        :param annual_projection: AnnualIncomeProjectionResult (optional)
         :return: DeductionSummary
         """
         if not employee:
@@ -95,6 +102,19 @@ class DeductionCalculationService(BaseStatutoryService):
             gross_payroll_income=gross_payroll,
             eval_date=eval_date
         )
+
+        # 1b. Calculate Section 16(iii) Professional Tax Deduction via ProfessionalTaxDeductionService
+        pt_ded_svc = ProfessionalTaxDeductionService(self.env)
+        pt_ded_res = pt_ded_svc.calculate_pt_deduction(
+            employee=employee,
+            financial_year=financial_year,
+            regime_code=regime_code,
+            eval_date=eval_date,
+            gross_payroll_income=gross_payroll,
+            payslip=payslip,
+            annual_projection=annual_projection
+        )
+        raw_pt_16iii = pt_ded_res.allowed_pt_deduction
 
         # 2. Calculate Chapter VI-A Deductions via Chapter6aDeductionService
         c6a_svc = Chapter6aDeductionService(self.env)
@@ -291,7 +311,11 @@ remarks=%s""",
                     elif cat == '57iia':
                         family_pension_57iia = max(family_pension_57iia, amt)
                     elif cat == '80cch':
-                        other_approved_deductions += amt
+                        is_agnipath = bool(getattr(decl, 'hds_in_is_agnipath', False) or getattr(employee, 'hds_in_is_agnipath', False))
+                        if is_agnipath:
+                            other_approved_deductions += amt
+                            if c6a_res and hasattr(c6a_res, 'section_80cch'):
+                                c6a_res.section_80cch = amt
 
             # Safe Fallback for Section 10(5) LTA Exemption if child line was absent in declaration_line_ids
             if regime_code == 'old' and lta_exemption == 0.0 and decl and getattr(decl, 'decl_lta_declared_fare', 0.0) > 0.0:
@@ -333,15 +357,83 @@ remarks=%s""",
                     lta_res.remarks
                 )
 
-        # Statutory Section 16(ia) Rule:
-        # Standard deduction applies strictly against salary chargeable under 'Salaries'
-        # (i.e. gross salary minus Section 10 exemptions like HRA and LTA).
+            # Safe Fallback for Section 80CCH Agniveer Corpus Fund under New Regime if child line was absent in declaration_line_ids
+            if regime_code == 'new' and decl:
+                cch_line_amt = sum(l.usable_amount for l in decl.declaration_line_ids if l.category == '80cch' and getattr(l, 'active', True))
+                is_agnipath = bool(getattr(decl, 'hds_in_is_agnipath', False) or getattr(employee, 'hds_in_is_agnipath', False))
+                header_cch_decl = float(getattr(decl, 'decl_80cch_agniveer', 0.0) or 0.0)
+                header_cch_appr = float(getattr(decl, 'decl_80cch_approved_amount', 0.0) or 0.0)
+                if cch_line_amt == 0.0 and is_agnipath and (header_cch_decl > 0.0 or header_cch_appr > 0.0):
+                    from .section_80cch_deduction_service import Section80CCHDeductionService
+                    cch_svc = Section80CCHDeductionService(self.env)
+                    cch_res = cch_svc.validate_and_trace(
+                        decl,
+                        eval_date=eval_date,
+                        regime_code=regime_code,
+                        employee=employee,
+                        financial_year=financial_year
+                    )
+                    if cch_res and cch_res.usable_amount > 0.0:
+                        other_approved_deductions += cch_res.usable_amount
+                        if c6a_res and hasattr(c6a_res, 'section_80cch'):
+                            c6a_res.section_80cch = cch_res.usable_amount
+                        _logger.warning("""[SECTION_80CCH_NEW_REGIME_TRACE] (HEADER_FALLBACK)
+employee=%s
+declared_80cch=%s
+approved_80cch=%s
+usable_amount=%s
+status=%s
+remarks=%s""",
+                            employee.name if employee else 'N/A',
+                            f"INR {header_cch_decl:,.2f}",
+                            f"INR {header_cch_appr:,.2f}",
+                            f"INR {cch_res.usable_amount:,.2f}",
+                            cch_res.eligibility_status if hasattr(cch_res, 'eligibility_status') else getattr(cch_res, 'status', 'N/A'),
+                            cch_res.remarks
+                        )
+
+        # Section 80CCD(2) Employer NPS statutory ceiling enforcement (14% new regime / 10% or 14% old regime)
+        claimed_nps = float(decl.decl_80ccd2_employer_nps or 0.0) if (decl and getattr(decl, 'decl_80ccd2_employer_nps', 0.0)) else employer_nps_80ccd2
+
+        if claimed_nps > 0.0:
+            from .tds_parameter_service import TdsParameterService
+            tds_param_svc = TdsParameterService(self.env)
+            emp_type = getattr(employee, 'hds_in_employer_category', getattr(employee, 'employer_type', 'private')) or 'private'
+            nps_pct = tds_param_svc.get_employer_nps_limit(regime=regime_code, employer_type=emp_type, eval_date=eval_date, as_decimal=False) or (14.0 if regime_code == 'new' else 10.0)
+            from .salary_projection_service import SalaryProjectionService
+            sal_proj_svc = SalaryProjectionService(self.env)
+            sal_res = sal_proj_svc.project_salary(employee, financial_year, eval_date=eval_date)
+            salary_base = (sal_res.total_basic or 0.0) + (sal_res.total_da or 0.0)
+            nps_cap = round(salary_base * (nps_pct / 100.0), 2)
+            employer_nps_80ccd2 = min(claimed_nps, nps_cap)
+            _logger.warning("""[SECTION_80CCD2_STATUTORY_CAP]
+employee=%s
+declared_nps=%s
+salary_base=%s
+nps_percentage=%s
+calculated_cap=%s
+eligible_80ccd2=%s""",
+                employee.name if employee else 'N/A',
+                f"INR {claimed_nps:,.2f}",
+                f"INR {salary_base:,.2f}",
+                f"{nps_pct}%",
+                f"INR {nps_cap:,.2f}",
+                f"INR {employer_nps_80ccd2:,.2f}"
+            )
+        else:
+            employer_nps_80ccd2 = 0.0
+
+        # Statutory Section 16 Rules:
+        # Standard deduction Section 16(ia) and Professional Tax Section 16(iii) apply strictly
+        # against salary chargeable under 'Salaries' (gross salary minus Section 10 exemptions like HRA and LTA).
         net_salary_available = max(0.0, gross_payroll - hra_exemption - lta_exemption)
         standard_deduction = min(standard_deduction, net_salary_available)
+        net_salary_after_std = max(0.0, net_salary_available - standard_deduction)
+        professional_tax_16iii = min(raw_pt_16iii, net_salary_after_std) if regime_code == 'old' else 0.0
 
         if regime_code == 'old':
             total_allowable_deductions = (
-                standard_deduction + total_chapter_6a + hra_exemption + lta_exemption +
+                standard_deduction + professional_tax_16iii + total_chapter_6a + hra_exemption + lta_exemption +
                 home_loan_24b + employer_nps_80ccd2 +
                 other_approved_deductions
             )
@@ -352,24 +444,26 @@ remarks=%s""",
             )
 
         _logger.info(
-            "[TDS TRACE] Phase: Deduction Calculation | Service: DeductionCalculationService | Record ID: %s | Employee: %s | FY: %s | Field: total_allowable_deductions | Old Value: N/A | New Value: ₹%s | Target Model: hr.payslip.line | DB Read: True | Calculation Result: StdDeduction=₹%s, Chapter6A=₹%s, HRAExemption=₹%s, LTAExemption=₹%s, HomeLoan24b=₹%s, Total=₹%s (Decl State: %s)",
+            "[TDS TRACE] Phase: Deduction Calculation | Service: DeductionCalculationService | Record ID: %s | Employee: %s | FY: %s | Field: total_allowable_deductions | Old Value: N/A | New Value: ₹%s | Target Model: hr.payslip.line | DB Read: True | Calculation Result: StdDeduction=₹%s, PT_16iii=₹%s, Chapter6A=₹%s, HRAExemption=₹%s, LTAExemption=₹%s, HomeLoan24b=₹%s, Total=₹%s (Decl State: %s)",
             decl.id if decl else 'N/A', employee.name if employee else 'N/A', financial_year.name if financial_year else 'N/A',
-            total_allowable_deductions, standard_deduction, total_chapter_6a, hra_exemption, lta_exemption, home_loan_24b, total_allowable_deductions,
+            total_allowable_deductions, standard_deduction, professional_tax_16iii, total_chapter_6a, hra_exemption, lta_exemption, home_loan_24b, total_allowable_deductions,
             decl.state if decl else 'no_declaration'
         )
 
-        other_deductions_total = hra_exemption + lta_exemption + home_loan_24b + employer_nps_80ccd2 + other_approved_deductions
+        other_deductions_total = hra_exemption + lta_exemption + home_loan_24b + employer_nps_80ccd2 + other_approved_deductions + professional_tax_16iii
 
         _logger.warning("""[TDS_DEBUG_TRACE] TOTAL_DEDUCTION_AGGREGATION
 standard_deduction=%s
+professional_tax_16iii=%s
 chapter_via_total=%s
 other_deductions=%s
 total_deductions=%s""",
-            standard_deduction, total_chapter_6a, other_deductions_total, total_allowable_deductions
+            standard_deduction, professional_tax_16iii, total_chapter_6a, other_deductions_total, total_allowable_deductions
         )
 
         _logger.warning("""[80E_AUDIT] DEDUCTION_AGGREGATION
 standard_deduction=%s
+professional_tax_16iii=%s
 section_80c=%s
 section_80ccd1b=%s
 section_80d=%s
@@ -390,6 +484,7 @@ other_approved_deductions=%s
 total_chapter_6a=%s
 total_deductions=%s""",
             standard_deduction,
+            professional_tax_16iii,
             getattr(c6a_res, 'section_80c', 0.0),
             getattr(c6a_res, 'section_80ccd1b', 0.0),
             getattr(c6a_res, 'section_80d', 0.0),
@@ -417,6 +512,7 @@ DEDUCTION CALCULATION SERVICE
 ========================================================
 Tax Regime              : {regime_code.upper()}
 Standard Deduction      : ₹{standard_deduction:,.2f}
+Professional Tax 16(iii): ₹{professional_tax_16iii:,.2f}
 80C                     : ₹{getattr(c6a_res, 'section_80c', 0.0):,.2f}
 80CCD(1B)               : ₹{getattr(c6a_res, 'section_80ccd1b', 0.0):,.2f}
 80D                     : ₹{getattr(c6a_res, 'section_80d', 0.0):,.2f}
@@ -433,7 +529,7 @@ Total = Sum of all eligible deductions
 step=TOTAL_DEDUCTIONS
 eval_date=%s
 eval_month=%s
-input=employee_id:%s, regime:%s, std_deduction:INR %s, chapter_6a:INR %s, hra_exemption:INR %s, lta_exemption:INR %s, home_loan_24b:INR %s
+input=employee_id:%s, regime:%s, std_deduction:INR %s, pt_16iii:INR %s, chapter_6a:INR %s, hra_exemption:INR %s, lta_exemption:INR %s, home_loan_24b:INR %s
 output=total_allowable_deductions:INR %s
 source_method=DeductionCalculationService.calculate_deductions
 branch_used=%s""",
@@ -442,6 +538,7 @@ branch_used=%s""",
             employee.id if employee else 'N/A',
             regime_code.upper(),
             f"{standard_deduction:,.2f}",
+            f"{professional_tax_16iii:,.2f}",
             f"{total_chapter_6a:,.2f}",
             f"{hra_exemption:,.2f}",
             f"{lta_exemption:,.2f}",
@@ -463,5 +560,6 @@ branch_used=%s""",
             employer_nps_80ccd2=employer_nps_80ccd2,
             family_pension_57iia=family_pension_57iia,
             other_approved_deductions=other_approved_deductions,
-            total_allowable_deductions=total_allowable_deductions
+            total_allowable_deductions=total_allowable_deductions,
+            professional_tax_16iii=professional_tax_16iii
         )

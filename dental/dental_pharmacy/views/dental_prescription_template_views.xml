@@ -1,49 +1,45 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <!-- Prescription Template Form View -->
+    <!-- Prescription Template Form View (also opened as a dialog by "Save as Template") -->
     <record id="view_dental_prescription_template_form" model="ir.ui.view">
         <field name="name">dental.prescription.template.form</field>
         <field name="model">dental.prescription.template</field>
         <field name="arch" type="xml">
-            <form string="Prescription Regimen Protocol">
+            <form string="Prescription Template">
                 <sheet>
+                    <widget name="web_ribbon" title="Archived" bg_color="text-bg-danger" invisible="active"/>
                     <div class="oe_title">
-                        <label for="name" string="Protocol Name"/>
+                        <label for="name"/>
                         <h1>
-                            <field name="name" placeholder="e.g. Post-Extraction Standard Regimen"/>
+                            <field name="name" placeholder="e.g. Post-extraction"/>
                         </h1>
                     </div>
                     <group>
                         <group>
+                            <field name="indication" placeholder="e.g. Post-surgical pain and infection prophylaxis"/>
                             <field name="code" placeholder="e.g. POST-EXT"/>
-                            <field name="indication" placeholder="e.g. Post-Surgical Analgesia &amp; Antibiotic Prophylaxis"/>
                         </group>
                         <group>
-                            <field name="active" widget="boolean_toggle"/>
-                            <field name="company_id" groups="base.group_multi_company"/>
+                            <field name="company_id" groups="base.group_multi_company" placeholder="All branches"/>
+                            <field name="active" invisible="1"/>
                         </group>
                     </group>
-                    <notebook>
-                        <page string="Standard Medications">
-                            <field name="line_ids">
-                                <list editable="bottom">
-                                    <field name="medicine_id" options="{'no_create': True}"/>
-                                    <field name="generic_name" optional="show"/>
-                                    <field name="dosage_form" optional="show"/>
-                                    <field name="strength" optional="show"/>
-                                    <field name="dose"/>
-                                    <field name="route"/>
-                                    <field name="frequency"/>
-                                    <field name="duration"/>
-                                    <field name="quantity"/>
-                                    <field name="instructions"/>
-                                </list>
-                            </field>
-                        </page>
-                        <page string="Clinical Advice &amp; Patient Instructions">
-                            <field name="notes" placeholder="Standard advice given to patient regarding diet, ice packs, saline rinses, or rest..."/>
-                        </page>
-                    </notebook>
+                    <separator string="Medicines"/>
+                    <field name="line_ids" nolabel="1">
+                        <list editable="bottom">
+                            <field name="medicine_id" options="{'no_create': True}"/>
+                            <field name="strength" optional="hide"/>
+                            <field name="dose" width="90px"/>
+                            <field name="frequency" width="200px"/>
+                            <field name="duration" string="Days" width="70px"/>
+                            <field name="quantity" string="Qty" width="70px"/>
+                            <field name="route" optional="hide"/>
+                            <field name="instructions" optional="show"/>
+                        </list>
+                    </field>
+                    <separator string="Advice to Patient"/>
+                    <field name="notes" nolabel="1"
+                           placeholder="e.g. Bite on the gauze for 30 minutes. Cold pack today, warm saline rinses from tomorrow. Soft diet, no smoking."/>
                 </sheet>
             </form>
         </field>
@@ -54,27 +50,43 @@
         <field name="name">dental.prescription.template.list</field>
         <field name="model">dental.prescription.template</field>
         <field name="arch" type="xml">
-            <list string="Prescription Regimen Protocols">
-                <field name="code"/>
+            <list string="Prescription Templates">
+                <field name="sequence" widget="handle"/>
                 <field name="name"/>
-                <field name="indication"/>
-                <field name="company_id" groups="base.group_multi_company"/>
-                <field name="active" widget="boolean_toggle"/>
+                <field name="code" optional="show"/>
+                <field name="indication" optional="show"/>
+                <field name="medicine_count"/>
+                <field name="company_id" groups="base.group_multi_company" optional="show"/>
             </list>
+        </field>
+    </record>
+
+    <record id="view_dental_prescription_template_search" model="ir.ui.view">
+        <field name="name">dental.prescription.template.search</field>
+        <field name="model">dental.prescription.template</field>
+        <field name="arch" type="xml">
+            <search string="Prescription Templates">
+                <field name="name" filter_domain="['|', '|', ('name', 'ilike', self), ('code', 'ilike', self), ('indication', 'ilike', self)]"/>
+                <field name="line_ids" string="Medicine" filter_domain="[('line_ids.medicine_id', 'ilike', self)]"/>
+                <separator/>
+                <filter string="Archived" name="inactive" domain="[('active', '=', False)]"/>
+            </search>
         </field>
     </record>
 
     <!-- Prescription Template Action -->
     <record id="action_dental_prescription_template" model="ir.actions.act_window">
-        <field name="name">Prescription Protocols / Templates</field>
+        <field name="name">Prescription Templates</field>
         <field name="res_model">dental.prescription.template</field>
-        <field name="view_mode">list,form</field>
+        <field name="view_mode">kanban,list,form</field>
+        <field name="search_view_id" ref="view_dental_prescription_template_search"/>
         <field name="help" type="html">
             <p class="o_view_nocontent_smiling_face">
-                Create clinical prescription protocols for routine dental procedures.
+                Create your first prescription template
             </p>
             <p>
-                Dentists can apply standard multi-medicine regimens (such as post-extraction, acute infection, or periodontal care) with 1 click.
+                Save the medicines and advice you prescribe most often (post-extraction, abscess, root canal...).
+                In the consultation, load a template in one click, or use "Save as Template" on a prescription.
             </p>
         </field>
     </record>

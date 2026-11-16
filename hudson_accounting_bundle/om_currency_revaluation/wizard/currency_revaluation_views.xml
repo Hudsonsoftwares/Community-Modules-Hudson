@@ -9,8 +9,9 @@
                 <sheet>
                     <div class="alert alert-info" role="alert">
                         What is still open in a foreign currency is restated at the rate of the revaluation date.
-                        The difference is posted as one adjustment entry and reversed at the start of the next
-                        period, since nothing is gained or lost until the invoices are paid.
+                        The difference is posted as one adjustment entry, always reversed on the reversal date,
+                        since nothing is gained or lost until the items are settled. The revaluations already posted
+                        up to that date are taken into account: only what is left to adjust is posted.
                     </div>
                     <group>
                         <group>
@@ -25,8 +26,7 @@
                         <group>
                             <field name="gain_account_id" options="{'no_create': True}"/>
                             <field name="loss_account_id" options="{'no_create': True}"/>
-                            <field name="reverse"/>
-                            <field name="reversal_date" invisible="not reverse" required="reverse"/>
+                            <field name="reversal_date"/>
                         </group>
                     </group>
                     <field name="line_ids" readonly="1">
@@ -35,7 +35,6 @@
                             <field name="company_currency_id" column_invisible="1"/>
                             <field name="currency_id"/>
                             <field name="account_id"/>
-                            <field name="partner_id" optional="show"/>
                             <field name="amount_currency"/>
                             <field name="balance"/>
                             <field name="revalued"/>

@@ -14,6 +14,11 @@
                 <field name="condition"/>
                 <field name="surfaces"/>
                 <field name="severity"/>
+                <field name="restoration_type" optional="hide"/>
+                <field name="restoration_material" optional="hide"/>
+                <field name="clinical_action" optional="show"/>
+                <field name="perio_max_depth" optional="hide"/>
+                <field name="endo_summary" optional="hide"/>
                 <field name="doctor_id"/>
                 <field name="state"/>
             </list>
@@ -58,8 +63,35 @@
                         </group>
                     </group>
                     <notebook>
-                        <page string="Clinical Notes">
+                        <page string="Clinical Notes" name="clinical_notes">
                             <field name="notes" placeholder="Enter detailed findings, periapical notes, sensitivity or observations..."/>
+                        </page>
+                        <page string="Restoration &amp; Tests" name="restoration_tests">
+                            <group>
+                                <group string="Restoration">
+                                    <field name="restoration_type"/>
+                                    <field name="restoration_material"/>
+                                    <field name="restoration_quality"/>
+                                    <field name="restoration_detail"/>
+                                    <field name="surface_details"/>
+                                    <field name="clinical_action"/>
+                                </group>
+                                <group string="Endodontic Tests">
+                                    <field name="endo_summary"/>
+                                </group>
+                            </group>
+                            <group string="Periodontal Probing (mm)">
+                                <group>
+                                    <field name="perio_db"/>
+                                    <field name="perio_b"/>
+                                    <field name="perio_mb"/>
+                                </group>
+                                <group>
+                                    <field name="perio_dl"/>
+                                    <field name="perio_l"/>
+                                    <field name="perio_ml"/>
+                                </group>
+                            </group>
                         </page>
                     </notebook>
                 </sheet>
@@ -93,7 +125,7 @@
     <record id="action_dental_tooth_finding" model="ir.actions.act_window">
         <field name="name">Tooth Findings</field>
         <field name="res_model">dental.tooth.finding</field>
-        <field name="view_mode">list,form</field>
+        <field name="view_mode">kanban,list,form</field>
         <field name="search_view_id" ref="view_dental_tooth_finding_search"/>
     </record>
 </odoo>

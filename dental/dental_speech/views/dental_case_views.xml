@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Same field, same readonly rule: only the widget changes to add the dictation controls -->
+    <record id="view_dental_case_form_inherit_speech" model="ir.ui.view">
+        <field name="name">dental.case.form.inherit.speech</field>
+        <field name="model">dental.case</field>
+        <field name="inherit_id" ref="dental_core.view_dental_case_form"/>
+        <field name="arch" type="xml">
+            <field name="clinical_notes" position="attributes">
+                <attribute name="widget">dental_dictation</attribute>
+            </field>
+        </field>
+    </record>
+
+    <!-- Actions (cog) menu of the case form: clinical tools (sequence 20-29).
+         Records the consultation with the patient's consent and returns a summary to review and approve. -->
+    <record id="action_server_dental_case_conversation_summary" model="ir.actions.server">
+        <field name="name">Conversation Summary</field>
+        <field name="model_id" ref="dental_core.model_dental_case"/>
+        <field name="binding_model_id" ref="dental_core.model_dental_case"/>
+        <field name="binding_view_types">form</field>
+        <field name="sequence">20</field>
+        <field name="group_ids" eval="[Command.set([ref('dental_base.group_dental_dentist'), ref('dental_base.group_dental_manager')])]"/>
+        <field name="state">code</field>
+        <field name="code">action = record.action_open_conversation_summary()</field>
+    </record>
+</odoo>

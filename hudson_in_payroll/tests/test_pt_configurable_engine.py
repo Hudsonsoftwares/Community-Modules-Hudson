@@ -61,86 +61,51 @@ class TestPTConfigurableEngine(TransactionCase):
         rem_payrolls = self.sched_service.calculate_remaining_payrolls(self.emp, start_d, end_d, '2026-05-31')
         self.assertEqual(rem_payrolls, 1)
 
-    def test_02_quarterly_end_of_period(self):
-        """Tests Quarterly periodicity with End of Period lump sum strategy in June."""
+    def test_02_half_yearly_end_of_period_h2(self):
+        """Tests Half-Yearly H2 (October-March) with End of Period lump sum strategy in March."""
         sched = self.env['pt.period.schedule'].create({
-            'state_id': self.state_mp.id,
-            'periodicity': 'quarterly',
-            'window_start_month': '4',
-            'window_end_month': '6',
+            'state_id': self.state_kl.id,
+            'periodicity': 'half_yearly',
+            'window_start_month': '10',
+            'window_end_month': '3',
             'deduction_strategy': 'end_of_period',
             'distribution_method': 'full_amount',
-            'deduction_month': '6',
+            'deduction_month': '3',
             'active': True,
         })
 
-        # April (Non-deduction month)
-        should_apr = self.sched_service.should_deduct(sched, eval_date='2026-04-30', employee=self.emp)
-        self.assertFalse(should_apr)
+        # November (Non-deduction month)
+        should_nov = self.sched_service.should_deduct(sched, eval_date='2026-11-30', employee=self.emp)
+        self.assertFalse(should_nov)
 
-        # May (Non-deduction month)
+        # March (Deduction month)
+        should_mar = self.sched_service.should_deduct(sched, eval_date='2027-03-31', employee=self.emp)
+        self.assertTrue(should_mar)
+
+    def test_03_beginning_of_period_month_guard(self):
+        """Tests that Beginning of Period schedule strictly deducts in start month and not subsequent months."""
+        sched = self.env['pt.period.schedule'].create({
+            'state_id': self.state_kl.id,
+            'periodicity': 'half_yearly',
+            'window_start_month': '4',
+            'window_end_month': '9',
+            'deduction_strategy': 'beginning_of_period',
+            'distribution_method': 'full_amount',
+            'deduction_month': '4',
+            'active': True,
+        })
+
+        # Month 1 (April): Start month -> SHOULD deduct
+        should_apr = self.sched_service.should_deduct(sched, eval_date='2026-04-30', employee=self.emp)
+        self.assertTrue(should_apr)
+
+        # Month 2 (May): Subsequent month -> MUST NOT deduct (verifies fix for fallthrough bug!)
         should_may = self.sched_service.should_deduct(sched, eval_date='2026-05-31', employee=self.emp)
         self.assertFalse(should_may)
 
-        # June (Deduction month)
-        should_jun = self.sched_service.should_deduct(sched, eval_date='2026-06-30', employee=self.emp)
-        self.assertTrue(should_jun)
-
-    def test_03_quarterly_disallows_equal_distribution(self):
-        """Tests that Quarterly schedules reject every_payroll and equal_distribution."""
-        # 1. Reject every_payroll on quarterly
-        with self.assertRaises(ValidationError):
-            self.env['pt.period.schedule'].create({
-                'state_id': self.state_mp.id,
-                'periodicity': 'quarterly',
-                'window_start_month': '4',
-                'window_end_month': '6',
-                'deduction_strategy': 'every_payroll',
-                'distribution_method': 'full_amount',
-                'active': True,
-            })
-
-        # 2. Reject equal_distribution on quarterly
-        with self.assertRaises(ValidationError):
-            self.env['pt.period.schedule'].create({
-                'state_id': self.state_mp.id,
-                'periodicity': 'quarterly',
-                'window_start_month': '4',
-                'window_end_month': '6',
-                'deduction_strategy': 'end_of_period',
-                'distribution_method': 'equal_distribution',
-                'deduction_month': '6',
-                'active': True,
-            })
-
-        # Re-ensure test employee contract start date after exception rollback
-        self.emp.write({'date_start': '2025-01-01'})
-        if self.emp.version_id:
-            self.emp.version_id.write({'date_start': '2025-01-01'})
-
-        # 3. Valid quarterly schedule with full_amount
-        sched = self.env['pt.period.schedule'].create({
-            'state_id': self.state_mp.id,
-            'periodicity': 'quarterly',
-            'window_start_month': '4',
-            'window_end_month': '6',
-            'deduction_strategy': 'end_of_period',
-            'distribution_method': 'full_amount',
-            'deduction_month': '6',
-            'active': True,
-        })
-
-        # April: remaining = 3
-        rem_apr = self.sched_service.calculate_remaining_payrolls(self.emp, date(2026, 4, 1), date(2026, 6, 30), '2026-04-30')
-        self.assertEqual(rem_apr, 3)
-
-        # May: remaining = 2
-        rem_may = self.sched_service.calculate_remaining_payrolls(self.emp, date(2026, 4, 1), date(2026, 6, 30), '2026-05-31')
-        self.assertEqual(rem_may, 2)
-
-        # June: remaining = 1
-        rem_jun = self.sched_service.calculate_remaining_payrolls(self.emp, date(2026, 4, 1), date(2026, 6, 30), '2026-06-30')
-        self.assertEqual(rem_jun, 1)
+        # Month 6 (September): End of period month -> MUST NOT deduct
+        should_sep = self.sched_service.should_deduct(sched, eval_date='2026-09-30', employee=self.emp)
+        self.assertFalse(should_sep)
 
     def test_04_half_yearly_lump_sum_deduction(self):
         """Tests Half-Yearly PT lump sum full amount deduction at end of period (Sept), disallowing equal distribution."""
@@ -216,7 +181,7 @@ class TestPTConfigurableEngine(TransactionCase):
         self.assertEqual(total_deducted, period_liability)
 
     def test_05_mid_period_joining(self):
-        """Tests employee joining mid-period (e.g. May 15 in Q1 April-June)."""
+        """Tests employee joining mid-period (e.g. May 15 in H1 April-September)."""
         emp_mid = self.env['hr.employee'].create({
             'name': 'Mid Period Joiner',
             'company_id': self.company.id,
@@ -228,27 +193,27 @@ class TestPTConfigurableEngine(TransactionCase):
             emp_mid._compute_joining_date()
 
         sched = self.env['pt.period.schedule'].create({
-            'state_id': self.state_mp.id,
-            'periodicity': 'quarterly',
+            'state_id': self.state_kl.id,
+            'periodicity': 'half_yearly',
             'window_start_month': '4',
-            'window_end_month': '6',
+            'window_end_month': '9',
             'deduction_strategy': 'end_of_period',
             'distribution_method': 'full_amount',
-            'deduction_month': '6',
+            'deduction_month': '9',
             'active': True,
         })
 
-        # May: employee joined May 15. Total eligible payrolls in Q1 = 2 (May, June).
-        tot_payrolls = self.sched_service.calculate_eligible_payrolls(emp_mid, date(2026, 4, 1), date(2026, 6, 30))
-        self.assertEqual(tot_payrolls, 2)
+        # May: employee joined May 15. Total eligible payrolls in H1 = 5 (May, June, July, August, September).
+        tot_payrolls = self.sched_service.calculate_eligible_payrolls(emp_mid, date(2026, 4, 1), date(2026, 9, 30))
+        self.assertEqual(tot_payrolls, 5)
 
-        rem_may = self.sched_service.calculate_remaining_payrolls(emp_mid, date(2026, 4, 1), date(2026, 6, 30), '2026-05-31')
-        self.assertEqual(rem_may, 2)
+        rem_may = self.sched_service.calculate_remaining_payrolls(emp_mid, date(2026, 4, 1), date(2026, 9, 30), '2026-05-31')
+        self.assertEqual(rem_may, 5)
 
         # May is not deduction month
         self.assertFalse(self.sched_service.should_deduct(sched, eval_date='2026-05-31', employee=emp_mid))
-        # June is deduction month
-        self.assertTrue(self.sched_service.should_deduct(sched, eval_date='2026-06-30', employee=emp_mid))
+        # September is deduction month
+        self.assertTrue(self.sched_service.should_deduct(sched, eval_date='2026-09-30', employee=emp_mid))
 
     def test_06_mid_period_leaving(self):
         """Tests employee leaving mid-period (e.g. August 25 in H1 April-September)."""

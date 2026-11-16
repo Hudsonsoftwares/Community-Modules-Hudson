@@ -1,0 +1,12 @@
+id,name,model_id,group_id/id,operation,domain
+access_activity_span_own,Activity span: own,hr.activity.span,group_activity_user,r,"[('employee_id.user_id', '=', user.id)]"
+access_activity_span_admin,Activity span: admin,hr.activity.span,group_activity_admin,crud,
+access_activity_span_company,Activity span: multi-company,hr.activity.span,,crud,"[('company_id', 'in', company_ids + [False])]"
+access_activity_daily_own,Activity daily: own,hr.activity.daily,group_activity_user,r,"[('employee_id.user_id', '=', user.id)]"
+access_activity_daily_admin,Activity daily: admin,hr.activity.daily,group_activity_admin,crud,
+access_activity_daily_company,Activity daily: multi-company,hr.activity.daily,,crud,"[('company_id', 'in', company_ids + [False])]"
+access_activity_device_own,Activity device: own,hr.activity.device,group_activity_user,r,"[('employee_id.user_id', '=', user.id)]"
+access_activity_device_admin,Activity device: admin,hr.activity.device,group_activity_admin,crud,
+access_activity_device_company,Activity device: multi-company,hr.activity.device,,crud,"[('company_id', 'in', company_ids + [False])]"
+access_activity_app_user,Activity app: read,hr.activity.app,group_activity_user,r,
+access_activity_app_admin,Activity app: admin,hr.activity.app,group_activity_admin,crud,

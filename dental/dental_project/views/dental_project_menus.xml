@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <menuitem
+        id="menu_dental_treatment_board"
+        name="Treatment Board"
+        parent="dental_core.menu_dental_clinical"
+        action="action_dental_treatment_board"
+        sequence="45"
+        groups="dental_base.group_dental_dentist,dental_base.group_dental_manager,dental_base.group_dental_admin"/>
+</odoo>

@@ -1,0 +1,43 @@
+/* Treatment board: one card per step, columns are the treatment phases */
+.o_kanban_record.o_dx_step_card {
+    & {
+        display: flex;
+        flex-direction: column;
+        gap: 0.3rem;
+        padding: 0.6rem 0.75rem;
+        border-left: 3px solid #7cb342;
+        border-radius: 8px;
+    }
+
+    .o_dx_step_head {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.35rem;
+    }
+
+    .o_dx_step_title {
+        min-width: 0;
+        font-weight: 600;
+        color: #1f2937;
+        overflow-wrap: anywhere;
+    }
+
+    .o_dx_step_meta {
+        font-size: 0.8rem;
+        color: #6b7280;
+
+        .o_field_widget, .o_field_widget > div, .o_field_widget span {
+            display: inline !important;
+        }
+    }
+
+    .o_dx_step_progress .progress-bar { background-color: #7cb342 !important; }
+
+    .o_dx_step_foot {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-top: 0.15rem;
+        font-size: 0.8rem;
+    }
+}

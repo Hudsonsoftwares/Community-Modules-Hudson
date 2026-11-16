@@ -6,7 +6,7 @@
         <field name="model">tds.employee.declaration</field>
         <field name="report_type">qweb-pdf</field>
         <field name="report_name">hudson_in_payroll.report_statutory_tax_calculation</field>
-        <field name="print_report_name">'Statutory_Tax_Report_%s' % (object.employee_id.name or 'Employee')</field>
+<field name="print_report_name">'Statutory_Tax_Report_%s' % (object.employee_id.name or 'Employee')</field>
         <field name="binding_model_id" ref="model_tds_employee_declaration"/>
         <field name="binding_type">report</field>
     </record>
@@ -17,8 +17,8 @@
         <field name="model">hr.payslip</field>
         <field name="report_type">qweb-pdf</field>
         <field name="report_name">hudson_in_payroll.report_statutory_tax_payslip</field>
-        <field name="print_report_name">'Tax_Report_%s' % (object.employee_id.name or 'Employee')</field>
-        <field name="binding_model_id" ref="hudson_payroll_base.model_hr_payslip"/>
+<field name="print_report_name">'Tax_Report_%s' % (object.employee_id.name or 'Employee')</field>
+        <field name="binding_model_id" eval="False"/>
         <field name="binding_type">report</field>
     </record>
 
@@ -33,7 +33,7 @@
         <field name="model">tds.employee.declaration</field>
         <field name="report_type">qweb-pdf</field>
         <field name="report_name">hudson_in_payroll.report_statutory_tax_calculation</field>
-        <field name="print_report_name">'Statutory_Tax_Report_%s' % (object.employee_id.name or 'Employee')</field>
+<field name="print_report_name">'Statutory_Tax_Report_%s' % (object.employee_id.name or 'Employee')</field>
     </record>
 
     <!-- ═══════════════════════════════════════════════════════════════════ -->
@@ -44,762 +44,435 @@
             <t t-foreach="reports" t-as="r">
                 <t t-set="o" t-value="r['declaration']"/>
                 <t t-call="web.external_layout">
+                    <div class="page hds-tr">
+                        <!-- Tables only (wkhtmltopdf has no reliable flex/grid); solid colours (no gradients) -->
+                        <style>
+                            .hds-tr { font-family: 'Lato', 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10.5px; color: #1f2937; line-height: 1.45; }
+                            .hds-tr table { width: 100%; border-collapse: collapse; border: 0 !important; }
+                            .hds-tr table td, .hds-tr table th { border-top: 0 !important; border-left: 0 !important; border-right: 0 !important; }
+                            .hds-tr .tr-title td, .hds-tr .sign td, .hds-tr .card .ch td { border-bottom: 0 !important; }
+                            .hds-tr .kpi td { border: 1px solid #d8dde6 !important; }
+                            .hds-tr .kpi td.hl { border-color: #1f3a5f !important; }
+                            .hds-tr .card .am td { border-right: 1px solid #e5e7eb !important; }
+                            .hds-tr .card .am td.last { border-right: 0 !important; }
+                            .hds-tr .card .sub-t td, .hds-tr .card .sub-t th { border: 1px solid #e5e7eb !important; }
+                            .hds-tr .card .det td { border-bottom: 0 !important; }
+                            .hds-tr .tr-title { background: #1f3a5f; color: #ffffff; padding: 12px 16px; border-radius: 4px; margin-bottom: 14px; }
+                            .hds-tr .tr-title td { vertical-align: middle; }
+                            .hds-tr .tr-title .t { font-size: 16px; font-weight: bold; color: #ffffff; }
+                            .hds-tr .tr-title .s { font-size: 9.5px; color: #c7d2e3; margin-top: 2px; }
+                            .hds-tr .tr-title .m { text-align: right; font-size: 9.5px; color: #c7d2e3; line-height: 1.6; }
+                            .hds-tr .tr-title .m b { color: #ffffff; }
+                            .hds-tr .sec { margin-bottom: 14px; page-break-inside: avoid; }
+                            .hds-tr .sec-h { font-size: 10.5px; font-weight: bold; color: #1f3a5f; text-transform: uppercase; letter-spacing: 0.5px; padding-bottom: 4px; border-bottom: 2px solid #1f3a5f; }
+                            .hds-tr .kv td { padding: 5px 8px; border-bottom: 1px solid #e5e7eb; vertical-align: top; }
+                            .hds-tr .kv td.k { width: 17%; color: #6b7280; }
+                            .hds-tr .kv td.v { width: 33%; font-weight: bold; color: #1f2937; }
+                            .hds-tr .kpi td { width: 25%; padding: 8px 10px; border: 1px solid #d8dde6; background: #f8fafc; vertical-align: top; }
+                            .hds-tr .kpi .l { font-size: 8.5px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.4px; }
+                            .hds-tr .kpi .v { font-size: 14px; font-weight: bold; color: #1f3a5f; margin-top: 2px; }
+                            .hds-tr .kpi td.hl { background: #1f3a5f; border-color: #1f3a5f; }
+                            .hds-tr .kpi td.hl .l { color: #c7d2e3; }
+                            .hds-tr .kpi td.hl .v { color: #ffffff; }
+                            .hds-tr .ln td { padding: 5px 8px; border-bottom: 1px solid #e5e7eb; vertical-align: top; }
+                            .hds-tr .ln td.a { width: 26%; text-align: right; white-space: nowrap; }
+                            .hds-tr .ln tr.sub td.d { padding-left: 22px; color: #374151; }
+                            .hds-tr .ln tr.minus td.a { color: #374151; }
+                            .hds-tr .ln tr.tot td { font-weight: bold; background: #f1f4f8; border-top: 1px solid #c5cdd8; border-bottom: 1px solid #c5cdd8; }
+                            .hds-tr .ln tr.grand td { font-weight: bold; background: #1f3a5f; color: #ffffff; font-size: 11.5px; border-bottom: 0; }
+                            .hds-tr .ln tr.grp td { font-size: 9px; font-weight: bold; color: #1f3a5f; text-transform: uppercase; letter-spacing: 0.4px; background: #f8fafc; }
+                            .hds-tr .note { display: block; font-size: 8.5px; color: #6b7280; font-weight: normal; }
+                            .hds-tr .badge { display: inline-block; padding: 1px 7px; border-radius: 3px; font-size: 8.5px; font-weight: bold; color: #ffffff; background: #1f3a5f; letter-spacing: 0.3px; }
+                            .hds-tr .badge.green { background: #15803d; }
+                            .hds-tr .badge.orange { background: #c2410c; }
+                            .hds-tr .badge.red { background: #b42318; }
+                            .hds-tr .badge.grey { background: #6b7280; }
+                            .hds-tr .card { border: 1px solid #d8dde6; border-radius: 3px; margin-top: 8px; page-break-inside: avoid; }
+                            .hds-tr .card .ch td { background: #f1f4f8; padding: 6px 8px; border-bottom: 1px solid #d8dde6; vertical-align: middle; }
+                            .hds-tr .card .ch .n { font-weight: bold; color: #1f2937; }
+                            .hds-tr .card .am td { width: 33.33%; padding: 5px 8px; text-align: center; border-right: 1px solid #e5e7eb; border-bottom: 1px solid #e5e7eb; }
+                            .hds-tr .card .am td.last { border-right: 0; }
+                            .hds-tr .card .am .l { font-size: 8.5px; color: #6b7280; }
+                            .hds-tr .card .am .v { font-size: 11px; font-weight: bold; }
+                            .hds-tr .card .blk { padding: 5px 8px; border-bottom: 1px solid #e5e7eb; }
+                            .hds-tr .card .blk-h { font-size: 8.5px; font-weight: bold; color: #1f3a5f; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 2px; }
+                            .hds-tr .card .det td { padding: 2px 4px; font-size: 9.5px; vertical-align: top; }
+                            .hds-tr .card .det td.k { width: 45%; color: #6b7280; }
+                            .hds-tr .card .det td.v { font-weight: bold; }
+                            .hds-tr .card .sub-t td, .hds-tr .card .sub-t th { padding: 3px 5px; font-size: 9px; border: 1px solid #e5e7eb; }
+                            .hds-tr .card .sub-t th { background: #f8fafc; color: #374151; text-align: left; }
+                            .hds-tr .card .sub-t .r { text-align: right; white-space: nowrap; }
+                            .hds-tr .card .concl { padding: 5px 8px; font-size: 9.5px; color: #374151; }
+                            .hds-tr .card .concl b { color: #1f3a5f; }
+                            .hds-tr .empty { padding: 10px; text-align: center; color: #6b7280; border: 1px dashed #c5cdd8; border-radius: 3px; margin-top: 8px; }
+                            .hds-tr .pos { color: #15803d; }
+                            .hds-tr .neg { color: #b42318; }
+                            .hds-tr .sign { margin-top: 26px; page-break-inside: avoid; }
+                            .hds-tr .sign td { width: 50%; text-align: center; vertical-align: bottom; padding: 30px 20px 0 20px; }
+                            .hds-tr .sign .line { border-top: 1px solid #6b7280; margin: 0 30px 4px 30px; }
+                            .hds-tr .sign .who { font-size: 9.5px; font-weight: bold; color: #374151; }
+                            .hds-tr .sign .sub { font-size: 9px; color: #6b7280; }
+                            .hds-tr .foot { text-align: center; font-size: 8.5px; color: #9ca3af; margin-top: 10px; }
+                        </style>
 
-                    <div class="page" style="font-family: 'Arial', sans-serif; font-size: 11px; color: #1a1a2e; line-height: 1.5;">
+                        <t t-set="emp" t-value="r['employee']"/>
+                        <t t-set="has_payslip" t-value="r['payslip_name'] and r['payslip_name'] != 'N/A' and not r['payslip_name'].startswith('No Payslip')"/>
+                        <t t-set="has_period" t-value="r['payroll_month'] and r['payroll_month'] != 'N/A'"/>
+                        <t t-set="fy_label" t-value="(r['financial_year'].name or '').replace('Tax Year:', '').strip() if r['financial_year'] else ''"/>
 
-                        <!-- ══════════════════════════════════════════════ -->
-                        <!-- COVER HEADER                                  -->
-                        <!-- ══════════════════════════════════════════════ -->
-                        <div style="background: linear-gradient(135deg, #0f3460 0%, #16213e 100%); color: #ffffff; padding: 18px 22px; border-radius: 4px; margin-bottom: 18px;">
-                            <table style="width: 100%; border-collapse: collapse;">
+                        <!-- TITLE -->
+                        <div class="tr-title">
+                            <table>
                                 <tr>
-                                    <td style="width: 70%; vertical-align: top;">
-                                        <div style="font-size: 18px; font-weight: bold; letter-spacing: 0.5px; margin-bottom: 3px;">
-                                            Income Tax Declaration &amp; Statutory Calculation Report
-                                        </div>
-                                        <div style="font-size: 11px; color: #a0c4ff; margin-top: 2px;">
-                                            Hudson Payroll — Confidential Statutory Audit Document
-                                        </div>
+                                    <td style="width: 65%;">
+                                        <div class="t">Income Tax Calculation Report</div>
+                                        <div class="s">Tax deducted at source (TDS) on salary<t t-if="fy_label"> &#183; Tax Year <t t-out="fy_label"/></t></div>
                                     </td>
-                                    <td style="width: 30%; vertical-align: top; text-align: right;">
-                                        <div style="font-size: 10px; color: #a0c4ff;">Generated On: <t t-out="r['generated_on']"/></div>
-                                        <div style="font-size: 10px; color: #a0c4ff;">Generated By: <t t-out="r['generated_by']"/></div>
-                                        <div style="font-size: 10px; color: #a0c4ff; margin-top: 4px;">
-                                            Declaration ID: <strong style="color: #ffffff;"><t t-out="r['declaration_id']"/></strong>
-                                        </div>
+                                    <td class="m" style="width: 35%;">
+                                        Generated on <b><t t-out="r['generated_on']"/></b><br/>
+                                        by <b><t t-out="r['generated_by']"/></b>
+                                        <t t-if="r['declaration']"><br/>Declaration <b><t t-out="r['declaration_name']"/></b></t>
                                     </td>
                                 </tr>
                             </table>
                         </div>
 
-                        <!-- ══════════════════════════════════════════════ -->
-                        <!-- SECTION 1 — EMPLOYEE &amp; DECLARATION DETAILS-->
-                        <!-- ══════════════════════════════════════════════ -->
-                        <div style="margin-bottom: 14px;">
-                            <div style="background: #0f3460; color: #ffffff; padding: 6px 10px; font-weight: bold; font-size: 11px; letter-spacing: 0.3px; margin-bottom: 0;">
-                                SECTION 1 — EMPLOYEE &amp; DECLARATION DETAILS
-                            </div>
-                            <table style="width: 100%; border-collapse: collapse; border: 1px solid #ced4da;">
+                        <!-- EMPLOYEE & PAYROLL DETAILS -->
+                        <div class="sec">
+                            <div class="sec-h">Employee &amp; Payroll Details</div>
+                            <table class="kv">
                                 <tr>
-                                    <td style="width: 25%; padding: 5px 8px; background: #f0f4f8; font-weight: bold; border: 1px solid #dee2e6;">Employee Name</td>
-                                    <td style="width: 25%; padding: 5px 8px; border: 1px solid #dee2e6;"><t t-out="r['employee'].name"/></td>
-                                    <td style="width: 25%; padding: 5px 8px; background: #f0f4f8; font-weight: bold; border: 1px solid #dee2e6;">Employee ID</td>
-                                    <td style="width: 25%; padding: 5px 8px; border: 1px solid #dee2e6;"><t t-out="r['employee'].barcode or r['employee'].id"/></td>
+                                    <td class="k">Employee</td>
+                                    <td class="v"><t t-out="emp.name"/></td>
+                                    <td class="k">Employee ID</td>
+                                    <td class="v"><t t-out="emp.barcode or emp.id"/></td>
+                                </tr>
+                                <tr t-if="emp.department_id or emp.job_id">
+                                    <td class="k">Department</td>
+                                    <td class="v"><t t-out="emp.department_id.name or '—'"/></td>
+                                    <td class="k">Designation</td>
+                                    <td class="v"><t t-out="emp.job_id.name or '—'"/></td>
                                 </tr>
                                 <tr>
-                                    <td style="padding: 5px 8px; background: #f0f4f8; font-weight: bold; border: 1px solid #dee2e6;">Department</td>
-                                    <td style="padding: 5px 8px; border: 1px solid #dee2e6;"><t t-out="r['employee'].department_id.name if r['employee'].department_id else 'N/A'"/></td>
-                                    <td style="padding: 5px 8px; background: #f0f4f8; font-weight: bold; border: 1px solid #dee2e6;">Designation</td>
-                                    <td style="padding: 5px 8px; border: 1px solid #dee2e6;"><t t-out="r['employee'].job_id.name if r['employee'].job_id else 'N/A'"/></td>
+                                    <td class="k">Tax Year</td>
+                                    <td class="v"><t t-out="fy_label or '—'"/></td>
+                                    <td class="k">Assessment Year</td>
+                                    <td class="v"><t t-out="r['assessment_year']"/></td>
                                 </tr>
                                 <tr>
-                                    <td style="padding: 5px 8px; background: #f0f4f8; font-weight: bold; border: 1px solid #dee2e6;">Financial Year</td>
-                                    <td style="padding: 5px 8px; border: 1px solid #dee2e6;"><t t-out="r['financial_year'].name if r['financial_year'] else 'N/A'"/></td>
-                                    <td style="padding: 5px 8px; background: #f0f4f8; font-weight: bold; border: 1px solid #dee2e6;">Assessment Year</td>
-                                    <td style="padding: 5px 8px; border: 1px solid #dee2e6;"><t t-out="r['assessment_year']"/></td>
-                                </tr>
-                                <tr>
-                                    <td style="padding: 5px 8px; background: #f0f4f8; font-weight: bold; border: 1px solid #dee2e6;">Declaration Name</td>
-                                    <td style="padding: 5px 8px; border: 1px solid #dee2e6;"><t t-out="r['declaration_name']"/></td>
-                                    <td style="padding: 5px 8px; background: #f0f4f8; font-weight: bold; border: 1px solid #dee2e6;">Declaration Status</td>
-                                    <td style="padding: 5px 8px; border: 1px solid #dee2e6; font-weight: bold; color: #0f3460;"><t t-out="r['declaration_state']"/></td>
-                                </tr>
-                                <tr>
-                                    <td style="padding: 5px 8px; background: #f0f4f8; font-weight: bold; border: 1px solid #dee2e6;">Submission Date</td>
-                                    <td style="padding: 5px 8px; border: 1px solid #dee2e6;"><t t-out="r['submission_date']"/></td>
-                                    <td style="padding: 5px 8px; background: #f0f4f8; font-weight: bold; border: 1px solid #dee2e6;">Evaluation Date</td>
-                                    <td style="padding: 5px 8px; border: 1px solid #dee2e6;"><t t-out="r['eval_date']"/></td>
-                                </tr>
-                                <tr>
-                                    <td style="padding: 5px 8px; background: #f0f4f8; font-weight: bold; border: 1px solid #dee2e6;">Tax Regime</td>
-                                    <td style="padding: 5px 8px; border: 1px solid #dee2e6;">
-                                        <span style="background: #0f3460; color: #fff; padding: 2px 8px; border-radius: 3px; font-size: 10px; font-weight: bold;">
-                                            <t t-out="r['regime_code']"/>
-                                        </span>
-                                        &#160;<t t-out="r['regime_label']"/>
+                                    <td class="k">Tax Regime</td>
+                                    <td class="v" colspan="3">
+                                        <span t-attf-class="badge #{'green' if r['regime_code'] == 'NEW' else ''}"><t t-out="r['regime_code']"/></span>
+                                        <span style="margin-left: 6px;"><t t-out="r['regime_label']"/></span>
                                     </td>
-                                    <td style="padding: 5px 8px; background: #f0f4f8; font-weight: bold; border: 1px solid #dee2e6;">Employer Category</td>
-                                    <td style="padding: 5px 8px; border: 1px solid #dee2e6;"><t t-out="r['employer_category']"/></td>
+                                </tr>
+                                <tr t-if="has_period">
+                                    <td class="k">Payroll Month</td>
+                                    <td class="v"><t t-out="r['payroll_month']"/></td>
+                                    <td class="k">Period</td>
+                                    <td class="v"><t t-out="r['payslip_date_from']"/> &#8594; <t t-out="r['payslip_date_to']"/></td>
+                                </tr>
+                                <tr>
+                                    <td class="k"><t t-if="has_payslip">Payslip</t><t t-else="">Evaluation Date</t></td>
+                                    <td class="v"><t t-out="r['payslip_name'] if has_payslip else r['eval_date']"/></td>
+                                    <td class="k">TDS Mode</td>
+                                    <td class="v">
+                                        <span t-attf-class="badge #{'green' if r['tds_mode'] == 'NORMAL PROJECTED' else ('red' if r['tds_mode'] == 'JANUARY RECALCULATION' else 'orange')}"><t t-out="r['tds_mode']"/></span>
+                                    </td>
+                                </tr>
+                                <tr t-if="r['declaration']">
+                                    <td class="k">Declaration Status</td>
+                                    <td class="v"><t t-out="r['declaration_state']"/></td>
+                                    <td class="k">Submitted On</td>
+                                    <td class="v"><t t-out="r['submission_date']"/></td>
                                 </tr>
                             </table>
                         </div>
 
-                        <!-- ══════════════════════════════════════════════ -->
-                        <!-- PAYROLL PERIOD PANEL                          -->
-                        <!-- ══════════════════════════════════════════════ -->
-                        <!-- Visible always: payroll_month is always populated (from payslip or eval_date) -->
-                        <div style="margin-bottom: 14px; border: 2px solid #e63946; border-radius: 4px; overflow: hidden;">
-                            <div style="background: #e63946; color: #ffffff; padding: 6px 10px; font-weight: bold; font-size: 11px; letter-spacing: 0.3px;">
-                                PAYROLL PERIOD &amp; TDS MODE
-                            </div>
-                            <table style="width: 100%; border-collapse: collapse; border: 1px solid #ced4da;">
+                        <!-- KEY FIGURES -->
+                        <div class="sec">
+                            <table class="kpi">
                                 <tr>
-                                    <td style="width: 25%; padding: 5px 8px; background: #fff5f5; font-weight: bold; border: 1px solid #dee2e6;">Payroll Month</td>
-                                    <td style="width: 25%; padding: 5px 8px; border: 1px solid #dee2e6; font-size: 13px; font-weight: bold; color: #e63946;"><t t-out="r['payroll_month']"/></td>
-                                    <td style="width: 25%; padding: 5px 8px; background: #fff5f5; font-weight: bold; border: 1px solid #dee2e6;">TDS Mode</td>
-                                    <td style="width: 25%; padding: 5px 8px; border: 1px solid #dee2e6;">
-                                        <span t-attf-style="background: #{'#28a745' if r['tds_mode'] == 'NORMAL PROJECTED' else ('#e63946' if r['tds_mode'] == 'JANUARY RECALCULATION' else '#fd7e14')}; color: #fff; padding: 2px 7px; border-radius: 3px; font-size: 10px; font-weight: bold;">
-                                            <t t-out="r['tds_mode']"/>
-                                        </span>
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td style="padding: 5px 8px; background: #fff5f5; font-weight: bold; border: 1px solid #dee2e6;">Date From</td>
-                                    <td style="padding: 5px 8px; border: 1px solid #dee2e6;"><t t-out="r['payslip_date_from']"/></td>
-                                    <td style="padding: 5px 8px; background: #fff5f5; font-weight: bold; border: 1px solid #dee2e6;">Date To</td>
-                                    <td style="padding: 5px 8px; border: 1px solid #dee2e6;"><t t-out="r['payslip_date_to']"/></td>
-                                </tr>
-                                <tr>
-                                    <td style="padding: 5px 8px; background: #fff5f5; font-weight: bold; border: 1px solid #dee2e6;">Payslip Reference</td>
-                                    <td style="padding: 5px 8px; border: 1px solid #dee2e6;"><t t-out="r['payslip_name']"/></td>
-                                    <td style="padding: 5px 8px; background: #fff5f5; font-weight: bold; border: 1px solid #dee2e6;">Distribution Source</td>
-                                    <td style="padding: 5px 8px; border: 1px solid #dee2e6; font-style: italic;"><t t-out="r['tds_allocation_source']"/></td>
+                                    <td><div class="l">Gross Total Income</div><div class="v"><t t-out="'{:,.2f}'.format((r['gross_total_income']) or 0.0)"/></div></td>
+                                    <td><div class="l">Net Taxable Income</div><div class="v"><t t-out="'{:,.2f}'.format((r['net_taxable_income']) or 0.0)"/></div></td>
+                                    <td><div class="l">Annual Tax Liability</div><div class="v"><t t-out="'{:,.2f}'.format((r['total_annual_tax']) or 0.0)"/></div></td>
+                                    <td class="hl"><div class="l">TDS This Month (INR)</div><div class="v"><t t-out="'{:,.2f}'.format((r['current_month_tds']) or 0.0)"/></div></td>
                                 </tr>
                             </table>
                         </div>
 
-                        <!-- ══════════════════════════════════════════════ -->
-                        <!-- SECTION 2 — INCOME SUMMARY                   -->
-                        <!-- ══════════════════════════════════════════════ -->
-                        <div style="margin-bottom: 14px;">
-                            <div style="background: #0f3460; color: #ffffff; padding: 6px 10px; font-weight: bold; font-size: 11px; letter-spacing: 0.3px; margin-bottom: 0;">
-                                SECTION 2 — ANNUAL INCOME SUMMARY
-                            </div>
-                            <table style="width: 100%; border-collapse: collapse; border: 1px solid #ced4da;">
-                                <thead>
-                                    <tr style="background: #e8edf3;">
-                                        <th style="text-align: left; padding: 5px 8px; border: 1px solid #dee2e6; width: 65%;">Income Component</th>
-                                        <th style="text-align: right; padding: 5px 8px; border: 1px solid #dee2e6;">Amount (INR)</th>
+                        <!-- INCOME TO TAXABLE INCOME -->
+                        <div class="sec">
+                            <div class="sec-h">Taxable Income</div>
+                            <table class="ln">
+                                <tr>
+                                    <td class="d">Projected annual salary (current employer)</td>
+                                    <td class="a"><t t-out="'{:,.2f}'.format((r['gross_current_salary']) or 0.0)"/></td>
+                                </tr>
+                                <tr t-if="r.get('sec_17_2_vii_perquisite', 0) &gt; 0">
+                                    <td class="d">
+                                        Taxable perquisite: employer contributions above the ceiling [Section 17(2)(vii)]
+                                        <span class="note">Employer EPF + NPS <t t-out="'{:,.2f}'.format((r.get('combined_employer_contribution', 0.0)) or 0.0)"/> &#8722; ceiling <t t-out="'{:,.2f}'.format((r.get('combined_ceiling')) or 0.0)"/></span>
+                                    </td>
+                                    <td class="a"><t t-out="'{:,.2f}'.format((r['sec_17_2_vii_perquisite']) or 0.0)"/></td>
+                                </tr>
+                                <tr t-if="r['prev_emp_income'] &gt; 0">
+                                    <td class="d">Previous employer taxable salary</td>
+                                    <td class="a"><t t-out="'{:,.2f}'.format((r['prev_emp_income']) or 0.0)"/></td>
+                                </tr>
+                                <t t-if="r.get('other_income_breakdown')">
+                                    <tr class="grp"><td colspan="2">Income from other sources</td></tr>
+                                    <tr class="sub" t-foreach="r['other_income_breakdown']" t-as="oib">
+                                        <td class="d"><t t-out="oib[0]"/></td>
+                                        <td class="a"><t t-out="'{:,.2f}'.format((oib[1]) or 0.0)"/></td>
                                     </tr>
-                                </thead>
-                                <tbody>
-                                    <tr>
-                                        <td style="padding: 5px 8px; border: 1px solid #dee2e6;">Projected Annual Salary (Current Employer)</td>
-                                        <td style="text-align: right; padding: 5px 8px; border: 1px solid #dee2e6;"><t t-out="'{:,.2f}'.format(r['gross_current_salary'])"/></td>
+                                </t>
+                                <tr t-if="r['other_income'] &gt; 0 and not r.get('other_income_breakdown')">
+                                    <td class="d">Other income (interest, rent, etc.)</td>
+                                    <td class="a"><t t-out="'{:,.2f}'.format((r['other_income']) or 0.0)"/></td>
+                                </tr>
+                                <tr class="tot">
+                                    <td class="d">Gross Total Income</td>
+                                    <td class="a"><t t-out="'{:,.2f}'.format((r['gross_total_income']) or 0.0)"/></td>
+                                </tr>
+                                <t t-if="r['deduction_breakdown']">
+                                    <tr class="grp"><td colspan="2">Less: deductions &amp; exemptions</td></tr>
+                                    <tr class="sub minus" t-foreach="r['deduction_breakdown']" t-as="drow">
+                                        <td class="d"><t t-out="drow[0]"/></td>
+                                        <td class="a">(&#8722;) <t t-out="'{:,.2f}'.format((drow[1]) or 0.0)"/></td>
                                     </tr>
-                                    <tr t-if="r['prev_emp_income'] > 0">
-                                        <td style="padding: 5px 8px; border: 1px solid #dee2e6;">Previous Employer Taxable Salary</td>
-                                        <td style="text-align: right; padding: 5px 8px; border: 1px solid #dee2e6;"><t t-out="'{:,.2f}'.format(r['prev_emp_income'])"/></td>
+                                </t>
+                                <tr t-if="r.get('rounding_factor')">
+                                    <td class="d">Rounding to nearest INR 10 [Section 516, Income-tax Act, 2025]</td>
+                                    <td class="a"><t t-out="'{:+,.2f}'.format(r['rounding_factor'])"/></td>
+                                </tr>
+                                <tr class="tot">
+                                    <td class="d">Net Taxable Income</td>
+                                    <td class="a"><t t-out="'{:,.2f}'.format((r['net_taxable_income']) or 0.0)"/></td>
+                                </tr>
+                            </table>
+                        </div>
+
+                        <!-- TAX COMPUTATION -->
+                        <div class="sec">
+                            <div class="sec-h">Tax Computation</div>
+                            <table class="ln">
+                                <tr>
+                                    <td class="d">Income tax on net taxable income (slab rates)</td>
+                                    <td class="a"><t t-out="'{:,.2f}'.format((r['base_tax']) or 0.0)"/></td>
+                                </tr>
+                                <t t-if="r['rebate_applicable']">
+                                    <tr class="minus">
+                                        <td class="d">Less: Section 87A rebate <span class="note">Taxable income up to INR <t t-out="'{:,.0f}'.format(r['rebate_limit'])"/></span></td>
+                                        <td class="a">(&#8722;) <t t-out="'{:,.2f}'.format((r['rebate_applied']) or 0.0)"/></td>
                                     </tr>
-                                    <t t-if="r.get('other_income_breakdown')">
-                                        <tr style="background: #f0f4f8;">
-                                            <td colspan="2" style="padding: 4px 8px; font-weight: bold; font-size: 10px; color: #0f3460; border: 1px solid #dee2e6;">
-                                                Income from Other Sources &amp; Non-Payroll (included in GTI):
+                                    <tr class="tot">
+                                        <td class="d">Tax after rebate</td>
+                                        <td class="a"><t t-out="'{:,.2f}'.format((r['tax_after_rebate']) or 0.0)"/></td>
+                                    </tr>
+                                </t>
+                                <tr t-if="r.get('surcharge_amount', 0) &gt; 0 or r.get('marginal_relief', 0) &gt; 0">
+                                    <td class="d">Add: surcharge @ <t t-out="'{:.0f}'.format(r['surcharge_rate'])"/>%</td>
+                                    <td class="a">(+) <t t-out="'{:,.2f}'.format((r.get('surcharge_before_relief', r['surcharge_amount'])) or 0.0)"/></td>
+                                </tr>
+                                <tr class="minus" t-if="r.get('marginal_relief', 0) &gt; 0">
+                                    <td class="d">Less: marginal relief on surcharge</td>
+                                    <td class="a">(&#8722;) <t t-out="'{:,.2f}'.format((r['marginal_relief']) or 0.0)"/></td>
+                                </tr>
+                                <tr>
+                                    <td class="d">Add: health &amp; education cess<t t-if="r['cess_rate']"> @ <t t-out="'{:g}'.format(r['cess_rate'])"/>%</t></td>
+                                    <td class="a">(+) <t t-out="'{:,.2f}'.format((r['cess_amount']) or 0.0)"/></td>
+                                </tr>
+                                <tr class="grand">
+                                    <td class="d">Total Annual Tax Liability</td>
+                                    <td class="a"><t t-out="'{:,.2f}'.format((r['total_annual_tax']) or 0.0)"/></td>
+                                </tr>
+                            </table>
+                        </div>
+
+                        <!-- TDS FOR THE MONTH -->
+                        <div class="sec">
+                            <div class="sec-h"><t t-if="has_period">TDS for <t t-out="r['payroll_month']"/></t><t t-else="">Monthly TDS</t></div>
+                            <table class="ln">
+                                <tr>
+                                    <td class="d">Total annual tax liability</td>
+                                    <td class="a"><t t-out="'{:,.2f}'.format((r['total_annual_tax']) or 0.0)"/></td>
+                                </tr>
+                                <tr class="minus" t-if="r['prev_employer_tds'] &gt; 0">
+                                    <td class="d">Less: TDS deducted by previous employer</td>
+                                    <td class="a">(&#8722;) <t t-out="'{:,.2f}'.format((r['prev_employer_tds']) or 0.0)"/></td>
+                                </tr>
+                                <tr class="minus" t-if="r['ytd_tds'] &gt; 0">
+                                    <td class="d">Less: TDS already deducted this tax year</td>
+                                    <td class="a">(&#8722;) <t t-out="'{:,.2f}'.format((r['ytd_tds']) or 0.0)"/></td>
+                                </tr>
+                                <tr class="tot">
+                                    <td class="d">Remaining tax liability</td>
+                                    <td class="a"><t t-out="'{:,.2f}'.format((r['remaining_liability']) or 0.0)"/></td>
+                                </tr>
+                                <tr>
+                                    <td class="d">Remaining payroll months (including this month)</td>
+                                    <td class="a"><t t-out="r['remaining_periods_incl_current']"/></td>
+                                </tr>
+                                <t t-if="r['tds_mode'] != 'NORMAL PROJECTED'">
+                                    <tr class="grp"><td colspan="2">TDS recalculation schedule</td></tr>
+                                    <tr class="sub"><td class="d">Recalculation from</td><td class="a"><t t-out="r['tds_recalc_from_month']"/></td></tr>
+                                    <tr class="sub"><td class="d">Distribution months</td><td class="a"><t t-out="r['tds_distribution_months']"/></td></tr>
+                                    <tr class="sub"><td class="d">Recalculation executed</td><td class="a"><t t-out="r['tds_recalc_executed']"/></td></tr>
+                                    <tr class="sub"><td class="d">Annual tax at recalculation</td><td class="a"><t t-out="'{:,.2f}'.format((r['tds_recalc_annual_tax']) or 0.0)"/></td></tr>
+                                    <tr class="sub"><td class="d">TDS deducted till recalculation</td><td class="a"><t t-out="'{:,.2f}'.format((r['tds_recalc_ytd_tds']) or 0.0)"/></td></tr>
+                                    <tr class="sub"><td class="d">Remaining liability at recalculation</td><td class="a"><t t-out="'{:,.2f}'.format((r['tds_recalc_remaining']) or 0.0)"/></td></tr>
+                                    <tr class="sub" t-if="r['tds_jan_allocation'] &gt; 0"><td class="d">January allocation</td><td class="a"><t t-out="'{:,.2f}'.format((r['tds_jan_allocation']) or 0.0)"/></td></tr>
+                                    <tr class="sub" t-if="r['tds_feb_allocation'] &gt; 0"><td class="d">February allocation</td><td class="a"><t t-out="'{:,.2f}'.format((r['tds_feb_allocation']) or 0.0)"/></td></tr>
+                                    <tr class="sub" t-if="r['tds_mar_allocation'] &gt; 0"><td class="d">March allocation</td><td class="a"><t t-out="'{:,.2f}'.format((r['tds_mar_allocation']) or 0.0)"/></td></tr>
+                                </t>
+                                <tr class="grand">
+                                    <td class="d">TDS Deducted This Month</td>
+                                    <td class="a">INR <t t-out="'{:,.2f}'.format((r['current_month_tds']) or 0.0)"/></td>
+                                </tr>
+                            </table>
+                        </div>
+
+                        <!-- CHAPTER VI-A (only when something is claimed) -->
+                        <div class="sec" t-if="r['chapter6a_total_display'] &gt; 0">
+                            <div class="sec-h">Chapter VI-A Deductions</div>
+                            <table class="ln">
+                                <t t-foreach="r['chapter6a_rows']" t-as="c6row">
+                                    <tr t-if="c6row[1] &gt; 0">
+                                        <td class="d"><t t-out="c6row[0]"/></td>
+                                        <td class="a"><t t-out="'{:,.2f}'.format((c6row[1]) or 0.0)"/></td>
+                                    </tr>
+                                </t>
+                                <tr class="tot">
+                                    <td class="d">Total Chapter VI-A deductions</td>
+                                    <td class="a"><t t-out="'{:,.2f}'.format((r['chapter6a_total_display']) or 0.0)"/></td>
+                                </tr>
+                            </table>
+                        </div>
+
+                        <!-- DEDUCTION DETAILS (declared or allowed sections only) -->
+                        <div class="sec" style="page-break-inside: auto;" t-if="r['declaration']">
+                            <div class="sec-h" t-if="not r['relevant_traces']">Deduction Details</div>
+                            <t t-foreach="r['relevant_traces']" t-as="trace">
+                                <t t-set="fp" t-value="trace.get('is_family_pension')"/>
+                                <div style="page-break-inside: avoid;">
+                                <div class="sec-h" t-if="trace_first">Deduction Details</div>
+                                <div class="card">
+                                    <table class="ch">
+                                        <tr>
+                                            <td style="width: 78%;">
+                                                <span class="n"><t t-out="trace['name']"/></span>
+                                                <span class="note"><t t-out="trace['statutory_ref']"/></span>
+                                            </td>
+                                            <td style="width: 22%; text-align: right;">
+                                                <t t-if="fp"><span class="badge">APPLIED</span></t>
+                                                <t t-elif="trace['is_eligible'] and trace['declared'] &gt; 0 and trace['approved'] &gt;= trace['declared']"><span class="badge green">ELIGIBLE</span></t>
+                                                <t t-elif="trace['is_eligible'] and trace['declared'] &gt; 0"><span class="badge orange">PARTIALLY ELIGIBLE</span></t>
+                                                <t t-elif="trace['approved'] &gt; 0"><span class="badge">APPLIED</span></t>
+                                                <t t-else=""><span class="badge red">NOT ELIGIBLE</span></t>
                                             </td>
                                         </tr>
-                                        <t t-foreach="r.get('other_income_breakdown', [])" t-as="oib">
-                                            <tr>
-                                                <td style="padding: 4px 8px 4px 20px; border: 1px solid #dee2e6; color: #1a1a2e; font-weight: 500;">
-                                                    <t t-out="oib[0]"/>
-                                                </td>
-                                                <td style="text-align: right; padding: 4px 8px; border: 1px solid #dee2e6; font-weight: bold;">
-                                                    <t t-out="'{:,.2f}'.format(oib[1])"/>
-                                                </td>
+                                    </table>
+                                    <table class="am">
+                                        <tr>
+                                            <td><div class="l"><t t-out="'Pension received' if fp else 'Declared'"/></div><div class="v"><t t-out="'{:,.2f}'.format((trace['declared']) or 0.0)"/></div></td>
+                                            <td><div class="l"><t t-out="'Deduction' if fp else 'Eligible'"/></div><div class="v pos"><t t-out="'{:,.2f}'.format((trace['approved']) or 0.0)"/></div></td>
+                                            <td class="last"><div class="l"><t t-out="'Taxable' if fp else 'Disallowed'"/></div><div t-attf-class="v #{'' if fp else 'neg'}"><t t-out="'{:,.2f}'.format((trace.get('excess', 0.0)) or 0.0)"/></div></td>
+                                        </tr>
+                                    </table>
+                                    <div class="blk" t-if="trace.get('inputs')">
+                                        <div class="blk-h">Inputs</div>
+                                        <table class="det">
+                                            <tr t-foreach="trace['inputs']" t-as="inp">
+                                                <td class="k"><t t-out="inp[0]"/></td>
+                                                <td class="v"><t t-out="inp[1]"/></td>
                                             </tr>
-                                        </t>
-                                    </t>
-                                    <tr t-if="r['other_income'] > 0 and not r.get('other_income_breakdown')">
-                                        <td style="padding: 5px 8px; border: 1px solid #dee2e6;">Other Income (Interest, FD, Rental, etc.)</td>
-                                        <td style="text-align: right; padding: 5px 8px; border: 1px solid #dee2e6;"><t t-out="'{:,.2f}'.format(r['other_income'])"/></td>
-                                    </tr>
-                                    <tr style="background: #e8edf3; font-weight: bold;">
-                                        <td style="padding: 5px 8px; border: 1px solid #dee2e6;">GROSS TOTAL INCOME</td>
-                                        <td style="text-align: right; padding: 5px 8px; border: 1px solid #dee2e6;"><t t-out="'{:,.2f}'.format(r['gross_total_income'])"/></td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-
-                        <!-- ══════════════════════════════════════════════ -->
-                        <!-- SECTION 3 — DEDUCTIONS SUMMARY               -->
-                        <!-- ══════════════════════════════════════════════ -->
-                        <div style="margin-bottom: 14px;">
-                            <div style="background: #0f3460; color: #ffffff; padding: 6px 10px; font-weight: bold; font-size: 11px; letter-spacing: 0.3px; margin-bottom: 0;">
-                                SECTION 3 — ALLOWABLE DEDUCTIONS &amp; EXEMPTIONS
-                            </div>
-                            <table style="width: 100%; border-collapse: collapse; border: 1px solid #ced4da;">
-                                <thead>
-                                    <tr style="background: #e8edf3;">
-                                        <th style="text-align: left; padding: 5px 8px; border: 1px solid #dee2e6; width: 65%;">Deduction Component</th>
-                                        <th style="text-align: right; padding: 5px 8px; border: 1px solid #dee2e6;">Eligible Amount (INR)</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <t t-foreach="r['deduction_breakdown']" t-as="drow">
-                                        <tr>
-                                            <td style="padding: 5px 8px; border: 1px solid #dee2e6;"><t t-out="drow[0]"/></td>
-                                            <td style="text-align: right; padding: 5px 8px; border: 1px solid #dee2e6;"><t t-out="'{:,.2f}'.format(drow[1])"/></td>
-                                        </tr>
-                                    </t>
-                                    <t t-if="not r['deduction_breakdown']">
-                                        <tr><td colspan="2" style="padding: 5px 8px; border: 1px solid #dee2e6; color: #6c757d; font-style: italic;">No deductions applicable under selected tax regime.</td></tr>
-                                    </t>
-                                    <tr style="background: #e8edf3; font-weight: bold; color: #dc3545;">
-                                        <td style="padding: 5px 8px; border: 1px solid #dee2e6;">TOTAL ALLOWABLE DEDUCTIONS</td>
-                                        <td style="text-align: right; padding: 5px 8px; border: 1px solid #dee2e6;">(<t t-out="'{:,.2f}'.format(r['total_allowable_deductions'])"/>)</td>
-                                    </tr>
-                                    <tr t-if="r.get('rounding_factor') is not None" style="background: #f8f9fa; color: #495057;">
-                                        <td style="padding: 5px 8px; border: 1px solid #dee2e6;">Rounding Factor / Adjustment (Section 516, Income-tax Act, 2025: to nearest ₹10)</td>
-                                        <td style="text-align: right; padding: 5px 8px; border: 1px solid #dee2e6;"><t t-out="('{:+,.2f}'.format(r['rounding_factor']) if r['rounding_factor'] else '0.00')"/></td>
-                                    </tr>
-                                    <tr style="background: #d3f9d8; font-weight: bold; color: #1e6b2e;">
-                                        <td style="padding: 5px 8px; border: 1px solid #dee2e6;">
-                                            NET CHARGEABLE TAXABLE INCOME
-                                            <span style="font-size: 9px; font-weight: normal; color: #1e6b2e; display: block;">(Rounded to nearest ₹10 as per Section 516, Income-tax Act, 2025)</span>
-                                        </td>
-                                        <td style="text-align: right; padding: 5px 8px; border: 1px solid #dee2e6;"><t t-out="'{:,.2f}'.format(r['net_taxable_income'])"/></td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-
-                        <!-- ══════════════════════════════════════════════ -->
-                        <!-- SECTION 4 — TAX COMPUTATION                  -->
-                        <!-- ══════════════════════════════════════════════ -->
-                        <div style="margin-bottom: 14px;">
-                            <div style="background: #0f3460; color: #ffffff; padding: 6px 10px; font-weight: bold; font-size: 11px; letter-spacing: 0.3px; margin-bottom: 0;">
-                                SECTION 4 — ANNUAL TAX COMPUTATION
-                            </div>
-                            <table style="width: 100%; border-collapse: collapse; border: 1px solid #ced4da;">
-                                <tbody>
-                                    <tr>
-                                        <td style="width: 65%; padding: 5px 8px; border: 1px solid #dee2e6; background: #f8f9fa;">Net Taxable Income (as above)</td>
-                                        <td style="text-align: right; padding: 5px 8px; border: 1px solid #dee2e6;"><t t-out="'{:,.2f}'.format(r['net_taxable_income'])"/></td>
-                                    </tr>
-                                    <tr>
-                                        <td style="padding: 5px 8px; border: 1px solid #dee2e6; background: #f8f9fa;">Income Tax on Taxable Income (as per Slab Rates)</td>
-                                        <td style="text-align: right; padding: 5px 8px; border: 1px solid #dee2e6;"><t t-out="'{:,.2f}'.format(r['base_tax'])"/></td>
-                                    </tr>
-                                    <tr t-if="r['rebate_applicable']">
-                                        <td style="padding: 5px 8px; border: 1px solid #dee2e6; background: #f8f9fa; color: #28a745;">
-                                            Less: Section 87A Rebate
-                                            <span style="font-size: 10px; color: #6c757d;">(Eligible where Taxable Income ≤ ₹<t t-out="'{:,.0f}'.format(r['rebate_limit'])"/>)</span>
-                                        </td>
-                                        <td style="text-align: right; padding: 5px 8px; border: 1px solid #dee2e6; color: #28a745;">(−&#160;<t t-out="'{:,.2f}'.format(r['rebate_applied'])"/>)</td>
-                                    </tr>
-                                    <tr t-if="not r['rebate_applicable']">
-                                        <td style="padding: 5px 8px; border: 1px solid #dee2e6; background: #f8f9fa; color: #6c757d;">Section 87A Rebate</td>
-                                        <td style="text-align: right; padding: 5px 8px; border: 1px solid #dee2e6; color: #6c757d; font-style: italic;">Not Applicable</td>
-                                    </tr>
-                                    <tr>
-                                        <td style="padding: 5px 8px; border: 1px solid #dee2e6; background: #f8f9fa; font-weight: bold;">Tax After Rebate</td>
-                                        <td style="text-align: right; padding: 5px 8px; border: 1px solid #dee2e6; font-weight: bold;"><t t-out="'{:,.2f}'.format(r['tax_after_rebate'])"/></td>
-                                    </tr>
-                                    <tr t-if="r.get('surcharge_amount', 0) &gt; 0 or r.get('marginal_relief', 0) &gt; 0">
-                                        <td style="padding: 5px 8px; border: 1px solid #dee2e6; background: #f8f9fa;">
-                                            Add: Surcharge @ <t t-out="'{:.0f}'.format(r['surcharge_rate'])"/>%
-                                            <t t-if="r.get('marginal_relief', 0) &gt; 0">
-                                                (Before Relief: ₹<t t-out="'{:,.2f}'.format(r.get('surcharge_before_relief', r['surcharge_amount']))"/>)
-                                            </t>
-                                        </td>
-                                        <td style="text-align: right; padding: 5px 8px; border: 1px solid #dee2e6;">+ &#160;<t t-out="'{:,.2f}'.format(r.get('surcharge_before_relief', r['surcharge_amount']))"/></td>
-                                    </tr>
-                                    <tr t-if="r.get('marginal_relief', 0) &gt; 0">
-                                        <td style="padding: 5px 8px; border: 1px solid #dee2e6; background: #f8f9fa; color: #155724;">
-                                            Less: Marginal Relief u/s Surcharge
-                                        </td>
-                                        <td style="text-align: right; padding: 5px 8px; border: 1px solid #dee2e6; color: #155724;">- &#160;<t t-out="'{:,.2f}'.format(r['marginal_relief'])"/></td>
-                                    </tr>
-                                    <tr t-if="r.get('surcharge_amount', 0) == 0 and r.get('marginal_relief', 0) == 0">
-                                        <td style="padding: 5px 8px; border: 1px solid #dee2e6; background: #f8f9fa; color: #6c757d;">Surcharge</td>
-                                        <td style="text-align: right; padding: 5px 8px; border: 1px solid #dee2e6; color: #6c757d; font-style: italic;">Not Applicable</td>
-                                    </tr>
-                                    <tr>
-                                        <td style="padding: 5px 8px; border: 1px solid #dee2e6; background: #f8f9fa;">
-                                            Add: Health &amp; Education Cess @ <t t-out="'{:.0f}'.format(r['cess_rate'])"/>%
-                                        </td>
-                                        <td style="text-align: right; padding: 5px 8px; border: 1px solid #dee2e6;">+ &#160;<t t-out="'{:,.2f}'.format(r['cess_amount'])"/></td>
-                                    </tr>
-                                    <tr style="background: #0f3460; color: #ffffff; font-weight: bold;">
-                                        <td style="padding: 6px 8px; border: 1px solid #dee2e6;">TOTAL ANNUAL INCOME TAX LIABILITY</td>
-                                        <td style="text-align: right; padding: 6px 8px; border: 1px solid #dee2e6; font-size: 12px;"><t t-out="'{:,.2f}'.format(r['total_annual_tax'])"/></td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-
-                        <!-- ══════════════════════════════════════════════ -->
-                        <!-- SECTION 5 — TDS DISTRIBUTION                 -->
-                        <!-- ══════════════════════════════════════════════ -->
-                        <div style="margin-bottom: 14px;">
-                            <div style="background: #0f3460; color: #ffffff; padding: 6px 10px; font-weight: bold; font-size: 11px; letter-spacing: 0.3px; margin-bottom: 0;">
-                                SECTION 5 — TDS DISTRIBUTION &amp; MONTHLY WITHHOLDING
-                            </div>
-                            <table style="width: 100%; border-collapse: collapse; border: 1px solid #ced4da;">
-                                <tbody>
-                                    <tr>
-                                        <td style="width: 65%; padding: 5px 8px; border: 1px solid #dee2e6; background: #f8f9fa;">Total Annual Tax Liability</td>
-                                        <td style="text-align: right; padding: 5px 8px; border: 1px solid #dee2e6;"><t t-out="'{:,.2f}'.format(r['total_annual_tax'])"/></td>
-                                    </tr>
-                                    <tr t-if="r['prev_employer_tds'] > 0">
-                                        <td style="padding: 5px 8px; border: 1px solid #dee2e6; background: #f8f9fa; color: #28a745;">Less: Previous Employer TDS Deducted</td>
-                                        <td style="text-align: right; padding: 5px 8px; border: 1px solid #dee2e6; color: #28a745;">(−&#160;<t t-out="'{:,.2f}'.format(r['prev_employer_tds'])"/>)</td>
-                                    </tr>
-                                    <tr t-if="r['ytd_tds'] > 0">
-                                        <td style="padding: 5px 8px; border: 1px solid #dee2e6; background: #f8f9fa; color: #28a745;">Less: Current FY TDS Already Deducted (YTD)</td>
-                                        <td style="text-align: right; padding: 5px 8px; border: 1px solid #dee2e6; color: #28a745;">(−&#160;<t t-out="'{:,.2f}'.format(r['ytd_tds'])"/>)</td>
-                                    </tr>
-                                    <tr style="font-weight: bold;">
-                                        <td style="padding: 5px 8px; border: 1px solid #dee2e6; background: #e8edf3;">Remaining Annual Tax Liability</td>
-                                        <td style="text-align: right; padding: 5px 8px; border: 1px solid #dee2e6; background: #e8edf3;"><t t-out="'{:,.2f}'.format(r['remaining_liability'])"/></td>
-                                    </tr>
-                                    <tr>
-                                        <td style="padding: 5px 8px; border: 1px solid #dee2e6; background: #f8f9fa;">Remaining Payroll Periods</td>
-                                        <td style="text-align: right; padding: 5px 8px; border: 1px solid #dee2e6;"><t t-out="r['remaining_periods']"/> month(s)</td>
-                                    </tr>
-                                    <!-- Projected Monthly TDS -->
-                                    <tr>
-                                        <td style="padding: 5px 8px; border: 1px solid #dee2e6; background: #f8f9fa; color: #6c757d;">Projected Monthly TDS</td>
-                                        <td style="text-align: right; padding: 5px 8px; border: 1px solid #dee2e6; color: #6c757d;">INR&#160;<t t-out="'{:,.2f}'.format(r['projected_monthly_tds'])"/></td>
-                                    </tr>
-                                    <!-- Recalculation schedule detail: show when January recalculation is active -->
-                                    <tr t-if="r['tds_mode'] != 'NORMAL PROJECTED'">
-                                        <td colspan="2" style="padding: 0; border: 1px solid #dee2e6;">
-                                            <table style="width: 100%; border-collapse: collapse;">
-                                                <tr style="background: #fff3cd;">
-                                                    <td colspan="2" style="padding: 4px 8px; font-weight: bold; font-size: 10px; letter-spacing: 0.3px; border-bottom: 1px solid #ffc107;">TDS RECALCULATION SCHEDULE DETAILS</td>
-                                                </tr>
-                                                <tr>
-                                                    <td style="width: 65%; padding: 4px 8px; background: #fffdf0; border-bottom: 1px solid #dee2e6;">Recalculation From Month</td>
-                                                    <td style="text-align: right; padding: 4px 8px; border-bottom: 1px solid #dee2e6;"><t t-out="r['tds_recalc_from_month']"/></td>
-                                                </tr>
-                                                <tr>
-                                                    <td style="padding: 4px 8px; background: #fffdf0; border-bottom: 1px solid #dee2e6;">Distribution Months</td>
-                                                    <td style="text-align: right; padding: 4px 8px; border-bottom: 1px solid #dee2e6;"><t t-out="r['tds_distribution_months']"/> months</td>
-                                                </tr>
-                                                <tr>
-                                                    <td style="padding: 4px 8px; background: #fffdf0; border-bottom: 1px solid #dee2e6;">Recalculation Executed</td>
-                                                    <td style="text-align: right; padding: 4px 8px; border-bottom: 1px solid #dee2e6; font-weight: bold;"><t t-out="r['tds_recalc_executed']"/></td>
-                                                </tr>
-                                                <tr>
-                                                    <td style="padding: 4px 8px; background: #fffdf0; border-bottom: 1px solid #dee2e6;">Annual Tax at Recalculation</td>
-                                                    <td style="text-align: right; padding: 4px 8px; border-bottom: 1px solid #dee2e6;">INR&#160;<t t-out="'{:,.2f}'.format(r['tds_recalc_annual_tax'])"/></td>
-                                                </tr>
-                                                <tr>
-                                                    <td style="padding: 4px 8px; background: #fffdf0; border-bottom: 1px solid #dee2e6;">YTD TDS at Recalculation</td>
-                                                    <td style="text-align: right; padding: 4px 8px; border-bottom: 1px solid #dee2e6;">INR&#160;<t t-out="'{:,.2f}'.format(r['tds_recalc_ytd_tds'])"/></td>
-                                                </tr>
-                                                <tr style="font-weight: bold;">
-                                                    <td style="padding: 4px 8px; background: #fff3cd; border-bottom: 1px solid #dee2e6;">Remaining Tax Liability at Recalculation</td>
-                                                    <td style="text-align: right; padding: 4px 8px; background: #fff3cd; border-bottom: 1px solid #dee2e6;">INR&#160;<t t-out="'{:,.2f}'.format(r['tds_recalc_remaining'])"/></td>
-                                                </tr>
-                                                <tr t-if="r['tds_jan_allocation'] > 0">
-                                                    <td style="padding: 4px 8px; background: #fffdf0; border-bottom: 1px solid #dee2e6;">January Allocation</td>
-                                                    <td style="text-align: right; padding: 4px 8px; border-bottom: 1px solid #dee2e6;">INR&#160;<t t-out="'{:,.2f}'.format(r['tds_jan_allocation'])"/></td>
-                                                </tr>
-                                                <tr t-if="r['tds_feb_allocation'] > 0">
-                                                    <td style="padding: 4px 8px; background: #fffdf0; border-bottom: 1px solid #dee2e6;">February Allocation</td>
-                                                    <td style="text-align: right; padding: 4px 8px; border-bottom: 1px solid #dee2e6;">INR&#160;<t t-out="'{:,.2f}'.format(r['tds_feb_allocation'])"/></td>
-                                                </tr>
-                                                <tr t-if="r['tds_mar_allocation'] > 0">
-                                                    <td style="padding: 4px 8px; background: #fffdf0;">March Allocation</td>
-                                                    <td style="text-align: right; padding: 4px 8px;">INR&#160;<t t-out="'{:,.2f}'.format(r['tds_mar_allocation'])"/></td>
-                                                </tr>
-                                            </table>
-                                        </td>
-                                    </tr>
-                                    <!-- Current Month TDS — always the actual withheld value from TDS engine -->
-                                    <tr style="background: #16213e; color: #ffffff; font-weight: bold;">
-                                        <td style="padding: 7px 8px; border: 1px solid #dee2e6; font-size: 12px;">CURRENT MONTH TDS WITHHOLDING</td>
-                                        <td style="text-align: right; padding: 7px 8px; border: 1px solid #dee2e6; font-size: 13px;">INR&#160;<t t-out="'{:,.2f}'.format(r['current_month_tds'])"/></td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-
-                        <!-- ══════════════════════════════════════════════ -->
-                        <!-- SECTION 6 — CHAPTER VI-A SUMMARY             -->
-                        <!-- ══════════════════════════════════════════════ -->
-                        <div style="margin-bottom: 14px; page-break-before: always;">
-                            <div style="background: #0f3460; color: #ffffff; padding: 6px 10px; font-weight: bold; font-size: 11px; letter-spacing: 0.3px; margin-bottom: 0;">
-                                SECTION 6 — CHAPTER VI-A DEDUCTIONS SUMMARY
-                            </div>
-                            <table style="width: 100%; border-collapse: collapse; border: 1px solid #ced4da;">
-                                <thead>
-                                    <tr style="background: #e8edf3;">
-                                        <th style="text-align: left; padding: 5px 8px; border: 1px solid #dee2e6; width: 65%;">Section</th>
-                                        <th style="text-align: right; padding: 5px 8px; border: 1px solid #dee2e6;">Eligible Deduction (INR)</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <t t-foreach="r['chapter6a_rows']" t-as="c6row">
-                                        <tr>
-                                            <td style="padding: 4px 8px; border: 1px solid #dee2e6;"><t t-out="c6row[0]"/></td>
-                                            <td style="text-align: right; padding: 4px 8px; border: 1px solid #dee2e6;"><t t-out="'{:,.2f}'.format(c6row[1])"/></td>
-                                        </tr>
-                                    </t>
-                                    <tr style="background: #e8edf3; font-weight: bold;">
-                                        <td style="padding: 5px 8px; border: 1px solid #dee2e6;">TOTAL CHAPTER VI-A DEDUCTIONS</td>
-                                        <td style="text-align: right; padding: 5px 8px; border: 1px solid #dee2e6;"><t t-out="'{:,.2f}'.format(r['total_chapter6a'])"/></td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-
-                        <!-- ══════════════════════════════════════════════ -->
-                        <!-- SECTION 7 — SECTION-WISE DECLARATION TRACES  -->
-                        <!-- ══════════════════════════════════════════════ -->
-                        <div style="margin-bottom: 10px;">
-                            <div style="background: #0f3460; color: #ffffff; padding: 6px 10px; font-weight: bold; font-size: 11px; letter-spacing: 0.3px; margin-bottom: 10px;">
-                                SECTION 7 — SECTION-WISE STATUTORY DEDUCTION AUDIT TRACES
-                            </div>
-
-                            <t t-foreach="r['section_traces']" t-as="trace">
-                                <div style="border: 1px solid #ced4da; border-radius: 3px; margin-bottom: 12px; overflow: hidden;">
-
-                                    <!-- Trace Card Header -->
-                                    <div style="background: #16213e; color: #ffffff; padding: 7px 10px; display: table; width: 100%; box-sizing: border-box;">
-                                        <div style="display: table-cell; width: 80%; vertical-align: middle;">
-                                            <span style="font-weight: bold; font-size: 11px;"><t t-out="trace['name']"/></span>
-                                            <span style="font-size: 10px; color: #a0c4ff; margin-left: 8px;">(<t t-out="trace['statutory_ref']"/>)</span>
-                                        </div>
-                                        <div style="display: table-cell; width: 20%; vertical-align: middle; text-align: right;">
-                                            <t t-if="trace['is_eligible'] and trace['declared'] > 0 and trace['approved'] >= trace['declared']">
-                                                <span style="background: #28a745; color: #fff; padding: 2px 8px; border-radius: 3px; font-size: 10px; font-weight: bold;">ELIGIBLE</span>
-                                            </t>
-                                            <t t-elif="trace['is_eligible'] and trace['declared'] > 0 and trace['approved'] &lt; trace['declared']">
-                                                <span style="background: #fd7e14; color: #fff; padding: 2px 8px; border-radius: 3px; font-size: 10px; font-weight: bold;">PARTIALLY ELIGIBLE</span>
-                                            </t>
-                                            <t t-elif="trace['declared'] == 0">
-                                                <span style="background: #6c757d; color: #fff; padding: 2px 8px; border-radius: 3px; font-size: 10px;">NOT DECLARED</span>
-                                            </t>
-                                            <t t-else="">
-                                                <span style="background: #dc3545; color: #fff; padding: 2px 8px; border-radius: 3px; font-size: 10px; font-weight: bold;">NOT ELIGIBLE</span>
-                                            </t>
-                                        </div>
+                                        </table>
                                     </div>
-
-                                    <!-- Trace Card Meta Row -->
-                                    <table style="width: 100%; border-collapse: collapse; border-bottom: 1px solid #ced4da;">
-                                        <tr>
-                                            <td style="padding: 4px 8px; background: #f8f9fa; border-right: 1px solid #dee2e6; width: 25%; font-size: 10px; color: #495057; font-weight: bold;">Source Type</td>
-                                            <td style="padding: 4px 8px; border-right: 1px solid #dee2e6; width: 25%; font-size: 10px;"><t t-out="trace['source_type']"/></td>
-                                            <td style="padding: 4px 8px; background: #f8f9fa; border-right: 1px solid #dee2e6; width: 25%; font-size: 10px; color: #495057; font-weight: bold;">Regime Applicability</td>
-                                            <td style="padding: 4px 8px; width: 25%; font-size: 10px;"><t t-out="trace['regime_applicability']"/></td>
-                                        </tr>
-                                    </table>
-
-                                    <!-- Amounts Bar -->
-                                    <table style="width: 100%; border-collapse: collapse; background: #f0f4f8; border-bottom: 1px solid #ced4da;">
-                                        <tr>
-                                            <td style="width: 33.33%; padding: 5px 8px; border-right: 1px solid #ced4da; text-align: center;">
-                                                <div style="font-size: 10px; color: #6c757d; margin-bottom: 2px;">Declared / Projected</div>
-                                                <div style="font-size: 12px; font-weight: bold; color: #1a1a2e;">INR&#160;<t t-out="'{:,.2f}'.format(trace['declared'])"/></div>
-                                            </td>
-                                            <td style="width: 33.33%; padding: 5px 8px; border-right: 1px solid #ced4da; text-align: center;">
-                                                <div style="font-size: 10px; color: #6c757d; margin-bottom: 2px;">Eligible / Approved</div>
-                                                <div style="font-size: 12px; font-weight: bold; color: #28a745;">INR&#160;<t t-out="'{:,.2f}'.format(trace['approved'])"/></div>
-                                            </td>
-                                            <td style="width: 33.33%; padding: 5px 8px; text-align: center;">
-                                                <div style="font-size: 10px; color: #6c757d; margin-bottom: 2px;">Excess / Disallowed</div>
-                                                <div style="font-size: 12px; font-weight: bold; color: #dc3545;">INR&#160;<t t-out="'{:,.2f}'.format(trace['excess'] if 'excess' in trace else 0.0)"/></div>
-                                            </td>
-                                        </tr>
-                                    </table>
-
-                                    <!-- Input Details -->
-                                    <t t-if="trace.get('inputs')">
-                                        <div style="padding: 6px 8px; border-bottom: 1px solid #ced4da;">
-                                            <div style="font-size: 10px; font-weight: bold; color: #0f3460; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.3px;">Input Values &amp; Declaration Details</div>
-                                            <table style="width: 100%; border-collapse: collapse;">
-                                                <t t-foreach="trace['inputs']" t-as="inp">
-                                                    <tr>
-                                                        <td style="width: 40%; padding: 2px 4px; font-size: 10px; color: #495057; font-weight: 500; vertical-align: top;"><t t-out="inp[0]"/>:</td>
-                                                        <td style="padding: 2px 4px; font-size: 10px; color: #1a1a2e; font-weight: bold; vertical-align: top;"><t t-out="inp[1]"/></td>
-                                                    </tr>
-                                                </t>
-                                            </table>
-                                            <!-- Section 57(iia) Tax Impact & Pipeline Contribution Box -->
-                                            <t t-if="trace.get('is_family_pension') and trace.get('tax_impact')">
-                                                <div style="padding: 8px 10px; background: #eef4fc; border-top: 1px dashed #0f3460; border-bottom: 1px solid #ced4da;">
-                                                    <div style="font-size: 10px; font-weight: bold; color: #0f3460; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.3px;">
-                                                        TAX IMPACT &amp; PIPELINE CONTRIBUTION BREAKDOWN [<t t-out="(trace.get('statutory_ref') or 'SECTION 57(iia)').upper()"/>]
-                                                    </div>
-                                                    <table style="width: 100%; border-collapse: collapse; background: #ffffff; border: 1px solid #b8daff; border-radius: 3px; margin-bottom: 6px;">
-                                                        <tr>
-                                                            <td style="width: 60%; padding: 4px 8px; font-size: 10px; color: #1a1a2e; border-bottom: 1px solid #e2e8f0;">Family Pension Declared</td>
-                                                            <td style="width: 40%; text-align: right; padding: 4px 8px; font-size: 10px; font-weight: bold; color: #1a1a2e; border-bottom: 1px solid #e2e8f0;">
-                                                                INR&#160;<t t-out="'{:,.2f}'.format(trace['tax_impact']['family_pension_declared'])"/>
-                                                            </td>
-                                                        </tr>
-                                                        <tr>
-                                                            <td style="padding: 4px 8px; font-size: 10px; color: #0f3460; border-bottom: 1px solid #e2e8f0;">Added to Other Income (Gross Total Income)</td>
-                                                            <td style="text-align: right; padding: 4px 8px; font-size: 10px; font-weight: bold; color: #0f3460; border-bottom: 1px solid #e2e8f0;">
-                                                                + INR&#160;<t t-out="'{:,.2f}'.format(trace['tax_impact']['added_to_other_income'])"/>
-                                                            </td>
-                                                        </tr>
-                                                        <tr>
-                                                            <td style="padding: 4px 8px; font-size: 10px; color: #28a745; border-bottom: 1px solid #e2e8f0;">
-                                                                <t t-out="trace.get('statutory_ref') or 'Section 57(iia)'"/> Eligible Deduction
-                                                            </td>
-                                                            <td style="text-align: right; padding: 4px 8px; font-size: 10px; font-weight: bold; color: #28a745; border-bottom: 1px solid #e2e8f0;">
-                                                                − INR&#160;<t t-out="'{:,.2f}'.format(trace['tax_impact']['eligible_deduction'])"/>
-                                                            </td>
-                                                        </tr>
-                                                        <tr style="background: #d3f9d8; font-weight: bold;">
-                                                            <td style="padding: 5px 8px; font-size: 10px; color: #1e6b2e;">Net Taxable Family Pension in Other Sources</td>
-                                                            <td style="text-align: right; padding: 5px 8px; font-size: 10px; color: #1e6b2e;">
-                                                                INR&#160;<t t-out="'{:,.2f}'.format(trace['tax_impact']['net_taxable_family_pension'])"/>
-                                                            </td>
-                                                        </tr>
-                                                    </table>
-                                                </div>
-                                            </t>
-                                             <!-- Composite Section 80C Component-by-Component Table -->
-                                             <t t-if="trace.get('is_composite_80c') and trace.get('components_data')">
-                                                 <div style="margin-top: 6px; padding: 8px 10px; background: #fffbe6; border: 1px solid #ffe58f; border-radius: 3px;">
-                                                     <div style="font-size: 10px; font-weight: bold; color: #d46b08; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.3px;">
-                                                         COMPOSITE SECTION 80C COMPONENT-BY-COMPONENT STATUTORY BREAKDOWN
-                                                     </div>
-                                                     <table style="width: 100%; border-collapse: collapse; background: #ffffff; border: 1px solid #ffe58f; margin-bottom: 6px;">
-                                                         <thead>
-                                                             <tr style="background: #fff7e6; color: #d46b08; font-size: 10px;">
-                                                                 <th style="text-align: left; padding: 4px 6px; border: 1px solid #ffe58f; width: 32%;">Component Name</th>
-                                                                 <th style="text-align: right; padding: 4px 6px; border: 1px solid #ffe58f; width: 17%;">Declared</th>
-                                                                 <th style="text-align: right; padding: 4px 6px; border: 1px solid #ffe58f; width: 17%;">Eligible</th>
-                                                                 <th style="text-align: left; padding: 4px 6px; border: 1px solid #ffe58f; width: 17%;">Applicable Rule</th>
-                                                                 <th style="text-align: right; padding: 4px 6px; border: 1px solid #ffe58f; width: 17%;">Considered</th>
-                                                             </tr>
-                                                         </thead>
-                                                         <tbody>
-                                                             <t t-foreach="trace['components_data']" t-as="cmp">
-                                                                 <tr>
-                                                                     <td style="padding: 4px 6px; font-size: 10px; border: 1px solid #ffe58f; color: #1a1a2e; font-weight: 500;">
-                                                                         <t t-out="cmp['name']"/>
-                                                                     </td>
-                                                                     <td style="text-align: right; padding: 4px 6px; font-size: 10px; border: 1px solid #ffe58f;">
-                                                                         INR&#160;<t t-out="'{:,.2f}'.format(cmp['declared_amount'])"/>
-                                                                     </td>
-                                                                     <td style="text-align: right; padding: 4px 6px; font-size: 10px; border: 1px solid #ffe58f; color: #28a745;">
-                                                                         INR&#160;<t t-out="'{:,.2f}'.format(cmp['eligible_amount'])"/>
-                                                                     </td>
-                                                                     <td style="padding: 4px 6px; font-size: 9px; border: 1px solid #ffe58f; color: #595959;">
-                                                                         <t t-out="cmp['applicable_rule']"/>
-                                                                     </td>
-                                                                     <td style="text-align: right; padding: 4px 6px; font-size: 10px; border: 1px solid #ffe58f; font-weight: bold; color: #0f3460;">
-                                                                         INR&#160;<t t-out="'{:,.2f}'.format(cmp['amount_considered'])"/>
-                                                                     </td>
-                                                                 </tr>
-                                                             </t>
-                                                         </tbody>
-                                                     </table>
-                                                     <table style="width: 100%; border-collapse: collapse; background: #fff7e6;">
-                                                         <tr>
-                                                             <td style="padding: 4px 8px; font-size: 10px; color: #8c4000;">Components Aggregate: <strong>INR&#160;<t t-out="'{:,.2f}'.format(trace['composite_payload']['total_eligible_before_cap'])"/></strong></td>
-                                                             <td style="padding: 4px 8px; font-size: 10px; color: #8c4000;">Statutory Ceiling: <strong>INR&#160;<t t-out="'{:,.2f}'.format(trace['composite_payload']['statutory_limit'])"/></strong></td>
-                                                             <td style="text-align: right; padding: 4px 8px; font-size: 10px; color: #276749; font-weight: bold;">Final Eligible 80C: INR&#160;<t t-out="'{:,.2f}'.format(trace['composite_payload']['final_eligible_deduction'])"/></td>
-                                                         </tr>
-                                                     </table>
-                                                 </div>
-                                             </t>
-                                        </div>
-                                    </t>
-
-                                    <!-- Formula Steps -->
-                                    <t t-if="trace.get('formulas')">
-                                        <div style="padding: 6px 8px; background: #f5f8fc; border-bottom: 1px solid #ced4da;">
-                                            <div style="font-size: 10px; font-weight: bold; color: #0f3460; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.3px;">Statutory Calculation Formula</div>
-                                            <table style="width: 100%; border-collapse: collapse;">
-                                                <t t-foreach="trace['formulas']" t-as="form">
-                                                    <tr>
-                                                        <td style="width: 45%; padding: 2px 4px; font-size: 10px; color: #6c757d; font-style: italic; vertical-align: top;"><t t-out="form[0]"/></td>
-                                                        <td style="padding: 2px 4px; font-size: 10px; font-weight: bold; color: #0f3460; vertical-align: top;">→ <t t-out="form[1]"/></td>
-                                                    </tr>
-                                                </t>
-                                            </table>
-                                        </div>
-                                    </t>
-
-                                    <!-- Eligibility Conclusion -->
-                                    <div style="padding: 5px 8px; background: #f8f9fa;">
-                                        <span style="font-size: 10px; font-weight: bold; color: #0f3460; margin-right: 6px;">STATUTORY CONCLUSION:</span>
-                                        <span style="font-size: 10px; color: #212529;"><t t-out="trace['reason']"/></span>
-                                        <span style="float: right; font-size: 10px; font-weight: bold; color: #495057;">
-                                            Cap Applied: <t t-out="'YES' if trace.get('cap_applied') else 'NO'"/>
-                                        </span>
+                                    <div class="blk" t-if="trace.get('is_composite_80c') and trace.get('components_data')">
+                                        <div class="blk-h">Section 80C components</div>
+                                        <table class="sub-t">
+                                            <tr>
+                                                <th>Component</th>
+                                                <th class="r">Declared</th>
+                                                <th class="r">Eligible</th>
+                                                <th>Rule</th>
+                                                <th class="r">Considered</th>
+                                            </tr>
+                                            <tr t-foreach="trace['components_data']" t-as="cmp">
+                                                <td><t t-out="cmp['name']"/></td>
+                                                <td class="r"><t t-out="'{:,.2f}'.format((cmp['declared_amount']) or 0.0)"/></td>
+                                                <td class="r"><t t-out="'{:,.2f}'.format((cmp['eligible_amount']) or 0.0)"/></td>
+                                                <td><t t-out="cmp['applicable_rule']"/></td>
+                                                <td class="r"><t t-out="'{:,.2f}'.format((cmp['amount_considered']) or 0.0)"/></td>
+                                            </tr>
+                                            <tr>
+                                                <td colspan="2"><b>Total before cap</b> <t t-out="'{:,.2f}'.format((trace['composite_payload']['total_eligible_before_cap']) or 0.0)"/></td>
+                                                <td colspan="2"><b>Ceiling</b> <t t-out="'{:,.2f}'.format((trace['composite_payload']['statutory_limit']) or 0.0)"/></td>
+                                                <td class="r"><b><t t-out="'{:,.2f}'.format((trace['composite_payload']['final_eligible_deduction']) or 0.0)"/></b></td>
+                                            </tr>
+                                        </table>
                                     </div>
-
+                                    <div class="blk" t-if="trace.get('formulas')">
+                                        <div class="blk-h">Calculation</div>
+                                        <table class="det">
+                                            <tr t-foreach="trace['formulas']" t-as="form">
+                                                <td class="k"><t t-out="form[0]"/></td>
+                                                <td class="v"><t t-out="form[1]"/></td>
+                                            </tr>
+                                        </table>
+                                    </div>
+                                    <div class="concl" t-if="trace.get('reason')"><b>Conclusion:</b> <t t-out="trace['reason']"/></div>
+                                </div>
                                 </div>
                             </t>
-
-                            <t t-if="not r['section_traces']">
-                                <div style="padding: 12px; text-align: center; color: #6c757d; border: 1px dashed #ced4da; border-radius: 4px;">
-                                    No statutory section declarations found for this declaration record.
-                                </div>
-                            </t>
-                        </div>
-
-                        <!-- ══════════════════════════════════════════════ -->
-                        <!-- SECTION 8 — FINAL TAX SUMMARY                -->
-                        <!-- ══════════════════════════════════════════════ -->
-                        <div style="margin-bottom: 14px;">
-                            <div style="background: #0f3460; color: #ffffff; padding: 6px 10px; font-weight: bold; font-size: 11px; letter-spacing: 0.3px; margin-bottom: 0;">
-                                SECTION 8 — FINAL STATUTORY TAX SUMMARY
+                            <div class="empty" t-if="not r['relevant_traces']">
+                                <t t-if="r['regime_code'] == 'NEW'">No deductions applicable under the New Tax Regime were declared.</t>
+                                <t t-else="">No deductions were declared.</t>
                             </div>
-                            <table style="width: 100%; border-collapse: collapse; border: 1px solid #ced4da;">
-                                <tbody>
-                                    <tr>
-                                        <td style="width: 65%; padding: 5px 8px; border: 1px solid #dee2e6; background: #f8f9fa;">Gross Projected Salary Income</td>
-                                        <td style="text-align: right; padding: 5px 8px; border: 1px solid #dee2e6;"><t t-out="'{:,.2f}'.format(r['gross_current_salary'])"/></td>
-                                    </tr>
-                                    <tr>
-                                        <td style="padding: 5px 8px; border: 1px solid #dee2e6; background: #f8f9fa;">Gross Total Income (incl. other income)</td>
-                                        <td style="text-align: right; padding: 5px 8px; border: 1px solid #dee2e6;"><t t-out="'{:,.2f}'.format(r['gross_total_income'])"/></td>
-                                    </tr>
-                                    <tr>
-                                        <td style="padding: 5px 8px; border: 1px solid #dee2e6; background: #f8f9fa; color: #dc3545;">(−) Total Allowable Deductions &amp; Exemptions</td>
-                                        <td style="text-align: right; padding: 5px 8px; border: 1px solid #dee2e6; color: #dc3545;">(−&#160;<t t-out="'{:,.2f}'.format(r['total_allowable_deductions'])"/>)</td>
-                                    </tr>
-                                    <tr t-if="r.get('rounding_factor') is not None" style="background: #f8f9fa; color: #495057;">
-                                        <td style="padding: 5px 8px; border: 1px solid #dee2e6;">Rounding Factor / Adjustment (Section 516, Income-tax Act, 2025: to nearest ₹10)</td>
-                                        <td style="text-align: right; padding: 5px 8px; border: 1px solid #dee2e6;"><t t-out="('{:+,.2f}'.format(r['rounding_factor']) if r['rounding_factor'] else '0.00')"/></td>
-                                    </tr>
-                                    <tr style="font-weight: bold; background: #e8edf3;">
-                                        <td style="padding: 5px 8px; border: 1px solid #dee2e6;">Net Chargeable Taxable Income (Rounded to nearest ₹10 as per Section 516, Income-tax Act, 2025)</td>
-                                        <td style="text-align: right; padding: 5px 8px; border: 1px solid #dee2e6;"><t t-out="'{:,.2f}'.format(r['net_taxable_income'])"/></td>
-                                    </tr>
-                                    <tr>
-                                        <td style="padding: 5px 8px; border: 1px solid #dee2e6; background: #f8f9fa;">Income Tax on Taxable Income (Slab Rates)</td>
-                                        <td style="text-align: right; padding: 5px 8px; border: 1px solid #dee2e6;"><t t-out="'{:,.2f}'.format(r['base_tax'])"/></td>
-                                    </tr>
-                                    <tr>
-                                        <td style="padding: 5px 8px; border: 1px solid #dee2e6; background: #f8f9fa;">
-                                            Section 87A Rebate
-                                            <t t-if="not r['rebate_applicable']"><span style="color: #6c757d;"> — Not Applicable</span></t>
-                                        </td>
-                                        <td style="text-align: right; padding: 5px 8px; border: 1px solid #dee2e6; color: #28a745;">
-                                            <t t-if="r['rebate_applicable']">(−&#160;<t t-out="'{:,.2f}'.format(r['rebate_applied'])"/>)</t>
-                                            <t t-else="">0.00</t>
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td style="padding: 5px 8px; border: 1px solid #dee2e6; background: #f8f9fa;">Tax After Section 87A Rebate</td>
-                                        <td style="text-align: right; padding: 5px 8px; border: 1px solid #dee2e6;"><t t-out="'{:,.2f}'.format(r['tax_after_rebate'])"/></td>
-                                    </tr>
-                                    <tr>
-                                        <td style="padding: 5px 8px; border: 1px solid #dee2e6; background: #f8f9fa;">
-                                            Surcharge
-                                            <t t-if="r['surcharge_amount'] == 0"><span style="color: #6c757d;"> — Not Applicable</span></t>
-                                        </td>
-                                        <td style="text-align: right; padding: 5px 8px; border: 1px solid #dee2e6;"><t t-out="'{:,.2f}'.format(r['surcharge_amount'])"/></td>
-                                    </tr>
-                                    <tr>
-                                        <td style="padding: 5px 8px; border: 1px solid #dee2e6; background: #f8f9fa;">Health &amp; Education Cess @ <t t-out="'{:.0f}'.format(r['cess_rate'])"/>%</td>
-                                        <td style="text-align: right; padding: 5px 8px; border: 1px solid #dee2e6;"><t t-out="'{:,.2f}'.format(r['cess_amount'])"/></td>
-                                    </tr>
-                                    <tr style="background: #0f3460; color: #ffffff; font-weight: bold;">
-                                        <td style="padding: 6px 8px; border: 1px solid #dee2e6;">Final Annual Income Tax Liability</td>
-                                        <td style="text-align: right; padding: 6px 8px; border: 1px solid #dee2e6;"><t t-out="'{:,.2f}'.format(r['total_annual_tax'])"/></td>
-                                    </tr>
-                                    <tr t-if="r['tds_already_deducted'] > 0">
-                                        <td style="padding: 5px 8px; border: 1px solid #dee2e6; background: #f8f9fa; color: #28a745;">(−) TDS Already Deducted (YTD + Prev. Employer)</td>
-                                        <td style="text-align: right; padding: 5px 8px; border: 1px solid #dee2e6; color: #28a745;">(−&#160;<t t-out="'{:,.2f}'.format(r['tds_already_deducted'])"/>)</td>
-                                    </tr>
-                                    <tr style="font-weight: bold; background: #e8edf3;">
-                                        <td style="padding: 5px 8px; border: 1px solid #dee2e6;">Remaining Tax Liability</td>
-                                        <td style="text-align: right; padding: 5px 8px; border: 1px solid #dee2e6;"><t t-out="'{:,.2f}'.format(r['remaining_liability'])"/></td>
-                                    </tr>
-                                    <tr style="background: #16213e; color: #ffffff; font-weight: bold;">
-                                        <td style="padding: 7px 8px; border: 1px solid #dee2e6; font-size: 12px;">CURRENT MONTH TDS WITHHOLDING</td>
-                                        <td style="text-align: right; padding: 7px 8px; border: 1px solid #dee2e6; font-size: 13px;">INR&#160;<t t-out="'{:,.2f}'.format(r['current_month_tds'])"/></td>
-                                    </tr>
-                                </tbody>
-                            </table>
                         </div>
 
-                        <!-- ══════════════════════════════════════════════ -->
-                        <!-- ══════════════════════════════════════════════ -->
-                        <!-- SECTION 9 — STATUTORY RECONCILIATION         -->
-                        <!-- ══════════════════════════════════════════════ -->
-                        <div style="margin-bottom: 18px;">
-                            <div style="background: #0f3460; color: #ffffff; padding: 6px 10px; font-weight: bold; font-size: 11px; letter-spacing: 0.3px; margin-bottom: 0;">
-                                SECTION 9 — STATUTORY RECONCILIATION CONCLUSION
-                            </div>
-                            <table style="width: 100%; border-collapse: collapse; border: 1px solid #ced4da;">
-                                <tbody>
-                                    <tr>
-                                        <td style="width: 65%; padding: 5px 8px; border: 1px solid #dee2e6; background: #f8f9fa;">Total Declared Statutory Deductions (excl. Income Sources)</td>
-                                        <td style="text-align: right; padding: 5px 8px; border: 1px solid #dee2e6;"><t t-out="'{:,.2f}'.format(r['total_declared'])"/></td>
-                                    </tr>
-                                    <tr>
-                                        <td style="padding: 5px 8px; border: 1px solid #dee2e6; background: #f8f9fa; color: #28a745;">Total Eligible / Approved Statutory Deductions</td>
-                                        <td style="text-align: right; padding: 5px 8px; border: 1px solid #dee2e6; color: #28a745;"><t t-out="'{:,.2f}'.format(r['total_eligible'])"/></td>
-                                    </tr>
-                                    <tr>
-                                        <td style="padding: 5px 8px; border: 1px solid #dee2e6; background: #f8f9fa; color: #dc3545;">Total Excess / Disallowed Deductions</td>
-                                        <td style="text-align: right; padding: 5px 8px; border: 1px solid #dee2e6; color: #dc3545;"><t t-out="'{:,.2f}'.format(r['total_excess'])"/></td>
-                                    </tr>
-                                    <tr t-if="r.get('family_pension_declared_income') > 0" style="background: #eef4fc;">
-                                        <td style="padding: 5px 8px; border: 1px solid #dee2e6; color: #0f3460; font-weight: bold;">
-                                            Gross Family Pension Income Declared (included in GTI)
-                                        </td>
-                                        <td style="text-align: right; padding: 5px 8px; border: 1px solid #dee2e6; color: #0f3460; font-weight: bold;">
-                                            <t t-out="'{:,.2f}'.format(r['family_pension_declared_income'])"/>
-                                        </td>
-                                    </tr>
-                                    <tr t-if="r.get('family_pension_declared_income') > 0" style="background: #eef4fc;">
-                                        <td style="padding: 5px 8px; border: 1px solid #dee2e6; color: #28a745;">
-                                            Less: Eligible Section 57(iia) Statutory Deduction
-                                        </td>
-                                        <td style="text-align: right; padding: 5px 8px; border: 1px solid #dee2e6; color: #28a745;">
-                                            (−&#160;<t t-out="'{:,.2f}'.format(r['family_pension_57iia'])"/>)
-                                        </td>
-                                    </tr>
-                                    <tr t-if="r.get('family_pension_declared_income') > 0" style="background: #d3f9d8; font-weight: bold;">
-                                        <td style="padding: 5px 8px; border: 1px solid #dee2e6; color: #1e6b2e;">
-                                            Net Taxable Family Pension (Gross minus Deduction)
-                                        </td>
-                                        <td style="text-align: right; padding: 5px 8px; border: 1px solid #dee2e6; color: #1e6b2e;">
-                                            <t t-out="'{:,.2f}'.format(r['family_pension_declared_income'] - r['family_pension_57iia'])"/>
-                                        </td>
-                                    </tr>
-                                    <tr t-if="r.get('rounding_factor') is not None" style="background: #f8f9fa; color: #495057;">
-                                        <td style="padding: 5px 8px; border: 1px solid #dee2e6;">Rounding Factor / Adjustment (Section 516, Income-tax Act, 2025: to nearest ₹10)</td>
-                                        <td style="text-align: right; padding: 5px 8px; border: 1px solid #dee2e6;"><t t-out="('{:+,.2f}'.format(r['rounding_factor']) if r['rounding_factor'] else '0.00')"/></td>
-                                    </tr>
-                                    <tr style="background: #e8edf3; font-weight: bold;">
-                                        <td style="padding: 5px 8px; border: 1px solid #dee2e6;">Final Net Chargeable Taxable Income (Rounded to nearest ₹10 as per Section 516, Income-tax Act, 2025)</td>
-                                        <td style="text-align: right; padding: 5px 8px; border: 1px solid #dee2e6;"><t t-out="'{:,.2f}'.format(r['net_taxable_income'])"/></td>
-                                    </tr>
-                                    <tr style="background: #e8edf3; font-weight: bold;">
-                                        <td style="padding: 5px 8px; border: 1px solid #dee2e6;">Final Annual Income Tax Liability</td>
-                                        <td style="text-align: right; padding: 5px 8px; border: 1px solid #dee2e6;"><t t-out="'{:,.2f}'.format(r['total_annual_tax'])"/></td>
-                                    </tr>
-                                    <tr style="background: #16213e; color: #ffffff; font-weight: bold;">
-                                        <td style="padding: 7px 8px; border: 1px solid #dee2e6; font-size: 12px;">FINAL MONTHLY TDS WITHHOLDING</td>
-                                        <td style="text-align: right; padding: 7px 8px; border: 1px solid #dee2e6; font-size: 13px;">INR&#160;<t t-out="'{:,.2f}'.format(r['current_month_tds'])"/></td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-
-                        <!-- ══════════════════════════════════════════════ -->
-                        <!-- SIGNATURE BLOCK                               -->
-                        <!-- ══════════════════════════════════════════════ -->
-                        <div style="margin-top: 30px; border-top: 1px solid #dee2e6; padding-top: 14px;">
-                            <table style="width: 100%;">
+                        <!-- DECLARATION RECONCILIATION (only when part of a declared amount was disallowed) -->
+                        <div class="sec" t-if="r['total_excess'] &gt; 0">
+                            <div class="sec-h">Declaration Reconciliation</div>
+                            <table class="ln">
                                 <tr>
-                                    <td style="width: 50%; text-align: center;">
-                                        <div style="border-top: 1px solid #495057; width: 200px; margin: 35px auto 4px auto;"/>
-                                        <div style="font-size: 10px; font-weight: bold; color: #495057;">Employee Signature</div>
-                                        <div style="font-size: 9px; color: #6c757d;"><t t-out="r['employee'].name"/></div>
+                                    <td class="d">Total deductions declared</td>
+                                    <td class="a"><t t-out="'{:,.2f}'.format((r['total_declared']) or 0.0)"/></td>
+                                </tr>
+                                <tr>
+                                    <td class="d">Eligible / approved</td>
+                                    <td class="a pos"><t t-out="'{:,.2f}'.format((r['total_eligible']) or 0.0)"/></td>
+                                </tr>
+                                <tr class="tot">
+                                    <td class="d">Disallowed</td>
+                                    <td class="a neg"><t t-out="'{:,.2f}'.format((r['total_excess']) or 0.0)"/></td>
+                                </tr>
+                            </table>
+                        </div>
+
+                        <!-- SIGNATURES -->
+                        <div class="sign">
+                            <table>
+                                <tr>
+                                    <td>
+                                        <div class="line"/>
+                                        <div class="who">Employee Signature</div>
+                                        <div class="sub"><t t-out="emp.name"/></div>
                                     </td>
-                                    <td style="width: 50%; text-align: center;">
-                                        <div style="border-top: 1px solid #495057; width: 200px; margin: 35px auto 4px auto;"/>
-                                        <div style="font-size: 10px; font-weight: bold; color: #495057;">Authorised HR / Payroll Signatory</div>
-                                        <div style="font-size: 9px; color: #6c757d;"><t t-out="r['employee'].company_id.name or ''"/></div>
+                                    <td>
+                                        <div class="line"/>
+                                        <div class="who">Authorised HR / Payroll Signatory</div>
+                                        <div class="sub"><t t-out="emp.company_id.name or ''"/></div>
                                     </td>
                                 </tr>
                             </table>
-                            <div style="text-align: center; margin-top: 12px; font-size: 9px; color: #adb5bd;">
-                                This is a system-generated statutory calculation report. | Hudson Payroll TDS Engine | <t t-out="r['generated_on']"/>
-                            </div>
+                            <div class="foot">System-generated report &#183; <t t-out="r['generated_on']"/></div>
                         </div>
-
-                    </div><!-- /page -->
-                </t><!-- /web.external_layout -->
-            </t><!-- /foreach reports -->
-        </t><!-- /web.html_container -->
+                    </div>
+                </t>
+            </t>
+        </t>
     </template>
 
 </odoo>

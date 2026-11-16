@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="res_config_settings_view_form_inherit_dental_speech" model="ir.ui.view">
+        <field name="name">res.config.settings.view.form.inherit.dental.speech</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="dental_base.res_config_settings_view_form_inherit_dental"/>
+        <field name="arch" type="xml">
+            <xpath expr="//block[@name='dental_appointment_settings']" position="after">
+                <block title="Voice Dictation (Local Whisper)" name="dental_speech_settings">
+                    <setting id="dental_speech_model_setting"
+                             help="Speech recognition runs on this server with faster-whisper. Audio is never uploaded to external services or stored.">
+                        <field name="dental_speech_model_size"/>
+                        <div class="mt-2">
+                            <button name="action_dental_speech_prepare_model" type="object" class="btn-link p-0"
+                                    icon="fa-download" string="Download Model Now" groups="base.group_system"/>
+                        </div>
+                    </setting>
+                    <setting id="dental_speech_language_setting" help="Language the doctors dictate in. Setting it is faster and more accurate; empty = detect automatically.">
+                        <field name="dental_speech_language" placeholder="Automatic detection"/>
+                    </setting>
+                    <setting id="dental_speech_translate_setting" help="Dictation in Malayalam, Hindi or any other language is written into the notes in English.">
+                        <field name="dental_speech_translate"/>
+                    </setting>
+                    <setting id="dental_speech_model_dir_setting" help="Where the Whisper model files are kept. Empty = Odoo data folder.">
+                        <field name="dental_speech_model_dir" placeholder="Odoo data folder"/>
+                    </setting>
+                    <setting id="dental_speech_offline_setting" help="Never download a model; use only models already in the model folder.">
+                        <field name="dental_speech_offline"/>
+                    </setting>
+                </block>
+                <block title="Consultation Summaries (Local Language Model)" name="dental_speech_llm_settings">
+                    <setting id="dental_speech_llm_model_setting"
+                             help="Summaries are written by a model running in Ollama on this server or the clinic network. Patient data is never sent to external services.">
+                        <field name="dental_speech_llm_model"/>
+                        <div class="mt-2">
+                            <button name="action_dental_speech_check_llm" type="object" class="btn-link p-0"
+                                    icon="fa-plug" string="Check Summary Model" groups="base.group_system"/>
+                        </div>
+                    </setting>
+                    <setting id="dental_speech_llm_endpoint_setting" help="Address of the Ollama service. Only this server or private network addresses are accepted.">
+                        <field name="dental_speech_llm_endpoint"/>
+                    </setting>
+                    <setting id="dental_speech_llm_timeout_setting" help="How long to wait for a summary. CPU-only servers need 1-3 minutes.">
+                        <field name="dental_speech_llm_timeout"/>
+                    </setting>
+                    <setting id="dental_speech_keep_transcript_setting"
+                             help="When off, only the doctor-approved summary is kept; the transcript is deleted after approval.">
+                        <field name="dental_speech_keep_transcript"/>
+                    </setting>
+                </block>
+            </xpath>
+        </field>
+    </record>
+</odoo>

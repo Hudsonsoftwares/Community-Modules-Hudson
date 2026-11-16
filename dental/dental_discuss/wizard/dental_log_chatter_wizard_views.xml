@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_dental_log_chatter_wizard_form" model="ir.ui.view">
+        <field name="name">dental.log.chatter.wizard.form</field>
+        <field name="model">dental.log.chatter.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Log Discussion Consensus to Record Chatter">
+                <group>
+                    <group>
+                        <field name="channel_id" readonly="1"/>
+                        <field name="log_type" widget="radio"/>
+                    </group>
+                    <group>
+                        <field name="patient_id" readonly="1"/>
+                        <field name="case_id" readonly="1" invisible="not case_id"/>
+                        <field name="appointment_id" readonly="1" invisible="not appointment_id"/>
+                        <field name="lab_order_id" readonly="1" invisible="not lab_order_id"/>
+                        <field name="prescription_id" readonly="1" invisible="not prescription_id"/>
+                        <field name="second_opinion_id" readonly="1" invisible="not second_opinion_id"/>
+                    </group>
+                </group>
+                <group string="Clinical / Operational Summary">
+                    <field name="decision_summary" placeholder="Summary of peer consensus, clinical decision, or agreed action plan..." nolabel="1"/>
+                </group>
+                <group string="Action Plan / Follow-up Recommendations">
+                    <field name="action_plan" placeholder="Specific clinical steps, lab changes, or prescription directions..." nolabel="1"/>
+                </group>
+                <footer>
+                    <button name="action_log_to_chatter" string="Log to Clinical Record Chatter" type="object" class="btn-primary" icon="fa-check-circle"/>
+                    <button string="Cancel" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>
+

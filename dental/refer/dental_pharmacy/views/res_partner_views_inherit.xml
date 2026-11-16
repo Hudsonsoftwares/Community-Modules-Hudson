@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Drop the earlier button-order view that located Prescriptions by its old Font Awesome
+         icon; otherwise updating the button below fails validation. Recreated further down. -->
+    <delete model="ir.ui.view" search="[('name', '=', 'res.partner.form.dental.button.order'), ('arch_db', 'ilike', 'fa-medkit')]"/>
+
+    <record id="action_partner_prescriptions" model="ir.actions.act_window">
+        <field name="name">Patient Prescriptions</field>
+        <field name="res_model">dental.prescription</field>
+        <field name="view_mode">kanban,list,form</field>
+        <field name="domain">[('patient_id', '=', active_id)]</field>
+        <field name="context">{'default_patient_id': active_id}</field>
+    </record>
+
+    <record id="view_partner_form_inherit_pharmacy" model="ir.ui.view">
+        <field name="name">res.partner.form.inherit.pharmacy</field>
+        <field name="model">res.partner</field>
+        <field name="inherit_id" ref="base.view_partner_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//div[hasclass('oe_button_box')]" position="inside">
+                <button name="%(action_partner_prescriptions)d"
+                        type="action"
+                        class="oe_stat_button o_dental_prescriptions_button"
+                        icon="medical_services"
+                        invisible="not is_dental_patient">
+                    <div class="o_stat_info">
+                        <span class="o_stat_text">Prescriptions</span>
+                    </div>
+                </button>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- Show the dental smart buttons first on patient forms, so they stay visible and the
+         generic partner buttons (sales, invoicing, ...) overflow into "More" instead.
+         High priority: applied after the other partner form extensions have added their buttons. -->
+    <record id="view_partner_form_dental_button_order" model="ir.ui.view">
+        <field name="name">res.partner.form.dental.button.order</field>
+        <field name="model">res.partner</field>
+        <field name="inherit_id" ref="base.view_partner_form"/>
+        <field name="priority">99</field>
+        <field name="arch" type="xml">
+            <xpath expr="//div[@name='button_box']/*[1]" position="before">
+                <span name="dental_button_anchor"/>
+            </xpath>
+            <xpath expr="//span[@name='dental_button_anchor']" position="before">
+                <xpath expr="//div[@name='button_box']/button[@name='action_view_appointments']" position="move"/>
+                <xpath expr="//div[@name='button_box']/button[@name='action_view_dental_cases']" position="move"/>
+                <xpath expr="//div[@name='button_box']/button[@name='action_view_dental_examinations']" position="move"/>
+                <xpath expr="//div[@name='button_box']/button[@name='action_view_treatment_plans']" position="move"/>
+                <xpath expr="//div[@name='button_box']/button[@name='action_view_treatment_sessions']" position="move"/>
+                <xpath expr="//div[@name='button_box']/button[hasclass('o_dental_prescriptions_button')]" position="move"/>
+                <xpath expr="//div[@name='button_box']/button[@name='action_view_patient_documents']" position="move"/>
+                <xpath expr="//div[@name='button_box']/button[@name='action_view_crm_leads']" position="move"/>
+            </xpath>
+            <xpath expr="//span[@name='dental_button_anchor']" position="replace"/>
+        </field>
+    </record>
+</odoo>

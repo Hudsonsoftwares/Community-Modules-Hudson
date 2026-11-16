@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <menuitem id="menu_dental_education_root"
+              name="Patient Education"
+              parent="dental_dms.menu_dental_documents_root"
+              sequence="5"
+              groups="dental_base.group_dental_dentist,dental_base.group_dental_assistant,dental_base.group_dental_receptionist,dental_base.group_dental_manager,dental_base.group_dental_admin"/>
+    <menuitem id="menu_dental_education_library"
+              name="Video Library"
+              parent="menu_dental_education_root"
+              action="action_dental_education_library"
+              sequence="10"/>
+    <menuitem id="menu_dental_education_sessions"
+              name="Education Records"
+              parent="menu_dental_education_root"
+              action="action_dental_education_sessions"
+              sequence="20"/>
+    <menuitem id="menu_dental_education_views"
+              name="Viewing History"
+              parent="menu_dental_education_root"
+              action="action_dental_education_views"
+              sequence="30"
+              groups="dental_base.group_dental_dentist,dental_base.group_dental_manager,dental_base.group_dental_admin"/>
+    <menuitem id="menu_dental_education_add_media"
+              name="Add Education Media"
+              parent="menu_dental_education_root"
+              action="action_dental_education_media_wizard"
+              sequence="40"
+              groups="dental_base.group_dental_manager,dental_base.group_dental_admin"/>
+    <menuitem id="menu_dental_education_topics"
+              name="Education Topics"
+              parent="menu_dental_education_root"
+              action="action_dental_education_topics"
+              sequence="50"
+              groups="dental_base.group_dental_manager,dental_base.group_dental_admin"/>
+
+    <!-- Shortcut inside Dentist Workspace Documents -->
+    <menuitem id="menu_dentist_ws_education_library"
+              name="Patient Education Library"
+              parent="dental_dms.menu_dentist_ws_documents_root"
+              action="action_dental_education_library"
+              sequence="60"
+              groups="dental_base.group_dental_dentist,dental_base.group_dental_manager,dental_base.group_dental_admin"/>
+</odoo>

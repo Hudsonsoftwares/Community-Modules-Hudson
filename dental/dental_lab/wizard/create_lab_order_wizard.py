@@ -131,7 +131,7 @@ class DentalLabCreateWizard(models.TransientModel):
             'patient_id': self.patient_id.id,
             'dentist_id': self.dentist_id.id if self.dentist_id else False,
             'appointment_id': self.appointment_id.id if self.appointment_id else False,
-            'company_id': self.company_id.id,
+            'company_id': (self.case_id.company_id or self.company_id).id,
             'lab_type': self.lab_type,
             'external_lab_id': self.external_lab_id.id if self.external_lab_id else False,
             'priority': self.priority,

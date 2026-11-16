@@ -1,4 +1,6 @@
+import pytz
 # -*- coding: utf-8 -*-
+# pyrefly: ignore [missing-import]
 from odoo import api, fields, models
 
 class HrEmployee(models.Model):
@@ -6,7 +8,7 @@ class HrEmployee(models.Model):
 
     salary_calculation_type = fields.Selection(
         related='current_version_id.salary_calculation_type',
-        readonly=False,
+        readonly=True,
         string='Salary Calculation Type',
     )
 
@@ -39,3 +41,25 @@ class HrEmployee(models.Model):
             )
         except ZeroDivisionError:
             return 0.0
+
+    def list_leaves(self, from_datetime, to_datetime, calendar=None, domain=None):
+        """Backward-compatible helper returning (day, hours, leave_records) tuples for Odoo 20."""
+        calendar = calendar or self.resource_calendar_id or self.company_id.resource_calendar_id
+        tz_name = getattr(calendar, 'tz', False) or self.tz or self.company_id.tz or 'UTC'
+        tz = pytz.timezone(tz_name)
+        
+        utc_from = from_datetime.astimezone(pytz.UTC).replace(tzinfo=None) if hasattr(from_datetime, 'tzinfo') and from_datetime.tzinfo else from_datetime
+        utc_to = to_datetime.astimezone(pytz.UTC).replace(tzinfo=None) if hasattr(to_datetime, 'tzinfo') and to_datetime.tzinfo else to_datetime
+        
+        leaves = self.env['resource.calendar.leaves'].search([
+            ('resource_id', 'in', [self.resource_id.id, False]),
+            ('date_from', '<=', utc_to),
+            ('date_to', '>=', utc_from),
+        ])
+        result = []
+        for l in leaves:
+            l_start = pytz.utc.localize(l.date_from).astimezone(tz) if l.date_from.tzinfo is None else l.date_from.astimezone(tz)
+            day = l_start.date()
+            hrs = (l.date_to - l.date_from).total_seconds() / 3600.0
+            result.append((day, hrs, l))
+        return result

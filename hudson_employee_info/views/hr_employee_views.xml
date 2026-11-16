@@ -7,9 +7,6 @@
         <field name="priority">90</field>
         <field name="arch" type="xml">
             <!-- 1. PERSONAL INFORMATION -->
-            <xpath expr="//field[@name='birthday']" position="after">
-                <field name="show_birthday_to_employees"/>
-            </xpath>
             <xpath expr="//field[@name='sex']" position="after">
                 <field name="payslip_lang_id" options="{'no_create': True}"/>
             </xpath>

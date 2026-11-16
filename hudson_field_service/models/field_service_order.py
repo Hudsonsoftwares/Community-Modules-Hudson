@@ -556,7 +556,9 @@ class FieldServiceOrder(models.Model):
                 diff = order.date_deadline - order.date_planned
                 order.duration_planned = max(0.0, diff.total_seconds() / 3600.0)
             else:
-                order.duration_planned = 0.0
+                # Not scheduled (e.g. unscheduled): keep the estimated duration,
+                # used when it is planned again.
+                order.duration_planned = order.duration_planned or 0.0
 
     @api.depends('duration_planned', 'rest_time_planned')
     def _compute_duration_working(self):
@@ -855,11 +857,11 @@ class FieldServiceOrder(models.Model):
             self.extra_employee_ids = self.extra_employee_ids.filtered(lambda e: e._origin != employee)
 
     def _grant_technician_access(self):
-        """Technicians assigned to a job get Field Service / User rights, to
-        start it (timer, location), fill the worksheet... from their shift:
-        like Odoo, field service work is done by Field Service users. The
-        rights cover only their own published jobs."""
-        group = self.env.ref('hudson_field_service.group_field_service_user', raise_if_not_found=False)
+        """Technicians assigned to a job get Planning / User rights (which give
+        the field service user rights), to start it (timer, location), fill
+        the worksheet... from their shift. The rights cover only their own
+        published jobs."""
+        group = self.env.ref('hudson_planning.group_planning_user', raise_if_not_found=False)
         if not group:
             return
         for order in self:
@@ -870,7 +872,7 @@ class FieldServiceOrder(models.Model):
             # sudo: planners assign technicians without managing user rights.
             users.sudo().write({'group_ids': [(4, group.id)]})
             order.sudo().message_post(body=_(
-                "Field Service access given to %s to work on their jobs.", ', '.join(users.mapped('name'))))
+                "Planning access given to %s to work on their jobs.", ', '.join(users.mapped('name'))))
 
     def _remove_primary_from_extra_technicians(self):
         """The primary technician is never also an extra technician (e.g. the

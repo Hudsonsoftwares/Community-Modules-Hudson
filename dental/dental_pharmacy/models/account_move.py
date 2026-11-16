@@ -4,12 +4,7 @@ from odoo import models, fields, api, _
 class AccountMove(models.Model):
     _inherit = 'account.move'
 
-    dental_case_id = fields.Many2one(
-        'dental.case',
-        string='Dental Case',
-        index=True,
-        help='Linked dental consultation case'
-    )
+    # dental_case_id is defined in dental_core so clinics without Pharmacy can link invoices to cases
     dental_prescription_id = fields.Many2one(
         'dental.prescription',
         string='Prescription Reference',

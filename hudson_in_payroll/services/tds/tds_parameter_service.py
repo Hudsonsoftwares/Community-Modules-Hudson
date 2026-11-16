@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 import logging
+# pyrefly: ignore [missing-import]
 from odoo import fields, _
+# pyrefly: ignore [missing-import]
 from odoo.exceptions import ValidationError
 from ..base import BaseStatutoryService
 
@@ -24,8 +26,13 @@ TDS_PARAMETER_MAP = {
     'NPS_LIMIT_NEW': 'HDS_IN_TDS_NPS_LIMIT_NEW',
     'NPS_LIMIT_OLD_PRIVATE': 'HDS_IN_TDS_NPS_LIMIT_OLD_PRIVATE',
     'NPS_LIMIT_OLD_GOVT': 'HDS_IN_TDS_NPS_LIMIT_OLD_GOVT',
+    'NPS_EMPLOYER_CONTRIBUTION_PERCENTAGE': 'HDS_IN_TDS_NPS_LIMIT_NEW',
     # Combined Employer Contribution Limit (PF + NPS + Superannuation)
     'EMPLOYER_CONTRIBUTION_LIMIT': 'HDS_IN_TDS_EMPLOYER_CONTRIBUTION_LIMIT',
+    # Statutory PF / EPS / EDLI Wage Ceilings
+    'PF_WAGE_CEILING': 'hds_in_pf_wage_ceiling',
+    'EPS_WAGE_CEILING': 'hds_in_eps_wage_ceiling',
+    'EDLI_WAGE_CEILING': 'hds_in_edli_wage_ceiling',
     # Section 57(iia) Family Pension Limits
     'FAMILY_PENSION_LIMIT_NEW': 'HDS_IN_TDS_FAMILY_PENSION_LIMIT_NEW',
     'FAMILY_PENSION_LIMIT_OLD': 'HDS_IN_TDS_FAMILY_PENSION_LIMIT_OLD',
@@ -130,9 +137,12 @@ class TdsParameterService(BaseStatutoryService):
             resolved_code = 'HDS_IN_TDS_87A_LIMIT_NEW' if regime_code == 'new' else 'HDS_IN_TDS_87A_LIMIT_OLD'
         elif code_or_key in ('87A_MAX_REBATE', 'HDS_IN_TDS_87A_MAX_REBATE'):
             resolved_code = 'HDS_IN_TDS_87A_MAX_REBATE_NEW' if regime_code == 'new' else 'HDS_IN_TDS_87A_MAX_REBATE_OLD'
-        elif code_or_key in ('NPS_LIMIT', 'HDS_IN_TDS_NPS_LIMIT'):
+        elif code_or_key in ('NPS_LIMIT', 'HDS_IN_TDS_NPS_LIMIT', 'NPS_EMPLOYER_CONTRIBUTION_PERCENTAGE', 'HDS_IN_TDS_NPS_EMPLOYER_CONTRIBUTION_PERCENTAGE'):
             if regime_code == 'new':
-                resolved_code = 'HDS_IN_TDS_NPS_LIMIT_NEW'
+                if self.env['hr.rule.parameter'].search_count([('code', '=', 'NPS_EMPLOYER_CONTRIBUTION_PERCENTAGE')]):
+                    resolved_code = 'NPS_EMPLOYER_CONTRIBUTION_PERCENTAGE'
+                else:
+                    resolved_code = 'HDS_IN_TDS_NPS_LIMIT_NEW'
             elif 'govt' in (employer_type or '').lower():
                 resolved_code = 'HDS_IN_TDS_NPS_LIMIT_OLD_GOVT'
             else:
@@ -148,7 +158,10 @@ class TdsParameterService(BaseStatutoryService):
             return self.env['hr.rule.parameter'].get_parameter(resolved_code, date=eval_date, as_decimal=as_decimal)
         except (KeyError, ValueError, TypeError, ValidationError) as e:
             _logger.debug("Rule parameter '%s' not found or invalid on date %s (using default): %s", resolved_code, eval_date, e)
-            return default_val or kwargs.get('default', 0.0)
+            val = default_val or kwargs.get('default', 0.0)
+            if as_decimal and val > 1.0:
+                val = val / 100.0
+            return val
 
     def get_80cch_eligibility_percent(self, regime='old', eval_date=None, as_decimal=False):
         """
@@ -159,17 +172,25 @@ class TdsParameterService(BaseStatutoryService):
         return self.get_parameter('80CCH_ELIGIBILITY_PERCENT', eval_date=eval_date, regime=regime, as_decimal=as_decimal)
 
     def get_family_pension_limit(self, regime='new', eval_date=None):
-        """Resolves Section 57(iia) Family Pension deduction statutory ceiling based on tax regime."""
-        def_val = 25000.0 if (regime or 'new').lower() == 'new' else 15000.0
+        """Resolves Family Pension Section 93(1)(d) / Section 57(iia) deduction statutory ceiling (1/3 of family pension or ₹25,000, whichever is lower)."""
+        is_ita_2025 = False
+        if eval_date:
+            # pyrefly: ignore [missing-import]
+            from odoo import fields
+            ref_year = eval_date.year if hasattr(eval_date, 'year') else int(str(eval_date)[:4])
+            is_ita_2025 = (eval_date >= fields.Date.from_string('2026-04-01')) if hasattr(eval_date, 'year') else (ref_year >= 2026)
+        def_val = 25000.0 if (is_ita_2025 or (regime or 'new').lower() == 'new') else 15000.0
         return self.get_parameter('FAMILY_PENSION_LIMIT', eval_date=eval_date, regime=regime, default_val=def_val)
 
     def get_employer_nps_limit(self, regime='new', employer_type='private', eval_date=None, as_decimal=False):
         """
         Resolves Employer NPS statutory percentage limit based on regime and employer category.
-        - New Regime: 14% for all employers.
+        - New Regime: 14% for all employers (via NPS_EMPLOYER_CONTRIBUTION_PERCENTAGE / HDS_IN_TDS_NPS_LIMIT_NEW).
         - Old Regime: 10% for Private/Other employers, 14% for Central/State Government.
         """
-        return self.get_parameter('NPS_LIMIT', eval_date=eval_date, regime=regime, employer_type=employer_type, as_decimal=as_decimal)
+        reg_code = (regime or 'new').lower()
+        default_pct = 14.0 if reg_code == 'new' else (14.0 if 'govt' in (employer_type or '').lower() else 10.0)
+        return self.get_parameter('NPS_EMPLOYER_CONTRIBUTION_PERCENTAGE', eval_date=eval_date, regime=regime, employer_type=employer_type, as_decimal=as_decimal, default_val=default_pct)
 
     def get_combined_employer_contribution_limit(self, eval_date=None):
         """

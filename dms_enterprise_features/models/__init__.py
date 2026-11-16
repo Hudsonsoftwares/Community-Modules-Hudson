@@ -17,4 +17,5 @@ from . import dms_security_mixin
 from . import dms_access_group
 from . import hr_employee
 from . import ir_config_parameter
-from . import res_company
+from . import res_company
+from . import dms_file_request

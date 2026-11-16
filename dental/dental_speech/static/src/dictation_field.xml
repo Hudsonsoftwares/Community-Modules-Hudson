@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+
+    <t t-name="dental_speech.DictationField">
+        <div class="o_dental_dictation w-100">
+            <t t-call="web.TextField"/>
+
+            <div t-if="this.showDictation" class="o_dental_dictation_bar d-flex flex-wrap align-items-center gap-2 mt-2">
+                <button t-if="!this.dictation.recording" type="button" class="btn btn-sm btn-primary"
+                        t-att-disabled="this.dictation.transcribing or this.dictation.transcript !== null"
+                        t-on-click="this.startRecording" title="Record a dictation">
+                    <i class="fa fa-microphone me-1"/> Dictate
+                </button>
+                <button t-else="" type="button" class="btn btn-sm btn-danger o_dental_dictation_stop"
+                        t-on-click="this.stopRecording" title="Stop and transcribe">
+                    <i class="fa fa-stop me-1"/> Stop <span class="o_dental_dictation_dot ms-1"/> <t t-out="this.elapsedLabel"/>
+                </button>
+                <span t-if="this.dictation.transcribing" class="text-muted small">
+                    <i class="fa fa-spinner fa-spin me-1"/> Transcribing on this server...
+                </span>
+                <span t-if="!this.dictation.recording and !this.dictation.transcribing" class="text-muted small">
+                    <i class="fa fa-lock me-1"/> Processed locally; audio is not uploaded or stored.
+                </span>
+            </div>
+
+            <div t-if="this.dictation.error" class="alert alert-warning py-2 px-3 mt-2 mb-0 small" role="alert">
+                <i class="fa fa-exclamation-triangle me-1"/> <t t-out="this.dictation.error"/>
+            </div>
+
+            <div t-if="this.dictation.transcript !== null" class="o_dental_dictation_review border rounded p-2 mt-2">
+                <div class="d-flex justify-content-between align-items-baseline gap-2">
+                    <label class="form-label small fw-bold mb-1">Review the dictation (you can edit it):</label>
+                    <span t-if="this.dictation.languageNote" class="badge text-bg-light border">
+                        <i class="fa fa-language me-1"/><t t-out="this.dictation.languageNote"/>
+                    </span>
+                </div>
+                <textarea class="form-control" rows="4"
+                          t-att-value="this.dictation.transcript"
+                          t-on-input="this.onTranscriptInput"/>
+                <div class="d-flex gap-2 mt-2">
+                    <button type="button" class="btn btn-sm btn-success" t-on-click="this.insertTranscript">
+                        <i class="fa fa-check me-1"/> Add to Clinical Notes
+                    </button>
+                    <button type="button" class="btn btn-sm btn-secondary" t-on-click="this.discardTranscript">
+                        <i class="fa fa-times me-1"/> Discard
+                    </button>
+                </div>
+            </div>
+        </div>
+    </t>
+
+</templates>

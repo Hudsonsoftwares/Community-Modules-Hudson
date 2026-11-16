@@ -30,33 +30,49 @@ class ESICService:
         if 'ESIC_WAGE' in ld:
             return float(ld['ESIC_WAGE'] or 0.0)
 
-        # 2. Direct GROSS in localdict (e.g. simulation or direct payload)
-        gross_wage = 0.0
-        if 'GROSS' in ld and isinstance(ld['GROSS'], (int, float)) and ld['GROSS'] > 0:
-            gross_wage = float(ld['GROSS'])
+        # Check if payslip has 0 paid days due to full unpaid leave / LOP
+        ps = payslip or (ld.get('payslip_record') if hasattr(ld.get('payslip_record'), 'worked_days_line_ids') else False)
+        if ps and hasattr(ps, 'worked_days_line_ids') and ps.worked_days_line_ids:
+            unpaid_codes = ('UNPAID', 'ABSENT', 'LEAVE_UNPAID', 'LOP', 'SHORTAGE')
+            paid_lines = ps.worked_days_line_ids.filtered(lambda l: (l.code or '').upper() not in unpaid_codes and (l.number_of_days or 0.0) > 0)
+            if not paid_lines and any((l.code or '').upper() in unpaid_codes for l in ps.worked_days_line_ids):
+                return 0.0
 
-        # 3. Categories.GROSS
+        # 2. Extract evaluated gross wage from localdict
+        gross_wage = None
+        if 'GROSS' in ld and isinstance(ld['GROSS'], (int, float)):
+            gross_wage = float(ld['GROSS'])
         elif ld.get('categories') and hasattr(ld['categories'], 'GROSS'):
             gross_wage = float(getattr(ld['categories'], 'GROSS', 0.0) or 0.0)
-
-        # 4. Sum evaluated numeric earning rule values in localdict if categories.GROSS wasn't populated
         elif ld:
+            summed = 0.0
+            found_earning = False
             for k, v in ld.items():
                 if isinstance(v, (int, float)) and k not in ('result', 'result_qty', 'result_rate', 'NET', 'ESIC_EE', 'ESIC_ER', 'EPF_EE', 'EPF_ER', 'PT', 'LWF', 'ESIC_WAGE', 'PF_WAGE', 'GROSS', 'wage'):
-                    gross_wage += float(v)
+                    summed += float(v)
+                    found_earning = True
+            if found_earning:
+                gross_wage = summed
 
-        # 5. Fallback to contract.wage ONLY when localdict is empty or outside payslip evaluation context
-        if gross_wage <= 0.0:
-            contract = ld.get('contract') or (payslip.contract_id if payslip else False)
-            if not contract and payslip and getattr(payslip, 'employee_id', False):
-                contracts = self.env['hr.version'].search([('employee_id', '=', payslip.employee_id.id)])
+        # The one-time Retention Bonus is not an ESIC wage (a bonus paid at an interval of more than two months)
+        retention = ld.get('RETENTION_BONUS') if ld else None
+        if gross_wage is not None and isinstance(retention, (int, float)) and retention > 0:
+            gross_wage = max(gross_wage - float(retention), 0.0)
+
+        # 3. Fallback to contract.wage ONLY when localdict is empty or outside payslip evaluation context
+        if gross_wage is None:
+            contract = ld.get('contract') or (ps.contract_id if ps else False)
+            if not contract and ps and getattr(ps, 'employee_id', False):
+                contracts = self.env['hr.version'].search([('employee_id', '=', ps.employee_id.id)])
                 contract = contracts[0] if contracts else False
             if contract:
                 bd = float(getattr(contract, 'breakdown_total', 0.0) or 0.0)
                 gross_wage = bd if bd > 0.0 else float(getattr(contract, 'wage', 0.0) or 0.0)
+            else:
+                gross_wage = 0.0
 
-        if payslip and hasattr(payslip, '_get_earned_wage_ratio'):
-            ratio = payslip._get_earned_wage_ratio(localdict=ld)
+        if ps and hasattr(ps, '_get_earned_wage_ratio'):
+            ratio = ps._get_earned_wage_ratio(localdict=ld)
             gross_wage = gross_wage * ratio
 
         return max(round(gross_wage, 2), 0.0)

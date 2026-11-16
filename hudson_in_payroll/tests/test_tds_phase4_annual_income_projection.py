@@ -15,7 +15,7 @@ class TestTdsPhase4AnnualIncomeProjection(TransactionCase):
                 'code': '2025-2026',
                 'start_date': '2025-04-01',
                 'end_date': '2026-03-31',
-                'is_active': True,
+                'active': True,
             })
 
         self.regime_old = self.env['tds.tax.regime'].search([('code', '=', 'old')], limit=1)
@@ -67,8 +67,8 @@ class TestTdsPhase4AnnualIncomeProjection(TransactionCase):
 
     def test_02_previous_employer_and_other_income_aggregation(self):
         """Test PreviousEmployerIncomeService and OtherIncomeAggregationService."""
-        from hudson_in_payroll.services.tds.previous_employer_income_service import PreviousEmployerIncomeService
-        from hudson_in_payroll.services.tds.other_income_aggregation_service import OtherIncomeAggregationService
+        from odoo.addons.hudson_in_payroll.services.tds.previous_employer_income_service import PreviousEmployerIncomeService
+        from odoo.addons.hudson_in_payroll.services.tds.other_income_aggregation_service import OtherIncomeAggregationService
 
         # Create Income Declaration
         inc_decl = self.env['tds.employee.income.declaration'].create({
@@ -108,7 +108,7 @@ class TestTdsPhase4AnnualIncomeProjection(TransactionCase):
 
     def test_03_annual_income_projection_master_orchestration(self):
         """Test AnnualIncomeProjectionService master orchestration and regime routing."""
-        from hudson_in_payroll.services.tds.annual_income_projection_service import AnnualIncomeProjectionService
+        from odoo.addons.hudson_in_payroll.services.tds.annual_income_projection_service import AnnualIncomeProjectionService
 
         # Select Old Regime for employee
         self.env['tds.employee.tax.regime'].create({
@@ -139,7 +139,7 @@ class TestTdsPhase4AnnualIncomeProjection(TransactionCase):
 
     def test_04_full_tds_orchestration_engine_pipeline(self):
         """Test full end-to-end statutory TDS calculation pipeline via TdsOrchestrationEngine."""
-        from hudson_in_payroll.services.tds.tds_orchestration_engine import TdsOrchestrationEngine
+        from odoo.addons.hudson_in_payroll.services.tds.tds_orchestration_engine import TdsOrchestrationEngine
 
         # Setup Contract: Basic wage ₹1,00,000 / month (₹12,00,000 p.a.)
         contract = self.env['hr.contract'].create({
@@ -194,7 +194,7 @@ class TestTdsPhase4AnnualIncomeProjection(TransactionCase):
 
     def test_05_payroll_income_projection_service_standalone(self):
         """Test PayrollIncomeProjectionService standalone projection."""
-        from hudson_in_payroll.services.tds.payroll_income_projection_service import PayrollIncomeProjectionService
+        from odoo.addons.hudson_in_payroll.services.tds.payroll_income_projection_service import PayrollIncomeProjectionService
         payroll_svc = PayrollIncomeProjectionService(self.env)
 
         contract = self.env['hr.contract'].create({
@@ -214,7 +214,7 @@ class TestTdsPhase4AnnualIncomeProjection(TransactionCase):
 
     def test_06_missing_employee_or_fy_validation(self):
         """Test validation errors for missing employee or financial year."""
-        from hudson_in_payroll.services.tds.annual_income_projection_service import AnnualIncomeProjectionService
+        from odoo.addons.hudson_in_payroll.services.tds.annual_income_projection_service import AnnualIncomeProjectionService
         inc_svc = AnnualIncomeProjectionService(self.env)
 
         with self.assertRaises(ValidationError):
@@ -226,7 +226,7 @@ class TestTdsPhase4AnnualIncomeProjection(TransactionCase):
         the annual salary projection remains exactly ₹18,00,000 for April, May, June, and July,
         even as prior month payslips transition to 'done' state with BASIC and GROSS rule lines.
         """
-        from hudson_in_payroll.services.tds.salary_projection_service import SalaryProjectionService
+        from odoo.addons.hudson_in_payroll.services.tds.salary_projection_service import SalaryProjectionService
         salary_svc = SalaryProjectionService(self.env)
 
         emp = self.env['hr.employee'].create({

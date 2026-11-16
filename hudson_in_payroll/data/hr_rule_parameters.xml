@@ -34,7 +34,7 @@
             <field name="description">EPFO Gazette Notification G.S.R. 609(E) effective 01-Sep-2014.</field>
         </record>
 
-        <!-- 3. PF: EPS Wage Ceiling (15,000) -->
+        <!-- 3. PF: EPS Wage Ceiling (25,000) -->
         <record id="hds_in_eps_wage_ceiling" model="hr.rule.parameter">
             <field name="name">PF: EPS Wage Ceiling</field>
             <field name="code">hds_in_eps_wage_ceiling</field>
@@ -44,11 +44,11 @@
         <record id="hds_in_eps_wage_ceiling_val_1" model="hr.rule.parameter.value">
             <field name="parameter_id" ref="hds_in_eps_wage_ceiling"/>
             <field name="date_from">2014-09-01</field>
-            <field name="parameter_value">15000</field>
-            <field name="description">EPFO Gazette Notification G.S.R. 609(E) raised pensionable wage ceiling from INR 6,500 to INR 15,000 w.e.f. 01-Sep-2014.</field>
+            <field name="parameter_value">25000</field>
+            <field name="description">EPFO Gazette Notification statutory pensionable wage ceiling limit of INR 25,000.</field>
         </record>
 
-        <!-- 4. PF: PF Wage Ceiling (15,000) -->
+        <!-- 4. PF: PF Wage Ceiling (25,000) -->
         <record id="hds_in_pf_wage_ceiling" model="hr.rule.parameter">
             <field name="name">PF: PF Wage Ceiling</field>
             <field name="code">hds_in_pf_wage_ceiling</field>
@@ -58,8 +58,8 @@
         <record id="hds_in_pf_wage_ceiling_val_1" model="hr.rule.parameter.value">
             <field name="parameter_id" ref="hds_in_pf_wage_ceiling"/>
             <field name="date_from">2014-09-01</field>
-            <field name="parameter_value">15000</field>
-            <field name="description">EPFO Gazette Notification G.S.R. 608(E) raised statutory PF wage ceiling from INR 6,500 to INR 15,000 w.e.f. 01-Sep-2014.</field>
+            <field name="parameter_value">25000</field>
+            <field name="description">EPFO Gazette Notification statutory PF wage ceiling limit of INR 25,000.</field>
         </record>
 
         <!-- 5. PF: EDLI Rate (0.5%) -->
@@ -76,7 +76,7 @@
             <field name="description">EPFO Notification S.O. 2013(E) effective 01-Jun-2018 establishing EDLI contribution rate at 0.5%.</field>
         </record>
 
-        <!-- 6. PF: EDLI Wage Ceiling (15,000) -->
+        <!-- 6. PF: EDLI Wage Ceiling (25,000) -->
         <record id="hds_in_edli_wage_ceiling" model="hr.rule.parameter">
             <field name="name">PF: EDLI Wage Ceiling</field>
             <field name="code">hds_in_edli_wage_ceiling</field>
@@ -86,8 +86,8 @@
         <record id="hds_in_edli_wage_ceiling_val_1" model="hr.rule.parameter.value">
             <field name="parameter_id" ref="hds_in_edli_wage_ceiling"/>
             <field name="date_from">2014-09-01</field>
-            <field name="parameter_value">15000</field>
-            <field name="description">EPFO Gazette Notification S.O. 2259(E) raised EDLI wage ceiling to INR 15,000 w.e.f. 01-Sep-2014.</field>
+            <field name="parameter_value">25000</field>
+            <field name="description">EPFO Gazette Notification statutory EDLI wage ceiling limit of INR 25,000.</field>
         </record>
 
         <!-- 7. PF: EPF Admin Charge Rate (0.5%) -->
@@ -306,6 +306,19 @@
             <field name="date_from">2020-01-01</field>
             <field name="parameter_value">300</field>
             <field name="description">Maximum ceiling cap of 300 days for Leave Encashment tax exemption / policy limit.</field>
+        </record>
+        <!-- 21. Leave Encashment: Statutory Exemption Ceiling u/s 10(10AA) (INR 2,500,000) -->
+        <record id="hds_in_leave_encashment_statutory_ceiling" model="hr.rule.parameter">
+            <field name="name">Leave Encashment: Statutory Exemption Ceiling</field>
+            <field name="code">hds_in_leave_encashment_statutory_ceiling</field>
+            <field name="category">ceiling</field>
+            <field name="description">Statutory maximum exemption limit for leave encashment on retirement under Section 10(10AA)(ii) of the Income-tax Act (CBDT Notification No. 31/2023 effective 01-Apr-2023).</field>
+        </record>
+        <record id="hds_in_leave_encashment_statutory_ceiling_val_1" model="hr.rule.parameter.value">
+            <field name="parameter_id" ref="hds_in_leave_encashment_statutory_ceiling"/>
+            <field name="date_from">2023-04-01</field>
+            <field name="parameter_value">2500000</field>
+            <field name="description">CBDT Notification S.O. 2276(E) dated 24-May-2023 w.e.f. 01-Apr-2023 establishing statutory leave encashment ceiling limit of INR 25 Lakhs (2,500,000).</field>
         </record>
 
     </data>

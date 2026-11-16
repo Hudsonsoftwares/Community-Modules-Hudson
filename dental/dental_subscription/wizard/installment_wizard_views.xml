@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_dental_installment_wizard_form" model="ir.ui.view">
+        <field name="name">dental.installment.wizard.form</field>
+        <field name="model">dental.installment.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Finance with Installments">
+                <group>
+                    <group>
+                        <field name="treatment_plan_id"/>
+                        <field name="patient_id"/>
+                        <field name="company_id" invisible="1"/>
+                        <field name="currency_id" invisible="1"/>
+                        <field name="product_id" options="{'no_create': True}"/>
+                        <field name="plan_id" options="{'no_create': True}"/>
+                    </group>
+                    <group>
+                        <field name="amount_financed"/>
+                        <field name="installment_count"/>
+                        <field name="start_date"/>
+                        <field name="installment_amount"/>
+                        <field name="rounding_difference" invisible="not rounding_difference"/>
+                    </group>
+                </group>
+                <div class="text-muted">
+                    A subscription quotation is created for the patient. Once confirmed, the recurring
+                    invoicing bills one installment per period, the sessions of this treatment plan are
+                    billed at zero, and the plan closes itself after the last installment.
+                </div>
+                <footer>
+                    <button name="action_create_installment_plan" type="object" string="Create Installment Plan" class="btn-primary"/>
+                    <button string="Cancel" special="cancel" class="btn-secondary"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Clinic roles that meet patients may use ABHA features -->
+    <record id="dental_base.group_dental_receptionist" model="res.groups">
+        <field name="implied_ids" eval="[(4, ref('abdm_base.group_abdm_user'))]"/>
+    </record>
+    <record id="dental_base.group_dental_assistant" model="res.groups">
+        <field name="implied_ids" eval="[(4, ref('abdm_base.group_abdm_user'))]"/>
+    </record>
+    <record id="dental_base.group_dental_dentist" model="res.groups">
+        <field name="implied_ids" eval="[(4, ref('abdm_base.group_abdm_user'))]"/>
+    </record>
+    <record id="dental_base.group_dental_manager" model="res.groups">
+        <field name="implied_ids" eval="[(4, ref('abdm_base.group_abdm_user'))]"/>
+    </record>
+</odoo>

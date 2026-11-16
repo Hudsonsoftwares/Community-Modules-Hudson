@@ -7,6 +7,7 @@ from .employee_calculator import EPFEmployeeCalculator
 from .pension_calculator import EPFPensionCalculator
 from .employer_calculator import EPFEmployerCalculator
 
+# pyrefly: ignore [missing-import]
 from odoo import fields
 
 _logger = logging.getLogger(__name__)
@@ -34,6 +35,15 @@ class ContractPayslipAdapter:
         if basic > 0:
             return basic + da
         return float(getattr(self.contract, 'wage', 0.0) or 0.0)
+
+    def hds_in_is_epf_applicable(self):
+        emp = self.employee_id
+        if not emp or not getattr(emp, 'hds_in_epf_applicable', False):
+            return False
+        comp = self.company_id or (emp and getattr(emp, 'company_id', False))
+        if comp and hasattr(comp, 'hds_in_epf_applicable') and not comp.hds_in_epf_applicable:
+            return False
+        return True
 
 
 class EPFService:

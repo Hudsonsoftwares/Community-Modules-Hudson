@@ -1,0 +1,7 @@
+id,name,model_id,group_id/id,operation,domain
+access_abdm_care_context_user,abdm.care.context.user,abdm.care.context,abdm_base.group_abdm_user,r,"['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]"
+access_abdm_care_context_manager,abdm.care.context.manager,abdm.care.context,abdm_base.group_abdm_manager,ru,"['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]"
+access_abdm_link_token_manager,abdm.link.token.manager,abdm.link.token,abdm_base.group_abdm_manager,rd,
+access_abdm_link_request_manager,abdm.link.request.manager,abdm.link.request,abdm_base.group_abdm_manager,r,
+access_abdm_consent_user,abdm.consent.user,abdm.consent,abdm_base.group_abdm_user,r,"['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]"
+access_abdm_data_transfer_manager,abdm.data.transfer.manager,abdm.data.transfer,abdm_base.group_abdm_manager,r,

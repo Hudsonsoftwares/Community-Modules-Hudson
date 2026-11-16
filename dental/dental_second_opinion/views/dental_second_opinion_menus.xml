@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Second Opinions live in the Dentist Workspace (dentists and specialists); hidden from the Dental Clinic app -->
+    <menuitem
+        id="menu_dental_second_opinion_root"
+        name="Second Opinions"
+        parent="dental_core.menu_dental_dentist_workspace"
+        sequence="75"
+        groups="dental_base.group_dental_dentist,dental_base.group_dental_manager,dental_base.group_dental_admin"/>
+
+    <menuitem
+        id="menu_dental_second_opinion_dashboard"
+        name="Dashboard"
+        parent="menu_dental_second_opinion_root"
+        action="action_dental_second_opinion_dashboard"
+        sequence="10"/>
+
+    <menuitem
+        id="menu_dental_second_opinion_review_queue"
+        name="My Review Queue"
+        parent="menu_dental_second_opinion_root"
+        action="action_dental_second_opinion_review_queue"
+        sequence="20"
+        groups="dental_second_opinion.group_dental_specialist"/>
+
+    <menuitem
+        id="menu_dental_second_opinion_requests"
+        name="Requests"
+        parent="menu_dental_second_opinion_root"
+        action="action_dental_second_opinion"
+        sequence="30"/>
+
+    <menuitem
+        id="menu_dental_second_opinion_audit"
+        name="Audit History"
+        parent="menu_dental_second_opinion_root"
+        action="action_dental_second_opinion_log"
+        sequence="40"
+        groups="dental_base.group_dental_manager,dental_base.group_dental_admin"/>
+</odoo>

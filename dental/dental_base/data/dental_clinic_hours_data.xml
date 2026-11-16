@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Clinics without configured hours get the standard timings booking used before -->
+    <function model="res.company" name="_dental_install_default_hours"/>
+</odoo>

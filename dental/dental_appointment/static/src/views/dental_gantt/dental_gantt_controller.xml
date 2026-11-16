@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+
+    <t t-name="dental_appointment.DentalGanttView">
+        <div t-attf-class="o_dental_gantt_view h-100 {{ this.props.className or '' }}">
+            <Layout display="this.props.display">
+                <t t-set-slot="control-panel-additional-actions">
+                    <CogMenu/>
+                </t>
+                <t t-set-slot="control-panel-buttons">
+                    <button t-if="this.canCreate" type="button" class="btn btn-primary o_dg_button_new"
+                            t-on-click="() => this.createRecord()">New</button>
+                </t>
+                <t t-set-slot="control-panel-actions">
+                    <SearchBar toggler="this.searchBarToggler"/>
+                </t>
+                <t t-set-slot="control-panel-navigation-additional">
+                    <t t-component="this.searchBarToggler.component" t-props="this.searchBarToggler.props"/>
+                </t>
+
+                <t t-set="rows" t-value="this.rows"/>
+                <t t-set="columns" t-value="this.columns"/>
+                <t t-set="nowPosition" t-value="this.nowPosition"/>
+                <div class="o_dg_container d-flex flex-column h-100 bg-view">
+
+                    <!-- Toolbar -->
+                    <div class="o_dg_toolbar d-flex flex-wrap align-items-center gap-2 px-3 py-2 border-bottom">
+                        <div class="btn-group">
+                            <button class="btn btn-secondary" title="Previous" aria-label="Previous"
+                                    t-on-click="() => this.navigate('previous')"><i class="oi" data-icon="arrow_back"/></button>
+                            <button class="btn btn-secondary" title="Next" aria-label="Next"
+                                    t-on-click="() => this.navigate('next')"><i class="oi" data-icon="arrow_forward"/></button>
+                        </div>
+                        <div class="btn-group" role="group" aria-label="Scale">
+                            <t t-foreach="this.scales" t-as="scale" t-key="scale">
+                                <button class="btn btn-secondary"
+                                        t-att-class="{ 'active': this.state.scale === scale }"
+                                        t-on-click="() => this.setScale(scale)"
+                                        t-out="this.scaleLabels[scale]"/>
+                            </t>
+                        </div>
+                        <button class="btn btn-secondary" t-on-click="() => this.navigate('today')">Today</button>
+                        <h5 class="mb-0 ms-lg-2" t-out="this.title"/>
+
+                        <div class="ms-auto d-flex flex-wrap align-items-center gap-3">
+                            <div t-if="this.myDoctorIds.length" class="form-check form-switch mb-0">
+                                <input class="form-check-input" type="checkbox" id="o_dg_only_mine"
+                                       t-att-checked="this.state.onlyMine" t-on-change="() => this.toggleOnlyMine()"/>
+                                <label class="form-check-label" for="o_dg_only_mine">My schedule only</label>
+                            </div>
+                            <div t-if="!this.state.onlyMine" class="form-check form-switch mb-0">
+                                <input class="form-check-input" type="checkbox" id="o_dg_hide_empty"
+                                       t-att-checked="this.state.hideEmpty" t-on-change="() => this.toggleHideEmpty()"/>
+                                <label class="form-check-label" for="o_dg_hide_empty">Hide free doctors</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Legend -->
+                    <div t-if="this.colorSelection" class="o_dg_legend d-flex flex-wrap align-items-center gap-3 px-3 py-1 border-bottom small text-muted">
+                        <t t-foreach="this.colorSelection" t-as="option" t-key="option[0]">
+                            <span class="d-inline-flex align-items-center gap-1">
+                                <span t-attf-class="o_dg_swatch o_dg_color_{{ option[0] }}"/>
+                                <t t-out="option[1]"/>
+                            </span>
+                        </t>
+                        <span class="d-inline-flex align-items-center gap-1">
+                            <i class="oi text-danger" data-icon="emergency"/> Emergency
+                        </span>
+                        <span class="d-inline-flex align-items-center gap-1">
+                            <i class="oi text-warning" data-icon="warning"/> Conflict
+                        </span>
+                    </div>
+
+                    <!-- Board -->
+                    <div class="o_dg_board flex-grow-1 overflow-auto">
+                        <div t-attf-class="o_dg_grid o_dg_scale_{{ this.state.scale }}">
+                            <!-- Header -->
+                            <div class="o_dg_row o_dg_header_row">
+                                <div class="o_dg_resource o_dg_header_cell fw-bold">
+                                    <t t-if="this.state.onlyMine">Doctor</t>
+                                    <t t-else="">Doctors (<t t-out="rows.length"/>)</t>
+                                </div>
+                                <div class="o_dg_track o_dg_header_track">
+                                    <t t-foreach="columns" t-as="column" t-key="column.key">
+                                        <div t-attf-class="o_dg_header_cell o_dg_column text-center {{ column.isToday ? 'o_dg_today' : '' }} {{ column.isWeekend ? 'o_dg_weekend' : '' }} {{ column.date ? 'cursor-pointer' : '' }}"
+                                             t-att-title="column.date ? 'Open this day' : ''"
+                                             t-on-click="() => this.openDay(column)">
+                                            <div class="fw-bold" t-out="column.label"/>
+                                            <div t-if="column.sublabel" class="small text-muted" t-out="column.sublabel"/>
+                                        </div>
+                                    </t>
+                                </div>
+                            </div>
+
+                            <!-- One row per doctor -->
+                            <t t-foreach="rows" t-as="row" t-key="row.id">
+                                <div class="o_dg_row"
+                                     t-att-data-row-id="row.id"
+                                     t-att-class="{ 'o_dg_drop_target': this.state.drag and this.state.drag.rowId === row.id }">
+                                    <div class="o_dg_resource d-flex align-items-center gap-2">
+                                        <span class="o_dg_avatar rounded-circle d-inline-flex align-items-center justify-content-center flex-shrink-0">
+                                            <i class="oi" data-icon="person"/>
+                                        </span>
+                                        <div class="text-truncate">
+                                            <div class="text-truncate fw-semibold" t-out="row.name" t-att-title="row.name"/>
+                                            <div class="small text-muted">
+                                                <t t-out="row.items.length"/> appt.
+                                                <t t-if="row.hoursLabel"> · <t t-out="row.hoursLabel"/></t>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="o_dg_track" t-att-style="'height: ' + row.height + 'px'"
+                                         t-att-class="{ 'o_dg_can_create': this.canCreate }"
+                                         t-on-click="(ev) => this.onTrackClick(ev, row)">
+                                        <!-- background grid -->
+                                        <div class="o_dg_bg d-flex">
+                                            <t t-foreach="columns" t-as="column" t-key="column.key">
+                                                <div t-attf-class="o_dg_column {{ column.isToday ? 'o_dg_today' : '' }} {{ column.isWeekend ? 'o_dg_weekend' : '' }}"/>
+                                            </t>
+                                        </div>
+                                        <div t-if="nowPosition !== null" class="o_dg_now" t-att-style="'left: ' + nowPosition + '%'"/>
+                                        <!-- appointments -->
+                                        <t t-foreach="row.items" t-as="item" t-key="item.id">
+                                            <t t-set="dragging" t-value="this.state.drag and this.state.drag.id === item.id"/>
+                                            <div t-attf-class="o_dg_bar o_dg_color_{{ item.colorValue or 'none' }} {{ item.draggable ? 'o_dg_draggable' : '' }} {{ dragging ? 'o_dg_dragging' : '' }}"
+                                                 t-att-style="'left: ' + item.left + '%; width: calc(' + item.width + '% - 4px); top: ' + item.top + 'px;' + (dragging ? ' transform: translate(' + this.state.drag.dx + 'px, ' + this.state.drag.dy + 'px);' : '')"
+                                                 t-att-title="item.tooltip"
+                                                 t-on-pointerdown="(ev) => this.onBarPointerDown(ev, item, row)">
+                                                <i t-if="item.isEmergency" class="oi me-1" data-icon="emergency" title="Emergency"/>
+                                                <i t-if="item.hasWarning" class="oi me-1" data-icon="warning" title="Conflict"/>
+                                                <span class="o_dg_bar_time me-1" t-out="item.timeLabel"/>
+                                                <span class="o_dg_bar_label" t-out="item.label"/>
+                                                <span t-if="dragging" class="o_dg_drag_hint badge text-bg-dark" t-out="this.state.drag.label"/>
+                                            </div>
+                                        </t>
+                                    </div>
+                                </div>
+                            </t>
+
+                            <div t-if="!rows.length" class="o_dg_empty text-center text-muted py-5">
+                                <i class="oi fs-1 mb-2 d-block" data-icon="event_busy"/>
+                                No appointments in this period.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </Layout>
+        </div>
+    </t>
+
+</templates>

@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- "Educate Patient" + education history on dental screens -->
+
+    <record id="view_partner_form_dental_education" model="ir.ui.view">
+        <field name="name">res.partner.form.dental.education</field>
+        <field name="model">res.partner</field>
+        <field name="inherit_id" ref="base.view_partner_form"/>
+        <field name="priority">95</field>
+        <field name="arch" type="xml">
+            <div name="button_box" position="inside">
+                <button name="action_dental_education_sessions" type="object" class="oe_stat_button" icon="fa-graduation-cap"
+                        invisible="not is_dental_patient" groups="base.group_user">
+                    <field name="dental_education_count" widget="statinfo" string="Education"/>
+                </button>
+            </div>
+        </field>
+    </record>
+
+    <record id="view_dental_clinical_examination_form_dental_education" model="ir.ui.view">
+        <field name="name">dental.clinical.examination.form.dental.education</field>
+        <field name="model">dental.clinical.examination</field>
+        <field name="inherit_id" ref="dental_core.view_dental_clinical_examination_form"/>
+        <field name="priority">95</field>
+        <field name="arch" type="xml">
+            <xpath expr="//div[@name='button_box']" position="inside">
+                <button name="action_dental_educate_patient" type="object" class="oe_stat_button" icon="fa-play-circle"
+                        string="Educate Patient"/>
+                <button name="action_dental_education_sessions" type="object" class="oe_stat_button" icon="fa-graduation-cap">
+                    <field name="dental_education_count" widget="statinfo" string="Education"/>
+                </button>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_dental_case_form_dental_education" model="ir.ui.view">
+        <field name="name">dental.case.form.dental.education</field>
+        <field name="model">dental.case</field>
+        <field name="inherit_id" ref="dental_core.view_dental_case_form"/>
+        <field name="priority">95</field>
+        <field name="arch" type="xml">
+            <!-- Smart button once sessions exist; starting one is in the Actions menu -->
+            <xpath expr="//div[@name='button_box']" position="inside">
+                <button name="action_dental_education_sessions" type="object" class="oe_stat_button" icon="fa-graduation-cap"
+                        invisible="not dental_education_count">
+                    <field name="dental_education_count" widget="statinfo" string="Education"/>
+                </button>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- Actions (cog) menu of the case form: clinical tools (sequence 20-29) -->
+    <record id="action_server_dental_case_educate_patient" model="ir.actions.server">
+        <field name="name">Educate Patient</field>
+        <field name="model_id" ref="dental_core.model_dental_case"/>
+        <field name="binding_model_id" ref="dental_core.model_dental_case"/>
+        <field name="binding_view_types">form</field>
+        <field name="sequence">21</field>
+        <field name="group_ids" eval="[Command.set([ref('base.group_user')])]"/>
+        <field name="state">code</field>
+        <field name="code">action = record.action_dental_educate_patient()</field>
+    </record>
+
+    <record id="view_dental_treatment_plan_form_dental_education" model="ir.ui.view">
+        <field name="name">dental.treatment.plan.form.dental.education</field>
+        <field name="model">dental.treatment.plan</field>
+        <field name="inherit_id" ref="dental_core.view_dental_treatment_plan_form"/>
+        <field name="priority">95</field>
+        <field name="arch" type="xml">
+            <xpath expr="//div[@name='button_box']" position="inside">
+                <button name="action_dental_education_sessions" type="object" class="oe_stat_button" icon="fa-graduation-cap">
+                    <field name="dental_education_count" widget="statinfo" string="Education"/>
+                </button>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_dental_treatment_session_form_dental_education" model="ir.ui.view">
+        <field name="name">dental.treatment.session.form.dental.education</field>
+        <field name="model">dental.treatment.session</field>
+        <field name="inherit_id" ref="dental_core.view_dental_treatment_session_form"/>
+        <field name="priority">95</field>
+        <field name="arch" type="xml">
+            <xpath expr="//div[@name='button_box']" position="inside">
+                <button name="action_dental_educate_patient" type="object" class="oe_stat_button" icon="fa-medkit"
+                        string="Post-Care Videos"/>
+                <button name="action_dental_education_sessions" type="object" class="oe_stat_button" icon="fa-graduation-cap">
+                    <field name="dental_education_count" widget="statinfo" string="Education"/>
+                </button>
+            </xpath>
+        </field>
+    </record>
+</odoo>

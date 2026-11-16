@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="res_config_settings_view_form_nhcx" model="ir.ui.view">
+        <field name="name">res.config.settings.view.form.inherit.nhcx</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="abdm_base.res_config_settings_view_form_abdm"/>
+        <field name="arch" type="xml">
+            <xpath expr="//block[@name='abdm_advanced']" position="before">
+                <block title="NHCX: insurance eligibility &amp; claims" name="nhcx">
+                    <setting id="nhcx_connection_setting" string="NHCX Connection"
+                             help="API address from the NHCX onboarding kit (sandbox or production, matching the ABDM environment).">
+                        <div class="content-group">
+                            <div class="row mt-2">
+                                <label for="nhcx_api_url" class="col-lg-4 o_light_label"/>
+                                <field name="nhcx_api_url" class="col-lg-8" placeholder="https://..."/>
+                            </div>
+                            <div class="row">
+                                <label for="nhcx_auth_mode" class="col-lg-4 o_light_label"/>
+                                <field name="nhcx_auth_mode" class="col-lg-8"/>
+                            </div>
+                            <div invisible="nhcx_auth_mode != 'token'">
+                                <div class="row">
+                                    <label for="nhcx_token_url" class="col-lg-4 o_light_label"/>
+                                    <field name="nhcx_token_url" class="col-lg-8"/>
+                                </div>
+                                <div class="row">
+                                    <label for="nhcx_username" class="col-lg-4 o_light_label"/>
+                                    <field name="nhcx_username" class="col-lg-8"/>
+                                </div>
+                                <div class="row">
+                                    <label for="nhcx_secret" class="col-lg-4 o_light_label"/>
+                                    <field name="nhcx_secret" password="True" class="col-lg-8"/>
+                                </div>
+                            </div>
+                            <button name="action_nhcx_test_connection" type="object"
+                                    string="Test NHCX Login" icon="check_circle" class="btn-link mt-2"/>
+                        </div>
+                    </setting>
+                    <setting id="nhcx_participant_setting" string="This facility on NHCX"
+                             help="Participant code given at onboarding, the endpoint payers answer on and the encryption certificate to register.">
+                        <div class="content-group">
+                            <div class="row mt-2">
+                                <label for="nhcx_participant_code" class="col-lg-4 o_light_label"/>
+                                <field name="nhcx_participant_code" class="col-lg-8" placeholder="Usually your HFR ID"/>
+                            </div>
+                            <div class="row">
+                                <label for="nhcx_endpoint_url" class="col-lg-4 o_light_label"/>
+                                <field name="nhcx_endpoint_url" class="col-lg-8" widget="CopyClipboardChar"
+                                       invisible="not nhcx_endpoint_url"/>
+                                <span class="col-lg-8 text-muted" invisible="nhcx_endpoint_url">
+                                    Enter the Public Callback URL (Step 2) first.
+                                </span>
+                            </div>
+                            <div class="row" invisible="not nhcx_certificate">
+                                <label for="nhcx_certificate_expiry" class="col-lg-4 o_light_label"/>
+                                <field name="nhcx_certificate_expiry" class="col-lg-8"/>
+                            </div>
+                            <div invisible="not nhcx_certificate" class="mt-2">
+                                <label for="nhcx_certificate" class="o_light_label"/>
+                                <field name="nhcx_certificate" class="font-monospace small"/>
+                            </div>
+                            <button name="action_nhcx_generate_keys" type="object" invisible="nhcx_has_keys"
+                                    string="Generate Encryption Keys" icon="key" class="btn-link mt-2"/>
+                            <button name="action_nhcx_generate_keys" type="object" invisible="not nhcx_has_keys"
+                                    context="{'nhcx_overwrite': True}"
+                                    confirm="New keys replace the current ones: the certificate registered with NHCX must then be replaced too, or payers' answers cannot be read. Continue?"
+                                    string="Replace Encryption Keys" icon="key" class="btn-link mt-2"/>
+                        </div>
+                    </setting>
+                    <setting id="nhcx_payers_setting" string="Insurers &amp; TPAs"
+                             help="Create the insurance companies and TPAs registered on NHCX, with their codes and certificates.">
+                        <button name="action_nhcx_sync_payers" type="object"
+                                string="Sync Payers from NHCX" icon="cloud_download" class="btn-link"/>
+                    </setting>
+                </block>
+            </xpath>
+        </field>
+    </record>
+</odoo>

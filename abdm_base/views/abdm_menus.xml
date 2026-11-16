@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <menuitem id="menu_abdm_root" name="ABDM" sequence="95"
+              web_icon="abdm_base,static/description/icon.png"
+              groups="abdm_base.group_abdm_user"/>
+
+    <menuitem id="menu_abdm_transaction" name="Transactions" parent="menu_abdm_root"
+              action="action_abdm_transaction" sequence="10"/>
+
+    <menuitem id="menu_abdm_config" name="Configuration" parent="menu_abdm_root"
+              sequence="90" groups="abdm_base.group_abdm_manager"/>
+    <menuitem id="menu_abdm_settings" name="Settings" parent="menu_abdm_config"
+              action="action_abdm_config_settings" sequence="10" groups="base.group_system"/>
+    <menuitem id="menu_abdm_api_log" name="API Log" parent="menu_abdm_config"
+              action="action_abdm_api_log" sequence="20"/>
+</odoo>

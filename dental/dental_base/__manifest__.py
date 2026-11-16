@@ -1,6 +1,6 @@
 {
     'name': 'Dental Clinic Management - Base',
-    'version': '20.0.1.0.0',
+    'version': '20.0.1.1.0',
     'category': 'Dental Clinic',
     'summary': 'Common foundation, branch management, security roles, and settings for Dental Clinic Suite',
     'description': """
@@ -36,11 +36,14 @@ Key Features:
     ],
     'data': [
         'security/dental_security.xml',
+        'security/ir.access.csv',
 
         'views/res_company_views.xml',
         'views/hr_employee_views.xml',
         'views/res_config_settings_views.xml',
+        'views/dental_clinic_configuration_views.xml',
         'views/dental_menus.xml',
+        'data/dental_clinic_hours_data.xml',
     ],
     'assets': {
         'web.assets_backend': [

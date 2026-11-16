@@ -29,8 +29,9 @@
                     </div>
                     <group>
                         <group>
-                            <field name="visibility"/>
-                            <field name="parent_id"/>
+                            <field name="visibility" readonly="1"/>
+                            <field name="internal_permission" readonly="1" invisible="visibility != 'workspace'"/>
+                            <field name="parent_id" readonly="1"/>
                             <field name="is_locked"/>
                             <field name="full_width"/>
                         </group>
@@ -45,8 +46,8 @@
                             <field name="body_html" widget="html" nolabel="1"/>
                         </page>
                         <!-- Members page only useful when article is shared -->
-                        <page string="Members" invisible="visibility != 'shared'">
-                            <field name="member_ids" nolabel="1">
+                        <page string="Members">
+                            <field name="member_ids" nolabel="1" readonly="1">
                                 <list editable="bottom">
                                     <field name="partner_id"/>
                                     <field name="permission"/>
@@ -149,6 +150,38 @@
     <!-- ─────────────────────────────────────────────────────────────
          Window Action — Article list (used by Articles navbar tab)
     ───────────────────────────────────────────────────────────────── -->
+    <!-- ─────────────────────────────────────────────────────────────
+         Trash: clicking a row opens the article in the Knowledge app
+         (content + deletion date + Restore), not the form view.
+    ───────────────────────────────────────────────────────────────── -->
+    <record id="view_knowledge_article_trash_list" model="ir.ui.view">
+        <field name="name">knowledge.management.article.trash.list</field>
+        <field name="model">knowledge.management.article</field>
+        <field name="priority">100</field>
+        <field name="arch" type="xml">
+            <list string="Trash" create="false" action="action_open_in_knowledge" type="object">
+                <field name="icon" string=""/>
+                <field name="name" string="Title"/>
+                <field name="parent_id" string="Parent" optional="show"/>
+                <field name="write_uid" string="Deleted By"/>
+                <field name="write_date" string="Deleted On" widget="datetime"/>
+                <field name="to_delete_date" string="Deletion Date"/>
+                <button name="action_restore_from_trash" type="object"
+                        string="Restore" icon="fa-undo" class="btn-link"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="action_knowledge_trash" model="ir.actions.act_window">
+        <field name="name">Trash</field>
+        <field name="res_model">knowledge.management.article</field>
+        <field name="view_mode">list</field>
+        <field name="view_id" ref="view_knowledge_article_trash_list"/>
+        <field name="search_view_id" ref="view_knowledge_article_search"/>
+        <field name="domain">[('active', '=', False), ('is_article_item', '=', False)]</field>
+        <field name="context">{'active_test': False}</field>
+    </record>
+
     <record id="action_knowledge_article_list" model="ir.actions.act_window">
         <field name="name">Articles</field>
         <field name="res_model">knowledge.management.article</field>

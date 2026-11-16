@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="insurance_plan_view_list" model="ir.ui.view">
+        <field name="name">insurance.plan.list</field>
+        <field name="model">insurance.plan</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="name"/>
+                <field name="code" optional="hide"/>
+                <field name="insurer_id"/>
+                <field name="tpa_id" optional="show"/>
+                <field name="annual_limit" optional="show"/>
+                <field name="currency_id" column_invisible="True"/>
+                <field name="company_id" groups="base.group_multi_company" optional="hide"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="insurance_plan_view_form" model="ir.ui.view">
+        <field name="name">insurance.plan.form</field>
+        <field name="model">insurance.plan</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_view_policies" type="object" class="oe_stat_button" icon="badge">
+                            <field name="policy_count" widget="statinfo" string="Policies"/>
+                        </button>
+                    </div>
+                    <widget name="web_ribbon" title="Archived" bg_color="text-bg-danger" invisible="active"/>
+                    <div class="oe_title">
+                        <label for="name"/>
+                        <h1><field name="name" placeholder="e.g. Family Health Gold"/></h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="insurer_id" context="{'default_is_company': True, 'default_insurance_partner_type': 'insurer'}"/>
+                            <field name="tpa_id" context="{'default_is_company': True, 'default_insurance_partner_type': 'tpa'}"/>
+                            <field name="code"/>
+                        </group>
+                        <group>
+                            <field name="annual_limit"/>
+                            <field name="currency_id" groups="base.group_multi_currency"/>
+                            <field name="company_id" groups="base.group_multi_company"/>
+                            <field name="active" invisible="1"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Coverage Rules" name="coverage">
+                            <field name="coverage_line_ids">
+                                <list editable="bottom">
+                                    <field name="sequence" widget="handle"/>
+                                    <field name="applies_to"/>
+                                    <field name="product_tmpl_id" readonly="applies_to != 'product'"
+                                           required="applies_to == 'product'"/>
+                                    <field name="product_categ_id" readonly="applies_to != 'product_category'"
+                                           required="applies_to == 'product_category'"/>
+                                    <field name="covered"/>
+                                    <field name="coverage_percent" readonly="not covered"/>
+                                    <field name="max_amount" readonly="not covered"/>
+                                    <field name="requires_preauth" readonly="not covered"/>
+                                    <field name="note" optional="hide"/>
+                                    <field name="currency_id" column_invisible="True"/>
+                                </list>
+                            </field>
+                            <div class="text-muted small">
+                                The most specific rule wins: a rule for the exact service beats a
+                                category rule, which beats "Everything Else".
+                            </div>
+                        </page>
+                        <page string="Notes" name="notes">
+                            <field name="note" placeholder="Waiting periods, exclusions, claim address..."/>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="insurance_plan_view_search" model="ir.ui.view">
+        <field name="name">insurance.plan.search</field>
+        <field name="model">insurance.plan</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name"/>
+                <field name="insurer_id"/>
+                <field name="tpa_id"/>
+                <filter string="Archived" name="inactive" domain="[('active', '=', False)]"/>
+                <group>
+                    <filter string="Insurance Company" name="group_insurer" context="{'group_by': 'insurer_id'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_insurance_plan" model="ir.actions.act_window">
+        <field name="name">Insurance Plans</field>
+        <field name="res_model">insurance.plan</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Create an insurance plan</p>
+            <p>A plan says what an insurer pays: coverage % per service or category, limits and pre-authorization.</p>
+        </field>
+    </record>
+</odoo>

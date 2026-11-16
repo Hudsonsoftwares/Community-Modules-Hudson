@@ -11,7 +11,29 @@
         <field name="context">{}</field>
     </record>
 
-    <!-- Field service jobs on a map, at their customer's location -->
+    <!-- Maps > By Resource: the published jobs of the technicians on the
+         Planning map view (like Online): one colour and one route per
+         technician, Mapbox routes with Settings > Mapbox. -->
+    <record id="action_fs_map_by_resource" model="ir.actions.act_window">
+        <field name="name">Maps</field>
+        <field name="res_model">fs.planning.slot</field>
+        <field name="view_mode">fs_map,fs_schedule,calendar,list,form</field>
+        <field name="view_id" ref="hudson_planning.fs_planning_slot_view_map"/>
+        <field name="search_view_id" ref="hudson_planning.fs_planning_slot_view_search"/>
+        <field name="context">{
+            'search_default_group_resource': 1,
+            'search_default_field_service_jobs': 1,
+            'search_default_published': 1,
+            'search_default_upcoming': 1,
+        }</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">No published field service jobs to come.</p>
+            <p>Assign the jobs to technicians and publish them from the schedule to see them here.</p>
+        </field>
+    </record>
+
+    <!-- Field service jobs on a map, at their customer's location (former
+         Maps > By Resource, kept for existing links) -->
     <record id="action_fs_job_map_by_resource" model="ir.actions.client">
         <field name="name">Map by Resource</field>
         <field name="tag">hudson_field_service.fs_job_map</field>

@@ -4,14 +4,15 @@
         <field name="name">dental.follow_up.tree</field>
         <field name="model">dental.follow.up</field>
         <field name="arch" type="xml">
-            <list decoration-info="state == 'pending'" decoration-success="state == 'done'" decoration-danger="state == 'cancelled'">
+            <list decoration-info="state == 'pending'" decoration-primary="state == 'booked'" decoration-success="state == 'done'" decoration-danger="state == 'cancelled'">
                 <field name="patient_id"/>
                 <field name="doctor_id"/>
                 <field name="treatment_id"/>
                 <field name="date" string="Follow-up Date"/>
                 <field name="reason"/>
-                <field name="state" widget="badge" decoration-warning="state == 'pending'" decoration-success="state == 'done'" decoration-muted="state == 'cancelled'"/>
-                <button name="action_done" string="Mark Done" type="object" class="btn btn-outline-success btn-sm" icon="fa-check" invisible="state != 'pending'"/>
+                <field name="booked_appointment_id" optional="show"/>
+                <field name="state" widget="badge" decoration-warning="state == 'pending'" decoration-info="state == 'booked'" decoration-success="state == 'done'" decoration-muted="state == 'cancelled'"/>
+                <button name="action_done" string="Mark Done" type="object" class="btn btn-outline-success btn-sm" icon="fa-check" invisible="state not in ('pending', 'booked')"/>
             </list>
         </field>
     </record>
@@ -30,6 +31,7 @@
                 <filter string="Today's Due" name="filter_today" domain="[('date', '=', context_today().strftime('%Y-%m-%d'))]"/>
                 <filter string="Overdue" name="filter_overdue" domain="[('date', '&lt;', context_today().strftime('%Y-%m-%d')), ('state', '=', 'pending')]"/>
                 <separator/>
+                <filter string="Booked" name="filter_booked" domain="[('state', '=', 'booked')]"/>
                 <filter string="Completed" name="filter_done" domain="[('state', '=', 'done')]"/>
                 
                 <group>
@@ -47,9 +49,10 @@
         <field name="arch" type="xml">
             <form>
                 <header>
-                    <button name="action_done" string="Mark Done" type="object" class="btn-success" invisible="state != 'pending'"/>
+                    <button name="action_done" string="Mark Done" type="object" class="btn-success" invisible="state not in ('pending', 'booked')"/>
                     <button name="action_cancel" string="Cancel" type="object" invisible="state in ('done', 'cancelled')"/>
-                    <field name="state" widget="statusbar" statusbar_visible="pending,done"/>
+                    <button name="action_reset_to_pending" string="Reset to Pending" type="object" invisible="state != 'cancelled'"/>
+                    <field name="state" widget="statusbar" statusbar_visible="pending,booked,done"/>
                 </header>
                 <sheet>
                     <div class="oe_title">
@@ -80,7 +83,7 @@
     <record id="action_dental_follow_up" model="ir.actions.act_window">
         <field name="name">Follow-ups</field>
         <field name="res_model">dental.follow.up</field>
-        <field name="view_mode">list,form</field>
+        <field name="view_mode">kanban,list,form</field>
         <field name="context">{'search_default_filter_pending': 1}</field>
     </record>
 </odoo>

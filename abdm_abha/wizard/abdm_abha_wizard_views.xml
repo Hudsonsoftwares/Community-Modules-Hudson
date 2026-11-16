@@ -1,0 +1,174 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="abdm_abha_wizard_view_form" model="ir.ui.view">
+        <field name="name">abdm.abha.wizard.form</field>
+        <field name="model">abdm.abha.wizard</field>
+        <field name="arch" type="xml">
+            <form string="ABHA">
+                <field name="mode" invisible="1"/>
+                <field name="step" invisible="1"/>
+                <field name="txn_id" invisible="1"/>
+                <field name="is_new" invisible="1"/>
+                <field name="existing_partner_id" invisible="1"/>
+
+                <div class="alert alert-warning py-2" role="status" invisible="environment != 'sandbox'">
+                    <strong>Sandbox:</strong> use test ABHA accounts only. Nothing here is a real health record.
+                    <field name="environment" invisible="1"/>
+                </div>
+                <div invisible="not partner_id" class="mb-2">
+                    Patient: <field name="partner_id" class="fw-bold" options="{'no_open': True}"/>
+                </div>
+
+                <!-- ===== Step 0: choose a path ===== -->
+                <div invisible="mode != 'start'">
+                    <h4>Does the patient already have an ABHA?</h4>
+                    <div class="d-flex flex-column gap-2 mt-3">
+                        <button name="action_choose_verify" type="object" class="btn btn-primary text-start py-3"
+                                icon="badge" string="Yes, the patient knows the ABHA number"/>
+                        <button name="action_choose_search" type="object" class="btn btn-secondary text-start py-3"
+                                icon="phone" string="Yes, but only remembers the mobile number"/>
+                        <button name="action_choose_create" type="object" class="btn btn-secondary text-start py-3"
+                                icon="person_add" string="No, create a new ABHA with Aadhaar"/>
+                    </div>
+                </div>
+
+                <!-- ===== Verify by ABHA number ===== -->
+                <group invisible="mode != 'verify_number' or step != 'input'">
+                    <field name="abha_number" placeholder="91-1234-5678-9012"/>
+                    <field name="auth_method" widget="radio"/>
+                </group>
+
+                <!-- ===== Find by mobile ===== -->
+                <group invisible="mode != 'search_mobile' or step != 'input'">
+                    <field name="mobile" placeholder="10-digit mobile" string="Mobile linked to ABHA"/>
+                </group>
+                <div invisible="step != 'select'">
+                    <p>ABHA accounts registered with this mobile. Select the patient:</p>
+                    <field name="account_id" widget="radio" nolabel="1"/>
+                    <group>
+                        <field name="auth_method" widget="radio"/>
+                    </group>
+                </div>
+
+                <!-- ===== Create with Aadhaar ===== -->
+                <div invisible="mode != 'create_aadhaar' or step != 'input'">
+                    <group>
+                        <field name="aadhaar" placeholder="12-digit Aadhaar number" password="True"/>
+                    </group>
+                    <div class="border rounded p-3 small" style="max-height: 220px; overflow-y: auto;">
+                        <field name="consent_text" nolabel="1"/>
+                    </div>
+                    <div class="mt-2">
+                        <field name="consent_given"/>
+                        <label for="consent_given"/>
+                    </div>
+                </div>
+
+                <!-- ===== OTP (login or Aadhaar) ===== -->
+                <div invisible="step not in ('otp', 'mobile_otp')">
+                    <div class="alert alert-info py-2" role="status" invisible="not otp_message">
+                        <field name="otp_message" nolabel="1"/>
+                    </div>
+                    <p invisible="step != 'mobile_otp'">
+                        This mobile is not the one linked to Aadhaar. Enter the OTP sent to it to use it
+                        for ABHA messages, or skip.
+                    </p>
+                    <group>
+                        <field name="aadhaar_masked" string="Aadhaar" invisible="mode != 'create_aadhaar' or step != 'otp'"/>
+                        <field name="otp" placeholder="6-digit OTP" password="True"/>
+                        <field name="mobile" placeholder="10-digit mobile"
+                               string="Mobile for ABHA messages"
+                               invisible="mode != 'create_aadhaar'" readonly="step == 'mobile_otp'"/>
+                    </group>
+                </div>
+
+                <!-- ===== ABHA address ===== -->
+                <div invisible="step != 'address'">
+                    <p>Choose the patient's ABHA address (like an e-mail ID for health records).</p>
+                    <field name="address_id" widget="radio" nolabel="1" invisible="not address_ids"/>
+                    <field name="address_ids" invisible="1"/>
+                    <group>
+                        <field name="custom_address" placeholder="e.g. ravi.kumar1990"/>
+                    </group>
+                </div>
+
+                <!-- ===== Review ===== -->
+                <div invisible="step != 'done'">
+                    <div class="alert alert-success py-2" role="status" invisible="not is_new">
+                        New ABHA created.
+                    </div>
+                    <div class="alert alert-info py-2" role="status"
+                         invisible="mode != 'create_aadhaar' or is_new">
+                        This Aadhaar already had an ABHA. Its details were retrieved.
+                    </div>
+                    <div class="alert alert-warning py-2" role="alert" invisible="not existing_partner_id">
+                        This ABHA is already linked to
+                        <field name="existing_partner_id" readonly="1" class="fw-bold"/>.
+                        <span invisible="partner_id">Saving will update that patient.</span>
+                        <span invisible="not partner_id">Open that patient instead, or unlink it there first.</span>
+                    </div>
+                    <div class="d-flex gap-3">
+                        <field name="profile_photo" widget="image" class="flex-shrink-0"
+                               options="{'size': [96, 96]}" invisible="not profile_photo"/>
+                        <group class="flex-grow-1">
+                            <field name="profile_name"/>
+                            <field name="profile_abha_number"/>
+                            <field name="profile_abha_address"/>
+                            <field name="profile_gender"/>
+                            <field name="profile_dob"/>
+                            <field name="profile_mobile"/>
+                            <field name="profile_kyc"/>
+                        </group>
+                    </div>
+                    <group invisible="not partner_id and not existing_partner_id">
+                        <field name="update_details"/>
+                    </group>
+                </div>
+
+                <footer>
+                    <button name="action_send_login_otp" type="object" class="btn-primary" string="Send OTP"
+                            invisible="mode not in ('verify_number', 'search_mobile') or step not in ('input', 'select') or (mode == 'search_mobile' and step == 'input')"/>
+                    <button name="action_search_mobile" type="object" class="btn-primary" string="Search"
+                            invisible="mode != 'search_mobile' or step != 'input'"/>
+                    <button name="action_verify_login_otp" type="object" class="btn-primary" string="Verify OTP"
+                            invisible="mode not in ('verify_number', 'search_mobile') or step != 'otp'"/>
+                    <button name="action_resend_otp" type="object" class="btn-secondary" string="Resend OTP"
+                            invisible="mode not in ('verify_number', 'search_mobile') or step != 'otp'"/>
+
+                    <button name="action_enrol_send_otp" type="object" class="btn-primary" string="Send Aadhaar OTP"
+                            invisible="mode != 'create_aadhaar' or step != 'input'"/>
+                    <button name="action_enrol_verify_otp" type="object" class="btn-primary" string="Create ABHA"
+                            invisible="mode != 'create_aadhaar' or step != 'otp'"/>
+                    <button name="action_enrol_verify_mobile" type="object" class="btn-primary" string="Verify Mobile"
+                            invisible="step != 'mobile_otp'"/>
+                    <button name="action_resend_mobile_otp" type="object" class="btn-secondary" string="Resend OTP"
+                            invisible="step != 'mobile_otp'"/>
+                    <button name="action_skip_mobile" type="object" class="btn-secondary" string="Skip"
+                            invisible="step != 'mobile_otp'"/>
+                    <button name="action_set_address" type="object" class="btn-primary" string="Save ABHA Address"
+                            invisible="step != 'address'"/>
+                    <button name="action_skip_address" type="object" class="btn-secondary" string="Skip"
+                            invisible="step != 'address'"/>
+
+                    <button name="action_link_partner" type="object" class="btn-primary"
+                            string="Save to Patient" invisible="step != 'done' or not partner_id"/>
+                    <button name="action_link_partner" type="object" class="btn-primary"
+                            string="Open Patient" invisible="step != 'done' or partner_id or not existing_partner_id"/>
+                    <button name="action_link_partner" type="object" class="btn-primary"
+                            string="Create Patient" invisible="step != 'done' or partner_id or existing_partner_id"/>
+
+                    <button name="action_back" type="object" class="btn-secondary" string="Start Over"
+                            invisible="mode == 'start' or step == 'done'"/>
+                    <button special="cancel" class="btn-secondary" string="Close"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_abdm_abha_wizard" model="ir.actions.act_window">
+        <field name="name">ABHA Registration</field>
+        <field name="res_model">abdm.abha.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+</odoo>

@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+# pyrefly: ignore [missing-import]
 from odoo.tests.common import TransactionCase
 
 
@@ -23,13 +24,21 @@ class TestEmployerCost(TransactionCase):
 
         self.structure = self.env.ref('hudson_payroll_base.structure_base')
 
-        self.contract = self.Contract.create({
-            'name': 'Test Contract CTC',
-            'employee_id': self.employee.id,
-            'wage': 15000.0,
-            'struct_id': self.structure.id,
-        })
-        self.employee.contract_id = self.contract.id
+        if hasattr(self.employee, 'version_id') and self.employee.version_id:
+            self.contract = self.employee.version_id
+            self.contract.write({
+                'name': 'Test Contract CTC',
+                'wage': 15000.0,
+                'struct_id': self.structure.id,
+            })
+        else:
+            self.contract = self.Contract.create({
+                'name': 'Test Contract CTC',
+                'employee_id': self.employee.id,
+                'wage': 15000.0,
+                'struct_id': self.structure.id,
+            })
+            self.employee.contract_id = self.contract.id
 
     def test_01_salary_rule_ctc_flag(self):
         """Verify salary rules have hds_in_contributes_to_employer_cost flag set correctly."""
@@ -60,13 +69,86 @@ class TestEmployerCost(TransactionCase):
             'struct_id': self.structure.id,
         })
 
-        new_contract = self.Contract.create({
-            'name': 'Contract - New Employee',
-            'employee_id': self.employee.id,
-            'contract_template_id': tmpl.id,
+        new_emp = self.Employee.create({
+            'name': 'New Employee CTC',
         })
+        if hasattr(new_emp, 'version_id') and new_emp.version_id:
+            new_contract = new_emp.version_id
+            new_contract.write({
+                'contract_template_id': tmpl.id,
+            })
+        else:
+            new_contract = self.Contract.create({
+                'name': 'Contract - New Employee',
+                'employee_id': new_emp.id,
+                'contract_template_id': tmpl.id,
+            })
         new_contract._onchange_contract_template_id()
 
         self.assertGreater(new_contract.hds_in_employer_cost_monthly, 20000.0)
-        self.assertEqual(self.employee.hds_in_employer_cost_monthly, new_contract.hds_in_employer_cost_monthly)
-        self.assertEqual(self.employee.hds_in_employer_cost_annual, new_contract.hds_in_employer_cost_annual)
+        self.assertEqual(new_emp.hds_in_employer_cost_monthly, new_contract.hds_in_employer_cost_monthly)
+        self.assertEqual(new_emp.hds_in_employer_cost_annual, new_contract.hds_in_employer_cost_annual)
+
+    def test_04_benefit_employer_cost_computation(self):
+        """Verify monthly and yearly employer benefit cost calculation from benefit fields."""
+        self.contract.write({
+            'benefit_phone': 300.0,
+            'benefit_internet': 400.0,
+            'benefit_meal_vouchers': 100.0,
+            'benefit_transport': 400.0,
+        })
+        self.assertEqual(self.contract.benefit_employer_cost_monthly, 1200.0)
+        self.assertEqual(self.contract.benefit_employer_cost_yearly, 14400.0)
+        if hasattr(self.employee, 'benefit_employer_cost_monthly'):
+            # When employee delegates to version_id
+            if hasattr(self.employee, 'version_id') and self.employee.version_id:
+                self.employee.version_id.write({
+                    'benefit_phone': 300.0,
+                    'benefit_internet': 400.0,
+                    'benefit_meal_vouchers': 100.0,
+                    'benefit_transport': 400.0,
+                })
+            self.assertEqual(self.employee.benefit_employer_cost_monthly, 1200.0)
+            self.assertEqual(self.employee.benefit_employer_cost_yearly, 14400.0)
+
+    def test_05_medical_insurance_benefit_computation(self):
+        """Verify dynamic medical insurance benefit calculation, dependent multiplier, and employer cost inclusion."""
+        # 1. Base Employee Only (400 / person)
+        self.contract.write({
+            'benefit_phone': 300.0,
+            'benefit_internet': 400.0,
+            'benefit_meal_vouchers': 100.0,
+            'benefit_transport': 400.0,
+            'benefit_medical_insurance_per_person': 400.0,
+            'benefit_insured_spouse': False,
+            'benefit_insured_first_child': False,
+            'benefit_insured_second_child': False,
+        })
+        self.assertEqual(self.contract.benefit_medical_insurance_amount, 400.0)
+        self.assertEqual(self.contract.benefit_employer_cost_monthly, 1600.0)  # 1200 + 400
+        self.assertEqual(self.contract.benefit_employer_cost_yearly, 19200.0)
+
+        # 2. Add Insured Spouse (1 + 1 = 2 persons * 400 = 800)
+        self.contract.write({'benefit_insured_spouse': True})
+        self.assertEqual(self.contract.benefit_medical_insurance_amount, 800.0)
+        self.assertEqual(self.contract.benefit_employer_cost_monthly, 2000.0)  # 1200 + 800
+        self.assertEqual(self.contract.benefit_employer_cost_yearly, 24000.0)
+
+        # 3. Add Insured First-Child (1 + 1 + 1 = 3 persons * 400 = 1200)
+        self.contract.write({'benefit_insured_first_child': True})
+        self.assertEqual(self.contract.benefit_medical_insurance_amount, 1200.0)
+        self.assertEqual(self.contract.benefit_employer_cost_monthly, 2400.0)  # 1200 + 1200
+        self.assertEqual(self.contract.benefit_employer_cost_yearly, 28800.0)
+
+        # 4. Add Insured Second-Child (1 + 1 + 1 + 1 = 4 persons * 400 = 1600)
+        self.contract.write({'benefit_insured_second_child': True})
+        self.assertEqual(self.contract.benefit_medical_insurance_amount, 1600.0)
+        self.assertEqual(self.contract.benefit_employer_cost_monthly, 2800.0)  # 1200 + 1600
+        self.assertEqual(self.contract.benefit_employer_cost_yearly, 33600.0)
+
+        # 5. Reset to Zero Rate
+        self.contract.write({'benefit_medical_insurance_per_person': 0.0})
+        self.assertEqual(self.contract.benefit_medical_insurance_amount, 0.0)
+        self.assertEqual(self.contract.benefit_employer_cost_monthly, 1200.0)
+        self.assertEqual(self.contract.benefit_employer_cost_yearly, 14400.0)
+

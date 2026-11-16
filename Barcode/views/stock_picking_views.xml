@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Transfer form (receipts, deliveries, internal...): same "Barcode" smart button,
+         opens the transfer in the Barcode app. Only for transfers still to process. -->
+    <record id="view_picking_form_barcode_button" model="ir.ui.view">
+        <field name="name">stock.picking.form.barcode.button</field>
+        <field name="model">stock.picking</field>
+        <field name="inherit_id" ref="stock.view_picking_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//div[@name='button_box']" position="inside">
+                <button name="action_client_action" string="Barcode" type="object"
+                        class="oe_stat_button" icon="barcode"
+                        invisible="state in ('draft', 'done', 'cancel')">
+                    <div class="o_stat_info">
+                        <span class="o_stat_text">Barcode</span>
+                    </div>
+                </button>
+            </xpath>
+        </field>
+    </record>
+</odoo>

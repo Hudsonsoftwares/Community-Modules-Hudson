@@ -40,7 +40,7 @@
                         <group string="General Information">
                             <field name="state_id" options="{'no_create': True, 'no_open': True}"/>
                             <field name="gender"/>
-                            <field name="company_id" groups="base.group_multi_company" options="{'no_create': True}"/>
+                            <field name="company_id" groups="base.group_multi_company" options="{'no_create': True}" placeholder="Global (All Companies)"/>
                             <field name="currency_id" invisible="1"/>
                         </group>
                         <group string="Salary Slab">

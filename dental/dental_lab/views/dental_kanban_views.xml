@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Kanban cards: title + status on top, patient/people in the middle, date/amount in the footer -->
+
+    <record id="view_dental_lab_dispatch_kanban" model="ir.ui.view">
+        <field name="name">dental.lab.dispatch.kanban</field>
+        <field name="model">dental.lab.dispatch</field>
+        <field name="arch" type="xml">
+            <kanban class="o_kanban_mobile" sample="1">
+                <templates>
+                    <t t-name="card">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <field name="name" class="fw-bold fs-6"/>
+                            <field name="state" widget="badge"/>
+                        </div>
+                        <div class="small"><field name="order_id"/> · <field name="patient_id"/></div>
+                        <div class="text-muted small"><field name="delivery_method"/> <span invisible="not tracking_reference">· <field name="tracking_reference"/></span></div>
+                        <footer class="pt-1">
+                            <span class="small"><field name="dispatch_date"/></span>
+                        </footer>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+
+    <record id="view_dental_lab_receipt_kanban" model="ir.ui.view">
+        <field name="name">dental.lab.receipt.kanban</field>
+        <field name="model">dental.lab.receipt</field>
+        <field name="arch" type="xml">
+            <kanban class="o_kanban_mobile" sample="1">
+                <templates>
+                    <t t-name="card">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <field name="name" class="fw-bold fs-6"/>
+                            <field name="state" widget="badge"/>
+                        </div>
+                        <div class="small"><field name="order_id"/> · <field name="patient_id"/></div>
+                        <div class="text-muted small">Condition: <field name="condition"/></div>
+                        <footer class="pt-1">
+                            <span class="small"><field name="receipt_date"/></span>
+                        </footer>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+
+    <record id="view_dental_lab_order_line_kanban" model="ir.ui.view">
+        <field name="name">dental.lab.order.line.kanban</field>
+        <field name="model">dental.lab.order.line</field>
+        <field name="arch" type="xml">
+            <kanban class="o_kanban_mobile" sample="1">
+                <templates>
+                    <t t-name="card">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <field name="product_id" class="fw-bold fs-6"/>
+                            <field name="state" widget="badge"/>
+                        </div>
+                        <div class="small"><field name="order_id"/> <span invisible="not tooth_number">· Tooth <field name="tooth_number"/></span></div>
+                        <div class="text-muted small"><field name="restoration_type"/> <span invisible="not shade">· Shade <field name="shade"/></span></div>
+                        <footer class="pt-1">
+                            <span class="small">Qty <field name="quantity"/></span>
+                            <field name="subtotal" widget="monetary" class="ms-auto fw-bold"/>
+                            <field name="currency_id" invisible="1"/>
+                        </footer>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+</odoo>

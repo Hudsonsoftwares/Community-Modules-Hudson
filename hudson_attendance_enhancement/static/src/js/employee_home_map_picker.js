@@ -5,19 +5,18 @@ import { useService } from "@web/core/utils/hooks";
 import { rpc } from "@web/core/network/rpc";
 import { _t } from "@web/core/l10n/translation";
 import { standardWidgetProps } from "@web/views/widgets/standard_widget_props";
-import { Component, useState, useRef, onMounted, onWillUnmount, useEffect } from "@odoo/owl";
+import { Component, proxy, signal, useProps, onMounted, onWillUnmount } from "@odoo/owl";
+import { useLayoutEffect } from "@web/owl2/utils";
 
 export class EmployeeHomeMapPickerWidget extends Component {
     static template = "hudson_attendance_enhancement.EmployeeHomeMapPickerWidget";
-    static props = {
-        ...standardWidgetProps,
-    };
+    props = useProps({ ...standardWidgetProps });
 
     setup() {
         this.notification = useService("notification");
-        this.mapContainerRef = useRef("mapContainer");
+        this.mapContainerRef = signal.ref();
 
-        this.state = useState({
+        this.state = proxy({
             searchQuery: "",
             searchResults: [],
             isSearching: false,
@@ -40,7 +39,7 @@ export class EmployeeHomeMapPickerWidget extends Component {
             }
         });
 
-        useEffect(
+        useLayoutEffect(
             (lat, lon, rad) => {
                 this.syncMapWithRecord(lat, lon, rad);
             },
@@ -87,7 +86,7 @@ export class EmployeeHomeMapPickerWidget extends Component {
     }
 
     initMap(retries = 5) {
-        if (!this.mapContainerRef.el) {
+        if (!this.mapContainerRef()) {
             return;
         }
         if (!window.L) {
@@ -105,7 +104,7 @@ export class EmployeeHomeMapPickerWidget extends Component {
         const defaultLon = hasCoords ? lon : 55.2708;
         const defaultZoom = hasCoords ? 16 : 5;
 
-        this.map = window.L.map(this.mapContainerRef.el).setView([defaultLat, defaultLon], defaultZoom);
+        this.map = window.L.map(this.mapContainerRef()).setView([defaultLat, defaultLon], defaultZoom);
 
         window.L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 19,

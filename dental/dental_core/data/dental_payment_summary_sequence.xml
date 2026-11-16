@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <record id="seq_dental_payment_summary" model="ir.sequence">
+            <field name="name">End of Day Payment Summary</field>
+            <field name="code">dental.payment.summary</field>
+            <field name="prefix">EOD/%(year)s/%(month)s/</field>
+            <field name="padding">4</field>
+            <field name="company_id" eval="False"/>
+        </record>
+    </data>
+</odoo>
+

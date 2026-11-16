@@ -1,268 +1,413 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <templates xml:space="preserve">
+
+    <!-- Reusable Status Badge -->
+    <t t-name="dental_core.DentistDashboard.Status">
+        <span t-attf-class="dd-status-badge #{appt.status_class}">
+            <span class="dd-status-dot"/>
+            <t t-out="appt.status_label"/>
+        </span>
+    </t>
+
+    <!-- Main Dentist Workspace Dashboard (Dental Themed) -->
     <t t-name="dental_core.DentistDashboard">
-        <div class="o_action o_dentist_dashboard_view w-100 h-100 overflow-auto">
-            <div class="doctor-dashboard-container">
-                
-                <!-- TOP HEADER -->
-                <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
-                    <div class="greeting-header-box">
-                        <h2 class="greeting-title fw-bold text-dark mb-1">
-                            <t t-out="this.state.doctorInfo.greeting"/>
-                        </h2>
-                        <p class="greeting-subtitle text-muted mb-0">
-                            <t t-out="this.state.doctorInfo.subtitle"/>
-                        </p>
-                    </div>
-                    <div class="header-action-buttons d-flex align-items-center gap-3">
-                        <button class="btn btn-primary-royal d-flex align-items-center gap-2 fw-semibold shadow-sm"
-                                t-on-click="() => this.addAppointment()">
-                            <span class="fs-5 lh-1">+</span> Add Appointment
-                        </button>
-                        <button class="btn btn-outline-clean d-flex align-items-center gap-2 fw-semibold shadow-sm"
-                                t-on-click="() => this.generateInvoice()">
-                            <span class="sparkle-icon">✦</span> Generate Invoice
-                        </button>
-                    </div>
-                </div>
+        <div class="o_action o_dentist_dashboard_view w-100 h-100">
+            <div class="dd-container">
 
-                <!-- TOP ROW: APPOINTMENTS OVERVIEW (LEFT) + 3 TOP KPI CARDS (RIGHT) -->
-                <div class="row g-4 mb-4">
-                    
-                    <!-- Left: Appointments Overview Bar Chart Card -->
-                    <div class="col-lg-5 col-md-12">
-                        <div class="card h-100 border-0 shadow-sm rounded-4 overview-chart-card p-4">
-                            <div class="d-flex justify-content-between align-items-center mb-4">
-                                <h5 class="fw-bold text-dark mb-0 fs-6">Appointments Overview</h5>
-                                <div class="period-toggle-pills d-inline-flex p-1 rounded-pill">
-                                    <button t-attf-class="period-pill #{this.state.chartPeriod === 'week' ? 'active' : ''}"
-                                            t-on-click="() => this.setChartPeriod('week')">Week</button>
-                                    <button t-attf-class="period-pill #{this.state.chartPeriod === 'month' ? 'active' : ''}"
-                                            t-on-click="() => this.setChartPeriod('month')">Month</button>
-                                    <button t-attf-class="period-pill #{this.state.chartPeriod === 'year' ? 'active' : ''}"
-                                            t-on-click="() => this.setChartPeriod('year')">Year</button>
-                                </div>
+                <!-- ================= DENTAL CLINICAL HERO ================= -->
+                <header class="dd-hero-banner">
+                    <div class="dd-hero-pattern"/>
+                    <div class="dd-hero-content">
+                        <!-- Doctor Profile & Identity -->
+                        <div class="dd-doctor-profile">
+                            <div class="dd-avatar-wrapper">
+                                <img class="dd-doctor-avatar" t-att-src="this.state.doctorInfo.avatar_url" t-att-alt="this.state.doctorInfo.display_name"/>
+                                <span class="dd-online-indicator" title="Active on duty in clinic"/>
                             </div>
-
-                            <!-- Bar Chart Visualizer -->
-                            <div class="chart-visual-wrapper d-flex align-items-end pt-2 pb-2">
-                                <!-- Y Axis Labels -->
-                                <div class="chart-y-axis d-flex flex-column justify-content-between pe-3">
-                                    <span>200</span>
-                                    <span>150</span>
-                                    <span>100</span>
-                                    <span>50</span>
-                                    <span>0</span>
+                            <div class="dd-doctor-meta">
+                                <div class="dd-date-badge">
+                                    <span class="dd-tooth-icon me-1"/>
+                                    <span>Dental Clinic • <t t-out="this.state.dateLabel"/></span>
                                 </div>
-
-                                <!-- Bars Columns -->
-                                <div class="chart-bars-area d-flex justify-content-between align-items-end flex-grow-1 h-100">
-                                    <t t-foreach="this.currentChartBars" t-as="bar" t-key="bar.label">
-                                        <div class="chart-bar-column d-flex flex-column align-items-center">
-                                            <!-- Track with fill inside -->
-                                            <div class="bar-track position-relative" t-att-title="bar.label + ': ' + bar.count + ' appointments'">
-                                                <div class="bar-fill" t-attf-style="height: #{bar.height_pct}%;"></div>
-                                            </div>
-                                            <!-- X Axis Label -->
-                                            <span class="bar-x-label mt-2"><t t-out="bar.label"/></span>
-                                        </div>
-                                    </t>
+                                <h1 class="dd-hero-name"><t t-out="this.state.doctorInfo.greeting"/></h1>
+                                <div class="dd-hero-tags">
+                                    <span class="dd-tag dd-tag-specialty" t-if="this.state.doctorInfo.specialization">
+                                        <i class="oi me-1" data-icon="medical_services"/>
+                                        <t t-out="this.state.doctorInfo.specialization"/>
+                                    </span>
+                                    <span class="dd-tag dd-tag-branch" t-if="this.state.doctorInfo.branch_name">
+                                        <i class="oi me-1" data-icon="local_hospital"/>
+                                        <t t-out="this.state.doctorInfo.branch_name"/>
+                                    </span>
+                                    <span class="dd-tag dd-tag-live" t-if="this.state.hasDoctor">
+                                        <span class="dd-live-pulse-dot me-1"/>
+                                        <t t-out="this.state.kpiStats.waiting"/> in Queue · 
+                                        <t t-out="this.state.kpiStats.remaining_today"/> to Arrive · 
+                                        <t t-out="this.state.kpiStats.completed_today"/> Treated
+                                    </span>
                                 </div>
                             </div>
                         </div>
-                    </div>
 
-                    <!-- Right: 3 Metric KPI Cards (New Patients, Appointments Today, Treatment Today) -->
-                    <div class="col-lg-7 col-md-12">
-                        <div class="row g-3 h-100">
-                            
-                            <!-- 1. New Patients -->
-                            <div class="col-md-4">
-                                <div class="card h-100 border-0 shadow-sm rounded-4 kpi-metric-card p-3 d-flex flex-column justify-content-between"
-                                     t-on-click="() => this.viewTotalPatients()">
-                                    <div>
-                                        <div class="kpi-card-title fw-bold text-dark mb-1">New Patients</div>
-                                        <div class="kpi-card-subtext text-muted mb-2">Here is the number of total new patients today!</div>
-                                    </div>
-                                    <div class="d-flex justify-content-between align-items-end mt-2">
-                                        <div class="kpi-main-number text-primary-royal fw-bold">
-                                            <t t-out="this.state.kpiStats.new_patients_today"/>
-                                        </div>
-                                        <div class="kpi-illustration-box">
-                                            <img src="/dental_core/static/src/img/kpi_tooth_new.png"
-                                                 alt="New Patients Tooth"
-                                                 class="kpi-3d-img" />
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
+                        <!-- Decorative Dental Operatory 3D Chair Art -->
+                        <div class="dd-hero-chair-art d-none d-lg-flex" aria-hidden="true">
+                            <img src="/dental_core/static/src/img/dd_chair.png" class="dd-hero-chair-img" alt="Dental Operatory"/>
+                        </div>
 
-                            <!-- 2. Appointments Today -->
-                            <div class="col-md-4">
-                                <div class="card h-100 border-0 shadow-sm rounded-4 kpi-metric-card p-3 d-flex flex-column justify-content-between"
-                                     t-on-click="() => this.viewAllAppointments()">
-                                    <div>
-                                        <div class="kpi-card-title fw-bold text-dark mb-1">Appointments Today</div>
-                                        <div class="kpi-card-subtext text-muted mb-2">Here is the number of total appointments today!</div>
-                                    </div>
-                                    <div class="d-flex justify-content-between align-items-end mt-2">
-                                        <div class="kpi-main-number text-cyan-modern fw-bold">
-                                            <t t-out="this.state.kpiStats.appointments_today"/>
-                                        </div>
-                                        <div class="kpi-illustration-box">
-                                            <img src="/dental_core/static/src/img/kpi_dental_chair.png"
-                                                 alt="Dental Chair"
-                                                 class="kpi-3d-img chair-img" />
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- 3. Treatment Today -->
-                            <div class="col-md-4">
-                                <div class="card h-100 border-0 shadow-sm rounded-4 kpi-metric-card p-3 d-flex flex-column justify-content-between">
-                                    <div>
-                                        <div class="kpi-card-title fw-bold text-dark mb-1">Treatment Today</div>
-                                        <div class="kpi-card-subtext text-muted mb-2">Here is the number of total treatment today!</div>
-                                    </div>
-                                    <div class="d-flex justify-content-between align-items-end mt-2">
-                                        <div class="kpi-main-number text-dark-slate fw-bold">
-                                            <t t-out="this.state.kpiStats.treatment_today"/>
-                                        </div>
-                                        <div class="kpi-illustration-box">
-                                            <img src="/dental_core/static/src/img/kpi_treatment_tools_hd.png"
-                                                 alt="Treatment Tools"
-                                                 class="kpi-3d-img" />
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
+                        <!-- Action Toolbar -->
+                        <div class="dd-hero-actions">
+                            <button class="btn dd-btn-glass dd-btn-icon" t-on-click="() => this.refresh()"
+                                    t-att-title="'Last updated ' + this.state.refreshedAt + ' · auto-refreshes every minute'"
+                                    aria-label="Refresh">
+                                <i t-attf-class="oi #{this.state.refreshing ? 'dd-spin' : ''}" data-icon="refresh"/>
+                                <span class="d-none d-xl-inline ms-1 text-xs opacity-75"><t t-out="this.state.refreshedAt"/></span>
+                            </button>
+                            <button class="btn dd-btn-glass" t-on-click="() => this.openMyAppointments()">
+                                <i class="oi me-1" data-icon="calendar_today"/> Dental Schedule
+                            </button>
+                            <button class="btn dd-btn-primary-action" t-on-click="() => this.addAppointment()" t-att-disabled="!this.state.hasDoctor">
+                                <i class="oi me-1" data-icon="add"/> Book Appointment
+                            </button>
                         </div>
                     </div>
+                </header>
 
+                <!-- No Doctor Profile State -->
+                <div t-if="!this.state.loading and !this.state.hasDoctor" class="dd-card dd-unassigned-card">
+                    <div class="dd-empty-icon-circle dd-circle-amber">
+                        <span class="dd-tooth-icon" style="width: 28px; height: 28px;"/>
+                    </div>
+                    <h2>No Dentist Profile Linked to this Account</h2>
+                    <p>Your user account must be linked to an employee with the Dentist role to access clinical operatory tools and manage dental appointments.</p>
                 </div>
 
-                <!-- MIDDLE / MAIN ROW: DOCTORS CARDS (LEFT) + UPCOMING APPOINTMENTS TABLE (RIGHT) -->
-                <div class="row g-4 mb-4">
-                    
-                    <!-- Left: Current Doctor Profile Card -->
-                    <div class="col-lg-5 col-md-12">
-                        <div class="card border-0 shadow-sm rounded-4 doctor-hero-profile-card h-100 p-4 d-flex flex-column justify-content-between position-relative overflow-hidden">
-                            <!-- Background decorative glow -->
-                            <div class="doctor-card-bg-glow position-absolute"></div>
-                            
-                            <!-- Top: Avatar, Name, Specialization, On Duty status -->
-                            <div class="d-flex flex-column align-items-center text-center position-relative z-1 pt-2">
-                                <div class="doctor-photo-wrap position-relative mb-3">
-                                    <img t-att-src="this.state.doctorInfo.avatar_url"
-                                         t-att-alt="this.state.doctorInfo.name"
-                                         class="doctor-portrait-img rounded-circle shadow" />
-                                    <span class="doctor-online-pulse position-absolute" title="On Duty"></span>
-                                </div>
-                                <h4 class="doctor-card-name fw-bold mb-1 text-white">
-                                    <t t-out="this.state.doctorInfo.display_name || this.state.doctorInfo.name"/>
-                                </h4>
-                                <span class="doctor-card-spec badge bg-white bg-opacity-25 text-white fw-medium px-3 py-1 rounded-pill mb-2">
-                                    <t t-out="this.state.doctorInfo.specialization"/>
+                <t t-if="this.state.hasDoctor">
+
+                    <!-- ================= DENTAL KPI METRICS BAR ================= -->
+                    <section class="dd-kpis-grid" aria-label="Today's dental clinical metrics">
+                        <!-- Appointments Today -->
+                        <button class="dd-kpi-card kpi-cyan" t-on-click="() => this.openTodayAppointments()">
+                            <div class="dd-kpi-icon-box tone-cyan">
+                                <img src="/dental_core/static/src/img/kpi_tooth_new.png" class="dd-kpi-3d-img" alt="Appointments Today"/>
+                            </div>
+                            <div class="dd-kpi-details">
+                                <span class="dd-kpi-title">Appointments Today</span>
+                                <div class="dd-kpi-number"><t t-out="this.state.kpiStats.appointments_today"/></div>
+                                <span class="dd-kpi-subtext">
+                                    <i class="oi me-1" data-icon="schedule"/>
+                                    <t t-out="this.state.kpiStats.remaining_today"/> yet to arrive
                                 </span>
-                                <div class="text-white-50 fs-8 d-flex align-items-center gap-1 justify-content-center">
-                                    <i class="fa fa-hospital-o"></i>
-                                    <span>Main Dental Clinic · Room 1</span>
+                            </div>
+                        </button>
+
+                        <!-- Waiting Room -->
+                        <button t-attf-class="dd-kpi-card #{this.state.kpiStats.longest_wait_mins >= 30 ? 'kpi-crimson' : 'kpi-amber'}" t-on-click="() => this.openPatientQueue()">
+                            <div t-attf-class="dd-kpi-icon-box #{this.state.kpiStats.longest_wait_mins >= 30 ? 'tone-crimson' : 'tone-amber'}">
+                                <img src="/dental_core/static/src/img/dd_chair.png" class="dd-kpi-3d-img dd-chair-kpi" alt="Waiting Room"/>
+                            </div>
+                            <div class="dd-kpi-details">
+                                <span class="dd-kpi-title">In Waiting Room</span>
+                                <div class="dd-kpi-number"><t t-out="this.state.kpiStats.waiting"/></div>
+                                <span class="dd-kpi-subtext">
+                                    <t t-if="this.state.kpiStats.waiting">
+                                        <i class="oi me-1" data-icon="error" t-if="this.state.kpiStats.longest_wait_mins >= 30"/>
+                                        Wait: <t t-out="this.formatMinutes(this.state.kpiStats.longest_wait_mins)"/>
+                                    </t>
+                                    <t t-else="">
+                                        <i class="oi me-1" data-icon="check"/> Queue clear
+                                    </t>
+                                </span>
+                            </div>
+                        </button>
+
+                        <!-- Treated Today -->
+                        <button class="dd-kpi-card kpi-emerald" t-on-click="() => this.setScheduleFilter('done')">
+                            <div class="dd-kpi-icon-box tone-emerald">
+                                <img src="/dental_core/static/src/img/kpi_treatment_tools_hd.png" class="dd-kpi-3d-img" alt="Treated Today"/>
+                            </div>
+                            <div class="dd-kpi-details">
+                                <span class="dd-kpi-title">Treated Today</span>
+                                <div class="dd-kpi-number"><t t-out="this.state.kpiStats.completed_today"/></div>
+                                <div class="dd-kpi-progress-wrapper" title="Completion percentage">
+                                    <div class="dd-kpi-progress-bar">
+                                        <div class="dd-kpi-progress-fill" t-attf-style="width: #{this.state.kpiStats.completion_pct}%"/>
+                                    </div>
+                                    <span class="dd-kpi-pct"><t t-out="this.state.kpiStats.completion_pct"/>%</span>
                                 </div>
                             </div>
+                        </button>
 
-                            <!-- Middle: Today's Metrics for This Doctor -->
-                            <div class="doctor-performance-strip rounded-4 p-3 my-3 position-relative z-1 d-flex justify-content-around text-center">
-                                <div class="perf-metric-item">
-                                    <div class="perf-val fw-bold text-white fs-4">
-                                        <t t-out="this.state.doctorInfo.today_appointments !== undefined ? this.state.doctorInfo.today_appointments : this.state.kpiStats.appointments_today"/>
-                                    </div>
-                                    <div class="perf-lbl text-white-50 fs-8">Visits Today</div>
-                                </div>
-                                <div class="vr bg-white opacity-25"></div>
-                                <div class="perf-metric-item">
-                                    <div class="perf-val fw-bold text-white fs-4">
-                                        <t t-out="this.state.doctorInfo.completed_today !== undefined ? this.state.doctorInfo.completed_today : this.state.kpiStats.treatment_today"/>
-                                    </div>
-                                    <div class="perf-lbl text-white-50 fs-8">Completed</div>
-                                </div>
-                                <div class="vr bg-white opacity-25"></div>
-                                <div class="perf-metric-item">
-                                    <div class="perf-val fw-bold text-white fs-4">
-                                        <t t-out="this.state.doctorInfo.waiting_today !== undefined ? this.state.doctorInfo.waiting_today : 0"/>
-                                    </div>
-                                    <div class="perf-lbl text-white-50 fs-8">Waiting</div>
-                                </div>
+                        <!-- New Dental Patients -->
+                        <button class="dd-kpi-card kpi-teal" t-on-click="() => this.openTodayAppointments()">
+                            <div class="dd-kpi-icon-box tone-teal">
+                                <img src="/dental_core/static/src/img/dd_tooth.png" class="dd-kpi-3d-img" alt="New Patients"/>
                             </div>
-
-                            <!-- Bottom: Quick Action Shortcuts -->
-                            <div class="d-flex gap-2 position-relative z-1">
-                                <button class="btn btn-light-glass btn-sm rounded-pill w-100 fw-semibold py-2 d-flex align-items-center justify-content-center gap-2"
-                                        t-on-click="() => this.openPatientQueue()">
-                                    <i class="fa fa-users"></i> Patient Queue
-                                </button>
-                                <button class="btn btn-white-solid btn-sm rounded-pill w-100 fw-semibold py-2 d-flex align-items-center justify-content-center gap-2"
-                                        t-on-click="() => this.openMyAppointments()">
-                                    <i class="fa fa-calendar-check-o"></i> My Schedule
-                                </button>
+                            <div class="dd-kpi-details">
+                                <span class="dd-kpi-title">New Patients</span>
+                                <div class="dd-kpi-number"><t t-out="this.state.kpiStats.new_patients_today"/></div>
+                                <span class="dd-kpi-subtext">First-time consultations</span>
                             </div>
-                        </div>
-                    </div>
+                        </button>
 
-                    <!-- Right: Upcoming Appointments Card -->
-                    <div class="col-lg-7 col-md-12">
-                        <div class="card border-0 shadow-sm rounded-4 upcoming-appointments-card p-4 h-100 d-flex flex-column justify-content-between">
+                        <!-- Dental Follow-ups & Recalls -->
+                        <button t-attf-class="dd-kpi-card #{this.state.kpiStats.followups_due ? 'kpi-rose' : 'kpi-slate'}" t-on-click="() => this.openFollowUps()">
+                            <div t-attf-class="dd-kpi-icon-box tone-rose">
+                                <i class="oi" data-icon="notifications"/>
+                            </div>
+                            <div class="dd-kpi-details">
+                                <span class="dd-kpi-title">Recalls &amp; Follow-ups</span>
+                                <div class="dd-kpi-number"><t t-out="this.state.kpiStats.followups_due"/></div>
+                                <span class="dd-kpi-subtext">Due for review</span>
+                            </div>
+                        </button>
+                    </section>
+
+                    <!-- ================= 3-COLUMN CLINICAL WORKSPACE ================= -->
+                    <div class="dd-main-workspace">
+
+                        <!-- COLUMN 1: Operatory (Dental Chair) & Waiting Room -->
+                        <div class="dd-col dd-col-left">
                             
-                            <div>
-                                <!-- Header -->
-                                <div class="d-flex justify-content-between align-items-center mb-3">
-                                    <h5 class="fw-bold text-dark mb-0 fs-6">Upcoming Appointments</h5>
-                                    <button class="btn btn-view-all btn-sm rounded-pill fw-semibold px-3"
-                                            t-on-click="() => this.viewAllAppointments()">
-                                        View All
+                            <!-- ACTIVE OPERATORY / CHAIR -->
+                            <section class="dd-card dd-operatory-card">
+                                <div class="dd-card-header">
+                                    <div class="dd-card-header-left">
+                                        <span class="dd-tooth-icon text-teal me-1"/>
+                                        <h2 class="dd-card-heading">Operatory Chair</h2>
+                                    </div>
+                                    <div class="dd-card-header-right">
+                                        <t t-if="this.state.currentPatient">
+                                            <span class="dd-chair-badge dd-badge-active">
+                                                <span class="dd-pulse-dot"/> In Chair
+                                            </span>
+                                            <span class="dd-chair-timer ms-2" title="Time in chair">
+                                                <i class="oi me-1" data-icon="schedule"/>
+                                                <t t-out="this.formatMinutes(this.state.currentPatient.in_chair_mins)"/>
+                                            </span>
+                                        </t>
+                                        <t t-else="">
+                                            <span class="dd-chair-badge dd-badge-vacant">
+                                                <i class="oi me-1" data-icon="circle"/> Chair Free
+                                            </span>
+                                        </t>
+                                    </div>
+                                </div>
+
+                                <t t-set="cur" t-value="this.state.currentPatient"/>
+                                <!-- Occupied Chair -->
+                                <div t-if="cur" class="dd-operatory-active">
+                                    <div class="dd-patient-profile">
+                                        <div class="dd-patient-avatar-box">
+                                            <img class="dd-patient-avatar-lg" t-att-src="cur.avatar_url" t-att-alt="cur.patient_name"/>
+                                            <span t-if="cur.is_emergency" class="dd-emergency-badge" title="Urgent Emergency">
+                                                <i class="oi" data-icon="warning"/>
+                                            </span>
+                                        </div>
+                                        <div class="dd-patient-info">
+                                            <div class="d-flex align-items-center gap-2">
+                                                <button class="dd-patient-name-link" t-on-click="() => this.openPatient(cur.patient_id)">
+                                                    <t t-out="cur.patient_name"/>
+                                                </button>
+                                                <span t-if="cur.is_emergency" class="dd-badge-sos">EMERGENCY</span>
+                                            </div>
+                                            <div class="dd-patient-meta-row">
+                                                <span class="dd-meta-chip dd-chip-procedure">
+                                                    <span class="dd-tooth-icon me-1"/>
+                                                    <t t-out="cur.treatment"/>
+                                                </span>
+                                                <span class="dd-meta-chip" t-if="cur.patient_ref">
+                                                    <i class="oi me-1" data-icon="badge"/>
+                                                    <t t-out="cur.patient_ref"/>
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="dd-operatory-actions">
+                                        <button class="btn dd-btn-clinical-case" t-att-disabled="this.state.busyId" t-on-click="() => this.openCase(cur)">
+                                            <i class="oi me-1" data-icon="stethoscope"/>
+                                            <t t-out="cur.has_case ? 'Open Clinical Case' : 'Start Clinical Case'"/>
+                                        </button>
+                                        <button class="btn dd-btn-clinical-finish" t-att-disabled="this.state.busyId" t-on-click="() => this.finishConsultation(cur)">
+                                            <i class="oi me-1" data-icon="check_circle"/> Complete Treatment
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- Free Chair -->
+                                <div t-else="" class="dd-operatory-vacant">
+                                    <div class="dd-vacant-chair-illustration">
+                                        <img src="/dental_core/static/src/img/dd_chair.png" class="dd-vacant-chair-img" alt="Operatory Chair Free"/>
+                                    </div>
+                                    <div class="dd-vacant-text">
+                                        <div class="dd-vacant-title">The Operatory Chair is Free</div>
+                                        <div class="dd-vacant-subtitle" t-if="this.state.waitingQueue.length">
+                                            <span class="text-dark fw-bold"><t t-out="this.state.waitingQueue[0].patient_name"/></span> is waiting next in queue.
+                                        </div>
+                                        <div class="dd-vacant-subtitle" t-else="">
+                                            All waiting patients have been attended. Ready for next patient.
+                                        </div>
+                                    </div>
+                                    <button t-if="this.state.waitingQueue.length" class="btn dd-btn-call-next"
+                                            t-att-disabled="this.state.busyId" t-on-click="() => this.callNextPatient()">
+                                        <i class="oi me-1" data-icon="campaign"/> Call to Chair
+                                    </button>
+                                </div>
+                            </section>
+
+                            <!-- WAITING ROOM QUEUE -->
+                            <section class="dd-card dd-fill-card dd-queue-card">
+                                <div class="dd-card-header">
+                                    <div class="dd-card-header-left">
+                                        <span class="dd-card-indicator tone-amber"/>
+                                        <h2 class="dd-card-heading">
+                                            Waiting Room
+                                            <span class="dd-counter-pill"><t t-out="this.state.waitingQueue.length"/></span>
+                                        </h2>
+                                    </div>
+                                    <button class="btn dd-btn-header-link" t-on-click="() => this.openPatientQueue()">
+                                        Queue Board <i class="oi ms-1" data-icon="chevron_right"/>
                                     </button>
                                 </div>
 
-                                <!-- Table -->
-                                <div class="table-responsive upcoming-table-wrap">
-                                    <table class="table table-borderless align-middle mb-0">
+                                <div t-if="!this.state.waitingQueue.length" class="dd-empty-state-box">
+                                    <div class="dd-empty-illustration-box">
+                                        <img src="/dental_core/static/src/img/dd_chair.png" class="dd-empty-chair-img" alt="Waiting Area Clear"/>
+                                    </div>
+                                    <div class="dd-empty-main">Waiting Area is Clear</div>
+                                    <p class="dd-empty-sub">Checked-in dental patients appear here in arrival order, with emergencies given top priority.</p>
+                                </div>
+
+                                <div t-else="" class="dd-queue-scrollable">
+                                    <ul class="dd-queue-list">
+                                        <t t-foreach="this.state.waitingQueue" t-as="appt" t-key="appt.id">
+                                            <li t-attf-class="dd-queue-item #{appt_first ? 'is-first-queue-item' : ''}">
+                                                <div class="dd-queue-rank">
+                                                    <span t-if="appt_first" class="dd-rank-next">NEXT</span>
+                                                    <span t-else="" class="dd-rank-num"><t t-out="appt_index + 1"/></span>
+                                                </div>
+                                                <img class="dd-queue-avatar" t-att-src="appt.avatar_url" t-att-alt="appt.patient_name"/>
+                                                <div class="dd-queue-info">
+                                                    <div class="dd-queue-name-row">
+                                                        <button class="dd-link-text fw-bold dd-text-ellipsis" t-on-click="() => this.openAppointment(appt.id)">
+                                                            <t t-out="appt.patient_name"/>
+                                                        </button>
+                                                        <span t-if="appt.is_emergency" class="dd-badge-sos ms-1">SOS</span>
+                                                    </div>
+                                                    <div class="dd-queue-meta-text dd-text-ellipsis">
+                                                        <span class="dd-treatment-tag">
+                                                            <span class="dd-tooth-icon me-1 text-xs"/>
+                                                            <t t-out="appt.treatment"/>
+                                                        </span>
+                                                        <span class="dd-meta-dot">·</span>
+                                                        <span class="dd-time-tag"><i class="oi me-1" data-icon="schedule"/> <t t-out="appt.time"/></span>
+                                                    </div>
+                                                </div>
+                                                <div class="dd-queue-wait-badge" t-att-class="appt.waiting_mins >= 30 ? 'is-urgent-wait' : ''" title="Time since check-in">
+                                                    <i class="oi me-1" data-icon="hourglass_top"/>
+                                                    <t t-out="this.formatMinutes(appt.waiting_mins)"/>
+                                                </div>
+                                                <div class="dd-queue-action">
+                                                    <button t-attf-class="btn btn-sm #{appt_first ? 'dd-btn-call-in-primary' : 'dd-btn-call-in-secondary'}"
+                                                            t-att-disabled="this.state.busyId or this.state.currentPatient"
+                                                            t-att-title="this.state.currentPatient ? 'Finish current consultation first' : 'Call in to chair'"
+                                                            t-on-click="() => this.startConsultation(appt)">
+                                                        <i class="oi me-1" data-icon="login"/>
+                                                        <t t-out="appt_first ? 'Call In' : 'Start'"/>
+                                                    </button>
+                                                </div>
+                                            </li>
+                                        </t>
+                                    </ul>
+                                </div>
+                            </section>
+                        </div>
+
+                        <!-- COLUMN 2: Today's Dental Schedule -->
+                        <div class="dd-col dd-col-center">
+                            <section class="dd-card dd-fill-card dd-schedule-card">
+                                <div class="dd-card-header flex-wrap gap-2">
+                                    <div class="dd-card-header-left">
+                                        <span class="dd-card-indicator tone-teal"/>
+                                        <h2 class="dd-card-heading">
+                                            Today's Schedule
+                                        </h2>
+                                    </div>
+                                    <div class="dd-segmented-filters" role="tablist" aria-label="Filter schedule">
+                                        <t t-foreach="this.scheduleFilters" t-as="f" t-key="f.key">
+                                            <button role="tab" t-att-aria-selected="this.state.scheduleFilter === f.key"
+                                                    t-attf-class="dd-segment-tab #{this.state.scheduleFilter === f.key ? 'is-active' : ''}"
+                                                    t-on-click="() => this.setScheduleFilter(f.key)">
+                                                <t t-out="f.label"/>
+                                                <span class="dd-segment-badge"><t t-out="this.scheduleCount(f.key)"/></span>
+                                            </button>
+                                        </t>
+                                    </div>
+                                </div>
+
+                                <div t-if="!this.filteredSchedule.length" class="dd-empty-state-box">
+                                    <div class="dd-empty-icon-circle dd-circle-teal">
+                                        <span class="dd-tooth-icon" style="width: 24px; height: 24px;"/>
+                                    </div>
+                                    <div class="dd-empty-main">No Appointments in this View</div>
+                                    <p class="dd-empty-sub">Switch between tabs to see upcoming, active in-clinic, or completed dental treatments.</p>
+                                </div>
+
+                                <div t-else="" class="dd-schedule-table-container">
+                                    <table class="table dd-schedule-table align-middle mb-0">
                                         <thead>
-                                            <tr class="table-header-row">
-                                                <th class="ps-2">Patient Name</th>
-                                                <th>Treatment</th>
-                                                <th>Doctor Name</th>
-                                                <th>Time</th>
-                                                <th class="text-end pe-2">Status</th>
+                                            <tr>
+                                                <th style="width: 88px">Time</th>
+                                                <th>Patient &amp; Dental Procedure</th>
+                                                <th style="width: 120px">Status</th>
+                                                <th style="width: 80px" class="text-end">Action</th>
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            <t t-if="this.state.upcomingAppointments.length === 0">
-                                                <tr>
-                                                    <td colspan="5" class="text-center text-muted py-4">
-                                                        No upcoming appointments found.
+                                            <t t-foreach="this.filteredSchedule" t-as="appt" t-key="appt.id">
+                                                <tr t-attf-class="dd-schedule-row #{['cancelled', 'no_show'].includes(appt.state) ? 'is-row-muted' : ''}"
+                                                    t-on-click="() => this.openAppointment(appt.id)">
+                                                    <!-- Time -->
+                                                    <td class="dd-cell-time">
+                                                        <span class="dd-time-pill"><t t-out="appt.time"/></span>
                                                     </td>
-                                                </tr>
-                                            </t>
-                                            <t t-foreach="this.state.upcomingAppointments" t-as="appt" t-key="appt.id">
-                                                <tr class="appointment-row cursor-pointer" t-on-click="() => this.openAppointment(appt.id)">
-                                                    <td class="ps-2 fw-semibold text-dark">
+                                                    <!-- Patient info -->
+                                                    <td class="dd-cell-patient">
                                                         <div class="d-flex align-items-center gap-2">
-                                                            <span class="patient-text-name"><t t-out="appt.patient_name"/></span>
+                                                            <img class="dd-patient-avatar-sm" t-att-src="appt.avatar_url" alt=""/>
+                                                            <div class="dd-min-width-0">
+                                                                <div class="dd-patient-title dd-text-ellipsis">
+                                                                    <t t-out="appt.patient_name"/>
+                                                                    <span t-if="appt.is_emergency" class="dd-badge-sos ms-1">SOS</span>
+                                                                </div>
+                                                                <div class="dd-patient-subtitle dd-text-ellipsis">
+                                                                    <span class="dd-tooth-icon text-xs opacity-75 me-1"/>
+                                                                    <t t-out="appt.treatment"/>
+                                                                </div>
+                                                            </div>
                                                         </div>
                                                     </td>
-                                                    <td class="text-muted-dark">
-                                                        <t t-out="appt.treatment"/>
+                                                    <!-- Status -->
+                                                    <td class="dd-cell-status">
+                                                        <t t-call="dental_core.DentistDashboard.Status"/>
                                                     </td>
-                                                    <td class="text-muted-dark">
-                                                        <t t-out="appt.doctor_name"/>
-                                                    </td>
-                                                    <td class="text-muted-dark">
-                                                        <t t-out="appt.time"/>
-                                                    </td>
-                                                    <td class="text-end pe-2">
-                                                        <span t-attf-class="status-text fw-bold #{appt.status_color}">
-                                                            <t t-out="appt.status_label"/>
+                                                    <!-- Actions -->
+                                                    <td class="text-end dd-cell-action">
+                                                        <button t-if="appt.state === 'in_consultation'" class="btn btn-sm dd-btn-table-action dd-action-active"
+                                                                t-att-disabled="this.state.busyId" t-on-click.stop="() => this.openCase(appt)">
+                                                            Case
+                                                        </button>
+                                                        <button t-elif="appt.state === 'checked_in'" class="btn btn-sm dd-btn-table-action dd-action-start"
+                                                                t-att-disabled="this.state.busyId or this.state.currentPatient"
+                                                                t-att-title="this.state.currentPatient ? 'Finish current consultation first' : 'Start consultation'"
+                                                                t-on-click.stop="() => this.startConsultation(appt)">
+                                                            Start
+                                                        </button>
+                                                        <button t-elif="appt.state === 'completed' and appt.has_case" class="btn btn-sm dd-btn-table-action dd-action-view"
+                                                                t-on-click.stop="() => this.openCase(appt)">
+                                                            View
+                                                        </button>
+                                                        <span t-else="" class="dd-row-arrow">
+                                                            <i class="oi" data-icon="chevron_right"/>
                                                         </span>
                                                     </td>
                                                 </tr>
@@ -270,69 +415,117 @@
                                         </tbody>
                                     </table>
                                 </div>
-                            </div>
-
+                            </section>
                         </div>
-                    </div>
 
-                </div>
-
-                <!-- BOTTOM ROW: 3 METRIC CARDS (TOTAL REVENUE, TOTAL PATIENTS, UPCOMING PATIENTS) -->
-                <div class="row g-4">
-                    
-                    <!-- Left: Placeholder / Alignment for Left Column -->
-                    <div class="col-lg-5 col-md-12 d-none d-lg-block">
-                        <!-- Spacing column aligns with Doctors on top -->
-                    </div>
-
-                    <!-- Right Column: 3 Bottom KPI Cards aligned under Upcoming Appointments -->
-                    <div class="col-lg-7 col-md-12">
-                        <div class="row g-3">
+                        <!-- COLUMN 3: Analytics & Clinical Launchpad -->
+                        <div class="dd-col dd-col-right">
                             
-                            <!-- Total Revenue -->
-                            <div class="col-md-4">
-                                <div class="card border-0 shadow-sm rounded-4 bottom-kpi-card p-3">
-                                    <div class="text-muted fs-7 mb-1">Total Revenue</div>
-                                    <h4 class="fw-bold text-dark mb-0"><t t-out="this.state.kpiStats.total_revenue"/></h4>
-                                </div>
-                            </div>
-
-                            <!-- Total Patients -->
-                            <div class="col-md-4">
-                                <div class="card border-0 shadow-sm rounded-4 bottom-kpi-card p-3 cursor-pointer"
-                                     t-on-click="() => this.viewTotalPatients()">
-                                    <div class="text-muted fs-7 mb-1">Total Patients</div>
-                                    <div class="d-flex align-items-baseline gap-1">
-                                        <h4 class="fw-bold text-dark mb-0"><t t-out="this.state.kpiStats.total_patients"/></h4>
-                                        <span class="text-muted fs-8">/month</span>
+                            <!-- APPOINTMENTS FLOW CHART -->
+                            <section class="dd-card dd-fill-card dd-analytics-card">
+                                <div class="dd-card-header">
+                                    <div class="dd-card-header-left">
+                                        <span class="dd-card-indicator tone-teal"/>
+                                        <h2 class="dd-card-heading">Consultation Flow</h2>
                                     </div>
                                 </div>
-                            </div>
-
-                            <!-- Upcoming Patients -->
-                            <div class="col-md-4">
-                                <div class="card border-0 shadow-sm rounded-4 bottom-kpi-card p-3 d-flex flex-row justify-content-between align-items-center">
-                                    <div>
-                                        <div class="text-muted fs-7 mb-1">Upcoming Patients</div>
-                                        <h4 class="fw-bold text-dark mb-0"><t t-out="this.state.kpiStats.upcoming_patients"/></h4>
+                                <div class="dd-period-selector" role="tablist" aria-label="Chart period">
+                                    <t t-foreach="this.periods" t-as="p" t-key="p.key">
+                                        <button role="tab" t-att-aria-selected="this.state.chartPeriod === p.key"
+                                                t-attf-class="dd-period-btn #{this.state.chartPeriod === p.key ? 'is-selected' : ''}"
+                                                t-on-click="() => this.setChartPeriod(p.key)">
+                                            <t t-out="p.label"/>
+                                        </button>
+                                    </t>
+                                </div>
+                                <div class="dd-chart-headline">
+                                    <span class="dd-chart-total-count"><t t-out="this.chartTotal"/></span>
+                                    <span class="dd-chart-caption">treatments <t t-out="this.chartCaption"/></span>
+                                </div>
+                                <div class="dd-modern-chart-box">
+                                    <div class="dd-chart-y-axis">
+                                        <t t-foreach="this.chartScale.ticks" t-as="tick" t-key="tick_index">
+                                            <div class="dd-y-gridline">
+                                                <span class="dd-y-label"><t t-out="tick"/></span>
+                                            </div>
+                                        </t>
                                     </div>
-                                    <!-- Mini Sparkline Bars Indicator -->
-                                    <div class="sparkline-bars d-flex align-items-end gap-1">
-                                        <span class="spark-bar" style="height: 12px;"></span>
-                                        <span class="spark-bar" style="height: 18px;"></span>
-                                        <span class="spark-bar active" style="height: 24px;"></span>
-                                        <span class="spark-bar" style="height: 15px;"></span>
-                                        <span class="spark-bar active" style="height: 22px;"></span>
-                                        <span class="spark-bar" style="height: 14px;"></span>
+                                    <div class="dd-chart-columns-strip">
+                                        <t t-foreach="this.currentChartBars" t-as="bar" t-key="bar.label">
+                                            <div t-attf-class="dd-chart-bar-column #{bar.is_current ? 'is-highlighted-bar' : ''}"
+                                                 t-att-title="bar.tooltip + ': ' + bar.count + (bar.count === 1 ? ' consultation' : ' consultations')">
+                                                <div class="dd-bar-track">
+                                                    <div class="dd-bar-fill" t-attf-style="height: #{this.barHeight(bar.count)}%">
+                                                        <span class="dd-bar-top-value" t-if="bar.count"><t t-out="bar.count"/></span>
+                                                    </div>
+                                                </div>
+                                                <span class="dd-bar-x-label"><t t-out="bar.label"/></span>
+                                            </div>
+                                        </t>
                                     </div>
                                 </div>
-                            </div>
+                            </section>
 
+                            <!-- MONTHLY CLINICAL STATS & LAUNCHPAD -->
+                            <section class="dd-card dd-performance-card">
+                                <div class="dd-card-header">
+                                    <div class="dd-card-header-left">
+                                        <span class="dd-card-indicator tone-emerald"/>
+                                        <h2 class="dd-card-heading">Practice Monthly Stats</h2>
+                                    </div>
+                                </div>
+                                <div class="dd-performance-metrics">
+                                    <div class="dd-perf-metric-box">
+                                        <div class="dd-perf-icon-badge tone-teal">
+                                            <img src="/dental_core/static/src/img/kpi_tooth_new.png" class="dd-perf-3d-img" alt="Patients This Month"/>
+                                        </div>
+                                        <div>
+                                            <div class="dd-perf-value"><t t-out="this.state.kpiStats.patients_month"/></div>
+                                            <div class="dd-perf-label">Patients This Month</div>
+                                        </div>
+                                    </div>
+                                    <div class="dd-perf-metric-box">
+                                        <div class="dd-perf-icon-badge tone-emerald">
+                                            <i class="oi" data-icon="show_chart"/>
+                                        </div>
+                                        <div>
+                                            <div class="dd-perf-value"><t t-out="this.state.kpiStats.treatment_value_month"/></div>
+                                            <div class="dd-perf-label" title="Completed treatments this month at list price">Treatment Volume</div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="dd-shortcuts-title">Dental Clinical Shortcuts</div>
+                                <nav class="dd-clinical-shortcuts-grid">
+                                    <button class="dd-shortcut-card" t-on-click="() => this.openClinicalCases()">
+                                        <div class="dd-shortcut-icon tone-teal">
+                                            <img src="/dental_core/static/src/img/dd_tooth.png" class="dd-shortcut-3d-img" alt="Clinical Cases"/>
+                                        </div>
+                                        <span>Clinical Cases</span>
+                                    </button>
+                                    <button class="dd-shortcut-card" t-on-click="() => this.openPatientQueue()">
+                                        <div class="dd-shortcut-icon tone-amber">
+                                            <img src="/dental_core/static/src/img/dd_chair.png" class="dd-shortcut-3d-img" alt="Patient Queue"/>
+                                        </div>
+                                        <span>Patient Queue</span>
+                                    </button>
+                                    <button class="dd-shortcut-card" t-on-click="() => this.openFollowUps()">
+                                        <div class="dd-shortcut-icon tone-rose">
+                                            <img src="/dental_core/static/src/img/kpi_treatment_tools_hd.png" class="dd-shortcut-3d-img" alt="Dental Recalls"/>
+                                        </div>
+                                        <span>Dental Recalls</span>
+                                    </button>
+                                    <button class="dd-shortcut-card" t-on-click="() => this.openPatientRecords()">
+                                        <div class="dd-shortcut-icon tone-cyan">
+                                            <i class="oi" data-icon="person"/>
+                                        </div>
+                                        <span>Patient Records</span>
+                                    </button>
+                                </nav>
+                            </section>
                         </div>
                     </div>
-
-                </div>
-
+                </t>
             </div>
         </div>
     </t>

@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_dental_conversation_summary_wizard_form" model="ir.ui.view">
+        <field name="name">dental.conversation.summary.wizard.form</field>
+        <field name="model">dental.conversation.summary.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Consultation Conversation Summary">
+                <field name="state" invisible="1"/>
+                <field name="keep_transcript" invisible="1"/>
+                <div class="alert alert-info d-flex align-items-start p-2 mb-3" role="status">
+                    <i class="fa fa-lock fa-lg me-2 mt-1"/>
+                    <div>
+                        Audio is transcribed on this server and never stored. The summary is written by a language model
+                        running on the clinic's own server: nothing is sent to external services.
+                        <strong>Nothing is saved to the patient record until you approve it.</strong>
+                        <span invisible="not keep_transcript"> The approved transcript is kept in the consultation record.</span>
+                        <span invisible="keep_transcript"> Only the approved summary is kept, not the transcript.</span>
+                    </div>
+                </div>
+                <group>
+                    <group>
+                        <field name="patient_id"/>
+                        <field name="case_id"/>
+                    </group>
+                    <group>
+                        <field name="examination_id" invisible="not examination_id"/>
+                        <field name="audio_seconds" invisible="not audio_seconds"/>
+                        <field name="llm_model" invisible="not llm_model"/>
+                    </group>
+                </group>
+
+                <div class="border rounded p-2 mb-3" invisible="state != 'record'">
+                    <div class="d-flex align-items-start">
+                        <field name="patient_consent" nolabel="1" class="me-2"/>
+                        <label for="patient_consent" class="fw-bold" string="The patient (or parent/guardian) has been told that this conversation will be recorded and transcribed on the clinic's own server, and has agreed."/>
+                    </div>
+                    <div class="text-muted small ms-4">Recording stays disabled until consent is confirmed. Do not record if the patient declines; type the notes instead.</div>
+                </div>
+
+                <notebook>
+                    <page string="Summary" name="summary" invisible="state != 'review'">
+                        <div class="alert alert-warning p-2 mb-2" role="alert">
+                            <i class="fa fa-exclamation-triangle me-1"/>
+                            This draft was generated automatically and may contain mistakes. Check every section against the
+                            transcript and correct it before approving. Sections are added below what is already recorded
+                            for the visit; nothing is overwritten.
+                        </div>
+                        <group>
+                            <field name="chief_complaint" placeholder="Not discussed"/>
+                            <field name="symptoms" placeholder="Not discussed"/>
+                            <field name="medical_history" placeholder="Not discussed"
+                                   help="Added to the Medical History Summary of the case."/>
+                            <field name="clinical_findings" placeholder="Not discussed"/>
+                            <field name="diagnosis" placeholder="Only a diagnosis you stated and confirmed"
+                                   help="Only diagnoses the doctor explicitly stated are suggested. Clear anything you have not confirmed."/>
+                            <field name="diagnosis_confirmed" invisible="not diagnosis"/>
+                            <field name="treatment_plan" placeholder="Not discussed"/>
+                            <field name="follow_up" placeholder="Not discussed"/>
+                        </group>
+                    </page>
+                    <page string="Transcript" name="transcript">
+                        <field name="transcript" widget="dental_conversation_recorder" nolabel="1" rows="10"
+                               placeholder="Record the conversation, or type or paste it here."/>
+                    </page>
+                </notebook>
+
+                <footer>
+                    <button name="action_generate_summary" string="Generate Summary" type="object" class="btn-primary"
+                            icon="fa-magic" invisible="state != 'record'"/>
+                    <button name="action_approve" string="Approve &amp; Save" type="object" class="btn-primary"
+                            icon="fa-check" invisible="state != 'review'"
+                            confirm="Save this reviewed summary to the patient's consultation record?"/>
+                    <button name="action_generate_summary" string="Regenerate" type="object" class="btn-secondary"
+                            invisible="state != 'review'"
+                            confirm="Replace the summary below with a new draft from the transcript? Your edits to the summary will be lost."/>
+                    <button name="action_record_more" string="Record More" type="object" class="btn-secondary"
+                            invisible="state != 'review'"/>
+                    <button name="action_discard" string="Discard" type="object" class="btn-secondary"
+                            confirm="Discard the transcript and summary? Nothing will be saved."/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>

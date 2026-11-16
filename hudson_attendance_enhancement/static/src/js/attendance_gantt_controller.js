@@ -1,6 +1,6 @@
 /** @odoo-module **/
 
-import { Component, useRef, useState } from "@odoo/owl";
+import { Component, proxy, signal, t, useProps } from "@odoo/owl";
 import { Layout } from "@web/search/layout";
 import { SearchBar } from "@web/search/search_bar/search_bar";
 import { useSearchBarToggler } from "@web/search/search_bar/search_bar_toggler";
@@ -9,7 +9,7 @@ import { Dropdown } from "@web/core/dropdown/dropdown";
 import { DropdownItem } from "@web/core/dropdown/dropdown_item";
 import { FormViewDialog } from "@web/views/view_dialogs/form_view_dialog";
 import { useModel } from "@web/model/model";
-import { useBus, useService } from "@web/core/utils/hooks";
+import { useService } from "@web/core/utils/hooks";
 import { standardViewProps } from "@web/views/standard_view_props";
 import { useSetupAction } from "@web/search/action_hook";
 
@@ -24,22 +24,22 @@ export class AttendanceGanttController extends Component {
         Dropdown,
         DropdownItem,
     };
-    static props = {
+    props = useProps({
         ...standardViewProps,
-        Model: Function,
-        Renderer: Function,
-        archInfo: Object,
-    };
+        Model: t.function(),
+        Renderer: t.function(),
+        archInfo: t.object(),
+    });
 
     setup() {
-        this.rootRef = useRef("root");
+        this.rootRef = signal.ref();
         this.dialog = useService("dialog");
         this.action = useService("action");
         this.orm = useService("orm");
         this.notification = useService("notification");
         this.searchBarToggler = useSearchBarToggler();
 
-        this.state = useState({
+        this.state = proxy({
             isFullscreen: false,
         });
 
@@ -48,9 +48,9 @@ export class AttendanceGanttController extends Component {
             archInfo: this.props.archInfo,
         });
 
-        useBus(this.model.bus, "update", () => {
-            this.render(true);
-        });
+        // useModel already re-renders this component on model.notify();
+        // OWL 3 components have no this.render(), so calling it crashed every
+        // navigation (previous/next/today, day/week/month).
 
         useSetupAction({
             rootRef: this.rootRef,

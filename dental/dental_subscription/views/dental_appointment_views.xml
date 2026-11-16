@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_dental_appointment_form_membership" model="ir.ui.view">
+        <field name="name">dental.appointment.form.membership</field>
+        <field name="model">dental.appointment</field>
+        <field name="inherit_id" ref="dental_appointment.view_dental_appointment_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//div[@name='button_box']" position="after">
+                <field name="has_active_dental_membership" invisible="1"/>
+                <div class="alert alert-success py-2 mb-2" role="status"
+                     invisible="not dental_membership_summary or not has_active_dental_membership">
+                    <div><i class="fa fa-id-card me-1"/><strong>Member: </strong><field name="dental_membership_summary" readonly="1"/></div>
+                    <field name="dental_membership_benefits" readonly="1" class="small"/>
+                </div>
+                <div class="alert alert-warning py-2 mb-2" role="status"
+                     invisible="not dental_membership_summary or has_active_dental_membership">
+                    <i class="fa fa-exclamation-triangle me-1"/><strong>Membership not usable: </strong>
+                    <field name="dental_membership_summary" readonly="1"/>
+                </div>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_dental_appointment_tree_membership" model="ir.ui.view">
+        <field name="name">dental.appointment.list.membership</field>
+        <field name="model">dental.appointment</field>
+        <field name="inherit_id" ref="dental_appointment.view_dental_appointment_tree"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='patient_id']" position="after">
+                <field name="has_active_dental_membership" string="Member" widget="boolean" optional="show"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>

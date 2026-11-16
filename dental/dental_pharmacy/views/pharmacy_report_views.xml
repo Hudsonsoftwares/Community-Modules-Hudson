@@ -58,7 +58,7 @@
     <record id="action_dental_pharmacy_invoices" model="ir.actions.act_window">
         <field name="name">Pharmacy Invoices &amp; Charges</field>
         <field name="res_model">account.move</field>
-        <field name="view_mode">list,kanban,form</field>
+        <field name="view_mode">kanban,list,form</field>
         <field name="domain">[('is_pharmacy_invoice', '=', True)]</field>
         <field name="context">{'default_move_type': 'out_invoice'}</field>
     </record>

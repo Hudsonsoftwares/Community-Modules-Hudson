@@ -5,94 +5,568 @@
         <field name="model">dental.case</field>
         <field name="arch" type="xml">
             <form class="o_dental_case_form_view">
+                <!-- Action toolbar: only the clinical workflow lives here (one primary action, one secondary).
+                     Secondary tools (invoice, peer consultation, second opinion, case chat, documents,
+                     education, conversation summary) are server actions in the form's Actions (cog) menu,
+                     each declared by the module that owns it. Related records stay as smart buttons. -->
                 <header>
-                    <button name="action_complete_consultation" string="Complete Consultation" type="object" class="oe_highlight" invisible="state in ('completed', 'cancelled')"/>
+                    <button name="action_complete_consultation" string="Complete Consultation" type="object" class="oe_highlight"
+                            invisible="state in ('completed', 'cancelled')"/>
+                    <button name="action_reopen_case" string="Reopen Case" type="object" class="btn-secondary"
+                            invisible="state not in ('completed', 'cancelled')"/>
+                    <button name="action_schedule_follow_up" string="Schedule Follow-up" type="object" class="btn-secondary"
+                            groups="dental_base.group_dental_dentist,dental_base.group_dental_manager"
+                            invisible="state == 'cancelled'"/>
+                    <!-- Only shown in the rare case today's continued visit is really a new problem -->
+                    <button name="action_new_case_for_current_visit" string="Start New Case" type="object" class="btn-secondary"
+                            groups="dental_base.group_dental_dentist,dental_base.group_dental_manager"
+                            invisible="state in ('completed', 'cancelled') or not current_visit_id or current_visit_id == appointment_id"
+                            confirm="Today's visit will move out of this case into a new case for an unrelated problem. Continue?"/>
+                    <!-- Hidden on request; kept in the arch as a stable anchor for extension modules -->
+                    <button name="action_new_visit_consultation" string="Visit Consultation" type="object"
+                            groups="dental_base.group_dental_dentist,dental_base.group_dental_manager"
+                            invisible="1"
+                            help="Record today's consultation notes for the current visit"/>
                     <field name="state" widget="statusbar" statusbar_visible="draft,open,under_treatment,completed"/>
                 </header>
                 <sheet>
-                    <div class="oe_button_box" name="button_box"/>
-                    <div class="oe_title">
-                        <h1>
-                            <field name="name"/>
-                        </h1>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_view_invoices" type="object" class="oe_stat_button" icon="payments"
+                                groups="dental_base.group_dental_manager" invisible="invoice_count == 0">
+                            <div class="o_field_widget o_stat_info">
+                                <span class="o_stat_value"><field name="invoice_count"/> Invoice(s)</span>
+                                <span class="o_stat_text" invisible="not amount_due">Due: <field name="amount_due" widget="monetary"/></span>
+                            </div>
+                        </button>
                     </div>
-                    <div class="alert alert-danger d-flex align-items-center p-2 mb-3 rounded-2 shadow-sm" role="alert" invisible="not allergies">
-                        <i class="fa fa-exclamation-triangle fa-lg me-2 text-danger"/>
-                        <div><strong>Medical &amp; Allergy Alert:</strong> <field name="allergies" readonly="1" class="fw-bold text-danger"/></div>
+                    <widget name="web_ribbon" title="Paid" bg_color="text-bg-success" invisible="billing_state != 'paid'"/>
+                    <widget name="web_ribbon" title="Payment Due" bg_color="text-bg-warning" invisible="billing_state != 'due'"/>
+
+                    <!-- CASE HEADER: case number, allergy status and the key facts of the case in one card -->
+                    <div class="o_dc_hero" name="case_hero">
+                        <field name="patient_allergy_status" invisible="1"/>
+                        <field name="has_clinical_alert" invisible="1"/>
+                        <field name="company_currency_id" invisible="1"/>
+                        <field name="current_examination_id" invisible="1"/>
+                        <div class="o_dc_hero_head">
+                            <span class="o_dc_hero_logo"><span class="o_dc_icon o_dc_icon_tooth"/></span>
+                            <div class="o_dc_hero_titles">
+                                <div class="oe_title">
+                                    <h1><field name="name"/></h1>
+                                </div>
+                                <div class="o_dc_hero_badges">
+                                    <span class="o_dc_chip o_dc_chip_ok" invisible="patient_allergy_status != 'none'">
+                                        <i class="oi" data-icon="check" title="No known allergies"/> No Known Allergies
+                                    </span>
+                                    <span class="o_dc_chip o_dc_chip_danger" invisible="patient_allergy_status != 'known'">
+                                        <i class="oi" data-icon="warning" title="Allergies"/> Allergies Recorded
+                                    </span>
+                                    <span class="o_dc_chip o_dc_chip_warning" invisible="patient_allergy_status in ('known', 'none')">
+                                        <i class="oi" data-icon="help" title="Allergy status unknown"/> Allergy Status Not Recorded
+                                    </span>
+                                    <span class="o_dc_verified" invisible="patient_allergy_status not in ('known', 'none')">
+                                        <i class="oi" data-icon="check_circle" title="Verification"/>
+                                        <field name="patient_allergy_verification" readonly="1" class="d-inline"/>
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="o_dc_strip">
+                            <div class="o_dc_strip_item o_dc_strip_patient">
+                                <field name="patient_image" widget="image" readonly="1" class="o_dc_avatar"
+                                       invisible="not patient_image" options="{'size': [56, 56]}"/>
+                                <span class="o_dc_avatar_placeholder" invisible="patient_image"><span class="o_dc_icon o_dc_icon_user"/></span>
+                                <div class="o_dc_strip_text">
+                                    <span class="o_dc_strip_label">Patient</span>
+                                    <field name="patient_id" class="o_dc_strip_value fw-bold" options="{'no_create': True}"/>
+                                    <span class="o_dc_strip_sub" invisible="not patient_age and not patient_gender">
+                                        <span invisible="not patient_age"><field name="patient_age" class="d-inline"/> Years</span>
+                                        <span invisible="not patient_age or not patient_gender"> · </span>
+                                        <field name="patient_gender" class="d-inline" invisible="not patient_gender"/>
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="o_dc_strip_item">
+                                <span class="o_dc_icon o_dc_icon_stethoscope o_dc_strip_icon"/>
+                                <div class="o_dc_strip_text">
+                                    <span class="o_dc_strip_label">Doctor</span>
+                                    <field name="doctor_id" class="o_dc_strip_value" options="{'no_create': True}"/>
+                                </div>
+                            </div>
+                            <div class="o_dc_strip_item">
+                                <span class="o_dc_icon o_dc_icon_calendar o_dc_strip_icon"/>
+                                <div class="o_dc_strip_text">
+                                    <span class="o_dc_strip_label">Opening Visit</span>
+                                    <field name="appointment_id" class="o_dc_strip_value" options="{'no_create': True}"/>
+                                </div>
+                            </div>
+                            <div class="o_dc_strip_item" invisible="not current_visit_id or current_visit_id == appointment_id">
+                                <span class="o_dc_icon o_dc_icon_calendar o_dc_strip_icon"/>
+                                <div class="o_dc_strip_text">
+                                    <span class="o_dc_strip_label">Current Visit</span>
+                                    <field name="current_visit_id" class="o_dc_strip_value"/>
+                                    <span class="o_dc_strip_sub" invisible="visit_count &lt; 2"><field name="visit_count" class="d-inline"/> visits in this case</span>
+                                </div>
+                            </div>
+                            <div class="o_dc_strip_item">
+                                <span class="o_dc_icon o_dc_icon_calendar o_dc_strip_icon"/>
+                                <div class="o_dc_strip_text">
+                                    <span class="o_dc_strip_label">Case Date</span>
+                                    <field name="case_date" class="o_dc_strip_value"/>
+                                </div>
+                            </div>
+                            <div class="o_dc_strip_item">
+                                <span class="o_dc_icon o_dc_icon_building o_dc_strip_icon"/>
+                                <div class="o_dc_strip_text">
+                                    <span class="o_dc_strip_label">Branch</span>
+                                    <field name="branch_id" class="o_dc_strip_value" options="{'no_open': True}"/>
+                                </div>
+                            </div>
+                            <div class="o_dc_strip_item">
+                                <span class="o_dc_icon o_dc_icon_card o_dc_strip_icon"/>
+                                <div class="o_dc_strip_text">
+                                    <span class="o_dc_strip_label">Billing Status</span>
+                                    <field name="billing_state" widget="badge" class="o_dc_strip_value"
+                                           decoration-info="billing_state == 'to_invoice'"
+                                           decoration-warning="billing_state in ('draft', 'due')"
+                                           decoration-success="billing_state == 'paid'"/>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="o_dc_hero_art" aria-hidden="true"/>
                     </div>
-                    <group>
-                        <group>
-                            <field name="patient_id"/>
-                            <field name="doctor_id"/>
-                            <field name="appointment_id"/>
-                        </group>
-                        <group>
-                            <field name="case_date"/>
-                            <field name="branch_id"/>
-                        </group>
-                    </group>
+
+                    <!-- Live medical alerts (safety): read from the patient record every time the case is opened.
+                         "No known allergies" is the green chip in the header above. -->
+                    <div class="o_dental_case_alerts" name="medical_alerts">
+                        <div class="o_dc_alert o_dc_alert_danger" role="alert" invisible="patient_allergy_status != 'known'">
+                            <i class="oi oi-lg" data-icon="warning" title="Allergy"/>
+                            <div class="flex-grow-1 min-w-0">
+                                <strong>Allergies:</strong>
+                                <field name="patient_allergies" readonly="1" class="fw-bold d-block o_dental_alert_html"/>
+                            </div>
+                        </div>
+                        <div class="o_dc_alert o_dc_alert_warning" role="alert" invisible="patient_allergy_status in ('known', 'none')">
+                            <i class="oi oi-lg" data-icon="help" title="Allergy status unknown"/>
+                            <div class="flex-grow-1 min-w-0">
+                                <strong>Allergy status not recorded.</strong> Ask the patient before prescribing or treating, then record it on the patient file.
+                            </div>
+                            <button name="action_open_patient_medical" type="object" string="Record" class="btn btn-sm btn-warning"/>
+                        </div>
+                        <div class="o_dc_alert o_dc_alert_warning" role="alert" invisible="not has_clinical_alert">
+                            <i class="oi oi-lg" data-icon="favorite" title="Medical alert"/>
+                            <div class="flex-grow-1 min-w-0">
+                                <strong>Medical alerts:</strong>
+                                <field name="patient_clinical_alerts" readonly="1" class="d-block o_dental_alert_html"/>
+                                <field name="patient_existing_conditions" readonly="1" class="d-block o_dental_alert_html"/>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Seven sections. Page names are kept stable: other dental modules extend them. -->
                     <notebook>
-                        <page string="Clinical Info">
-                            <group>
-                                <field name="chief_complaint" readonly="state in ('completed', 'cancelled')"/>
-                                <field name="clinical_notes" readonly="state in ('completed', 'cancelled')"/>
-                            </group>
-                        </page>
-                        <page string="Medical History">
-                            <group>
-                                <field name="medical_history_summary" readonly="state in ('completed', 'cancelled')"/>
-                                <field name="allergies" readonly="state in ('completed', 'cancelled')"/>
-                                <field name="current_medications" readonly="state in ('completed', 'cancelled')"/>
-                                <field name="dental_history_summary" readonly="state in ('completed', 'cancelled')"/>
-                            </group>
-                        </page>
-                        <page string="Examinations">
-                            <field name="examination_ids">
-                                <list>
-                                    <field name="name"/>
-                                    <field name="examination_date"/>
-                                    <field name="doctor_id"/>
-                                </list>
+                        <!-- 1. OVERVIEW: today's complaint and notes, background, and earlier visits as cards.
+                             Allergies / medical alerts are shown live above the tabs, so they are not repeated here. -->
+                        <page string="Overview" name="clinical_info">
+                            <div class="o_dc_overview">
+                                <div class="o_dc_card o_dc_area_complaint">
+                                    <div class="o_dc_card_head">
+                                        <span class="o_dc_card_icon"><span class="o_dc_icon o_dc_icon_clipboard"/></span>
+                                        <span class="o_dc_card_title">Chief Complaint</span>
+                                    </div>
+                                    <field name="chief_complaint" nolabel="1" class="o_dc_card_field" readonly="state in ('completed', 'cancelled')"
+                                           placeholder="In the patient's words, e.g. pain in lower left back tooth for 3 days"/>
+                                </div>
+                                <div class="o_dc_card o_dc_area_notes">
+                                    <div class="o_dc_card_head">
+                                        <span class="o_dc_card_icon"><span class="o_dc_icon o_dc_icon_notes"/></span>
+                                        <span class="o_dc_card_title">Clinical Notes</span>
+                                    </div>
+                                    <field name="clinical_notes" nolabel="1" class="o_dc_card_field" readonly="state in ('completed', 'cancelled')"
+                                           placeholder="Notes of today's consultation"/>
+                                </div>
+                                <div class="o_dc_card o_dc_card_table o_dc_area_history" name="medical_background">
+                                    <div class="o_dc_card_head o_dc_card_head_tinted">
+                                        <span class="o_dc_card_icon"><span class="o_dc_icon o_dc_icon_heart"/></span>
+                                        <span class="o_dc_card_title">Medical History</span>
+                                    </div>
+                                    <group class="o_dc_rows">
+                                        <field name="medical_history_summary" string="Summary" readonly="state in ('completed', 'cancelled')" placeholder="-"/>
+                                        <field name="current_medications" readonly="state in ('completed', 'cancelled')" placeholder="-"/>
+                                    </group>
+                                </div>
+                                <div class="o_dc_card o_dc_area_dental">
+                                    <div class="o_dc_card_head">
+                                        <span class="o_dc_card_icon"><span class="o_dc_icon o_dc_icon_tooth"/></span>
+                                        <span class="o_dc_card_title">Dental History</span>
+                                    </div>
+                                    <field name="dental_history_summary" nolabel="1" class="o_dc_card_field" readonly="state in ('completed', 'cancelled')"
+                                           placeholder="-"/>
+                                </div>
+                            </div>
+
+                            <!-- Earlier visits of this patient: one card per visit, opening the case of that visit -->
+                            <div class="o_dental_section_title" name="previous_visits">
+                                <span>Previous Visits</span>
+                                <small class="text-muted">Open a visit to see its case, examination and treatment.</small>
+                            </div>
+                            <div class="text-muted fst-italic mb-3" invisible="previous_visit_ids">No previous visits for this patient.</div>
+                            <field name="previous_visit_ids" nolabel="1" readonly="1" mode="kanban" class="o_dc_visit_cards"
+                                   invisible="not previous_visit_ids">
+                                <kanban create="0" action="action_open_visit_case" type="object" default_order="date_start desc">
+                                    <templates>
+                                        <t t-name="card" class="o_dc_visit_card">
+                                            <div class="o_dc_visit_date">
+                                                <i class="oi" data-icon="calendar_today" title="Visit date"/>
+                                                <field name="date_start" options="{'show_time': false}"/>
+                                            </div>
+                                            <div class="o_dc_visit_meta">
+                                                <field name="case_id" class="fw-semibold"/>
+                                                <span invisible="not doctor_id"> · </span>
+                                                <field name="doctor_id" invisible="not doctor_id"/>
+                                            </div>
+                                            <field name="case_chief_complaint" class="o_dc_visit_complaint" invisible="not case_chief_complaint"/>
+                                            <field name="treatment_id" widget="badge" class="o_dc_visit_treatment" invisible="not treatment_id"/>
+                                        </t>
+                                    </templates>
+                                </kanban>
                             </field>
                         </page>
-                        <page string="Odontogram" name="odontogram">
-                            <field name="odontogram_chart" widget="dental_odontogram_3d" nolabel="1"/>
+
+                        <!-- EXAMINATION: today's structured clinical examination (one per visit) and earlier ones as cards.
+                             The full findings / summary live inside the examination itself. -->
+                        <page string="Examination" name="clinical_examination">
+                            <div class="o_dental_section_title"><span>Today's Examination</span></div>
+                            <div class="o_dental_exam_card is-empty" invisible="current_examination_id">
+                                <span class="o_dental_exam_card_icon"><i class="oi" data-icon="assignment" title="Examination"/></span>
+                                <div class="flex-grow-1 min-w-0">
+                                    <strong class="d-block">No examination recorded for this visit yet</strong>
+                                    <span class="text-muted" invisible="not previous_examination_ids or state in ('completed', 'cancelled')">
+                                        Start fresh, or <strong>Continue</strong> an earlier examination below to carry its findings forward.
+                                    </span>
+                                </div>
+                                <button name="action_open_examination" type="object" string="Start Examination" icon="play_arrow"
+                                        class="btn btn-primary"
+                                        groups="dental_base.group_dental_dentist,dental_base.group_dental_manager"
+                                        invisible="state in ('completed', 'cancelled')"/>
+                            </div>
+                            <div class="o_dental_exam_card" invisible="not current_examination_id">
+                                <span class="o_dental_exam_card_icon"><i class="oi" data-icon="assignment" title="Examination"/></span>
+                                <div class="flex-grow-1 min-w-0">
+                                    <div class="d-flex flex-wrap align-items-center gap-2">
+                                        <field name="current_exam_name" class="o_dental_exam_title"/>
+                                        <field name="current_exam_state" widget="badge"
+                                               decoration-info="current_exam_state == 'draft'" decoration-success="current_exam_state == 'done'"/>
+                                    </div>
+                                    <div class="o_dental_exam_signoff" invisible="current_exam_state != 'done'">
+                                        Signed off by <field name="current_exam_completed_by_id" class="d-inline" options="{'no_open': True}"/>
+                                        on <field name="current_exam_completed_date" class="d-inline"/>
+                                    </div>
+                                    <field name="current_exam_progress" widget="progressbar" class="o_dental_exam_progress"/>
+                                </div>
+                                <button name="action_open_examination" type="object" string="Open Examination" icon="edit_square"
+                                        class="btn btn-primary"
+                                        groups="dental_base.group_dental_dentist,dental_base.group_dental_manager"/>
+                                <div class="o_dental_exam_steps">
+                                    <span class="o_dental_exam_step" invisible="not current_exam_extraoral"><i class="oi oi-filled" data-icon="check_circle" title="Recorded"/> Extraoral</span>
+                                    <span class="o_dental_exam_step is-pending" invisible="current_exam_extraoral"><i class="oi" data-icon="circle" title="Pending"/> Extraoral</span>
+                                    <span class="o_dental_exam_step" invisible="not current_exam_intraoral"><i class="oi oi-filled" data-icon="check_circle" title="Recorded"/> Intraoral</span>
+                                    <span class="o_dental_exam_step is-pending" invisible="current_exam_intraoral"><i class="oi" data-icon="circle" title="Pending"/> Intraoral</span>
+                                    <span class="o_dental_exam_step" invisible="not current_exam_dental"><i class="oi oi-filled" data-icon="check_circle" title="Recorded"/> Dental</span>
+                                    <span class="o_dental_exam_step is-pending" invisible="current_exam_dental"><i class="oi" data-icon="circle" title="Pending"/> Dental</span>
+                                    <span class="o_dental_exam_step" invisible="not current_exam_periodontal"><i class="oi oi-filled" data-icon="check_circle" title="Recorded"/> Periodontal</span>
+                                    <span class="o_dental_exam_step is-pending" invisible="current_exam_periodontal"><i class="oi" data-icon="circle" title="Pending"/> Periodontal</span>
+                                    <span class="o_dental_exam_step" invisible="not current_exam_findings"><i class="oi oi-filled" data-icon="check_circle" title="Recorded"/> Findings</span>
+                                    <span class="o_dental_exam_step is-pending" invisible="current_exam_findings"><i class="oi" data-icon="circle" title="Pending"/> Findings</span>
+                                    <span class="o_dental_exam_step" invisible="not current_exam_diagnosis"><i class="oi oi-filled" data-icon="check_circle" title="Recorded"/> Diagnosis</span>
+                                    <span class="o_dental_exam_step is-pending" invisible="current_exam_diagnosis"><i class="oi" data-icon="circle" title="Pending"/> Diagnosis</span>
+                                    <span class="o_dental_exam_step" invisible="not current_exam_assessment"><i class="oi oi-filled" data-icon="check_circle" title="Recorded"/> Assessment</span>
+                                    <span class="o_dental_exam_step is-pending" invisible="current_exam_assessment"><i class="oi" data-icon="circle" title="Pending"/> Assessment</span>
+                                </div>
+                            </div>
+
+                            <!-- Earlier examinations of this patient (all cases) as cards: click to review it,
+                                 Continue carries its findings into today's visit (the earlier record is never changed). -->
+                            <div class="o_dental_section_title" name="previous_examinations">
+                                <span>Previous Examinations</span>
+                                <small class="text-muted">Open one to review it in full.</small>
+                            </div>
+                            <div class="text-muted fst-italic mb-3" invisible="previous_examination_ids">No earlier examinations for this patient.</div>
+                            <field name="previous_examination_ids" nolabel="1" readonly="1" mode="kanban" class="o_dc_visit_cards o_dc_exam_cards"
+                                   invisible="not previous_examination_ids">
+                                <kanban create="0" action="action_open_examination_form" type="object" default_order="examination_date desc, id desc">
+                                    <templates>
+                                        <t t-name="card" class="o_dc_visit_card">
+                                            <div class="o_dc_visit_date">
+                                                <i class="oi" data-icon="calendar_today" title="Examination date"/>
+                                                <field name="examination_date" options="{'show_time': false}"/>
+                                                <field name="state" widget="badge" class="ms-auto"
+                                                       decoration-info="state == 'draft'" decoration-success="state == 'done'"/>
+                                            </div>
+                                            <field name="doctor_id" class="o_dc_exam_doctor" invisible="not doctor_id"/>
+                                            <div class="o_dc_exam_ref">
+                                                <field name="case_id"/>
+                                                <span> · </span>
+                                                <field name="name"/>
+                                            </div>
+                                            <field name="chief_complaint" class="o_dc_visit_complaint" invisible="not chief_complaint"/>
+                                            <div class="o_dc_exam_tags" invisible="not perio_status and not caries_risk and not treatment_urgency">
+                                                <span class="o_dc_exam_tag" invisible="not perio_status"><field name="perio_status"/></span>
+                                                <span class="o_dc_exam_tag" invisible="not caries_risk">Caries risk <field name="caries_risk"/></span>
+                                                <span class="o_dc_exam_tag" invisible="not treatment_urgency or treatment_urgency in ('urgent', 'emergency')">Urgency <field name="treatment_urgency"/></span>
+                                                <span class="o_dc_exam_tag is-alert" invisible="treatment_urgency not in ('urgent', 'emergency')"><field name="treatment_urgency"/></span>
+                                            </div>
+                                            <div class="o_dc_exam_foot" title="Examination sections recorded">
+                                                <field name="sections_progress" widget="progressbar" class="o_dc_exam_progress"/>
+                                                <button name="action_continue_examination" type="object" string="Continue" icon="redo"
+                                                        class="btn btn-sm btn-outline-primary"
+                                                        context="{'dental_case_id': parent.id}"
+                                                        groups="dental_base.group_dental_dentist,dental_base.group_dental_manager"
+                                                        invisible="parent.state in ('completed', 'cancelled') or parent.current_exam_state == 'done' or parent.current_exam_progress"
+                                                        confirm="Copy this examination's findings into today's examination? The earlier examination stays unchanged."/>
+                                            </div>
+                                        </t>
+                                    </templates>
+                                </kanban>
+                            </field>
                         </page>
-                        <page string="Diagnoses">
-                            <field name="diagnosis_ids">
-                                <list>
-                                    <field name="diagnosis_id"/>
+
+                        <!-- 2. CLINICAL CHART: 3D odontogram first, then the case diagnosis -->
+                        <page string="Clinical Chart" name="clinical_chart">
+                            <div class="o_dental_chart_block">
+                                <field name="odontogram_chart" widget="dental_odontogram_3d" nolabel="1"/>
+                            </div>
+
+                            <!-- Diagnoses of the patient: open ones from every visit stay until resolved, so a
+                                 returning patient's chart and list continue where the last visit ended -->
+                            <div class="o_dental_section_title o_dental_diagnosis_title" name="tooth_diagnoses">
+                                <span>Diagnosis</span>
+                                <small class="text-muted">Open diagnoses from all visits, in chart order. Record them from a tooth on the chart or add one here.</small>
+                                <button name="action_add_diagnosis" type="object" string="Add Diagnosis" icon="add"
+                                        class="btn btn-sm btn-outline-primary ms-auto"
+                                        groups="dental_base.group_dental_dentist,dental_base.group_dental_manager"
+                                        invisible="state in ('completed', 'cancelled')"/>
+                            </div>
+                            <div class="o_dx_diag_empty" invisible="patient_diagnosis_ids">
+                                No diagnoses recorded for this patient yet.
+                            </div>
+                            <field name="patient_diagnosis_ids" nolabel="1" readonly="1" mode="kanban" class="o_dx_diag_cards"
+                                   invisible="not patient_diagnosis_ids">
+                                <kanban create="0" can_open="0">
+                                    <templates>
+                                        <t t-name="card" class="o_dx_diag_card">
+                                            <field name="tooth_reference" class="o_dx_diag_tooth" invisible="not tooth_reference"/>
+                                            <span class="o_dx_diag_tooth is-general" invisible="tooth_reference">Gen</span>
+                                            <div class="o_dx_diag_main" t-att-class="{ 'is-resolved': record.status.raw_value === 'resolved' }">
+                                                <div class="o_dx_diag_title">
+                                                    <field name="diagnosis_code" class="o_dx_diag_code" invisible="not diagnosis_code"/>
+                                                    <field name="diagnosis_name" class="o_dx_diag_name"/>
+                                                </div>
+                                                <div class="o_dx_diag_meta">
+                                                    <field name="tooth_name"/>
+                                                    <span> · </span>
+                                                    <field name="date"/>
+                                                    <span invisible="not doctor_id"> · </span>
+                                                    <field name="doctor_id" invisible="not doctor_id"/>
+                                                    <span class="o_dx_diag_earlier" invisible="case_id == parent.id">Earlier visit · <field name="case_id"/></span>
+                                                </div>
+                                                <field name="notes" class="o_dx_diag_notes" invisible="not notes"/>
+                                            </div>
+                                            <div class="o_dx_diag_side">
+                                                <field name="status" widget="badge"
+                                                       decoration-warning="status == 'suspected'"
+                                                       decoration-danger="status == 'confirmed'"
+                                                       decoration-muted="status == 'resolved'"/>
+                                                <div class="o_dx_diag_actions" groups="dental_base.group_dental_dentist,dental_base.group_dental_manager">
+                                                    <button name="action_mark_confirmed" type="object" string="Confirm"
+                                                            class="btn btn-sm btn-link" invisible="status != 'suspected'"/>
+                                                    <button name="action_mark_resolved" type="object" string="Resolve"
+                                                            class="btn btn-sm btn-link" invisible="status == 'resolved'"/>
+                                                    <button name="action_reopen" type="object" string="Reopen"
+                                                            class="btn btn-sm btn-link" invisible="status != 'resolved'"/>
+                                                </div>
+                                            </div>
+                                        </t>
+                                    </templates>
+                                </kanban>
+                            </field>
+                        </page>
+
+                        <!-- 3. TREATMENT: the case's plans as cards; each plan's phases are on its board -->
+                        <page string="Treatment" name="treatment_plans">
+                            <div class="o_dental_section_title" name="treatment_plans_title"><span>Treatment Plans</span>
+                                <button name="action_new_treatment_plan" type="object" string="New Plan" icon="add" class="btn btn-sm btn-primary ms-auto"
+                                        groups="dental_base.group_dental_dentist,dental_base.group_dental_manager"
+                                        invisible="state in ('completed', 'cancelled')"/>
+                            </div>
+                            <div class="o_dx_diag_empty" invisible="treatment_plan_ids">No treatment plan for this case yet.</div>
+                            <field name="treatment_plan_ids" nolabel="1" readonly="1" mode="kanban" class="o_dc_visit_cards o_dx_plan_cards"
+                                   invisible="not treatment_plan_ids">
+                                <kanban create="0" action="action_open_form" type="object">
+                                    <templates>
+                                        <t t-name="card" class="o_dc_visit_card o_dx_plan_card">
+                                            <div class="o_dc_visit_date">
+                                                <field name="name"/>
+                                                <field name="state" widget="badge" class="ms-auto"
+                                                       decoration-info="state in ('draft', 'proposed')" decoration-primary="state == 'approved'"
+                                                       decoration-warning="state == 'in_progress'" decoration-success="state == 'completed'" decoration-muted="state == 'cancelled'"/>
+                                            </div>
+                                            <div class="o_dc_visit_meta">
+                                                <field name="plan_date"/>
+                                                <span invisible="not doctor_id"> · </span>
+                                                <field name="doctor_id" invisible="not doctor_id"/>
+                                            </div>
+                                            <div class="o_dx_plan_figures">
+                                                <field name="step_summary"/>
+                                                <field name="estimated_total" widget="monetary" class="ms-auto fw-semibold"/>
+                                                <field name="currency_id" invisible="1"/>
+                                            </div>
+                                            <div class="o_dc_exam_foot">
+                                                <field name="progress" widget="progressbar" class="o_dc_exam_progress"/>
+                                                <div class="o_dx_plan_actions" name="plan_card_actions">
+                                                    <button name="action_propose" type="object" string="Propose" class="btn btn-sm btn-outline-primary"
+                                                            groups="dental_base.group_dental_dentist,dental_base.group_dental_manager" invisible="state != 'draft'"/>
+                                                    <button name="action_accept" type="object" string="Accepted" class="btn btn-sm btn-outline-primary"
+                                                            groups="dental_base.group_dental_dentist,dental_base.group_dental_manager" invisible="state not in ('draft', 'proposed')"/>
+                                                </div>
+                                            </div>
+                                        </t>
+                                    </templates>
+                                </kanban>
+                            </field>
+                        </page>
+
+                        <!-- 4. FOLLOW-UP: planned next visits and reviews; Book marks them booked once the appointment exists -->
+                        <page string="Follow-up" name="follow_ups">
+                            <div class="o_dental_section_title" name="planned_follow_ups"><span>Planned Follow-ups</span>
+                                <small class="text-muted">Next visits and reviews. Book turns one into an appointment that stays in this case.</small>
+                            </div>
+                            <field name="follow_up_ids" readonly="state == 'cancelled'"
+                                   context="{'default_case_id': id, 'default_patient_id': patient_id, 'default_doctor_id': doctor_id, 'default_appointment_id': current_visit_id or appointment_id}">
+                                <list editable="bottom" open_form_view="1" default_order="date"
+                                      decoration-danger="state == 'pending' and date &lt; current_date" decoration-muted="state == 'cancelled'">
                                     <field name="date"/>
+                                    <field name="follow_up_type"/>
+                                    <field name="reason"/>
+                                    <field name="tooth_reference" optional="show"/>
+                                    <field name="doctor_id" optional="show"/>
+                                    <field name="priority" widget="priority" optional="show"/>
+                                    <field name="booked_appointment_id" optional="show" readonly="1"/>
+                                    <field name="patient_id" column_invisible="1"/>
+                                    <field name="state" widget="badge" readonly="1" decoration-warning="state == 'pending'" decoration-info="state == 'booked'" decoration-success="state == 'done'" decoration-muted="state == 'cancelled'"/>
+                                    <button name="action_book_followup_appointment" string="Book" type="object" icon="calendar_add_on" class="btn-link" invisible="not id or state != 'pending'"/>
+                                </list>
+                            </field>
+                            <div class="o_dental_section_title"><span>Visits in this Case</span></div>
+                            <field name="visit_ids" readonly="1" nolabel="1">
+                                <list create="0" delete="0" default_order="date_start desc">
+                                    <field name="date_start" string="Visit Date"/>
+                                    <field name="name"/>
                                     <field name="doctor_id"/>
-                                    <field name="status"/>
+                                    <field name="reason" optional="show"/>
+                                    <field name="state" widget="badge" decoration-success="state == 'completed'" decoration-info="state in ('checked_in', 'in_consultation')"/>
                                 </list>
                             </field>
                         </page>
-                        <page string="Treatment Plans">
-                            <field name="treatment_plan_ids">
-                                <list>
-                                    <field name="name"/>
+
+                        <!-- 5. RECORDS & DOCUMENTS: chronological timeline + detailed past records -->
+                        <page string="Records &amp; Documents" name="patient_history">
+                            <div class="o_dental_section_title" groups="dental_base.group_dental_dentist,dental_base.group_dental_manager">
+                                <span>Clinical Timeline (all visits, all branches)</span>
+                                <button name="action_open_patient_timeline" type="object" string="Open Full Timeline" icon="fullscreen" class="btn btn-sm btn-outline-primary ms-auto"/>
+                            </div>
+                            <field name="patient_history_line_ids" readonly="1" nolabel="1"
+                                   groups="dental_base.group_dental_dentist,dental_base.group_dental_manager"/>
+                            <separator string="Previous Consultations"/>
+                            <field name="history_examination_ids" readonly="1" nolabel="1">
+                                <list create="0" delete="0">
+                                    <field name="examination_date"/>
+                                    <field name="case_id"/>
+                                    <field name="appointment_id" optional="show"/>
+                                    <field name="chief_complaint"/>
+                                    <field name="clinical_findings" optional="show"/>
+                                    <field name="examination_summary" optional="hide"/>
+                                    <field name="doctor_id"/>
+                                    <field name="state" widget="badge" optional="show"
+                                           decoration-info="state == 'draft'" decoration-success="state == 'done'"/>
+                                </list>
+                            </field>
+                            <separator string="Diagnoses (all cases)"/>
+                            <field name="history_diagnosis_ids" readonly="1" nolabel="1">
+                                <list create="0" delete="0" decoration-muted="status == 'resolved'">
+                                    <field name="date"/>
+                                    <field name="diagnosis_id"/>
+                                    <field name="tooth_reference"/>
+                                    <field name="case_id"/>
+                                    <field name="doctor_id"/>
+                                    <field name="status" widget="badge"/>
+                                </list>
+                            </field>
+                            <separator string="Treatment Plans (all cases)"/>
+                            <field name="history_plan_ids" readonly="1" nolabel="1">
+                                <list create="0" delete="0">
                                     <field name="plan_date"/>
+                                    <field name="name"/>
+                                    <field name="case_id"/>
+                                    <field name="doctor_id"/>
                                     <field name="estimated_total"/>
-                                    <field name="state"/>
+                                    <field name="currency_id" column_invisible="1"/>
+                                    <field name="state" widget="badge"/>
                                 </list>
                             </field>
-                        </page>
-                        <page string="Treatment Sessions">
-                            <field name="treatment_session_ids">
-                                <list>
-                                    <field name="name"/>
+                            <separator string="Treatment Sessions (all cases)"/>
+                            <field name="history_session_ids" readonly="1" nolabel="1">
+                                <list create="0" delete="0">
                                     <field name="session_date"/>
+                                    <field name="name"/>
                                     <field name="plan_line_id"/>
-                                    <field name="state"/>
+                                    <field name="performed_treatment_id" optional="show"/>
+                                    <field name="tooth_reference"/>
+                                    <field name="doctor_id"/>
+                                    <field name="state" widget="badge" decoration-success="state == 'completed'"/>
+                                </list>
+                            </field>
+                            <separator string="X-Rays &amp; Medical Records"/>
+                            <field name="patient_document_ids" readonly="1" nolabel="1">
+                                <list create="0" delete="0">
+                                    <field name="document_date"/>
+                                    <field name="document_type"/>
+                                    <field name="name"/>
+                                    <field name="file_name" column_invisible="1"/>
+                                    <field name="file" widget="binary" filename="file_name"/>
+                                </list>
+                            </field>
+                            <separator string="Other Cases of this Patient"/>
+                            <field name="history_case_ids" readonly="1" nolabel="1">
+                                <list create="0" delete="0">
+                                    <field name="case_date"/>
+                                    <field name="name"/>
+                                    <field name="chief_complaint"/>
+                                    <field name="doctor_id"/>
+                                    <field name="state" widget="badge"/>
                                 </list>
                             </field>
                         </page>
                     </notebook>
                 </sheet>
-                <chatter/>
             </form>
         </field>
+    </record>
+
+    <!-- Actions (cog) menu of the case form. Sequences group the entries:
+         10-19 collaboration, 20-29 clinical tools, 30-39 billing. -->
+    <record id="action_server_dental_case_invoice" model="ir.actions.server">
+        <field name="name">Create / Update Invoice</field>
+        <field name="model_id" ref="dental_core.model_dental_case"/>
+        <field name="binding_model_id" ref="dental_core.model_dental_case"/>
+        <field name="binding_view_types">form</field>
+        <field name="sequence">30</field>
+        <field name="group_ids" eval="[Command.set([ref('dental_base.group_dental_dentist'), ref('dental_base.group_dental_manager')])]"/>
+        <field name="state">code</field>
+        <!-- Doctors prepare the treatment invoice; it lands in Reception Desk > Billing > Ready for Billing.
+             A draft invoice of the visit is extended instead of creating a second one. -->
+        <field name="code">action = record.action_create_invoice()</field>
     </record>
 
     <record id="view_dental_case_list" model="ir.ui.view">
@@ -131,7 +605,7 @@
     <record id="action_dental_case" model="ir.actions.act_window">
         <field name="name">Dental Cases</field>
         <field name="res_model">dental.case</field>
-        <field name="view_mode">list,form</field>
+        <field name="view_mode">kanban,list,form</field>
         <field name="search_view_id" ref="view_dental_case_search"/>
     </record>
 </odoo>

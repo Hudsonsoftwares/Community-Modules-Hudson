@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <record id="mail_template_subscription_expiry" model="mail.template">
+            <field name="name">Dental Membership: Renewal Reminder</field>
+            <field name="model_id" ref="sale.model_sale_order"/>
+            <field name="subject">Your {{ object.order_line.product_id.filtered('dental_membership_type')[:1].name or 'membership' }} ends on {{ format_date(object.end_date) }}</field>
+            <field name="email_from">{{ (object.user_id.email_formatted or object.company_id.email_formatted or user.email_formatted) }}</field>
+            <field name="use_default_to" eval="True"/>
+            <field name="lang">{{ object.partner_id.lang }}</field>
+            <field name="auto_delete" eval="True"/>
+            <field name="body_html" type="html">
+<div style="margin: 0; padding: 0; font-size: 14px;">
+    <p>Dear <t t-out="object.partner_id.name or ''">Patient</t>,</p>
+    <p>
+        Your subscription <strong t-out="object.name or ''">SUB0001</strong> with
+        <t t-out="object.company_id.name or ''">our clinic</t> ends on
+        <strong t-out="format_date(object.end_date) or ''">01/01/2027</strong>.
+    </p>
+    <p>Renew it at the reception desk to keep your check-ups, cleanings and member discounts without interruption.</p>
+    <p t-if="object.dental_member_ids">
+        Covered members: <t t-out="', '.join(object.dental_member_ids.mapped('name'))">Patient</t>
+    </p>
+    <p>Kind regards,<br/><t t-out="object.company_id.name or ''">Dental Clinic</t></p>
+</div>
+            </field>
+        </record>
+
+        <record id="mail_template_subscription_overdue" model="mail.template">
+            <field name="name">Dental Membership: Payment Reminder</field>
+            <field name="model_id" ref="sale.model_sale_order"/>
+            <field name="subject">Payment reminder for {{ object.name }}</field>
+            <field name="email_from">{{ (object.user_id.email_formatted or object.company_id.email_formatted or user.email_formatted) }}</field>
+            <field name="use_default_to" eval="True"/>
+            <field name="lang">{{ object.partner_id.lang }}</field>
+            <field name="auto_delete" eval="True"/>
+            <field name="body_html" type="html">
+<div style="margin: 0; padding: 0; font-size: 14px;">
+    <p>Dear <t t-out="object.partner_id.name or ''">Patient</t>,</p>
+    <p>
+        Our records show an overdue amount of
+        <strong t-out="format_amount(object.dental_amount_overdue, object.currency_id) or ''">$ 25.00</strong>
+        on your subscription <strong t-out="object.name or ''">SUB0001</strong>
+        (due since <t t-out="format_date(object.dental_overdue_since) or ''">01/01/2027</t>).
+    </p>
+    <p>Membership benefits are suspended when a payment stays overdue beyond the grace period. Please settle it at the reception desk or reply to this email if you have already paid.</p>
+    <p>Kind regards,<br/><t t-out="object.company_id.name or ''">Dental Clinic</t></p>
+</div>
+            </field>
+        </record>
+    </data>
+</odoo>

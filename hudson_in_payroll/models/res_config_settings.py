@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 import re
+# pyrefly: ignore [missing-import]
 from odoo import api, fields, models, _
+# pyrefly: ignore [missing-import]
 from odoo.exceptions import ValidationError
 
 
@@ -32,11 +34,6 @@ class ResConfigSettings(models.TransientModel):
         readonly=False,
         string="EDLI Registration Number"
     )
-    hds_in_enable_statutory_audit = fields.Boolean(
-        related='company_id.hds_in_enable_statutory_audit',
-        readonly=False,
-        string="Enable Statutory Audit Logging"
-    )
 
     # ESIC Company Configuration Related Fields
     hds_in_esic_applicable = fields.Boolean(
@@ -47,7 +44,7 @@ class ResConfigSettings(models.TransientModel):
     hds_in_esic_employer_code = fields.Char(
         related='company_id.hds_in_esic_employer_code',
         readonly=False,
-        string="ESIC Employer Code"
+        string="ESIC IP Number"
     )
     hds_in_esic_registration_no = fields.Char(
         related='company_id.hds_in_esic_registration_no',
@@ -150,6 +147,12 @@ class ResConfigSettings(models.TransientModel):
         readonly=False,
         string="TAN"
     )
+    hds_in_company_pan = fields.Char(related='company_id.hds_in_company_pan', readonly=False)
+    hds_in_deductor_type = fields.Selection(related='company_id.hds_in_deductor_type', readonly=False)
+    hds_in_tds_responsible_name = fields.Char(related='company_id.hds_in_tds_responsible_name', readonly=False)
+    hds_in_tds_responsible_designation = fields.Char(related='company_id.hds_in_tds_responsible_designation', readonly=False)
+    hds_in_tds_responsible_email = fields.Char(related='company_id.hds_in_tds_responsible_email', readonly=False)
+    hds_in_tds_responsible_mobile = fields.Char(related='company_id.hds_in_tds_responsible_mobile', readonly=False)
     hds_in_default_tax_regime = fields.Selection(
         related='company_id.hds_in_default_tax_regime',
         readonly=False,
@@ -168,47 +171,17 @@ class ResConfigSettings(models.TransientModel):
     )
 
 
-    # Payroll Structure & Bonus Management Settings
+    # Payroll Structure Settings
     hds_in_regular_struct_id = fields.Many2one(
         related='company_id.hds_in_regular_struct_id',
         readonly=False,
         string="Regular Payroll Structure"
-    )
-    hds_in_bonus_struct_id = fields.Many2one(
-        related='company_id.hds_in_bonus_struct_id',
-        readonly=False,
-        string="Bonus Payroll Structure"
     )
     # Retention Bonus Settings
     hds_in_retention_min_service_months = fields.Integer(
         related='company_id.hds_in_retention_min_service_months',
         readonly=False,
         string="Retention Bonus Min Service (Months)"
-    )
-    hds_in_retention_exclude_notice_period = fields.Boolean(
-        related='company_id.hds_in_retention_exclude_notice_period',
-        readonly=False,
-        string="Exclude Notice Period from Bonus"
-    )
-    hds_in_bonus_apply_tds = fields.Boolean(
-        related='company_id.hds_in_bonus_apply_tds',
-        readonly=False,
-        string="Apply TDS on Bonus"
-    )
-    hds_in_bonus_apply_pf = fields.Boolean(
-        related='company_id.hds_in_bonus_apply_pf',
-        readonly=False,
-        string="Apply PF"
-    )
-    hds_in_bonus_apply_esi = fields.Boolean(
-        related='company_id.hds_in_bonus_apply_esi',
-        readonly=False,
-        string="Apply ESI"
-    )
-    hds_in_bonus_apply_pt = fields.Boolean(
-        related='company_id.hds_in_bonus_apply_pt',
-        readonly=False,
-        string="Apply Professional Tax"
     )
 
     # Notice Pay Settlement Configuration Related Fields
@@ -356,6 +329,13 @@ class ResConfigSettings(models.TransientModel):
                         "Default Tax Regime is mandatory when TDS is enabled."
                     ))
                 record.hds_in_tan = tan
+                pan = (record.hds_in_company_pan or '').strip().upper()
+                if pan and not re.match(r'^[A-Z]{5}[0-9]{4}[A-Z]$', pan):
+                    raise ValidationError(_(
+                        "Invalid Company PAN '%s'. PAN must be 10 characters: 5 letters, 4 digits and 1 letter (e.g. ABCDE1234F)."
+                    ) % record.hds_in_company_pan)
+                if pan != (record.hds_in_company_pan or ''):
+                    record.hds_in_company_pan = pan
             if not self.env.registry.ready or self.env.context.get('install_mode') or self.env.context.get('skip_statutory_threshold_check'):
                 continue
             if (record.hds_in_enable_lwf or record.hds_in_enable_professional_tax):

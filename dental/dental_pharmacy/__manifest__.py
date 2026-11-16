@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     'name': 'Dental Pharmacy Management',
-    'version': '20.0.1.0.0',
+    'version': '20.0.1.5.0',
     'category': 'Healthcare/Dental',
     'summary': 'Comprehensive Dental Pharmacy, Medicine Catalog, Prescriptions, Batch Dispensing, Inventory & Billing Integration',
     'description': """
@@ -48,6 +48,7 @@ Key Capabilities:
         'product',
         'stock',
         'purchase',
+        'sale_stock',
         'account',
         'dental_base',
         'dental_patient',
@@ -77,12 +78,20 @@ Key Capabilities:
         'report/dispense_receipt_report_template.xml',
         'report/medicine_label_report_template.xml',
         'report/pharmacy_reports.xml',
+        'data/mail_template_data.xml',
+        'views/res_config_settings_views.xml',
+        'views/dental_clinic_configuration_views.xml',
+        'views/sale_order_views.xml',
+        'views/dental_kanban_views.xml',
     ],
     'assets': {
         'web.assets_backend': [
             'dental_pharmacy/static/src/css/pharmacy_dashboard.scss',
+            'dental_pharmacy/static/src/css/rx_case_tab.scss',
             'dental_pharmacy/static/src/js/pharmacy_dashboard.js',
             'dental_pharmacy/static/src/xml/pharmacy_dashboard.xml',
+            'dental_pharmacy/static/src/js/rx_stock_widget.js',
+            'dental_pharmacy/static/src/xml/rx_stock_widget.xml',
         ],
     },
     'installable': True,

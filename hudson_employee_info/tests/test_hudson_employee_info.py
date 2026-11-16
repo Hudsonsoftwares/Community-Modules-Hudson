@@ -1,8 +1,11 @@
 # -*- coding: utf-8 -*-
 import base64
 from datetime import timedelta
+# pyrefly: ignore [missing-import]
 from odoo import fields
+# pyrefly: ignore [missing-import]
 from odoo.exceptions import ValidationError
+# pyrefly: ignore [missing-import]
 from odoo.tests import common, tagged
 
 
@@ -19,7 +22,6 @@ class TestHudsonEmployeeInfo(common.TransactionCase):
         """Test storing personal info and payslip language."""
         employee = self.env['hr.employee'].create({
             'name': 'Hudson Test Employee',
-            'show_birthday_to_employees': True,
             'is_disabled': False,
             'payslip_lang_id': self.lang_en.id if self.lang_en else False,
             'is_non_resident': True,
@@ -27,7 +29,6 @@ class TestHudsonEmployeeInfo(common.TransactionCase):
             'spouse_legal_name': 'Jane Doe',
             'spouse_birthdate': fields.Date.today() - timedelta(days=365 * 25),
         })
-        self.assertTrue(employee.show_birthday_to_employees)
         self.assertFalse(employee.is_disabled)
         self.assertTrue(employee.is_non_resident)
         self.assertEqual(employee.spouse_legal_name, 'Jane Doe')

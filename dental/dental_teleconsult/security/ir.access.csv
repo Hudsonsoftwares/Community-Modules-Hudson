@@ -1,0 +1,4 @@
+id,name,model_id,group_id/id,operation,domain
+access_dental_teleconsult_invite_dentist,dental.teleconsult.invite.dentist,dental.teleconsult.invite,dental_base.group_dental_dentist,crud,
+access_dental_teleconsult_invite_assistant,dental.teleconsult.invite.assistant,dental.teleconsult.invite,dental_base.group_dental_assistant,crud,
+access_dental_teleconsult_invite_admin,dental.teleconsult.invite.admin,dental.teleconsult.invite,dental_base.group_dental_admin,crud,

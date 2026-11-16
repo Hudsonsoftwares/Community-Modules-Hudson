@@ -8,6 +8,7 @@ class DentalLabOrder(models.Model):
     _description = 'Dental Laboratory Work Order'
     _inherit = ['mail.thread', 'mail.activity.mixin']
     _order = 'priority desc, due_date asc, id desc'
+    _check_company_auto = True
 
     name = fields.Char(
         string='Order Number',
@@ -53,7 +54,8 @@ class DentalLabOrder(models.Model):
         string='Dental Case',
         required=True,
         tracking=True,
-        ondelete='restrict'
+        ondelete='restrict',
+        check_company=True,
     )
     dentist_id = fields.Many2one(
         'hr.employee.public',
@@ -64,15 +66,18 @@ class DentalLabOrder(models.Model):
     appointment_id = fields.Many2one(
         'dental.appointment',
         string='Appointment',
-        tracking=True
+        tracking=True,
+        check_company=True,
     )
     treatment_plan_id = fields.Many2one(
         'dental.treatment.plan',
-        string='Treatment Plan'
+        string='Treatment Plan',
+        check_company=True,
     )
     treatment_session_id = fields.Many2one(
         'dental.treatment.session',
-        string='Treatment Session'
+        string='Treatment Session',
+        check_company=True,
     )
 
     # Laboratory Logistics & Routing
@@ -375,6 +380,27 @@ class DentalLabOrder(models.Model):
             if vals.get('name', _('New')) == _('New'):
                 vals['name'] = self.env['ir.sequence'].next_by_code('dental.lab.order') or _('New')
         return super().create(vals_list)
+
+    @api.onchange('case_id')
+    def _onchange_case_id(self):
+        case = self.case_id
+        if not case:
+            return
+        if case.company_id:
+            # A lab order belongs to the branch of its case
+            self.company_id = case.company_id
+        if case.patient_id:
+            self.patient_id = case.patient_id
+        if not self.dentist_id and case.doctor_id:
+            self.dentist_id = case.doctor_id
+        if not self.appointment_id and case.appointment_id:
+            self.appointment_id = case.appointment_id
+        if not self.treatment_plan_id and case._origin.id:
+            self.treatment_plan_id = self.env['dental.treatment.plan'].search(
+                [('case_id', '=', case._origin.id), ('state', 'not in', ('completed', 'cancelled'))],
+                order='plan_date desc, id desc',
+                limit=1,
+            )
 
     def action_submit(self):
         for order in self:

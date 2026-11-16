@@ -8,7 +8,7 @@
 Hudson Employee Information Extension
 ======================================
 Generic employee profile enhancements reusable across all companies and localizations:
-- Personal Information: Birthday visibility preference, demographic disability indicator, preferred payslip language.
+- Personal Information: Demographic disability indicator, preferred payslip language.
 - Visa & Work Permit: Work permit expiry date.
 - Citizenship: Non-resident statutory classification.
 - Family Information: Spouse legal name and birthdate validation.

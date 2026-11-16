@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_partner_form_abha" model="ir.ui.view">
+        <field name="name">res.partner.form.abha</field>
+        <field name="model">res.partner</field>
+        <field name="inherit_id" ref="base.view_partner_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//notebook" position="inside">
+                <page string="ABHA" name="abha" groups="abdm_base.group_abdm_user" invisible="not id">
+                    <div class="mb-3">
+                        <button name="action_abdm_abha_wizard" type="object" class="btn-primary"
+                                icon="badge" string="Create / Verify ABHA" invisible="abha_number"/>
+                        <button name="action_abdm_abha_wizard" type="object" class="btn-secondary"
+                                icon="refresh" string="Re-verify ABHA" invisible="not abha_number"/>
+                        <button name="action_abdm_abha_download_card" type="object" class="btn-link"
+                                icon="download" string="Download ABHA Card" invisible="not abha_card"/>
+                    </div>
+                    <group invisible="not abha_number">
+                        <group string="Health Account">
+                            <field name="abha_number" readonly="1"/>
+                            <field name="abha_address" readonly="1"/>
+                            <field name="abha_kyc_verified"/>
+                            <field name="abha_account_status"/>
+                        </group>
+                        <group string="Verification">
+                            <field name="abha_verified_date"/>
+                            <field name="abha_verified_by"/>
+                            <field name="abha_verification_method"/>
+                            <field name="abha_consent_date" invisible="not abha_consent_date"/>
+                            <field name="abha_consent_by" invisible="not abha_consent_date"/>
+                            <field name="abha_card" filename="abha_card_filename" invisible="1"/>
+                            <field name="abha_card_filename" invisible="1"/>
+                        </group>
+                    </group>
+                    <div invisible="not abha_number" groups="abdm_base.group_abdm_manager">
+                        <button name="action_abdm_abha_unlink" type="object" class="btn-link text-danger"
+                                string="Unlink ABHA from this contact"
+                                confirm="Remove the ABHA number and its verification from this contact?"/>
+                    </div>
+                    <p class="text-muted" invisible="abha_number">
+                        No ABHA linked yet. Click "Create / Verify ABHA" to link the patient's Ayushman Bharat Health Account.
+                    </p>
+                </page>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_res_partner_filter_abha" model="ir.ui.view">
+        <field name="name">res.partner.search.abha</field>
+        <field name="model">res.partner</field>
+        <field name="inherit_id" ref="base.view_res_partner_filter"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='name']" position="after">
+                <field name="abha_number"/>
+                <field name="abha_address"/>
+            </xpath>
+            <xpath expr="//filter[1]" position="before">
+                <filter name="has_abha" string="ABHA Linked" domain="[('abha_number', '!=', False)]"/>
+                <filter name="no_abha" string="No ABHA" domain="[('abha_number', '=', False)]"/>
+                <separator/>
+            </xpath>
+        </field>
+    </record>
+</odoo>

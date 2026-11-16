@@ -34,6 +34,27 @@ class EsicContributionPeriod(models.Model):
     _description = 'ESIC Contribution Period'
     _order = 'company_id, id desc'
 
+    def _auto_init(self):
+        """
+        Ensure authoritative Indian statutory ESIC contribution periods are global (company_id = NULL)
+        so they are automatically visible and usable across all companies nationwide.
+        """
+        res = super()._auto_init()
+        cr = self.env.cr
+        try:
+            cr.execute("""
+                UPDATE esic_contribution_period
+                SET company_id = NULL
+                WHERE id IN (
+                    SELECT res_id FROM ir_model_data
+                    WHERE model = 'esic.contribution.period'
+                      AND module = 'hudson_in_payroll'
+                );
+            """)
+        except Exception:
+            pass
+        return res
+
     name = fields.Char(
         string="Period Name",
         compute="_compute_name",
@@ -44,7 +65,7 @@ class EsicContributionPeriod(models.Model):
     company_id = fields.Many2one(
         'res.company',
         string="Company Scope",
-        default=lambda self: self.env.company,
+        default=False,
         help="Applicable company. If empty, applies globally as a default."
     )
 

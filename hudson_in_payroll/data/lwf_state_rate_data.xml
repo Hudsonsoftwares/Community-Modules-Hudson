@@ -1,11 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <data noupdate="1">
+    <data noupdate="0">
         <!-- Phase 1 Verified Official LWF Master Seed Data -->
 
         <!-- 1. Maharashtra -->
         <record id="lwf_rate_mh_verified" model="lwf.state.rate">
             <field name="state_id" ref="base.state_in_mh"/>
+            <field name="company_id" eval="False"/>
             <field name="emp_contribution">25.0</field>
             <field name="empl_contribution">75.0</field>
             <field name="deduction_frequency">half_yearly</field>
@@ -21,6 +22,7 @@
         <!-- 2. Karnataka -->
         <record id="lwf_rate_ka_verified" model="lwf.state.rate">
             <field name="state_id" ref="base.state_in_ka"/>
+            <field name="company_id" eval="False"/>
             <field name="emp_contribution">50.0</field>
             <field name="empl_contribution">100.0</field>
             <field name="deduction_frequency">annual</field>
@@ -35,6 +37,7 @@
         <!-- 3. Gujarat -->
         <record id="lwf_rate_gj_verified" model="lwf.state.rate">
             <field name="state_id" ref="base.state_in_gj"/>
+            <field name="company_id" eval="False"/>
             <field name="emp_contribution">6.0</field>
             <field name="empl_contribution">12.0</field>
             <field name="deduction_frequency">half_yearly</field>
@@ -50,6 +53,7 @@
         <!-- 4. Kerala -->
         <record id="lwf_rate_kl_verified" model="lwf.state.rate">
             <field name="state_id" ref="base.state_in_kl"/>
+            <field name="company_id" eval="False"/>
             <field name="emp_contribution">45.0</field>
             <field name="empl_contribution">45.0</field>
             <field name="deduction_frequency">half_yearly</field>

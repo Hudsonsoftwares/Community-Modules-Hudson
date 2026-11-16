@@ -1,0 +1,16 @@
+.o_dental_teleconsult_lobby {
+    .o_dental_tc_card {
+        border-radius: 1rem;
+    }
+    .o_dental_tc_badge {
+        width: 3rem;
+        height: 3rem;
+        background-color: rgba($primary, 0.12);
+        color: $primary;
+        font-size: 1.5rem;
+    }
+    .o_dental_tc_preview {
+        object-fit: cover;
+        transform: scaleX(-1); // mirror the self-view like a real call
+    }
+}

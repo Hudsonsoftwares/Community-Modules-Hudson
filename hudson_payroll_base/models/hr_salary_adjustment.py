@@ -31,7 +31,8 @@ class HrSalaryAdjustment(models.Model):
         string='Employee',
         required=True,
         tracking=True,
-        index=True
+        index=True,
+        domain="['|', ('company_id', '=', False), ('company_id', '=', company_id)]"
     )
     company_id = fields.Many2one(
         'res.company',
@@ -95,6 +96,12 @@ class HrSalaryAdjustment(models.Model):
         ('limited', 'Limited'),
         ('unlimited', 'Unlimited'),
     ], string='Duration', default='one_time', required=True, tracking=True)
+    repeat = fields.Boolean(
+        string='Repeat',
+        compute='_compute_repeat',
+        inverse='_inverse_repeat',
+        help="Apply on every payslip until the End Date, or until the end of the contract when no End Date is set."
+    )
 
     date_start = fields.Date(
         string='Start Date',
@@ -119,7 +126,7 @@ class HrSalaryAdjustment(models.Model):
         compute='_compute_beneficiary_bank',
         store=True,
         readonly=False,
-        help="Bank account of the beneficiary for this adjustment (e.g. child support, loan creditor)."
+        help="Destination bank account for this adjustment. Dynamically defaults to the employee's bank account from their profile, or can be set to an external beneficiary (e.g. child support, creditor)."
     )
     note = fields.Char(
         string='Note',
@@ -127,8 +134,8 @@ class HrSalaryAdjustment(models.Model):
         help="Short description or reason for the adjustment."
     )
     state = fields.Selection([
-        ('running', 'Running'),
-        ('done', 'Done'),
+        ('running', 'Active (Running)'),
+        ('done', 'Completed / Closed'),
         ('cancel', 'Cancelled'),
     ], string='Status', default='running', required=True, tracking=True, index=True)
 
@@ -165,26 +172,84 @@ class HrSalaryAdjustment(models.Model):
             else:
                 rec.contract_id = False
 
+    @api.depends('duration')
+    def _compute_repeat(self):
+        for rec in self:
+            rec.repeat = rec.duration != 'one_time'
+
+    def _inverse_repeat(self):
+        for rec in self:
+            if not rec.repeat:
+                rec.duration = 'one_time'
+            elif rec.duration == 'one_time':
+                rec.duration = 'limited' if rec.date_end else 'unlimited'
+
+    @api.onchange('repeat', 'date_end')
+    def _onchange_repeat(self):
+        """Repeat unticked -> one time; ticked with an End Date -> limited; without -> until contract end."""
+        if not self.repeat:
+            self.duration = 'one_time'
+        elif self.date_end:
+            self.duration = 'limited'
+        elif self.duration == 'one_time' or self.env.context.get('payslip_adjustment_repeat_ui'):
+            # The context flag comes from the employee 'Payslip Adjustments' tab, where Repeat replaces
+            # the Duration selector; elsewhere keep a manually chosen duration untouched.
+            self.duration = 'unlimited'
+
+    @api.onchange('duration')
+    def _onchange_duration(self):
+        if self.duration != 'limited':
+            self.date_end = False
+            self.until_amount = 0.0
+
+    @api.model
+    def _get_employee_bank_account(self, employee):
+        """Fetch the employee's primary bank account from hr.employee or related partner."""
+        if not employee:
+            return False
+        # 1. Primary or computed bank_account_id on hr.employee
+        if employee.bank_account_id:
+            return employee.bank_account_id
+        # 2. primary_bank_account_id (Odoo salary distribution)
+        primary = getattr(employee, 'primary_bank_account_id', False)
+        if primary:
+            return primary
+        # 3. First record in employee's bank_account_ids
+        bank_accounts = getattr(employee, 'bank_account_ids', False)
+        if bank_accounts:
+            return bank_accounts[0]
+        # 4. Fallback to work contact or private address partner bank accounts
+        for partner in (getattr(employee, 'work_contact_id', False), getattr(employee, 'address_home_id', False)):
+            if partner and getattr(partner, 'bank_ids', False) and partner.bank_ids:
+                return partner.bank_ids[0]
+        return False
+
     @api.onchange('employee_id')
     def _onchange_employee_id(self):
         if self.employee_id:
             if self.employee_id.company_id:
                 self.company_id = self.employee_id.company_id
-            if self.employee_id.bank_account_id:
-                self.beneficiary_bank_id = self.employee_id.bank_account_id
+            self.beneficiary_bank_id = self._get_employee_bank_account(self.employee_id)
+        else:
+            self.beneficiary_bank_id = False
 
-    @api.depends('employee_id')
+    @api.depends('employee_id', 'employee_id.bank_account_id', 'employee_id.bank_account_ids')
     def _compute_beneficiary_bank(self):
         for rec in self:
-            if rec.employee_id and rec.employee_id.bank_account_id:
-                rec.beneficiary_bank_id = rec.employee_id.bank_account_id
-            elif not rec.beneficiary_bank_id:
+            if rec.employee_id:
+                rec.beneficiary_bank_id = rec._get_employee_bank_account(rec.employee_id)
+            else:
                 rec.beneficiary_bank_id = False
 
     @api.depends('payslip_input_ids')
     def _compute_applied_count(self):
         for rec in self:
             rec.applied_count = len(rec.payslip_input_ids.mapped('payslip_id'))
+
+    @api.onchange('company_id')
+    def _onchange_company_id(self):
+        if self.employee_id and self.employee_id.company_id and self.employee_id.company_id != self.company_id:
+            self.employee_id = False
 
     @api.constrains('date_start', 'date_end', 'duration')
     def _check_dates(self):
@@ -195,11 +260,125 @@ class HrSalaryAdjustment(models.Model):
                 if rec.date_end < rec.date_start:
                     raise ValidationError(_("End Date cannot be before Start Date."))
 
-    @api.constrains('amount')
-    def _check_amount(self):
+    @api.constrains('amount', 'until_amount', 'duration')
+    def _check_amounts(self):
         for rec in self:
             if rec.amount <= 0.0:
                 raise ValidationError(_("Adjustment amount must be strictly greater than 0.0."))
+            if rec.duration == 'limited' and rec.until_amount:
+                if rec.until_amount <= 0.0:
+                    raise ValidationError(_("Until Cap Amount must be strictly greater than 0.0 if specified."))
+
+    @api.constrains('employee_id', 'company_id')
+    def _check_company_consistency(self):
+        for rec in self:
+            if rec.employee_id and rec.company_id and rec.employee_id.company_id:
+                if rec.employee_id.company_id != rec.company_id:
+                    raise ValidationError(_(
+                        "The Employee '%(employee)s' belongs to company '%(emp_comp)s', "
+                        "which does not match the Adjustment Company '%(adj_comp)s'."
+                    ) % {
+                        'employee': rec.employee_id.name,
+                        'emp_comp': rec.employee_id.company_id.name,
+                        'adj_comp': rec.company_id.name,
+                    })
+
+    def _get_effective_date_end(self):
+        """Last date this adjustment applies to.
+
+        One-time: only the payslip whose period contains the Start Date.
+        Repeating: its own End Date, else the end of the employee's contract.
+        """
+        self.ensure_one()
+        if self.duration == 'one_time':
+            return self.date_start
+        if self.date_end:
+            return self.date_end
+        contract = (self.contract_id or self.employee_id.version_id).sudo()
+        return contract.contract_date_end or False
+
+    def _sync_to_draft_payslips(self):
+        """Propagate adjustment changes immediately to any existing draft or verify payslips covering this adjustment period."""
+        if self.env.context.get('skip_adjustment_sync'):
+            return
+        Payslip = self.env['hr.payslip']
+        for adj in self:
+            if not adj.employee_id:
+                continue
+            domain = [
+                ('employee_id', '=', adj.employee_id.id),
+                ('state', 'in', ('draft', 'verify')),
+                ('date_to', '>=', adj.date_start),
+            ]
+            date_end = adj._get_effective_date_end()
+            if date_end:
+                domain.append(('date_from', '<=', date_end))
+            if adj.company_id:
+                domain.append(('company_id', '=', adj.company_id.id))
+            draft_slips = Payslip.search(domain)
+            for slip in draft_slips:
+                slip._sync_salary_adjustments()
+                if slip.line_ids:
+                    slip.action_compute_sheet()
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        for vals in vals_list:
+            if vals.get('duration') and vals['duration'] != 'limited':
+                vals['date_end'] = False
+                vals['until_amount'] = 0.0
+        records = super().create(vals_list)
+        records.filtered(lambda r: r.state == 'running')._sync_to_draft_payslips()
+        return records
+
+    def write(self, vals):
+        if vals.get('duration') and vals['duration'] != 'limited':
+            vals['date_end'] = False
+            vals['until_amount'] = 0.0
+        res = super().write(vals)
+        if any(f in vals for f in ('amount', 'negative', 'state', 'input_type_id', 'date_start', 'date_end', 'until_amount', 'employee_id', 'company_id')):
+            self._sync_to_draft_payslips()
+        return res
+
+    def unlink(self):
+        # 1. Protect finalized payroll history: prevent deleting adjustments already applied to done or paid payslips
+        for adj in self:
+            finalized_slips = adj.payslip_input_ids.mapped('payslip_id').filtered(lambda p: p.state in ('done', 'paid'))
+            if finalized_slips:
+                raise ValidationError(_(
+                    "You cannot delete the salary adjustment '%(name)s' because it has already been applied "
+                    "to %(count)s finalized (validated/paid) payslip(s). Please cancel or close it instead."
+                ) % {'name': adj.name, 'count': len(finalized_slips)})
+
+        draft_slips = self.env['hr.payslip']
+        for adj in self:
+            if adj.employee_id:
+                domain = [
+                    ('employee_id', '=', adj.employee_id.id),
+                    ('state', 'in', ('draft', 'verify')),
+                    ('date_to', '>=', adj.date_start),
+                ]
+                date_end = adj._get_effective_date_end()
+                if date_end:
+                    domain.append(('date_from', '<=', date_end))
+                if adj.company_id:
+                    domain.append(('company_id', '=', adj.company_id.id))
+                draft_slips |= self.env['hr.payslip'].search(domain)
+
+        # Only clean up inputs on unconfirmed payslips
+        input_lines = self.env['hr.payslip.input'].search([
+            ('adjustment_id', 'in', self.ids),
+            ('payslip_id.state', 'in', ('draft', 'verify')),
+        ])
+        draft_slips |= input_lines.mapped('payslip_id')
+        input_lines.unlink()
+        res = super().unlink()
+        for slip in draft_slips:
+            if slip.exists():
+                slip._sync_salary_adjustments()
+                if slip.line_ids:
+                    slip.action_compute_sheet()
+        return res
 
     def action_done(self):
         self.write({'state': 'done'})
@@ -225,3 +404,4 @@ class HrSalaryAdjustment(models.Model):
             action['res_id'] = payslips.id
             action['view_mode'] = 'form'
         return action
+

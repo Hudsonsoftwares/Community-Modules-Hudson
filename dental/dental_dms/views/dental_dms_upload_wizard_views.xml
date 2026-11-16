@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_dental_dms_upload_wizard_form" model="ir.ui.view">
+        <field name="name">dental.dms.upload.wizard.form</field>
+        <field name="model">dental.dms.upload.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Add Document">
+                <group>
+                    <group>
+                        <field name="record_name"/>
+                        <field name="doc_type"/>
+                        <field name="file" filename="file_name"/>
+                        <field name="file_name" invisible="1"/>
+                        <field name="name" placeholder="e.g. OPG Panoramic X-Ray"/>
+                    </group>
+                    <group>
+                        <field name="document_date"/>
+                        <field name="tooth_reference"
+                               invisible="doc_type not in ('imaging', 'clinical', 'odontogram', 'treatment', 'lab', 'consent')"/>
+                    </group>
+                </group>
+                <field name="notes" placeholder="Clinical notes (optional)"/>
+                <footer>
+                    <button name="action_upload" type="object" string="Upload" class="btn-primary" data-hotkey="q"/>
+                    <button string="Cancel" special="cancel" data-hotkey="x"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>

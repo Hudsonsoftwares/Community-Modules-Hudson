@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        DMS access groups (existing Document module feature) bound to the dental roles.
+        Their members are computed by the DMS from the linked user groups, so assigning a
+        dental role to a user is enough. Folder permission lines referencing these groups are
+        created on the dental category folders by dental.dms.service._sync_folder_permissions().
+        noupdate: a DMS manager may add users / groups afterwards without them being reset.
+    -->
+    <data noupdate="1">
+        <record id="dms_group_clinical" model="dms.access.group">
+            <field name="name">Dental - Clinical Team</field>
+            <field name="group_ids" eval="[(4, ref('dental_base.group_dental_dentist')), (4, ref('dental_base.group_dental_assistant'))]"/>
+        </record>
+        <record id="dms_group_frontdesk" model="dms.access.group">
+            <field name="name">Dental - Front Desk</field>
+            <field name="group_ids" eval="[(4, ref('dental_base.group_dental_receptionist'))]"/>
+        </record>
+        <record id="dms_group_billing" model="dms.access.group">
+            <field name="name">Dental - Billing</field>
+            <field name="group_ids" eval="[(4, ref('account.group_account_invoice'))]"/>
+        </record>
+        <record id="dms_group_hr_admin" model="dms.access.group">
+            <field name="name">Dental - HR &amp; Administration</field>
+            <field name="group_ids" eval="[(4, ref('hr.group_hr_user')), (4, ref('dental_base.group_dental_admin'))]"/>
+        </record>
+        <record id="dms_group_management" model="dms.access.group">
+            <field name="name">Dental - Clinic Management</field>
+            <field name="group_ids" eval="[(4, ref('dental_base.group_dental_manager')), (4, ref('dental_base.group_dental_admin'))]"/>
+        </record>
+    </data>
+
+    <data noupdate="0">
+        <!-- Grant DMS User group to all authorized dental roles so Documents app and DMS features are accessible -->
+        <record id="dental_base.group_dental_dentist" model="res.groups">
+            <field name="implied_ids" eval="[(4, ref('dms.group_dms_user'))]"/>
+        </record>
+        <record id="dental_base.group_dental_assistant" model="res.groups">
+            <field name="implied_ids" eval="[(4, ref('dms.group_dms_user'))]"/>
+        </record>
+        <record id="dental_base.group_dental_receptionist" model="res.groups">
+            <field name="implied_ids" eval="[(4, ref('dms.group_dms_user'))]"/>
+        </record>
+        <record id="dental_base.group_dental_manager" model="res.groups">
+            <field name="implied_ids" eval="[(4, ref('dms.group_dms_user'))]"/>
+        </record>
+        <record id="dental_base.group_dental_admin" model="res.groups">
+            <field name="implied_ids" eval="[(4, ref('dms.group_dms_user'))]"/>
+        </record>
+    </data>
+</odoo>

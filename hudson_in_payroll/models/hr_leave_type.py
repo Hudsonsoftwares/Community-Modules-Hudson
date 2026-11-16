@@ -7,7 +7,7 @@ class HrLeaveType(models.Model):
     Inherit Leave Type (hr.leave.type) to configure Leave Encashment eligibility.
     Adds a configurable checkbox: Include in Leave Encashment.
     """
-    _inherit = 'hr.leave.type'
+    _inherit = 'hr.work.entry.type'
 
     include_in_leave_encashment = fields.Boolean(
         string="Include in Leave Encashment",

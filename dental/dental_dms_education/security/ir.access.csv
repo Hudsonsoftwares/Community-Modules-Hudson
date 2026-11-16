@@ -1,0 +1,21 @@
+id,name,model_id:id,group_id:id,operation,domain
+access_edu_session_dentist,dental.education.session.dentist,model_dental_education_session,dental_base.group_dental_dentist,cru,
+access_edu_session_assistant,dental.education.session.assistant,model_dental_education_session,dental_base.group_dental_assistant,cru,
+access_edu_session_receptionist,dental.education.session.receptionist,model_dental_education_session,dental_base.group_dental_receptionist,cru,
+access_edu_session_manager,dental.education.session.manager,model_dental_education_session,dental_base.group_dental_manager,crud,
+access_edu_line_dentist,dental.education.session.line.dentist,model_dental_education_session_line,dental_base.group_dental_dentist,crud,
+access_edu_line_assistant,dental.education.session.line.assistant,model_dental_education_session_line,dental_base.group_dental_assistant,crud,
+access_edu_line_receptionist,dental.education.session.line.receptionist,model_dental_education_session_line,dental_base.group_dental_receptionist,crud,
+access_edu_line_manager,dental.education.session.line.manager,model_dental_education_session_line,dental_base.group_dental_manager,crud,
+access_edu_view_dentist,dental.education.view.dentist,model_dental_education_view,dental_base.group_dental_dentist,r,
+access_edu_view_assistant,dental.education.view.assistant,model_dental_education_view,dental_base.group_dental_assistant,r,
+access_edu_view_receptionist,dental.education.view.receptionist,model_dental_education_view,dental_base.group_dental_receptionist,r,
+access_edu_view_manager,dental.education.view.manager,model_dental_education_view,dental_base.group_dental_manager,rd,
+access_edu_media_wizard_manager,dental.education.media.wizard.manager,model_dental_education_media_wizard,dental_base.group_dental_manager,crud,
+access_edu_media_wizard_admin,dental.education.media.wizard.admin,model_dental_education_media_wizard,dental_base.group_dental_admin,crud,
+access_dms_category_dental_user,dms.category.dental.user,dms.model_dms_category,base.group_user,r,
+edu_session_company_rule,Patient education: company isolation,model_dental_education_session,,crud,"[('company_id', 'in', company_ids)]"
+edu_line_company_rule,Patient education line: company isolation,model_dental_education_session_line,,crud,"['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]"
+edu_view_company_rule,Patient education view: company isolation,model_dental_education_view,,crud,"['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]"
+edu_session_case_privacy,Patient education: case privacy,model_dental_education_session,,rud,"['|', ('case_id', '=', False), ('case_id', 'access', 'read')]"
+edu_view_case_privacy,Patient education view: session privacy,model_dental_education_view,,r,"[('session_id', 'access', 'read')]"

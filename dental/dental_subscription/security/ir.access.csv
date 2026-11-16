@@ -1,0 +1,9 @@
+id,name,model_id,group_id/id,operation,domain
+access_dental_membership_benefit_rule_user,dental.membership.benefit.rule.user,dental.membership.benefit.rule,base.group_user,r,
+access_dental_membership_benefit_rule_manager,dental.membership.benefit.rule.manager,dental.membership.benefit.rule,dental_subscription.group_membership_manager,crud,
+dental_membership_benefit_rule_company_rule,Membership benefit rule: company isolation,dental.membership.benefit.rule,,crud,"['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]"
+access_dental_subscription_benefit_invoicing,dental.subscription.benefit.invoicing,dental.subscription.benefit,account.group_account_invoice,r,
+access_dental_subscription_benefit_user,dental.subscription.benefit.user,dental.subscription.benefit,dental_subscription.group_membership_user,cru,
+access_dental_subscription_benefit_manager,dental.subscription.benefit.manager,dental.subscription.benefit,dental_subscription.group_membership_manager,crud,
+dental_subscription_benefit_company_rule,Subscription benefit: company isolation,dental.subscription.benefit,,crud,"[('company_id', 'in', company_ids)]"
+access_dental_installment_wizard_user,dental.installment.wizard.user,dental.installment.wizard,dental_subscription.group_membership_user,crud,

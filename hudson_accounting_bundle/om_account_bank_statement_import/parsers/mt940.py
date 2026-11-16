@@ -8,6 +8,8 @@ information is left free by the standard, the three shapes the banks use are rec
 import re
 from datetime import date, timedelta
 
+from .common import set_content_import_ids
+
 # :61:  value date, entry date, mark, amount, transaction type, customer reference // bank reference
 LINE = re.compile(r"""
     ^(?P<value_date>\d{6})
@@ -83,6 +85,16 @@ def parse(data, filename, options=None):
     for statement in statements:
         if not statement['date'] and statement['transactions']:
             statement['date'] = max(line['date'] for line in statement['transactions'])
+    # the identifiers are given per bank account, from the contents of the transactions: the number of
+    # the statement and the position of a line change from one export to the other (an export of the
+    # 1st to the 15th then one of the 10th to the 31st), the transactions do not
+    accounts = {}
+    for statement in statements:
+        accounts.setdefault(statement['account_number'], []).extend(statement['transactions'])
+    for transactions in accounts.values():
+        set_content_import_ids(transactions, reference_key='bank_reference')
+        for transaction in transactions:
+            transaction.pop('bank_reference', None)
     return statements
 
 
@@ -115,14 +127,16 @@ def _transaction(value, statement, index):
     bank_reference = bank_reference.strip()
     if customer_reference.upper() in EMPTY_REFERENCES:
         customer_reference = ''
-    # Two transactions of a day can carry the same amount and the same reference, the number of the
-    # statement and the position of the line keep their identifiers apart.
+    # the identifier given by the earlier versions, still recognised so that a file imported before is
+    # not imported again (see `set_content_import_ids` for the identifier given now)
     parts = [bank_reference or customer_reference, statement['name'], str(index + 1)]
     return {
         'date': entry_date or value_date,
         'payment_ref': customer_reference or bank_reference or '/',
         'amount': amount,
-        'unique_import_id': '-'.join(part for part in parts if part),
+        'unique_import_id': None,
+        'legacy_unique_import_id': '-'.join(part for part in parts if part),
+        'bank_reference': bank_reference or customer_reference,
         'partner_name': None,
         'account_number': None,
         'ref': customer_reference or bank_reference or None,

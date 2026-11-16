@@ -1,10 +1,13 @@
 # -*- coding: utf-8 -*-
 import base64
 import io
+# pyrefly: ignore [missing-import]
 from odoo import api, fields, models, _
+# pyrefly: ignore [missing-import]
 from odoo.exceptions import UserError
 
 try:
+    # pyrefly: ignore [missing-import]
     import xlsxwriter
 except ImportError:
     xlsxwriter = None
@@ -77,11 +80,24 @@ class HdsPfContributionWizard(models.TransientModel):
         if xlsxwriter:
             workbook = xlsxwriter.Workbook(output, {'in_memory': True})
             sheet = workbook.add_worksheet('PF Contribution')
+            sheet.set_column(0, 0, 26)  # Employee Name
+            sheet.set_column(1, 1, 18)  # UAN
+            sheet.set_column(2, 2, 22)  # PF Contribution Wage
+            sheet.set_column(3, 7, 20)  # All contribution columns
 
-            header_fmt = workbook.add_format({'bold': True, 'bg_color': '#1F4E78', 'font_color': '#FFFFFF', 'border': 1})
-            num_fmt = workbook.add_format({'num_format': '#,##0.00', 'border': 1})
-            text_fmt = workbook.add_format({'border': 1})
+            header_fmt = workbook.add_format({
+                'bold': True,
+                'bg_color': '#1F4E78',
+                'font_color': '#FFFFFF',
+                'border': 1,
+                'align': 'center',
+                'valign': 'vcenter',
+                'text_wrap': True,
+            })
+            num_fmt = workbook.add_format({'num_format': '#,##0.00', 'border': 1, 'align': 'right', 'valign': 'vcenter'})
+            text_fmt = workbook.add_format({'border': 1, 'align': 'left', 'valign': 'vcenter'})
 
+            sheet.set_row(0, 26)
             if self.report_type == 'employee':
                 headers = ['Employee Name', 'UAN', 'PF Contribution Wage', 'Employee EPF Deduction']
             elif self.report_type == 'employer':
@@ -116,16 +132,21 @@ class HdsPfContributionWizard(models.TransientModel):
         else:
             xlsx_content = b"Excel export requires xlsxwriter library."
 
+        try:
+            # pyrefly: ignore [missing-import]
+            from odoo.tools import BinaryBytes
+            file_data = BinaryBytes(xlsx_content, filename=xlsx_filename)
+        except Exception:
+            file_data = base64.b64encode(xlsx_content).decode('utf-8')
+
         self.write({
             'state': 'generated',
-            'xlsx_file': base64.b64encode(xlsx_content),
+            'xlsx_file': file_data,
             'xlsx_filename': xlsx_filename,
         })
 
         return {
-            'type': 'ir.actions.act_window',
-            'res_model': self._name,
-            'res_id': self.id,
-            'view_mode': 'form',
-            'target': 'current',
+            'type': 'ir.actions.act_url',
+            'url': f'/web/content/?model={self._name}&id={self.id}&field=xlsx_file&filename_field=xlsx_filename&download=true',
+            'target': 'self',
         }

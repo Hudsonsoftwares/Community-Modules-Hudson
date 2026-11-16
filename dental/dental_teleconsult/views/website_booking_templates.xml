@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- "How would you like to see the dentist?" block, shared by both website booking pages -->
+    <template id="booking_mode_choice" name="Dental Booking: Online / In-Clinic Choice">
+        <t t-if="request.env.company.sudo().dental_teleconsult_enabled">
+            <div class="o_dental_tc_booking_mode card border-0 p-3 mb-4 text-center">
+                <label class="fw-bold mb-2 d-block">How would you like to see the dentist?</label>
+                <div class="d-flex justify-content-center gap-3 flex-wrap" role="group"
+                     aria-label="Consultation mode">
+                    <button type="button" class="btn btn-outline-primary active o_dental_tc_mode_btn"
+                            data-mode="in_clinic" aria-pressed="true">
+                        At the clinic
+                    </button>
+                    <button type="button" class="btn btn-outline-primary o_dental_tc_mode_btn"
+                            data-mode="online" aria-pressed="false">
+                        Online video call
+                    </button>
+                </div>
+                <p class="o_dental_tc_online_hint small text-muted mt-3 mb-0 d-none">
+                    You will join from your phone or computer with a camera; no app is needed.
+                    After the clinic confirms, we will email you a secure join link<t
+                    t-if="request.env.company.sudo().dental_teleconsult_require_prepayment"> and a
+                    link to pay the consultation fee before the call</t>.
+                    Please enter a valid email address below.
+                </p>
+                <p class="o_dental_tc_unavailable small text-muted mt-3 mb-0 d-none">
+                    This appointment type needs an in-clinic visit.
+                </p>
+            </div>
+        </t>
+    </template>
+
+    <!-- Booking page served at /book-appointment (dental_appointment) -->
+    <template id="book_appointment_teleconsult_main" inherit_id="dental_appointment.book_appointment"
+              name="Dental Booking: Online Video Option">
+        <xpath expr="//div[hasclass('type-grid-card')]" position="attributes">
+            <attribute name="t-att-data-allow-online">'1' if atype.allow_online else '0'</attribute>
+        </xpath>
+        <xpath expr="//form[@id='public_booking_form']/*[1]" position="before">
+            <t t-call="dental_teleconsult.booking_mode_choice"/>
+        </xpath>
+        <xpath expr="//div[@id='pane_step_6']/h2" position="after">
+            <p class="o_dental_tc_success_online alert alert-info d-none mx-auto mb-3 text-start"
+               style="max-width: 520px;"/>
+        </xpath>
+    </template>
+
+    <!-- Alternative booking template (dental_website_appointment) -->
+    <template id="book_appointment_teleconsult" inherit_id="dental_website_appointment.book_appointment"
+              name="Dental Booking (Website): Online Video Option">
+        <xpath expr="//div[hasclass('type-choice-card')]" position="attributes">
+            <attribute name="t-att-data-allow-online">'1' if atype.allow_online else '0'</attribute>
+        </xpath>
+        <xpath expr="//form[@id='step5_booking_form']/*[1]" position="before">
+            <t t-call="dental_teleconsult.booking_mode_choice"/>
+        </xpath>
+        <xpath expr="//div[@id='pane_step_success']//h3" position="after">
+            <p class="o_dental_tc_success_online alert alert-info d-none mx-auto mb-3"
+               style="max-width: 480px;"/>
+        </xpath>
+    </template>
+</odoo>

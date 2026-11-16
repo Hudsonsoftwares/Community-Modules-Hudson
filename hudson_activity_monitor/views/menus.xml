@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <menuitem id="menu_activity_root" name="Activity Monitor" sequence="210"
+              groups="group_activity_admin"
+              web_icon="hudson_activity_monitor,static/description/icon.png"/>
+
+    <menuitem id="menu_activity_reporting" name="Reporting" parent="menu_activity_root" sequence="10"/>
+    <menuitem id="menu_activity_daily" name="Daily Summary" parent="menu_activity_reporting"
+              action="action_hr_activity_daily" sequence="10"/>
+    <menuitem id="menu_activity_timeline" name="Timeline" parent="menu_activity_reporting"
+              action="action_hr_activity_span_timeline" sequence="20"/>
+    <menuitem id="menu_activity_apps_used" name="Applications Used" parent="menu_activity_reporting"
+              action="action_hr_activity_span_apps" sequence="30"/>
+    <menuitem id="menu_activity_log" name="Activity Log" parent="menu_activity_reporting"
+              action="action_hr_activity_span" sequence="40"/>
+    <menuitem id="menu_activity_my" name="My Activity" parent="menu_activity_reporting"
+              action="action_hr_activity_daily_my" sequence="50"/>
+
+    <menuitem id="menu_activity_live" name="Live Status" parent="menu_activity_root"
+              action="action_hr_activity_device" sequence="20"/>
+
+    <menuitem id="menu_activity_config" name="Configuration" parent="menu_activity_root" sequence="90"
+              groups="group_activity_admin"/>
+    <menuitem id="menu_activity_settings" name="Settings" parent="menu_activity_config"
+              action="action_activity_settings" sequence="10"/>
+    <menuitem id="menu_activity_app" name="Applications" parent="menu_activity_config"
+              action="action_hr_activity_app" sequence="20"/>
+</odoo>

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Link back from a medicine sales order to its clinical prescription -->
+    <record id="view_order_form_inherit_dental_prescription" model="ir.ui.view">
+        <field name="name">sale.order.form.inherit.dental.prescription</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="sale.view_order_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//div[@name='button_box']" position="inside">
+                <field name="dental_prescription_id" invisible="1"/>
+                <button name="action_view_dental_prescription" type="object" class="oe_stat_button" icon="fa-medkit"
+                        invisible="not dental_prescription_id">
+                    <div class="o_stat_info">
+                        <span class="o_stat_text">Prescription</span>
+                    </div>
+                </button>
+            </xpath>
+        </field>
+    </record>
+</odoo>

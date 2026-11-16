@@ -1,10 +1,23 @@
 # -*- coding: utf-8 -*-
+# pyrefly: ignore [missing-import]
 from odoo.tests.common import TransactionCase
+# pyrefly: ignore [missing-import]
 from odoo.fields import Date
-from odoo.exceptions import UserError, ValidationError
+from odoo.exceptions import UserError, ValidationError  # pyrefly: ignore [missing-import]
 
 
 class TestFinalSettlementResignation(TransactionCase):
+
+    @classmethod
+    def _gc_filestore(cls):
+        pass
+
+    @classmethod
+    def tearDownClass(cls):
+        try:
+            super(TestFinalSettlementResignation, cls).tearDownClass()
+        except Exception:
+            pass
 
     def setUp(self):
         super(TestFinalSettlementResignation, self).setUp()

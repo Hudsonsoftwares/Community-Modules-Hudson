@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_dental_prescription_form_inherit_pos" model="ir.ui.view">
+        <field name="name">dental.prescription.form.inherit.pos</field>
+        <field name="model">dental.prescription</field>
+        <field name="inherit_id" ref="dental_pharmacy.view_dental_prescription_form"/>
+        <field name="arch" type="xml">
+            <!-- At a POS counter branch the backend Dispense button is only a manager fallback -->
+            <xpath expr="//header/button[@name='action_dispense']" position="attributes">
+                <attribute name="invisible">state not in ('confirmed', 'partially_dispensed') or dispense_at_pos</attribute>
+            </xpath>
+            <xpath expr="//header/button[@name='action_dispense']" position="after">
+                <button name="action_dispense" string="Dispense in Backend" type="object" class="btn-secondary"
+                        invisible="state not in ('confirmed', 'partially_dispensed') or not dispense_at_pos"
+                        groups="dental_pharmacy.group_dental_pharmacy_manager"
+                        confirm="This branch dispenses at the Point of Sale pharmacy counter. Dispense here only if the counter is unavailable."/>
+            </xpath>
+            <xpath expr="//div[@name='button_box']" position="inside">
+                <field name="dispense_at_pos" invisible="1"/>
+                <button name="action_view_pos_orders" type="object" class="oe_stat_button" icon="point_of_sale"
+                        invisible="not pos_order_count"
+                        groups="point_of_sale.group_pos_user,dental_pharmacy.group_dental_pharmacist,dental_base.group_dental_manager">
+                    <field name="pos_order_count" widget="statinfo" string="POS Orders"/>
+                </button>
+            </xpath>
+        </field>
+    </record>
+</odoo>

@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 import base64
 import io
-from odoo import api, fields, models, _
-from odoo.exceptions import UserError
+from odoo import api, fields, models, _# pyrefly: ignore [missing-import]
+from odoo.exceptions import UserError# pyrefly: ignore [missing-import]
 
 try:
-    import xlsxwriter
+    import xlsxwriter# pyrefly: ignore [missing-import]
 except ImportError:
     xlsxwriter = None
 
@@ -62,10 +62,29 @@ class HdsPfUanRegisterWizard(models.TransientModel):
         if xlsxwriter:
             workbook = xlsxwriter.Workbook(output, {'in_memory': True})
             sheet = workbook.add_worksheet('UAN Register')
+            sheet.set_column(0, 0, 26)  # Employee Name
+            sheet.set_column(1, 1, 16)  # Employee Code
+            sheet.set_column(2, 2, 18)  # UAN
+            sheet.set_column(3, 3, 22)  # PF Member ID
+            sheet.set_column(4, 4, 20)  # Date of Joining (DOJ)
+            sheet.set_column(5, 5, 16)  # Date of Exit
+            sheet.set_column(6, 6, 16)  # EPF Applicable
+            sheet.set_column(7, 7, 16)  # EPS Applicable
+            sheet.set_column(8, 8, 18)  # Employment Status
 
-            header_fmt = workbook.add_format({'bold': True, 'bg_color': '#1F4E78', 'font_color': '#FFFFFF', 'border': 1})
-            text_fmt = workbook.add_format({'border': 1})
+            header_fmt = workbook.add_format({
+                'bold': True,
+                'bg_color': '#1F4E78',
+                'font_color': '#FFFFFF',
+                'border': 1,
+                'align': 'center',
+                'valign': 'vcenter',
+                'text_wrap': True,
+            })
+            text_fmt = workbook.add_format({'border': 1, 'align': 'left', 'valign': 'vcenter'})
+            text_center_fmt = workbook.add_format({'border': 1, 'align': 'center', 'valign': 'vcenter'})
 
+            sheet.set_row(0, 26)
             headers = [
                 'Employee Name', 'Employee Code', 'UAN', 'PF Member ID',
                 'Date of Joining (DOJ)', 'Date of Exit', 'EPF Applicable', 'EPS Applicable', 'Employment Status'
@@ -90,16 +109,21 @@ class HdsPfUanRegisterWizard(models.TransientModel):
         else:
             xlsx_content = b"Excel export requires xlsxwriter library."
 
+        try:
+            # pyrefly: ignore [missing-import]
+            from odoo.tools import BinaryBytes
+            file_data = BinaryBytes(xlsx_content, filename=xlsx_filename)
+        except Exception:
+            file_data = base64.b64encode(xlsx_content).decode('utf-8')
+
         self.write({
             'state': 'generated',
-            'xlsx_file': base64.b64encode(xlsx_content),
+            'xlsx_file': file_data,
             'xlsx_filename': xlsx_filename,
         })
 
         return {
-            'type': 'ir.actions.act_window',
-            'res_model': self._name,
-            'res_id': self.id,
-            'view_mode': 'form',
-            'target': 'current',
+            'type': 'ir.actions.act_url',
+            'url': f'/web/content/?model={self._name}&id={self.id}&field=xlsx_file&filename_field=xlsx_filename&download=true',
+            'target': 'self',
         }

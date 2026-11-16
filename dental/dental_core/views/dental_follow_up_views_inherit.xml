@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_dental_follow_up_form_inherit_core" model="ir.ui.view">
+        <field name="name">dental.follow_up.form.inherit.core</field>
+        <field name="model">dental.follow.up</field>
+        <field name="inherit_id" ref="dental_appointment.view_dental_follow_up_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//header/button[@name='action_done']" position="before">
+                <button name="action_book_followup_appointment" string="Book Appointment" type="object" class="oe_highlight" invisible="state != 'pending'"/>
+            </xpath>
+            <field name="appointment_id" position="before">
+                <field name="case_id" domain="[('patient_id', '=', patient_id)] if patient_id else []"/>
+            </field>
+            <field name="date" position="before">
+                <field name="follow_up_type"/>
+                <field name="priority" widget="priority"/>
+            </field>
+            <field name="treatment_id" position="after">
+                <field name="treatment_plan_id" domain="[('patient_id', '=', patient_id)] if patient_id else []"/>
+                <field name="plan_line_id" domain="[('plan_id', '=', treatment_plan_id)] if treatment_plan_id else ([('plan_id.patient_id', '=', patient_id)] if patient_id else [])"/>
+                <field name="tooth_reference"/>
+                <field name="session_id" readonly="1" invisible="not session_id"/>
+            </field>
+        </field>
+    </record>
+
+    <record id="view_dental_follow_up_tree_inherit_core" model="ir.ui.view">
+        <field name="name">dental.follow_up.tree.inherit.core</field>
+        <field name="model">dental.follow.up</field>
+        <field name="inherit_id" ref="dental_appointment.view_dental_follow_up_tree"/>
+        <field name="arch" type="xml">
+            <field name="treatment_id" position="after">
+                <field name="tooth_reference" optional="show"/>
+                <field name="follow_up_type" optional="show"/>
+                <field name="case_id" optional="hide"/>
+            </field>
+        </field>
+    </record>
+
+    <record id="view_dental_follow_up_search_inherit_core" model="ir.ui.view">
+        <field name="name">dental.follow_up.search.inherit.core</field>
+        <field name="model">dental.follow.up</field>
+        <field name="inherit_id" ref="dental_appointment.view_dental_follow_up_search"/>
+        <field name="arch" type="xml">
+            <field name="reason" position="after">
+                <field name="case_id"/>
+            </field>
+            <filter name="filter_done" position="before">
+                <filter string="Next Treatment Visits" name="filter_next_visit" domain="[('follow_up_type', '=', 'next_visit')]"/>
+                <filter string="Post-Treatment Reviews" name="filter_review" domain="[('follow_up_type', '=', 'review')]"/>
+                <separator/>
+            </filter>
+            <filter name="group_treatment" position="after">
+                <filter string="Follow-up Type" name="group_type" context="{'group_by': 'follow_up_type'}"/>
+            </filter>
+        </field>
+    </record>
+</odoo>

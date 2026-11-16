@@ -63,9 +63,10 @@ class ReportCashFlow(models.AbstractModel):
 
     @api.model
     def _get_transit_accounts(self, company):
-        journals = self.env['account.journal'].sudo().search([('company_id', 'child_of', company.id)])
+        # `company` may hold several companies (all the companies of the company switcher)
+        journals = self.env['account.journal'].sudo().search([('company_id', 'child_of', company.ids)])
         method_lines = self.env['account.payment.method.line'].sudo().search([('journal_id', 'in', journals.ids)])
-        return (company.transfer_account_id | company.account_journal_suspense_account_id
+        return (company.mapped('transfer_account_id') | company.mapped('account_journal_suspense_account_id')
                 | journals.suspense_account_id | method_lines.payment_account_id).sudo(False)
 
     @api.model

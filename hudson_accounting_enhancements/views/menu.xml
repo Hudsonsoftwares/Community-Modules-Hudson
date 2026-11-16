@@ -9,7 +9,7 @@
     <!--     Audit Trail                                                           -->
     <!--     Journal Audit                                                         -->
     <!--   Audit                                                                   -->
-    <!--     Working Files                                                         -->
+    <!--     Working Files (disabled)                                              -->
     <!--     Annual Report                                                         -->
     <!--   Inventory                                                               -->
     <!--     Inventory Valuation                                                   -->
@@ -102,12 +102,13 @@ action = {
               sequence="20"
               groups="account.group_account_user,account.group_account_manager"/>
 
-    <!-- Working Files -->
+    <!-- Working Files (disabled) -->
     <menuitem id="menu_account_review_working_files"
               name="Working Files"
               parent="menu_account_review_audit"
               action="action_account_working_file"
               sequence="10"
+              active="False"
               groups="account.group_account_user,account.group_account_manager"/>
 
     <!-- Annual Report -->
@@ -681,7 +682,7 @@ action = {'name': 'Executive Summary', 'type': 'ir.actions.client', 'tag': 'huds
     <!--     Fiscal Categories, Depreciation Models, Return Types,                 -->
     <!--     Invoice Reminders, Financial Budgets, Online Synchronization          -->
     <!--   Invoicing:                                                              -->
-    <!--     Payment Terms, EDI Proxy Users, Incoterms, Product Categories         -->
+    <!--     Payment Terms, Incoterms, Product Categories                          -->
     <!--   Analytic Accounting:                                                    -->
     <!--     Analytic Distribution Models, Analytic Accounts, Analytic Plans       -->
     <!-- ========================================================================= -->
@@ -880,12 +881,9 @@ action = {'name': 'Executive Summary', 'type': 'ir.actions.client', 'tag': 'huds
         <field name="active" eval="True"/>
     </record>
 
-    <!-- 2. EDI Proxy Users -->
+    <!-- 2. EDI Proxy Users: hidden (technical, not needed by users) -->
     <record id="account_edi_proxy_client.menu_account_proxy_client_user" model="ir.ui.menu">
-        <field name="name">EDI Proxy Users</field>
-        <field name="parent_id" ref="account.account_invoicing_menu"/>
-        <field name="sequence">20</field>
-        <field name="active" eval="True"/>
+        <field name="active" eval="False"/>
     </record>
 
     <!-- 3. Incoterms -->

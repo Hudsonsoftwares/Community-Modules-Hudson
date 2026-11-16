@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <record id="seq_dental_second_opinion" model="ir.sequence">
+            <field name="name">Dental Second Opinion</field>
+            <field name="code">dental.second.opinion</field>
+            <field name="prefix">SOP/%(year)s/</field>
+            <field name="padding">5</field>
+            <field name="company_id" eval="False"/>
+        </record>
+
+        <!-- Workflow to-dos: the next clinician's turn appears in their Activities -->
+        <record id="mail_activity_type_second_opinion" model="mail.activity.type">
+            <field name="name">Second Opinion</field>
+            <field name="summary">Second opinion follow-up</field>
+            <field name="icon">fa-user-md</field>
+            <field name="res_model">dental.second.opinion</field>
+            <field name="delay_count">2</field>
+        </record>
+    </data>
+</odoo>

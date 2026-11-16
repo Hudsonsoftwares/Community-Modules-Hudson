@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <data noupdate="1">
+    <data noupdate="0">
         <!-- Employee LWF Deduction Rule -->
         <record id="hds_in_rule_lwf_ee" model="hr.salary.rule">
             <field name="name">Employee LWF</field>
@@ -8,6 +8,7 @@
             <field name="sequence" eval="170"/>
             <field name="category_id" ref="hudson_payroll_base.rule_category_ded"/>
             <field name="struct_id" ref="hudson_payroll_base.structure_base"/>
+            <field name="company_id" eval="False"/>
             <field name="condition_select">none</field>
             <field name="amount_select">code</field>
             <field name="amount_python_compute"><![CDATA[result = payslip_record.hds_in_compute_lwf_employee()]]></field>
@@ -22,6 +23,7 @@
             <field name="sequence" eval="171"/>
             <field name="category_id" ref="hudson_payroll_base.rule_category_comp"/>
             <field name="struct_id" ref="hudson_payroll_base.structure_base"/>
+            <field name="company_id" eval="False"/>
             <field name="condition_select">none</field>
             <field name="amount_select">code</field>
             <field name="amount_python_compute"><![CDATA[result = payslip_record.hds_in_compute_lwf_employer()]]></field>

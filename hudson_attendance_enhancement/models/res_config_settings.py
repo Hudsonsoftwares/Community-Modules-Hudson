@@ -9,6 +9,11 @@ class ResConfigSettings(models.TransientModel):
         readonly=False,
     )
 
+    attendance_capture_check_out = fields.Boolean(
+        related='company_id.attendance_capture_check_out',
+        readonly=False,
+    )
+
     # Work From Home (WFH) Settings
     enable_work_from_home = fields.Boolean(
         string="Enable Work From Home Management",

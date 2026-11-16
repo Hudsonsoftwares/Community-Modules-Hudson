@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     'name': 'Dental Appointment',
-    'version': '1.0',
+    'version': '1.2',
     'summary': 'Dental Appointment, Queue Management and Online Website Booking',
     'category': 'Healthcare/Dental',
     'author': 'Hudson Software Solutions',
@@ -22,6 +22,7 @@
         'security/ir.access.csv',
         'data/ir_sequence_data.xml',
         'data/mail_template_data.xml',
+        'data/dental_appointment_type_data.xml',
         'views/appointment_type_views.xml',
         'views/appointment_views.xml',
         'views/waiting_list_views.xml',
@@ -31,12 +32,14 @@
         'views/hr_leave_views.xml',
         'views/website_appointment_templates.xml',
         'views/menu_views.xml',
+        'views/dental_kanban_views.xml',
     ],
     'assets': {
         'web.assets_backend': [
             'dental_appointment/static/src/css/book_appointment_flow.scss',
             'dental_appointment/static/src/js/book_appointment_flow.js',
             'dental_appointment/static/src/xml/book_appointment_flow.xml',
+            'dental_appointment/static/src/views/dental_gantt/*',
         ],
     },
     'installable': True,

@@ -50,7 +50,13 @@ class LWFEligibilityValidator:
             )
 
         # 2. Contractor / Exempt Employee Type check
-        if hasattr(employee, 'employee_type') and employee.employee_type in ('contractor', 'freelance'):
+        emp_type_name = ''
+        if getattr(employee, 'employee_type_id', False):
+            emp_type_name = (employee.employee_type_id.name or '').lower()
+        elif getattr(employee, 'employee_type', False):
+            emp_type_name = str(employee.employee_type).lower()
+
+        if any(term in emp_type_name for term in ('contract', 'freelance')):
             return EligibilityValidationResult(
                 is_eligible=False,
                 reason=f"Employee '{employee.name}' is a contractor/exempt and LWF is not applicable."

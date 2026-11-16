@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="res_config_settings_view_form_inherit_dental_pharmacy_pos" model="ir.ui.view">
+        <field name="name">res.config.settings.view.form.inherit.dental.pharmacy.pos</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="dental_pharmacy.res_config_settings_view_form_inherit_dental_pharmacy"/>
+        <field name="arch" type="xml">
+            <xpath expr="//setting[@id='dental_has_pharmacy_setting']" position="after">
+                <setting id="dental_dispense_mode_setting" string="Dispensing Mode" invisible="not dental_has_pharmacy"
+                         help="Where this branch dispenses and bills prescribed medicines. Point of Sale Counter: the pharmacist loads the prescription at a POS pharmacy counter, takes the payment and the counter invoices it; the dispense record and the prescription are updated automatically.">
+                    <field name="dental_dispense_mode" widget="radio"/>
+                    <div class="text-muted small mt-1" invisible="dental_dispense_mode != 'pos'">
+                        Mark a Point of Sale as <b>Pharmacy Counter</b> (Point of Sale &gt; Configuration &gt; Point of Sales).
+                    </div>
+                </setting>
+            </xpath>
+        </field>
+    </record>
+</odoo>

@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Website booking: let the patient choose an in-clinic or an online video consultation -->
+    <template id="book_appointment_teleconsult" inherit_id="dental_website_appointment.book_appointment"
+              name="Dental Booking: Online Video Option">
+        <xpath expr="//div[hasclass('type-choice-card')]" position="attributes">
+            <attribute name="t-att-data-allow-online">'1' if atype.allow_online else '0'</attribute>
+        </xpath>
+
+        <xpath expr="//form[@id='step5_booking_form']/*[1]" position="before">
+            <t t-if="request.env.company.sudo().dental_teleconsult_enabled">
+                <div class="o_dental_tc_booking_mode card border-0 p-3 mb-4 text-center"
+                     style="background-color: #f0fbfa; border-radius: 12px;">
+                    <label class="fw-bold mb-2 d-block" style="color: #334155; font-size: 1.05rem;">
+                        How would you like to see the dentist?
+                    </label>
+                    <div class="d-flex justify-content-center gap-3 flex-wrap" role="radiogroup">
+                        <button type="button" class="insurance-pill-btn active o_dental_tc_mode_btn"
+                                data-mode="in_clinic" aria-pressed="true">
+                            At the clinic
+                        </button>
+                        <button type="button" class="insurance-pill-btn o_dental_tc_mode_btn"
+                                data-mode="online" aria-pressed="false">
+                            Online video call
+                        </button>
+                    </div>
+                    <p class="o_dental_tc_online_hint small text-muted mt-3 mb-0 d-none">
+                        You will join from your phone or computer with a camera; no app is needed.
+                        After the clinic confirms, we will email you a secure join link<t
+                        t-if="request.env.company.sudo().dental_teleconsult_require_prepayment"> and a
+                        link to pay the consultation fee before the call</t>.
+                    </p>
+                    <p class="o_dental_tc_unavailable small text-muted mt-3 mb-0 d-none">
+                        This appointment type needs an in-clinic visit.
+                    </p>
+                </div>
+            </t>
+        </xpath>
+
+        <xpath expr="//div[@id='pane_step_success']//h3" position="after">
+            <p class="o_dental_tc_success_online alert alert-info d-none mx-auto mb-3"
+               style="max-width: 480px;"/>
+        </xpath>
+    </template>
+</odoo>

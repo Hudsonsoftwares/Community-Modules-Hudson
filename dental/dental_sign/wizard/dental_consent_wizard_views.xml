@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_dental_consent_wizard_form" model="ir.ui.view">
+        <field name="name">dental.consent.wizard.form</field>
+        <field name="model">dental.consent.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Patient Informed Consent">
+                <sheet>
+                    <div class="alert alert-info" role="alert">
+                        <strong>Consent Signing Workflow:</strong> Select the treatment and consent template. Choose <b>Sign Now</b> to let the patient sign immediately on a clinic monitor/tablet, or <b>Send via Email</b> to dispatch a secure signing link.
+                    </div>
+                    <group>
+                        <group string="Case &amp; Patient Details">
+                            <field name="plan_id" readonly="1"/>
+                            <field name="patient_id" readonly="1"/>
+                            <field name="doctor_partner_id" string="Dentist / Doctor"/>
+                        </group>
+                        <group string="Consent Form Details">
+                            <field name="treatment_id" options="{'no_create': True}"/>
+                            <field name="template_id" options="{'no_create': True}"/>
+                            <field name="sign_mode" widget="radio"/>
+                        </group>
+                    </group>
+                    <group string="Notification / Delivery Details">
+                        <field name="subject"/>
+                        <field name="message" placeholder="Optional notes or instructions for the patient..."/>
+                    </group>
+                </sheet>
+                <footer>
+                    <button name="action_confirm_sign" string="Proceed to Sign" type="object" class="btn-primary" icon="fa-pencil-square-o"/>
+                    <button string="Cancel" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>
+

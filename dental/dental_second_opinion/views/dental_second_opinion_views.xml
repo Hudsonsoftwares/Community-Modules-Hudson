@@ -1,0 +1,391 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_dental_second_opinion_form" model="ir.ui.view">
+        <field name="name">dental.second.opinion.form</field>
+        <field name="model">dental.second.opinion</field>
+        <field name="arch" type="xml">
+            <form string="Second Opinion">
+                <field name="is_requester" invisible="1"/>
+                <field name="is_specialist" invisible="1"/>
+                <header>
+                    <!-- Requesting dentist -->
+                    <button name="action_submit" string="Send to Specialist" type="object" class="oe_highlight"
+                            invisible="not is_requester or state != 'draft'"/>
+                    <button name="action_open_provide_info" string="Provide Information" type="object" class="oe_highlight"
+                            invisible="not is_requester or state != 'info_requested'"/>
+                    <button name="action_open_decision" string="Record Clinical Decision" type="object" class="oe_highlight"
+                            invisible="not is_requester or state != 'opinion_submitted'"/>
+                    <button name="action_open_clarification" string="Request Clarification" type="object"
+                            invisible="not is_requester or state != 'opinion_submitted'"/>
+                    <button name="action_reset_to_draft" string="Reset to Draft" type="object"
+                            invisible="not is_requester or state not in ('declined', 'cancelled')"/>
+                    <button name="action_cancel" string="Cancel Request" type="object"
+                            invisible="not is_requester or state in ('closed', 'cancelled')"
+                            confirm="Cancel this second opinion request?"/>
+                    <!-- Specialist -->
+                    <button name="action_start_review" string="Start Review" type="object" class="oe_highlight"
+                            invisible="not is_specialist or state != 'submitted'"/>
+                    <button name="action_submit_opinion" string="Submit Opinion" type="object" class="oe_highlight"
+                            invisible="not is_specialist or state not in ('in_review', 'clarification')"/>
+                    <button name="action_open_request_info" string="Request Information" type="object"
+                            invisible="not is_specialist or state != 'in_review'"/>
+                    <button name="action_open_decline" string="Decline" type="object"
+                            invisible="not is_specialist or state not in ('submitted', 'in_review')"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,submitted,in_review,opinion_submitted,closed"/>
+                </header>
+                <sheet>
+                    <widget name="web_ribbon" title="Overdue" bg_color="text-bg-danger" invisible="not is_overdue"/>
+                    <widget name="web_ribbon" title="Cancelled" bg_color="text-bg-secondary" invisible="state != 'cancelled'"/>
+                    <field name="is_overdue" invisible="1"/>
+                    <div class="oe_title">
+                        <h1 class="d-flex gap-2 align-items-center">
+                            <field name="priority" widget="priority"
+                                   readonly="not is_requester or state not in ('draft', 'info_requested')"/>
+                            <field name="name" readonly="1"/>
+                        </h1>
+                    </div>
+
+                    <div class="alert alert-warning" role="alert" invisible="state != 'info_requested'">
+                        <strong>The specialist needs more information:</strong>
+                        <field name="info_request_note" nolabel="1"/>
+                    </div>
+                    <div class="alert alert-warning" role="alert" invisible="state != 'clarification'">
+                        <strong>The requesting dentist asks for clarification:</strong>
+                        <field name="clarification_note" nolabel="1"/>
+                    </div>
+                    <div class="alert alert-danger" role="alert" invisible="state != 'declined'">
+                        <strong>Declined by the specialist:</strong>
+                        <field name="decline_reason" nolabel="1"/>
+                    </div>
+                    <div class="alert alert-info" role="status" invisible="state not in ('opinion_submitted', 'closed')">
+                        <i class="fa fa-info-circle me-1"/>
+                        Second opinions never change treatment plans. Update the plan yourself in the clinical workflow if you act on the recommendation.
+                    </div>
+
+                    <group>
+                        <group string="Referral">
+                            <field name="case_id" readonly="not is_requester or state != 'draft'"
+                                   options="{'no_create': True}"/>
+                            <field name="patient_id"/>
+                            <field name="requesting_doctor_id" readonly="not is_requester or state not in ('draft', 'info_requested')"
+                                   options="{'no_create': True, 'no_open': True}"/>
+                            <field name="requesting_user_id" widget="many2one_avatar_user"/>
+                        </group>
+                        <group string="Specialist">
+                            <field name="eligible_specialist_ids" invisible="1"/>
+                            <field name="specialist_id" readonly="not is_requester or state != 'draft'"
+                                   required="state != 'draft'" options="{'no_create': True, 'no_open': True}"/>
+                            <field name="specialization" invisible="not specialization"/>
+                            <field name="due_date" readonly="not is_requester or state not in ('draft', 'info_requested')"/>
+                            <field name="company_id" groups="base.group_multi_company" readonly="1"/>
+                        </group>
+                    </group>
+
+                    <notebook>
+                        <page string="Clinical Question" name="question">
+                            <group>
+                                <field name="clinical_question" placeholder="What should the specialist answer? e.g. Is tooth 36 restorable, or is extraction and implant placement preferable?"
+                                       readonly="not is_requester or state not in ('draft', 'info_requested')"/>
+                                <field name="clinical_summary" placeholder="Relevant history, findings so far, what has been tried..."
+                                       readonly="not is_requester or state not in ('draft', 'info_requested')"/>
+                            </group>
+                        </page>
+
+                        <page string="Clinical Records" name="clinical_records">
+                            <group>
+                                <group string="Case">
+                                    <field name="chief_complaint"/>
+                                    <field name="case_clinical_notes"/>
+                                    <field name="allergies" class="text-danger fw-bold" invisible="not allergies"/>
+                                </group>
+                                <group string="History">
+                                    <field name="medical_history_summary"/>
+                                    <field name="dental_history_summary"/>
+                                    <field name="current_medications"/>
+                                </group>
+                            </group>
+                            <separator string="Consultations"/>
+                            <field name="examination_ids" nolabel="1" readonly="not is_requester or state not in ('draft', 'info_requested')"
+                                   options="{'no_create': True}">
+                                <list>
+                                    <field name="name"/>
+                                    <field name="examination_date"/>
+                                    <field name="doctor_id"/>
+                                    <field name="chief_complaint"/>
+                                    <field name="clinical_findings"/>
+                                </list>
+                            </field>
+                            <separator string="Diagnoses"/>
+                            <field name="diagnosis_ids" nolabel="1" readonly="not is_requester or state not in ('draft', 'info_requested')"
+                                   options="{'no_create': True}">
+                                <list>
+                                    <field name="date"/>
+                                    <field name="diagnosis_id"/>
+                                    <field name="tooth_reference"/>
+                                    <field name="status" widget="badge"/>
+                                    <field name="notes"/>
+                                </list>
+                            </field>
+                            <separator string="X-Rays &amp; Documents"/>
+                            <field name="document_ids" nolabel="1" readonly="not is_requester or state not in ('draft', 'info_requested')"
+                                   options="{'no_create': True}">
+                                <list>
+                                    <field name="document_date"/>
+                                    <field name="name"/>
+                                    <field name="document_type"/>
+                                    <field name="file_name" column_invisible="1"/>
+                                    <field name="file" filename="file_name" widget="binary"/>
+                                </list>
+                            </field>
+                            <separator string="Proposed Treatment Plan (reference only)"/>
+                            <div class="d-flex gap-2 align-items-center mb-2">
+                                <field name="treatment_plan_id" readonly="not is_requester or state not in ('draft', 'info_requested')"
+                                       options="{'no_create': True, 'no_open': True}"/>
+                                <button name="action_open_treatment_plan" type="object" string="Open Plan" class="btn-link"
+                                        icon="fa-external-link" invisible="not treatment_plan_id or not is_requester"/>
+                            </div>
+                            <field name="treatment_plan_line_ids" nolabel="1" readonly="1" invisible="not treatment_plan_id">
+                                <list>
+                                    <field name="treatment_id"/>
+                                    <field name="tooth_reference"/>
+                                    <field name="description"/>
+                                    <field name="number_of_visits"/>
+                                    <field name="state" widget="badge"/>
+                                </list>
+                            </field>
+                            <separator string="Additional Files"/>
+                            <field name="request_attachment_ids" widget="many2many_binary" nolabel="1"
+                                   readonly="not is_requester or state not in ('draft', 'info_requested')"/>
+                        </page>
+
+                        <page string="Specialist Opinion" name="opinion" invisible="state in ('draft', 'submitted')">
+                            <group>
+                                <field name="recommended_action"
+                                       readonly="not is_specialist or state not in ('in_review', 'clarification')"/>
+                                <field name="opinion_revision" invisible="not opinion_revision"/>
+                            </group>
+                            <label for="findings" class="fw-bold"/>
+                            <field name="findings" placeholder="Clinical and radiographic findings..."
+                                   readonly="not is_specialist or state not in ('in_review', 'clarification')"/>
+                            <label for="recommendations" class="fw-bold"/>
+                            <field name="recommendations" placeholder="Recommended management, alternatives, risks..."
+                                   readonly="not is_specialist or state not in ('in_review', 'clarification')"/>
+                            <group>
+                                <field name="opinion_attachment_ids" widget="many2many_binary"
+                                       readonly="not is_specialist or state not in ('in_review', 'clarification')"/>
+                            </group>
+                        </page>
+
+                        <page string="Clinical Decision" name="decision" invisible="state != 'closed'">
+                            <group>
+                                <group>
+                                    <field name="decision"/>
+                                    <field name="decided_by_id"/>
+                                    <field name="decision_date"/>
+                                </group>
+                            </group>
+                            <field name="decision_notes" nolabel="1"/>
+                        </page>
+
+                        <page string="Tracking &amp; Audit" name="audit">
+                            <group>
+                                <group>
+                                    <field name="request_date"/>
+                                    <field name="submitted_date"/>
+                                    <field name="review_start_date"/>
+                                </group>
+                                <group>
+                                    <field name="opinion_date"/>
+                                    <field name="closed_date"/>
+                                    <field name="turnaround_hours" widget="float_time" invisible="not turnaround_hours"/>
+                                </group>
+                            </group>
+                            <field name="log_ids" nolabel="1">
+                                <list create="0" delete="0" edit="0">
+                                    <field name="date"/>
+                                    <field name="user_id" widget="many2one_avatar_user"/>
+                                    <field name="event"/>
+                                    <field name="state_from" optional="hide"/>
+                                    <field name="state_to"/>
+                                    <field name="note"/>
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_dental_second_opinion_list" model="ir.ui.view">
+        <field name="name">dental.second.opinion.list</field>
+        <field name="model">dental.second.opinion</field>
+        <field name="arch" type="xml">
+            <list string="Second Opinions" decoration-danger="is_overdue" decoration-muted="state in ('cancelled', 'declined')">
+                <field name="priority" widget="priority" optional="show"/>
+                <field name="name"/>
+                <field name="request_date" widget="date"/>
+                <field name="patient_id"/>
+                <field name="case_id"/>
+                <field name="requesting_doctor_id"/>
+                <field name="specialist_id"/>
+                <field name="due_date" optional="show"/>
+                <field name="recommended_action" optional="hide"/>
+                <field name="decision" optional="hide"/>
+                <field name="turnaround_hours" widget="float_time" optional="hide"/>
+                <field name="company_id" groups="base.group_multi_company" optional="show"/>
+                <field name="is_overdue" column_invisible="1"/>
+                <field name="activity_ids" widget="list_activity" optional="show"/>
+                <field name="state" widget="badge"
+                       decoration-info="state in ('submitted', 'in_review')"
+                       decoration-warning="state in ('info_requested', 'clarification', 'opinion_submitted')"
+                       decoration-success="state == 'closed'"
+                       decoration-danger="state == 'declined'"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_dental_second_opinion_kanban" model="ir.ui.view">
+        <field name="name">dental.second.opinion.kanban</field>
+        <field name="model">dental.second.opinion</field>
+        <field name="arch" type="xml">
+            <kanban default_group_by="state" group_create="0" group_delete="0" group_edit="0"
+                    records_draggable="0" quick_create="0" class="o_kanban_small_column">
+                <field name="is_overdue"/>
+                <templates>
+                    <t t-name="card">
+                        <div class="d-flex justify-content-between">
+                            <field name="name" class="fw-bold"/>
+                            <field name="priority" widget="priority"/>
+                        </div>
+                        <field name="patient_id"/>
+                        <div class="text-muted small">
+                            <i class="fa fa-folder-open-o me-1" title="Case"/><field name="case_id"/>
+                        </div>
+                        <div class="text-muted small">
+                            <i class="fa fa-user-md me-1" title="Specialist"/><field name="specialist_id"/>
+                        </div>
+                        <footer>
+                            <span t-if="record.is_overdue.raw_value" class="badge text-bg-danger">Overdue</span>
+                            <field name="due_date" class="small"/>
+                            <div class="ms-auto d-flex gap-1">
+                                <field name="activity_ids" widget="kanban_activity"/>
+                                <field name="specialist_user_id" widget="many2one_avatar_user"/>
+                            </div>
+                        </footer>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+
+    <record id="view_dental_second_opinion_pivot" model="ir.ui.view">
+        <field name="name">dental.second.opinion.pivot</field>
+        <field name="model">dental.second.opinion</field>
+        <field name="arch" type="xml">
+            <pivot string="Second Opinion Analysis">
+                <field name="specialist_id" type="row"/>
+                <field name="state" type="col"/>
+                <field name="turnaround_hours" type="measure"/>
+            </pivot>
+        </field>
+    </record>
+
+    <record id="view_dental_second_opinion_search" model="ir.ui.view">
+        <field name="name">dental.second.opinion.search</field>
+        <field name="model">dental.second.opinion</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name"/>
+                <field name="patient_id"/>
+                <field name="case_id"/>
+                <field name="specialist_id"/>
+                <field name="requesting_doctor_id"/>
+                <filter name="to_review" string="To Review (Me)"
+                        domain="[('specialist_user_id', '=', uid), ('state', 'in', ('submitted', 'in_review', 'clarification'))]"/>
+                <filter name="my_requests" string="My Requests" domain="[('requesting_user_id', '=', uid)]"/>
+                <filter name="assigned_to_me" string="Assigned to Me" domain="[('specialist_user_id', '=', uid)]"/>
+                <separator/>
+                <filter name="open" string="Open"
+                        domain="[('state', 'in', ('submitted', 'in_review', 'info_requested', 'opinion_submitted', 'clarification'))]"/>
+                <filter name="awaiting_decision" string="Awaiting Decision" domain="[('state', '=', 'opinion_submitted')]"/>
+                <filter name="overdue" string="Overdue" domain="[('is_overdue', '=', True)]"/>
+                <filter name="urgent" string="Urgent / Emergency" domain="[('priority', 'in', ('1', '2'))]"/>
+                <filter name="closed" string="Decision Recorded" domain="[('state', '=', 'closed')]"/>
+                <separator/>
+                <filter name="request_date" string="Requested On" date="request_date"/>
+                <group>
+                    <filter name="group_state" string="Status" context="{'group_by': 'state'}"/>
+                    <filter name="group_specialist" string="Specialist" context="{'group_by': 'specialist_id'}"/>
+                    <filter name="group_requester" string="Requesting Dentist" context="{'group_by': 'requesting_doctor_id'}"/>
+                    <filter name="group_company" string="Branch" context="{'group_by': 'company_id'}" groups="base.group_multi_company"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_dental_second_opinion" model="ir.actions.act_window">
+        <field name="name">Second Opinions</field>
+        <field name="res_model">dental.second.opinion</field>
+        <field name="view_mode">list,kanban,form,pivot</field>
+        <field name="search_view_id" ref="view_dental_second_opinion_search"/>
+        <field name="context">{'search_default_open': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Refer a complex case to a specialist</p>
+            <p>Open a dental case and use <b>Request Second Opinion</b>, or create a request here.</p>
+        </field>
+    </record>
+
+    <record id="action_dental_second_opinion_review_queue" model="ir.actions.act_window">
+        <field name="name">My Review Queue</field>
+        <field name="res_model">dental.second.opinion</field>
+        <field name="view_mode">kanban,list,form</field>
+        <field name="search_view_id" ref="view_dental_second_opinion_search"/>
+        <field name="domain">[('specialist_user_id', '=', uid)]</field>
+        <field name="context">{'create': False}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">No cases waiting for your opinion</p>
+        </field>
+    </record>
+
+    <record id="action_dental_second_opinion_log" model="ir.actions.act_window">
+        <field name="name">Second Opinion Audit History</field>
+        <field name="res_model">dental.second.opinion.log</field>
+        <field name="view_mode">list</field>
+    </record>
+
+    <record id="view_dental_second_opinion_log_list" model="ir.ui.view">
+        <field name="name">dental.second.opinion.log.list</field>
+        <field name="model">dental.second.opinion.log</field>
+        <field name="arch" type="xml">
+            <list create="0" edit="0" delete="0">
+                <field name="date"/>
+                <field name="request_id"/>
+                <field name="user_id" widget="many2one_avatar_user"/>
+                <field name="event"/>
+                <field name="state_from"/>
+                <field name="state_to"/>
+                <field name="note"/>
+                <field name="company_id" groups="base.group_multi_company"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_dental_second_opinion_log_search" model="ir.ui.view">
+        <field name="name">dental.second.opinion.log.search</field>
+        <field name="model">dental.second.opinion.log</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="request_id"/>
+                <field name="user_id"/>
+                <field name="event"/>
+                <group>
+                    <filter name="group_request" string="Request" context="{'group_by': 'request_id'}"/>
+                    <filter name="group_event" string="Event" context="{'group_by': 'event'}"/>
+                    <filter name="group_user" string="User" context="{'group_by': 'user_id'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+</odoo>

@@ -48,6 +48,8 @@ export class DynamicReport extends Component {
             expandedLines: {},
             currencyId: null,
             alert_message: null,
+            alert_dismissed: false,
+            secondary_alert_dismissed: false,
             filterSummary: {
                 date: 'Fiscal Year',
                 date_type: 'year',
@@ -106,6 +108,7 @@ export class DynamicReport extends Component {
             model_name: null,
             openDropdownLineId: null,
             dropdownIsDropup: false,
+            dropdownStyle: '',
             searchQuery: '',
             selectedSplitLineId: null,
             splitSearchQuery: '',
@@ -130,10 +133,45 @@ export class DynamicReport extends Component {
             if (this.state.openDropdownLineId) {
                 if (!ev.target.closest('.o_dynamic_report_dropdown')) {
                     this.state.openDropdownLineId = null;
+                    this.state.dropdownStyle = '';
+                }
+            }
+            if (this.state.analyticResults && this.state.analyticResults.length) {
+                if (!ev.target.closest('.o_hfp_search_analytic')) {
+                    this.state.analyticResults = [];
+                }
+            }
+            if (this.state.analyticPlanResults && this.state.analyticPlanResults.length) {
+                if (!ev.target.closest('.o_hfp_search_analytic_plan')) {
+                    this.state.analyticPlanResults = [];
+                }
+            }
+            if (this.state.partnerResults && this.state.partnerResults.length) {
+                if (!ev.target.closest('.o_hfp_search_partner')) {
+                    this.state.partnerResults = [];
+                }
+            }
+            if (this.state.tagResults && this.state.tagResults.length) {
+                if (!ev.target.closest('.o_hfp_search_tag')) {
+                    this.state.tagResults = [];
+                }
+            }
+            if (this.state.assetCategoryResults && this.state.assetCategoryResults.length) {
+                if (!ev.target.closest('.o_hfp_search_asset_cat')) {
+                    this.state.assetCategoryResults = [];
                 }
             }
         };
         document.addEventListener('click', this.handleClickOutside);
+
+        this.handleScrollClose = () => {
+            if (this.state.openDropdownLineId) {
+                this.state.openDropdownLineId = null;
+                this.state.dropdownStyle = '';
+            }
+        };
+        window.addEventListener('scroll', this.handleScrollClose, true);
+        window.addEventListener('resize', this.handleScrollClose, true);
 
         onWillStart(async () => {
             await this.fetchData();
@@ -141,22 +179,37 @@ export class DynamicReport extends Component {
 
         onWillUnmount(() => {
             document.removeEventListener('click', this.handleClickOutside);
+            window.removeEventListener('scroll', this.handleScrollClose, true);
+            window.removeEventListener('resize', this.handleScrollClose, true);
         });
     }
 
     toggleLineDropdown(lineId, ev = null) {
-        if (this.state.openDropdownLineId === lineId) {
+        if (!lineId || this.state.openDropdownLineId === lineId) {
             this.state.openDropdownLineId = null;
+            this.state.dropdownStyle = '';
             return;
         }
         this.state.openDropdownLineId = lineId;
-        if (ev && ev.target) {
-            const rect = ev.target.getBoundingClientRect();
-            const spaceBelow = window.innerHeight - rect.bottom;
-            this.state.dropdownIsDropup = (spaceBelow < 200);
-        } else {
-            this.state.dropdownIsDropup = false;
+        if (ev) {
+            const btn = ev.currentTarget || (ev.target && ev.target.closest('.o_report_options_btn')) || ev.target;
+            if (btn && btn.getBoundingClientRect) {
+                const rect = btn.getBoundingClientRect();
+                const spaceBelow = window.innerHeight - rect.bottom;
+                const isDropup = spaceBelow < 180 && rect.top > 180;
+                const left = Math.max(10, Math.min(rect.left, window.innerWidth - 190));
+                this.state.dropdownIsDropup = isDropup;
+
+                if (isDropup) {
+                    this.state.dropdownStyle = `position: fixed !important; bottom: ${Math.round(window.innerHeight - rect.top + 2)}px !important; top: auto !important; left: ${Math.round(left)}px !important; z-index: 99999 !important; display: block !important; min-width: 170px; border-radius: 6px; box-shadow: 0 8px 24px rgba(0,0,0,0.18); border: 1px solid #cbd5e1;`;
+                } else {
+                    this.state.dropdownStyle = `position: fixed !important; top: ${Math.round(rect.bottom + 2)}px !important; bottom: auto !important; left: ${Math.round(left)}px !important; z-index: 99999 !important; display: block !important; min-width: 170px; border-radius: 6px; box-shadow: 0 8px 24px rgba(0,0,0,0.18); border: 1px solid #cbd5e1;`;
+                }
+                return;
+            }
         }
+        this.state.dropdownIsDropup = false;
+        this.state.dropdownStyle = '';
     }
 
     formatDateLocal(date) {
@@ -183,6 +236,19 @@ export class DynamicReport extends Component {
             console.warn("Could not fetch the fiscal year dates, using the calendar year", e);
             this._fiscalYears = null;
         }
+    }
+
+    get isDarkMode() {
+        if (typeof document === 'undefined') return false;
+        return Boolean(
+            document.documentElement?.getAttribute('data-bs-theme') === 'dark' ||
+            document.body?.getAttribute('data-bs-theme') === 'dark' ||
+            document.body?.classList?.contains('o_dark') ||
+            document.body?.classList?.contains('o_dark_mode') ||
+            document.documentElement?.classList?.contains('o_dark_mode') ||
+            (document.cookie && document.cookie.includes('color_scheme=dark')) ||
+            (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches && !(document.cookie && document.cookie.includes('color_scheme=light')))
+        );
     }
 
     _getFiscalYear(which = 'this_year') {
@@ -818,6 +884,9 @@ export class DynamicReport extends Component {
         form_data.target_move = type;
         data.target_move = type;
         this.state.filterSummary.target_move = type === 'posted' ? 'Posted Entries' : 'All Entries';
+        if (type === 'posted') {
+            this.state.alert_dismissed = false;
+        }
         
         this._saveParams();
         
@@ -832,6 +901,18 @@ export class DynamicReport extends Component {
         }
         
         await this.fetchData();
+    }
+
+    closeAlertBanner() {
+        this.state.alert_dismissed = true;
+    }
+
+    toggleAlertBanner() {
+        this.state.alert_dismissed = !this.state.alert_dismissed;
+    }
+
+    closeSecondaryAlertBanner() {
+        this.state.secondary_alert_dismissed = true;
     }
 
     async onComparisonFilter(type) {
@@ -1169,10 +1250,10 @@ export class DynamicReport extends Component {
     }
 
     async loadDefaultPartners() {
-        if (!this.state.partnerResults || this.state.partnerResults.length === 0) {
-            const results = await this.orm.searchRead('res.partner', [], ['id', 'name'], { limit: 20, order: 'name asc' });
-            this.state.partnerResults = results;
-        }
+        const selectedIds = new Set((this.state.filterSummary.partners || []).map(p => p.id));
+        const domain = selectedIds.size > 0 ? [['id', 'not in', Array.from(selectedIds)]] : [];
+        const results = await this.orm.searchRead('res.partner', domain, ['id', 'name'], { limit: 50, order: 'name asc' });
+        this.state.partnerResults = results.filter(p => !selectedIds.has(p.id)).slice(0, 20);
     }
 
     async onTagSearch(ev) {
@@ -1242,7 +1323,12 @@ export class DynamicReport extends Component {
     }
 
     async onAnalyticSearch(ev) {
-        const val = ev.target.value;
+        if (ev.key === 'Escape') {
+            this.state.analyticResults = [];
+            ev.target.blur();
+            return;
+        }
+        const val = (ev.target.value || '').trim();
         if (!val) {
             await this.loadDefaultAnalytics();
             return;
@@ -1253,16 +1339,21 @@ export class DynamicReport extends Component {
         }
         if (this.analyticTimeout) clearTimeout(this.analyticTimeout);
         this.analyticTimeout = setTimeout(async () => {
-            const results = await this.orm.searchRead('account.analytic.account', [['name', 'ilike', val]], ['id', 'name'], { limit: 10 });
-            this.state.analyticResults = results;
+            const selectedIds = new Set((this.state.filterSummary.analytic_accounts || []).map(a => a.id));
+            const domain = [['name', 'ilike', val]];
+            if (selectedIds.size > 0) {
+                domain.push(['id', 'not in', Array.from(selectedIds)]);
+            }
+            const results = await this.orm.searchRead('account.analytic.account', domain, ['id', 'name'], { limit: 20 });
+            this.state.analyticResults = results.filter(a => !selectedIds.has(a.id)).slice(0, 10);
         }, 300);
     }
 
     async loadDefaultAnalytics() {
-        if (!this.state.analyticResults || this.state.analyticResults.length === 0) {
-            const results = await this.orm.searchRead('account.analytic.account', [], ['id', 'name'], { limit: 20, order: 'name asc' });
-            this.state.analyticResults = results;
-        }
+        const selectedIds = new Set((this.state.filterSummary.analytic_accounts || []).map(a => a.id));
+        const domain = selectedIds.size > 0 ? [['id', 'not in', Array.from(selectedIds)]] : [];
+        const results = await this.orm.searchRead('account.analytic.account', domain, ['id', 'name'], { limit: 50, order: 'name asc' });
+        this.state.analyticResults = results.filter(a => !selectedIds.has(a.id)).slice(0, 20);
     }
 
     selectAnalyticAccount(a) {
@@ -1280,10 +1371,17 @@ export class DynamicReport extends Component {
         if (this.state.filterSummary.analytic_accounts) {
             this.state.filterSummary.analytic_accounts = this.state.filterSummary.analytic_accounts.filter(a => a.id !== aid);
         }
+        if (this.state.analyticResults && this.state.analyticResults.length > 0) {
+            await this.loadDefaultAnalytics();
+        }
         await this.applyAnalyticFilters();
     }
 
     async applyAnalyticFilters() {
+        this.state.analyticResults = [];
+        this.state.analyticPlanResults = [];
+        this.state.analyticSearch = '';
+        this.state.analyticPlanSearch = '';
         const wizard_id = this.reportParams.wizard_id;
         const model_name = this.reportParams.model_name;
         const accountIds = (this.state.filterSummary.analytic_accounts || []).map(a => a.id);
@@ -1308,7 +1406,12 @@ export class DynamicReport extends Component {
     }
 
     async onAnalyticPlanSearch(ev) {
-        const val = ev.target.value;
+        if (ev.key === 'Escape') {
+            this.state.analyticPlanResults = [];
+            ev.target.blur();
+            return;
+        }
+        const val = (ev.target.value || '').trim();
         if (!val) {
             await this.loadDefaultAnalyticPlans();
             return;
@@ -1319,16 +1422,21 @@ export class DynamicReport extends Component {
         }
         if (this.analyticPlanTimeout) clearTimeout(this.analyticPlanTimeout);
         this.analyticPlanTimeout = setTimeout(async () => {
-            const results = await this.orm.searchRead('account.analytic.plan', [['name', 'ilike', val]], ['id', 'name'], { limit: 10 });
-            this.state.analyticPlanResults = results;
+            const selectedIds = new Set((this.state.filterSummary.analytic_plans || []).map(p => p.id));
+            const domain = [['name', 'ilike', val]];
+            if (selectedIds.size > 0) {
+                domain.push(['id', 'not in', Array.from(selectedIds)]);
+            }
+            const results = await this.orm.searchRead('account.analytic.plan', domain, ['id', 'name'], { limit: 20 });
+            this.state.analyticPlanResults = results.filter(p => !selectedIds.has(p.id)).slice(0, 10);
         }, 300);
     }
 
     async loadDefaultAnalyticPlans() {
-        if (!this.state.analyticPlanResults || this.state.analyticPlanResults.length === 0) {
-            const results = await this.orm.searchRead('account.analytic.plan', [], ['id', 'name'], { limit: 20, order: 'name asc' });
-            this.state.analyticPlanResults = results;
-        }
+        const selectedIds = new Set((this.state.filterSummary.analytic_plans || []).map(p => p.id));
+        const domain = selectedIds.size > 0 ? [['id', 'not in', Array.from(selectedIds)]] : [];
+        const results = await this.orm.searchRead('account.analytic.plan', domain, ['id', 'name'], { limit: 50, order: 'name asc' });
+        this.state.analyticPlanResults = results.filter(p => !selectedIds.has(p.id)).slice(0, 20);
     }
 
     selectAnalyticPlan(p) {
@@ -1345,6 +1453,9 @@ export class DynamicReport extends Component {
     async removeAnalyticPlan(pid) {
         if (this.state.filterSummary.analytic_plans) {
             this.state.filterSummary.analytic_plans = this.state.filterSummary.analytic_plans.filter(p => p.id !== pid);
+        }
+        if (this.state.analyticPlanResults && this.state.analyticPlanResults.length > 0) {
+            await this.loadDefaultAnalyticPlans();
         }
         await this.applyAnalyticFilters();
     }
@@ -1363,10 +1474,13 @@ export class DynamicReport extends Component {
     }
 
     async loadDefaultAssetCategories() {
-        if (!this.state.assetCategoryResults || this.state.assetCategoryResults.length === 0) {
-            const results = await this.orm.searchRead('account.asset.category', [['type', '=', 'purchase']], ['id', 'name'], { limit: 20, order: 'name asc' });
-            this.state.assetCategoryResults = results;
+        const selectedIds = new Set((this.state.filterSummary.asset_categories || []).map(c => c.id));
+        const domain = [['type', '=', 'purchase']];
+        if (selectedIds.size > 0) {
+            domain.push(['id', 'not in', Array.from(selectedIds)]);
         }
+        const results = await this.orm.searchRead('account.asset.category', domain, ['id', 'name'], { limit: 50, order: 'name asc' });
+        this.state.assetCategoryResults = results.filter(c => !selectedIds.has(c.id)).slice(0, 20);
     }
 
     selectAssetCategory(c) {
@@ -1865,6 +1979,9 @@ export class DynamicReport extends Component {
         const params = this._ensureCurrentParams();
         const form_data = params.data.form || params.data;
         form_data.journal_ids = selected;
+        // a journal choice of the user: the server keeps it (within the active
+        // companies); otherwise the report covers the journals of all of them
+        form_data.journal_ids_user_selected = selected.length !== all.length;
         this._saveParams();
         if (params.wizard_id && params.model_name) {
             try {

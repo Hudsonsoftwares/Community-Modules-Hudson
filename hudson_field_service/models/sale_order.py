@@ -34,6 +34,17 @@ class SaleOrderLine(models.Model):
                 and bool(product.worksheet_template_id) and not product.planning_enabled
                 and self.product_uom_qty > 0)
 
+    def _prepare_new_open_shift_values(self, hours):
+        """The hours sold of a service with a worksheet are a job to plan for
+        the customer: listed as unscheduled (no dates) in the side panel of
+        the schedule, to drag onto a technician or plan with Auto Plan,
+        rather than an open shift at the next working time."""
+        self.ensure_one()
+        if (self.product_id.worksheet_template_id
+                and self.env['field.service.order']._is_planning_sync_enabled()):
+            return self._prepare_open_shift_values(False, False, 0.0, hours=hours)
+        return super()._prepare_new_open_shift_values(hours)
+
     def _prepare_field_service_job_values(self):
         self.ensure_one()
         order = self.order_id

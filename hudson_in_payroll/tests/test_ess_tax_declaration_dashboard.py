@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
+# pyrefly: ignore [missing-import]
 from odoo.tests.common import TransactionCase
-from odoo.exceptions import ValidationError, AccessError
-from odoo import fields
 
 
 class TestEssTaxDeclarationDashboard(TransactionCase):
@@ -15,15 +14,16 @@ class TestEssTaxDeclarationDashboard(TransactionCase):
                 'code': '2025-2026',
                 'start_date': '2025-04-01',
                 'end_date': '2026-03-31',
-                'is_active': True,
+                'active': True,
             })
+        self.env.company.hds_in_default_tax_year = self.fy.id
 
         self.regime_old = self.env['tds.tax.regime'].search([('code', '=', 'old')], limit=1)
         if not self.regime_old:
             self.regime_old = self.env['tds.tax.regime'].create({
                 'name': 'Old Tax Regime',
                 'code': 'old',
-                'is_active': True,
+                'active': True,
             })
 
         self.regime_new = self.env['tds.tax.regime'].search([('code', '=', 'new')], limit=1)
@@ -31,14 +31,13 @@ class TestEssTaxDeclarationDashboard(TransactionCase):
             self.regime_new = self.env['tds.tax.regime'].create({
                 'name': 'New Tax Regime',
                 'code': 'new',
-                'is_active': True,
+                'active': True,
             })
 
         self.employee_user = self.env['res.users'].create({
             'name': 'ESS Test User',
             'login': 'esstestuser',
             'email': 'ess@example.com',
-            'groups_id': [(6, 0, [self.env.ref('base.group_user').id])],
         })
 
         self.employee = self.env['hr.employee'].create({
@@ -189,6 +188,14 @@ class TestEssTaxDeclarationDashboard(TransactionCase):
         self.assertEqual(self.employee.hds_in_current_tax_regime_id, self.regime_old)
         self.assertFalse(self.employee.hds_in_is_new_tax_regime)
 
+        # 3. Switching regime on Employee Profile reflects on Declaration
+        self.employee.write({'hds_in_current_tax_regime_id': self.regime_new.id})
+        self.env.flush_all()
+        decl.invalidate_recordset(['tax_regime_id', 'regime_choice_id', 'regime_code'])
+        self.assertEqual(decl.regime_choice_id, self.regime_new)
+        self.assertEqual(decl.tax_regime_id, self.regime_new)
+        self.assertEqual(decl.regime_code, 'new')
+
     def test_09_agniveer_80cch_deduction_sync(self):
         """Test Section 80CCH Agniveer Corpus Fund proxy sync with declaration lines."""
         decl = self.env['tds.employee.declaration'].create({
@@ -203,6 +210,27 @@ class TestEssTaxDeclarationDashboard(TransactionCase):
         self.assertTrue(agniveer_line)
         self.assertEqual(agniveer_line.declared_amount, 50000.0)
         self.assertIn('Agniveer', agniveer_line.description)
+
+    def test_09b_agnipath_scheme_toggle_and_80cch_eligibility(self):
+        """Test Employee under Agnipath Scheme toggle and Section 80CCH eligibility."""
+        self.assertFalse(self.employee.hds_in_is_agnipath, "Employee should default to not under Agnipath Scheme")
+        decl = self.env['tds.employee.declaration'].create({
+            'employee_id': self.employee.id,
+            'financial_year_id': self.fy.id,
+            'state': 'draft',
+            'decl_80cch_agniveer': 40000.0,
+        })
+        self.assertFalse(decl.hds_in_is_agnipath, "Declaration hds_in_is_agnipath should reflect employee status")
+        self.assertFalse(decl.is_80cch_active, "Section 80CCH active flag should be False when not Agnipath")
+        # When not under Agnipath scheme, 80cch deduction is 0
+        decl._compute_totals()
+        cch_approved = getattr(decl, 'decl_80cch_approved_amount', 0.0)
+        cch_svc_res = self.env['tds.employee.declaration'].browse(decl.id)
+        # Enable Agnipath Scheme
+        self.employee.write({'hds_in_is_agnipath': True})
+        decl.invalidate_recordset(['hds_in_is_agnipath', 'is_80cch_active'])
+        self.assertTrue(decl.hds_in_is_agnipath, "Declaration should reflect enabled Agnipath Scheme")
+        self.assertTrue(decl.is_80cch_active, "Section 80CCH active flag should be True when Agnipath enabled")
 
     def test_10_field_help_tooltips_presence(self):
         """Test every declaration field has rich contextual help tooltips defined."""
@@ -589,7 +617,8 @@ class TestEssTaxDeclarationDashboard(TransactionCase):
         self.assertIn("1,50,000", decl.section_80c_warning_msg)
 
         # Verify statutory cap applied during tax calculation only
-        from hudson_in_payroll.services.tds.chapter6a_deduction_service import Chapter6aDeductionService
+        # pyrefly: ignore [missing-import]
+        from odoo.addons.hudson_in_payroll.services.tds.chapter6a_deduction_service import Chapter6aDeductionService
         c6a_svc = Chapter6aDeductionService(self.env)
         res = c6a_svc.calculate_chapter_6a_deductions(self.employee, self.fy, regime_code='old')
         self.assertEqual(res.section_80c, 150000.0)
@@ -604,6 +633,7 @@ class TestEssTaxDeclarationDashboard(TransactionCase):
             'decl_80c_elss': 25000.0,
             'decl_80d_self': 20000.0,
             'decl_hra_annual_rent': 180000.0,
+            'decl_hra_landlord_name': 'Test Landlord',
             'decl_24b_self_interest': 150000.0,
             'decl_80ccd2_employer_nps': 60000.0,
         })
@@ -627,7 +657,8 @@ class TestEssTaxDeclarationDashboard(TransactionCase):
         self.assertEqual(lines_by_cat.get('80d_self'), 20000.0)
         self.assertEqual(lines_by_cat.get('hra'), 180000.0)
         self.assertEqual(lines_by_cat.get('24b'), 150000.0)
-        self.assertEqual(lines_by_cat.get('80ccd2'), 60000.0)
+        # Employer NPS Section 124 is an employer statutory contribution, not an employee investment line item
+        self.assertNotIn('80ccd2', lines_by_cat)
 
         # 3. Simulate HR Manager approving and modifying verified amounts
         decl_persisted.action_submit()

@@ -8,30 +8,37 @@ from odoo.exceptions import UserError
 
 try:
     import xlsxwriter
+    from xlsxwriter.utility import xl_col_to_name
 except ImportError:
     xlsxwriter = None
+
+    def xl_col_to_name(col_idx):
+        result = ''
+        col_idx += 1
+        while col_idx > 0:
+            col_idx, remainder = divmod(col_idx - 1, 26)
+            result = chr(65 + remainder) + result
+        return result
 
 
 class HdsSalaryRegisterWizard(models.TransientModel):
     _name = 'hds.salary.register.wizard'
-    _description = 'Salary Register Report Wizard'
+    _description = 'Salary Register'
 
     date_from = fields.Date(
         string='Start Date',
-        default=lambda self: date(fields.Date.today().year, fields.Date.today().month, 1),
+        default=lambda self: date(fields.Date.today().year, 1, 1),
         required=True
     )
     date_to = fields.Date(
         string='End Date',
-        default=lambda self: date(fields.Date.today().year, fields.Date.today().month, calendar.monthrange(fields.Date.today().year, fields.Date.today().month)[1]),
+        default=lambda self: date(
+            fields.Date.today().year,
+            fields.Date.today().month,
+            calendar.monthrange(fields.Date.today().year, fields.Date.today().month)[1]
+        ),
         required=True
     )
-
-    @api.onchange('date_from')
-    def _onchange_date_from(self):
-        if self.date_from:
-            last_day = calendar.monthrange(self.date_from.year, self.date_from.month)[1]
-            self.date_to = self.date_from.replace(day=last_day)
 
     struct_id = fields.Many2one(
         'hr.payroll.structure',
@@ -39,12 +46,23 @@ class HdsSalaryRegisterWizard(models.TransientModel):
         help='Optional pay structure filter.'
     )
 
-    payslip_state = fields.Selection([
-        ('paid', 'Paid Only'),
-        ('confirmed', 'Confirmed & Paid (Done, Paid)'),
-        ('done', 'Done Only'),
-        ('all', 'All States (Draft, Verify, Done, Paid)'),
-    ], string='Payslip Status', default='paid', required=True)
+    status_paid = fields.Boolean(string='Paid', default=True)
+    status_done = fields.Boolean(string='Done', default=True)
+
+    def _default_employee_ids(self):
+        today = fields.Date.today()
+        d_from = date(today.year, 1, 1)
+        last_day = calendar.monthrange(today.year, today.month)[1]
+        d_to = date(today.year, today.month, last_day)
+        comp = self.env.company
+        domain = [
+            ('company_id', '=', comp.id),
+            ('date_from', '>=', d_from),
+            ('date_to', '<=', d_to),
+            ('state', 'in', ('paid', 'done')),
+        ]
+        payslips = self.env['hr.payslip'].search(domain, order='employee_id asc')
+        return payslips.mapped('employee_id')
 
     employee_ids = fields.Many2many(
         'hr.employee',
@@ -52,7 +70,8 @@ class HdsSalaryRegisterWizard(models.TransientModel):
         'wizard_id',
         'employee_id',
         string='Employees',
-        help='Optional employee filter. Leave empty to include all matching employees.'
+        default=_default_employee_ids,
+        help='Optional employee filter. Automatically fetched based on Payslip Status and Date Range.'
     )
 
     company_id = fields.Many2one(
@@ -65,6 +84,39 @@ class HdsSalaryRegisterWizard(models.TransientModel):
     xlsx_file = fields.Binary(string='Salary Register Excel File (.xlsx)', readonly=True)
     xlsx_filename = fields.Char(string='Excel Filename', readonly=True)
 
+    @api.onchange('date_from', 'date_to', 'status_paid', 'status_done', 'struct_id', 'company_id')
+    def _onchange_payslip_criteria(self):
+        if self.date_from and self.date_to and self.date_to < self.date_from:
+            last_day = calendar.monthrange(self.date_from.year, self.date_from.month)[1]
+            self.date_to = self.date_from.replace(day=last_day)
+
+        if not self.date_from or not self.date_to:
+            self.employee_ids = [(5, 0, 0)]
+            return
+
+        states = []
+        if self.status_paid:
+            states.append('paid')
+        if self.status_done:
+            states.append('done')
+
+        if not states:
+            self.employee_ids = [(5, 0, 0)]
+            return
+
+        domain = [
+            ('company_id', '=', self.company_id.id if self.company_id else self.env.company.id),
+            ('date_from', '>=', self.date_from),
+            ('date_to', '<=', self.date_to),
+            ('state', 'in', states),
+        ]
+        if self.struct_id:
+            domain.append(('struct_id', '=', self.struct_id.id))
+
+        payslips = self.env['hr.payslip'].search(domain, order='employee_id asc')
+        matching_employees = payslips.mapped('employee_id')
+        self.employee_ids = [(6, 0, matching_employees.ids)]
+
     def _get_target_payslips(self):
         self.ensure_one()
         domain = [
@@ -73,14 +125,15 @@ class HdsSalaryRegisterWizard(models.TransientModel):
             ('date_to', '<=', self.date_to),
         ]
 
-        if self.payslip_state == 'done':
-            domain.append(('state', '=', 'done'))
-        elif self.payslip_state == 'paid':
-            domain.append(('state', '=', 'paid'))
-        elif self.payslip_state == 'confirmed':
-            domain.append(('state', 'in', ('done', 'paid')))
-        else:
-            domain.append(('state', '!=', 'cancel'))
+        states = []
+        if self.status_paid:
+            states.append('paid')
+        if self.status_done:
+            states.append('done')
+        if not states:
+            raise UserError(_("Please select at least one Payslip Status (Paid or Done)."))
+
+        domain.append(('state', 'in', states))
 
         if self.struct_id:
             domain.append(('struct_id', '=', self.struct_id.id))
@@ -88,296 +141,278 @@ class HdsSalaryRegisterWizard(models.TransientModel):
         if self.employee_ids:
             domain.append(('employee_id', 'in', self.employee_ids.ids))
 
-        payslips = self.env['hr.payslip'].search(domain, order='employee_id asc, date_to desc, id desc')
-
-        # Deduplicate per employee: pick the best slip per employee
-        state_prio = {'paid': 4, 'done': 3, 'verify': 2, 'draft': 1}
-        emp_slips = {}
-        for slip in payslips:
-            if not slip.line_ids:
-                continue
-            emp_id = slip.employee_id.id
-            if emp_id not in emp_slips:
-                emp_slips[emp_id] = slip
-            else:
-                existing = emp_slips[emp_id]
-                prio_new = (state_prio.get(slip.state, 0), slip.id)
-                prio_old = (state_prio.get(existing.state, 0), existing.id)
-                if prio_new > prio_old:
-                    emp_slips[emp_id] = slip
-
-        return list(emp_slips.values())
-
-    def _get_salary_register_data(self):
-        self.ensure_one()
-        payslips = self._get_target_payslips()
-
+        payslips = self.env['hr.payslip'].search(domain, order='employee_id asc, date_from asc, id asc')
         if not payslips:
             raise UserError(_("No computed payslips found for the selected period and criteria."))
-
-        rows = []
-        tot_basic = 0.0
-        tot_hra = 0.0
-        tot_alw = 0.0
-        tot_other_earn = 0.0
-        tot_gross = 0.0
-
-        tot_pf_ee = 0.0
-        tot_esi_ee = 0.0
-        tot_pt = 0.0
-        tot_lwf_ee = 0.0
-        tot_other_ded = 0.0
-        tot_tds = 0.0
-        tot_total_ded = 0.0
-
-        tot_pf_er = 0.0
-        tot_esi_er = 0.0
-        tot_lwf_er = 0.0
-        tot_other_er = 0.0
-        tot_total_er = 0.0
-
-        tot_net = 0.0
-        tot_cost = 0.0
-
-        for slip in payslips:
-            emp = slip.employee_id
-            emp_ref = getattr(emp, 'registration_number', False) or getattr(emp, 'emp_id', False) or f"EMP{emp.id:04d}"
-            emp_name = emp.name or ''
-            dept_name = emp.department_id.name if emp.department_id else ''
-            job_name = emp.job_id.name if emp.job_id else ''
-            slip_num = slip.number or slip.name or ''
-
-            month_label = slip.date_to.strftime('%B %Y') if slip.date_to else ''
-
-            lines = slip.line_ids
-
-            # 1. Earnings Breakdown
-            basic_val = 0.0
-            hra_val = 0.0
-            alw_val = 0.0
-            other_earn_val = 0.0
-
-            for line in lines:
-                code = (line.code or '').upper()
-                cat_code = (line.category_id.code or '').upper() if line.category_id else ''
-                amt = float(line.total or 0.0)
-
-                # Skip non-earning categories and intermediate calculation rules explicitly
-                if cat_code in ('GROSS', 'NET', 'DED', 'COMP', 'PF_CALC', 'ESIC_CALC', 'CALC') or code in ('PF_WAGE', 'ESIC_WAGE', 'BASIC_PF', 'PF_BASE', 'ESI_WAGE', 'ESIC_BASE'):
-                    continue
-
-                if code == 'BASIC' or cat_code == 'BASIC':
-                    basic_val += amt
-                elif code == 'HRA':
-                    hra_val += amt
-                elif cat_code == 'ALW':
-                    alw_val += amt
-                elif amt > 0:
-                    other_earn_val += amt
-
-            gross_line = lines.filtered(lambda l: (l.code or '').upper() == 'GROSS' or (l.category_id and l.category_id.code == 'GROSS'))
-            if gross_line:
-                gross_val = float(gross_line[0].total or 0.0)
-            else:
-                gross_val = float(getattr(slip, 'gross_amount', None) or getattr(slip, 'gross_wage', 0.0) or 0.0)
-                if gross_val <= 0:
-                    gross_val = basic_val + hra_val + alw_val + other_earn_val
-
-            # 2. Employee Deductions Breakdown
-            pf_ee_val = 0.0
-            esi_ee_val = 0.0
-            pt_val = 0.0
-            lwf_ee_val = 0.0
-            tds_val = 0.0
-            other_ded_val = 0.0
-
-            for line in lines:
-                code = (line.code or '').upper()
-                cat_code = (line.category_id.code or '').upper() if line.category_id else ''
-                amt = abs(float(line.total or 0.0))
-
-                if cat_code in ('COMP', 'BASIC', 'ALW', 'GROSS', 'NET', 'PF_CALC', 'ESIC_CALC', 'CALC') or code in ('PF_WAGE', 'ESIC_WAGE', 'BASIC_PF', 'PF_BASE', 'ESI_WAGE', 'ESIC_BASE'):
-                    continue
-
-                if code in ('PF', 'EPF', 'EE_PF') or (cat_code == 'DED' and code in ('PF', 'EPF', 'EE_PF')):
-                    pf_ee_val += amt
-                elif code in ('ESI', 'ESIC', 'EE_ESI', 'ESIC_EE') or (cat_code == 'DED' and code in ('ESI', 'ESIC', 'EE_ESI', 'ESIC_EE')):
-                    esi_ee_val += amt
-                elif code in ('PT', 'PROF_TAX', 'PT_DED') or (cat_code == 'DED' and 'PT' in code):
-                    pt_val += amt
-                elif code in ('LWF', 'LWF_EE', 'EE_LWF') or (cat_code == 'DED' and 'LWF' in code):
-                    lwf_ee_val += amt
-                elif code in ('TDS', 'HDS_IN_TDS', 'INCOME_TAX', 'IT') or 'TDS' in code or cat_code == 'TDS':
-                    tds_val += amt
-                elif cat_code == 'DED':
-                    other_ded_val += amt
-
-            total_ded_val = pf_ee_val + esi_ee_val + pt_val + lwf_ee_val + tds_val + other_ded_val
-
-            # 3. Employer Contributions Breakdown
-            comp_lines = lines.filtered(lambda l: l.category_id and l.category_id.code == 'COMP')
-            comp_map = { (l.code or '').upper(): abs(float(l.total or 0.0)) for l in comp_lines }
-
-            if 'EMPLOYER_EPF' in comp_map:
-                pf_er_base = comp_map['EMPLOYER_EPF']
-            elif 'EPS' in comp_map or 'EPF_SHARE' in comp_map:
-                pf_er_base = comp_map.get('EPS', 0.0) + comp_map.get('EPF_SHARE', 0.0)
-            else:
-                pf_er_base = comp_map.get('ER_PF', 0.0) or comp_map.get('PF_ER', 0.0) or comp_map.get('EMPR_PF', 0.0)
-
-            pf_er_eps = comp_map.get('EPS', 0.0)
-            pf_er_share = comp_map.get('EPF_SHARE', 0.0)
-            if pf_er_base > 0 and pf_er_eps == 0.0 and pf_er_share == 0.0:
-                pf_er_eps = round(min(pf_er_base / 0.12, 15000.0) * 0.0833, 2)
-                pf_er_share = round(pf_er_base - pf_er_eps, 2)
-
-            pf_er_admin = (
-                comp_map.get('EDLI', 0.0) +
-                comp_map.get('EPF_ADMIN', 0.0) +
-                comp_map.get('EDLI_ADMIN', 0.0) +
-                comp_map.get('EDLI_ADMIN_CHARGE', 0.0) +
-                comp_map.get('EPF_ADMIN_CHARGE', 0.0)
-            )
-            pf_er_val = pf_er_base + pf_er_admin
-
-            esi_er_val = comp_map.get('ESIC_ER', 0.0) or comp_map.get('ESI_ER', 0.0) or comp_map.get('ER_ESI', 0.0)
-            lwf_er_val = comp_map.get('LWF_ER', 0.0) or comp_map.get('ER_LWF', 0.0)
-
-            accounted_codes = {
-                'EMPLOYER_EPF', 'EPS', 'EPF_SHARE', 'EDLI', 'EPF_ADMIN', 'EDLI_ADMIN',
-                'EDLI_ADMIN_CHARGE', 'EPF_ADMIN_CHARGE',
-                'ER_PF', 'PF_ER', 'EMPR_PF', 'ESIC_ER', 'ESI_ER', 'ER_ESI', 'LWF_ER', 'ER_LWF'
-            }
-            other_er_val = sum(amt for code, amt in comp_map.items() if code not in accounted_codes)
-
-            total_er_val = pf_er_val + esi_er_val + lwf_er_val + other_er_val
-
-            # 4. Final Values
-            net_val = float(getattr(slip, 'net_amount', None) or getattr(slip, 'net_wage', 0.0) or 0.0)
-            if net_val <= 0:
-                net_val = gross_val - total_ded_val
-
-            emp_cost_val = gross_val + total_er_val
-
-            rows.append({
-                'emp_ref': emp_ref,
-                'emp_name': emp_name,
-                'department': dept_name,
-                'job_position': job_name,
-                'payslip_num': slip_num,
-                'month': month_label,
-                'basic': round(basic_val, 2),
-                'hra': round(hra_val, 2),
-                'alw': round(alw_val, 2),
-                'other_earn': round(other_earn_val, 2),
-                'gross': round(gross_val, 2),
-                'pf_ee': round(pf_ee_val, 2),
-                'esi_ee': round(esi_ee_val, 2),
-                'pt': round(pt_val, 2),
-                'lwf_ee': round(lwf_ee_val, 2),
-                'other_ded': round(other_ded_val, 2),
-                'tds': round(tds_val, 2),
-                'total_ded': round(total_ded_val, 2),
-                'pf_er_eps': round(pf_er_eps, 2),
-                'pf_er_share': round(pf_er_share, 2),
-                'pf_er_admin': round(pf_er_admin, 2),
-                'pf_er': round(pf_er_val, 2),
-                'esi_er': round(esi_er_val, 2),
-                'lwf_er': round(lwf_er_val, 2),
-                'other_er': round(other_er_val, 2),
-                'net': round(net_val, 2),
-                'cost': round(emp_cost_val, 2),
-            })
-
-            tot_basic += basic_val
-            tot_hra += hra_val
-            tot_alw += alw_val
-            tot_other_earn += other_earn_val
-            tot_gross += gross_val
-
-            tot_pf_ee += pf_ee_val
-            tot_esi_ee += esi_ee_val
-            tot_pt += pt_val
-            tot_lwf_ee += lwf_ee_val
-            tot_other_ded += other_ded_val
-            tot_tds += tds_val
-            tot_total_ded += total_ded_val
-
-            tot_pf_er += pf_er_val
-            tot_esi_er += esi_er_val
-            tot_lwf_er += lwf_er_val
-            tot_other_er += other_er_val
-            tot_total_er += total_er_val
-
-            tot_net += net_val
-            tot_cost += emp_cost_val
-
-        totals = {
-            'tot_basic': tot_basic,
-            'tot_hra': tot_hra,
-            'tot_alw': tot_alw,
-            'tot_other_earn': tot_other_earn,
-            'tot_gross': tot_gross,
-            'tot_pf_ee': tot_pf_ee,
-            'tot_esi_ee': tot_esi_ee,
-            'tot_pt': tot_pt,
-            'tot_lwf_ee': tot_lwf_ee,
-            'tot_other_ded': tot_other_ded,
-            'tot_tds': tot_tds,
-            'tot_total_ded': tot_total_ded,
-            'tot_pf_er': tot_pf_er,
-            'tot_esi_er': tot_esi_er,
-            'tot_lwf_er': tot_lwf_er,
-            'tot_other_er': tot_other_er,
-            'tot_total_er': tot_total_er,
-            'tot_net': tot_net,
-            'tot_cost': tot_cost,
-        }
-
-        return {
-            'rows': rows,
-            'totals': totals,
-            'payslips': payslips,
-        }
-
-    def action_print_pdf(self):
-        self.ensure_one()
-        data = self._get_salary_register_data()
-        if not data['rows']:
-            raise UserError(_("No payslips found for the selected criteria to print."))
-        return self.env.ref('hudson_in_payroll.action_report_salary_register').report_action(self)
+        return payslips
 
     def action_export_xlsx(self):
         self.ensure_one()
-        reg_data = self._get_salary_register_data()
-        rows = reg_data['rows']
-        totals = reg_data['totals']
+        payslips = self._get_target_payslips()
 
-        tot_basic = totals['tot_basic']
-        tot_hra = totals['tot_hra']
-        tot_alw = totals['tot_alw']
-        tot_other_earn = totals['tot_other_earn']
-        tot_gross = totals['tot_gross']
+        # Group payslips by employee
+        emp_slips_map = {}
+        for slip in payslips:
+            emp = slip.employee_id
+            if not emp:
+                continue
+            if emp not in emp_slips_map:
+                emp_slips_map[emp] = []
+            emp_slips_map[emp].append(slip)
 
-        tot_pf_ee = totals['tot_pf_ee']
-        tot_esi_ee = totals['tot_esi_ee']
-        tot_pt = totals['tot_pt']
-        tot_lwf_ee = totals['tot_lwf_ee']
-        tot_other_ded = totals['tot_other_ded']
-        tot_tds = totals['tot_tds']
-        tot_total_ded = totals['tot_total_ded']
+        data_rows = []
+        for emp, slips in emp_slips_map.items():
+            emp_code = (
+                getattr(emp, 'registration_number', False) or
+                getattr(emp, 'barcode', False) or
+                getattr(emp, 'emp_id', False) or
+                getattr(emp, 'identification_id', False) or ''
+            )
+            emp_name = emp.name or ''
 
-        tot_pf_eps = sum(r['pf_er_eps'] for r in rows)
-        tot_pf_share = sum(r['pf_er_share'] for r in rows)
-        tot_pf_admin = sum(r['pf_er_admin'] for r in rows)
-        tot_pf_er = totals['tot_pf_er']
-        tot_esi_er = totals['tot_esi_er']
-        tot_lwf_er = totals['tot_lwf_er']
-        tot_other_er = totals['tot_other_er']
+            row_data = {
+                'emp_code': emp_code,
+                'emp_name': emp_name,
+                'basic_salary': 0.0,
+                'dearness_allowance': 0.0,
+                'house_rent_allowance': 0.0,
+                'standard_allowance': 0.0,
+                'performance_bonus': 0.0,
+                'leave_travel_allowance': 0.0,
+                'fixed_allowance': 0.0,
+                'overtime_pay': 0.0,
+                'other_allowances': 0.0,
+                'phone_subscription': 0.0,
+                'internet_subscription': 0.0,
+                'meal_vouchers': 0.0,
+                'company_transport': 0.0,
+                'taxable_salary': 0.0,
+                'professional_tax': 0.0,
+                'pf_employee': 0.0,
+                'pf_employer': 0.0,
+                'gratuity': 0.0,
+                'medical_insurance': 0.0,
+                'esic_employee': 0.0,
+                'esic_employer': 0.0,
+                'lwf_employee': 0.0,
+                'lwf_employer': 0.0,
+                'tds': 0.0,
+                'attachment_of_salary': 0.0,
+                'assignment_of_salary': 0.0,
+                'child_support': 0.0,
+                'expenses_reimbursement': 0.0,
+                'deduction': 0.0,
+                'other_deductions': 0.0,
+                'reimbursement': 0.0,
+                'net_salary': 0.0,
+            }
 
-        tot_net = totals['tot_net']
-        tot_cost = totals['tot_cost']
+            for slip in slips:
+                lines = slip.line_ids
+                slip_gross = 0.0
+                has_gross_line = False
+                slip_net = 0.0
+                has_net_line = False
 
+                has_er_epf_total = False
+                er_epf_total_val = 0.0
+                er_epf_breakdown_val = 0.0
+
+                for line in lines:
+                    code = (line.code or '').upper()
+                    name = line.name or ''
+                    cat = line.category_id
+                    cat_code = (cat.code or '').upper() if cat else ''
+                    parent_cat_code = (cat.parent_id.code or '').upper() if (cat and cat.parent_id) else ''
+                    amt = float(line.total or 0.0)
+                    abs_amt = abs(amt)
+
+                    is_alw_cat = cat_code in ('ALW', 'ALLOWANCE') or parent_cat_code in ('ALW', 'ALLOWANCE')
+                    is_ded_cat = cat_code in ('DED', 'DEDUCTION') or parent_cat_code in ('DED', 'DEDUCTION')
+
+                    # Taxable / Gross line
+                    if code in ('GROSS', 'TAXABLE', 'TAXABLE_SALARY') or cat_code == 'GROSS' or name in ('Taxable Salary', 'Gross Salary', 'Gross'):
+                        has_gross_line = True
+                        slip_gross += abs_amt
+                        continue
+
+                    # Net Salary line
+                    if code in ('NET', 'NET_SALARY') or cat_code == 'NET' or name == 'Net Salary':
+                        has_net_line = True
+                        slip_net += float(amt)
+                        continue
+
+                    # Skip calculation base lines (PF_WAGE, ESIC_WAGE, etc.) - they are wage bases, NOT deductions or allowances
+                    if cat_code in ('PF_CALC', 'ESIC_CALC', 'CALC') or code in ('PF_WAGE', 'ESIC_WAGE', 'BASIC_PF', 'PF_BASE', 'ESI_WAGE', 'ESIC_BASE', 'PT_WAGE', 'LWF_WAGE') or ('WAGE' in code and cat_code not in ('BASIC', 'ALW')):
+                        continue
+
+                    # 1. Basic Salary
+                    if code == 'BASIC' or cat_code == 'BASIC' or name == 'Basic Salary':
+                        row_data['basic_salary'] += abs_amt
+
+                    # 2. Dearness Allowance (DA)
+                    elif code in ('DA', 'DEARNESS', 'DEARNESS_ALLOWANCE') or 'Dearness' in name:
+                        row_data['dearness_allowance'] += abs_amt
+
+                    # 3. House Rent Allowance
+                    elif code in ('HRA', 'HOUSE_RENT_ALLOWANCE') or 'HRA' in code or 'House Rent' in name:
+                        row_data['house_rent_allowance'] += abs_amt
+
+                    # 4. Standard Allowance
+                    elif code in ('STD_ALW', 'STANDARD_ALLOWANCE', 'SA') or 'Standard Allowance' in name:
+                        row_data['standard_allowance'] += abs_amt
+
+                    # 5. Performance Bonus
+                    elif code in ('PERF_BONUS', 'PERFORMANCE_BONUS', 'RETENTION_BONUS', 'BONUS') or 'Performance Bonus' in name or 'Retention Bonus' in name:
+                        row_data['performance_bonus'] += abs_amt
+
+                    # 6. Leave Travel Allowance
+                    elif code in ('LTA', 'LEAVE_TRAVEL_ALLOWANCE') or 'Leave Travel' in name or code == 'LTA':
+                        row_data['leave_travel_allowance'] += abs_amt
+
+                    # 7. Fixed Allowance
+                    elif code in ('FIXED', 'FIXED_ALW', 'FIXED_ALLOWANCE') or 'Fixed Allowance' in name:
+                        row_data['fixed_allowance'] += abs_amt
+
+                    # 8. Overtime Pay
+                    elif code in ('OT', 'OVERTIME', 'OVERTIME_PAY', 'OTALL') or 'Overtime' in name:
+                        row_data['overtime_pay'] += abs_amt
+
+                    # 9. Phone Subscription
+                    elif code in ('BENEFIT_PHONE', 'PHONE', 'PHONE_ALLOWANCE') or 'Phone' in name:
+                        row_data['phone_subscription'] += abs_amt
+
+                    # 10. Internet Subscription
+                    elif code in ('BENEFIT_INTERNET', 'INTERNET', 'BROADBAND') or 'Internet' in name:
+                        row_data['internet_subscription'] += abs_amt
+
+                    # 11. Meal Vouchers
+                    elif code in ('BENEFIT_MEAL', 'MEAL', 'MEAL_VOUCHERS', 'MEAL_VOUCHER') or 'Meal' in name:
+                        row_data['meal_vouchers'] += abs_amt
+
+                    # 12. Company Transport
+                    elif code in ('BENEFIT_TRANSPORT', 'TRANSPORT', 'COMPANY_TRANSPORT') or 'Company Transport' in name:
+                        row_data['company_transport'] += abs_amt
+
+                    # 13. Professional Tax
+                    elif code in ('PT', 'PROF_TAX', 'PT_DED', 'HDS_IN_RULE_PT') or 'Professional Tax' in name:
+                        row_data['professional_tax'] += abs_amt
+
+                    # 14. Gratuity
+                    elif code in ('GRATUITY', 'HDS_IN_RULE_GRATUITY', 'GRAT') or 'Gratuity' in name:
+                        row_data['gratuity'] += abs_amt
+
+                    # 15. Medical Insurance
+                    elif code in ('MED_INS', 'MEDICAL_INSURANCE', 'MEDICLAIM', 'INSURANCE') or 'Medical Insurance' in name:
+                        row_data['medical_insurance'] += abs_amt
+
+                    # 16. Attachment of Salary
+                    elif code in ('ATTACH_SALARY', 'ATTACHMENT') or 'Attachment of Salary' in name:
+                        row_data['attachment_of_salary'] += abs_amt
+
+                    # 17. Assignment of Salary
+                    elif code in ('ASSIG_SALARY', 'ASSIG_SALARY_PRIOR', 'ASSIGNMENT') or 'Assignment of Salary' in name:
+                        row_data['assignment_of_salary'] += abs_amt
+
+                    # 18. Child Support
+                    elif code in ('CHILD_SUPPORT', 'CHILDSUPPORT') or 'Child Support' in name:
+                        row_data['child_support'] += abs_amt
+
+                    # 19. Expenses Reimbursement
+                    elif code in ('EXPENSES', 'EXP_REIMB', 'EXPENSE_REIMBURSEMENT') or 'Expenses Reimbursement' in name or 'Expense Reimbursement' in name:
+                        row_data['expenses_reimbursement'] += abs_amt
+
+                    # 20. General Reimbursement
+                    elif (code in ('REIMBURSEMENT', 'REIMB') or name == 'Reimbursement') and 'Expense' not in name:
+                        row_data['reimbursement'] += abs_amt
+
+                    # 21. Specific Deduction
+                    elif (code in ('DEDUCTION', 'OTHER_DED') or name == 'Deduction') and is_ded_cat:
+                        row_data['deduction'] += abs_amt
+
+                    # 22. ESIC Employee vs Employer
+                    elif any(k in name for k in ('State Insurance', 'ESIC', 'ESI')) or code in ('ESIC', 'ESI', 'ESIC_EE', 'EE_ESI', 'ESI_EE', 'ESIC_ER', 'ESI_ER', 'ER_ESI'):
+                        if any(e in name for e in ('Employer', 'ER')) or code in ('ESIC_ER', 'ESI_ER', 'ER_ESI') or 'ER' in code:
+                            row_data['esic_employer'] += abs_amt
+                        elif 'Employer' not in name and 'WAGE' not in code and 'CALC' not in cat_code:
+                            row_data['esic_employee'] += abs_amt
+
+                    # 23. LWF Employee vs Employer
+                    elif any(k in name for k in ('Labour Welfare', 'LWF')) or code in ('LWF', 'LWF_EE', 'EE_LWF', 'LWF_DED', 'LWF_ER', 'ER_LWF'):
+                        if any(e in name for e in ('Employer', 'ER')) or code in ('LWF_ER', 'ER_LWF') or 'ER' in code:
+                            row_data['lwf_employer'] += abs_amt
+                        else:
+                            row_data['lwf_employee'] += abs_amt
+
+                    # 24. TDS
+                    elif code in ('TDS', 'HDS_IN_TDS', 'INCOME_TAX', 'IT', 'HDS_IN_RULE_TDS') or 'Tax Deducted at Source' in name or cat_code == 'TDS':
+                        row_data['tds'] += abs_amt
+
+                    # 25. Provident Fund Employee vs Employer
+                    elif any(k in name for k in ('Provident', 'EPF', 'PF')) or code in ('PF', 'EPF', 'EE_PF', 'PF_EE', 'EMPLOYER_EPF', 'ER_EPF', 'PF_ER', 'ER_PF', 'EMPR_PF', 'EPS', 'EPF_SHARE', 'EDLI', 'EPF_ADMIN', 'EDLI_ADMIN'):
+                        if code in ('EMPLOYER_EPF', 'ER_EPF', 'PF_ER', 'ER_PF', 'EMPR_PF') or ('Provident' in name and 'Employer' in name):
+                            has_er_epf_total = True
+                            er_epf_total_val += abs_amt
+                        elif code in ('EPS', 'EPF_SHARE', 'EDLI', 'EPF_ADMIN', 'EDLI_ADMIN'):
+                            er_epf_breakdown_val += abs_amt
+                        elif 'Employer' not in name and 'WAGE' not in code and 'CALC' not in cat_code:
+                            row_data['pf_employee'] += abs_amt
+
+                    # 26. Other Allowances Catch-All: Any allowance not specifically mapped above
+                    elif is_alw_cat or code.startswith('ALW_'):
+                        row_data['other_allowances'] += abs_amt
+
+                    # 27. Other Deductions Catch-All: Any deduction not specifically mapped above
+                    elif is_ded_cat or code.startswith('DED_'):
+                        if not (any(e in name for e in ('Employer', 'ER')) or 'ER_' in code or '_ER' in code or cat_code == 'COMP'):
+                            row_data['other_deductions'] += abs_amt
+
+                # Finalize Employer EPF for this slip
+                if has_er_epf_total and er_epf_total_val > 0:
+                    row_data['pf_employer'] += er_epf_total_val
+                elif er_epf_breakdown_val > 0:
+                    row_data['pf_employer'] += er_epf_breakdown_val
+
+                # Finalize Taxable Salary (Gross)
+                if has_gross_line:
+                    row_data['taxable_salary'] += slip_gross
+                else:
+                    g = float(getattr(slip, 'gross_amount', None) or getattr(slip, 'gross_wage', 0.0) or 0.0)
+                    row_data['taxable_salary'] += g
+
+                # Finalize Net Salary
+                if has_net_line:
+                    row_data['net_salary'] += slip_net
+                else:
+                    n = float(getattr(slip, 'net_amount', None) or getattr(slip, 'net_wage', 0.0) or 0.0)
+                    row_data['net_salary'] += n
+
+                # Contract benefit medical insurance fallback if not in lines
+                if row_data['medical_insurance'] == 0.0 and getattr(slip, 'contract_id', False):
+                    row_data['medical_insurance'] += float(getattr(slip.contract_id, 'benefit_medical_insurance_amount', 0.0) or 0.0)
+
+            # Ensure Taxable Salary matches sum of individual allowance components if gross was 0 or uncomputed
+            calc_gross = (
+                row_data['basic_salary'] +
+                row_data['dearness_allowance'] +
+                row_data['house_rent_allowance'] +
+                row_data['standard_allowance'] +
+                row_data['performance_bonus'] +
+                row_data['leave_travel_allowance'] +
+                row_data['fixed_allowance'] +
+                row_data['overtime_pay'] +
+                row_data['other_allowances'] +
+                row_data['phone_subscription'] +
+                row_data['internet_subscription'] +
+                row_data['meal_vouchers'] +
+                row_data['company_transport']
+            )
+            if row_data['taxable_salary'] == 0.0 and calc_gross > 0.0:
+                row_data['taxable_salary'] = calc_gross
+
+            data_rows.append(row_data)
+
+        # Setup xlsxwriter
         filename = f"Salary_Register_{self.date_from}_{self.date_to}.xlsx"
         output = io.BytesIO()
 
@@ -385,118 +420,162 @@ class HdsSalaryRegisterWizard(models.TransientModel):
             workbook = xlsxwriter.Workbook(output, {'in_memory': True})
             sheet = workbook.add_worksheet('Salary Register')
 
-            title_fmt = workbook.add_format({'bold': True, 'font_size': 14})
-            sub_title_fmt = workbook.add_format({'font_size': 10, 'italic': True, 'font_color': '#555555'})
+            # Formats matching Screenshot 2
+            label_fmt = workbook.add_format({
+                'bold': True,
+                'bg_color': '#D9D9D9',
+                'font_name': 'Calibri',
+                'font_size': 11,
+                'border': 1
+            })
+            top_val_fmt = workbook.add_format({
+                'font_name': 'Calibri',
+                'font_size': 11,
+                'border': 1
+            })
+            header_fmt = workbook.add_format({
+                'bold': True,
+                'bg_color': '#D9D9D9',
+                'font_name': 'Calibri',
+                'font_size': 11,
+                'border': 1,
+                'align': 'left',
+                'valign': 'vcenter'
+            })
+            data_text_fmt = workbook.add_format({
+                'font_name': 'Calibri',
+                'font_size': 11,
+                'border': 1,
+                'align': 'left'
+            })
+            data_num_fmt = workbook.add_format({
+                'font_name': 'Calibri',
+                'font_size': 11,
+                'border': 1,
+                'align': 'right',
+                'num_format': '#,##0.00'
+            })
+            total_label_fmt = workbook.add_format({
+                'bold': True,
+                'bg_color': '#EAEAEA',
+                'font_name': 'Calibri',
+                'font_size': 11,
+                'border': 1,
+                'align': 'left'
+            })
+            total_num_fmt = workbook.add_format({
+                'bold': True,
+                'bg_color': '#EAEAEA',
+                'font_name': 'Calibri',
+                'font_size': 11,
+                'border': 1,
+                'align': 'right',
+                'num_format': '#,##0.00'
+            })
 
-            # Category Headers formatting
-            hdr_emp_fmt = workbook.add_format({'bold': True, 'bg_color': '#1F4E78', 'font_color': '#FFFFFF', 'border': 1, 'align': 'center', 'valign': 'vcenter'})
-            hdr_earn_fmt = workbook.add_format({'bold': True, 'bg_color': '#2E75B6', 'font_color': '#FFFFFF', 'border': 1, 'align': 'center', 'valign': 'vcenter'})
-            hdr_ded_fmt = workbook.add_format({'bold': True, 'bg_color': '#C55A11', 'font_color': '#FFFFFF', 'border': 1, 'align': 'center', 'valign': 'vcenter'})
-            hdr_er_fmt = workbook.add_format({'bold': True, 'bg_color': '#548235', 'font_color': '#FFFFFF', 'border': 1, 'align': 'center', 'valign': 'vcenter'})
-            hdr_final_fmt = workbook.add_format({'bold': True, 'bg_color': '#70AD47', 'font_color': '#FFFFFF', 'border': 1, 'align': 'center', 'valign': 'vcenter'})
+            # Top Section (Rows 1-4, indices 0-3)
+            company_id_val = getattr(self.company_id, 'company_registry', False) or getattr(self.company_id, 'vat', False) or ''
+            sheet.write(0, 0, "EMPLOYER ID", label_fmt)
+            sheet.write(0, 1, company_id_val, top_val_fmt)
 
-            num_fmt = workbook.add_format({'num_format': '#,##0.00', 'border': 1})
-            text_fmt = workbook.add_format({'border': 1})
-            total_fmt = workbook.add_format({'bold': True, 'num_format': '#,##0.00', 'bg_color': '#D9E1F2', 'border': 1})
-            total_text_fmt = workbook.add_format({'bold': True, 'bg_color': '#D9E1F2', 'border': 1})
+            sheet.write(1, 0, "EMPLOYER NAME", label_fmt)
+            sheet.write(1, 1, (self.company_id.name or '').upper(), top_val_fmt)
 
-            sheet.write(0, 0, f"SALARY REGISTER — {self.company_id.name}", title_fmt)
-            status_label = dict(self._fields['payslip_state'].selection).get(self.payslip_state, self.payslip_state)
-            sheet.write(1, 0, f"Period: {self.date_from} to {self.date_to} | Status: {status_label} | Generated: {fields.Date.today()}", sub_title_fmt)
+            sheet.write(2, 0, "FROM DATE", label_fmt)
+            sheet.write(2, 1, str(self.date_from), top_val_fmt)
 
+            sheet.write(3, 0, "TO DATE", label_fmt)
+            sheet.write(3, 1, str(self.date_to), top_val_fmt)
+
+            # Row 6 (index 5): Headers
             headers = [
-                ('Emp Reference', hdr_emp_fmt),
-                ('Employee Name', hdr_emp_fmt),
-                ('Department', hdr_emp_fmt),
-                ('Job Position', hdr_emp_fmt),
-                ('Payslip Number', hdr_emp_fmt),
-                ('Payroll Month', hdr_emp_fmt),
-                ('Basic Salary', hdr_earn_fmt),
-                ('HRA', hdr_earn_fmt),
-                ('Allowances', hdr_earn_fmt),
-                ('Other Earnings', hdr_earn_fmt),
-                ('Gross Salary', hdr_earn_fmt),
-                ('PF (Employee)', hdr_ded_fmt),
-                ('ESI (Employee)', hdr_ded_fmt),
-                ('Professional Tax', hdr_ded_fmt),
-                ('LWF (Employee)', hdr_ded_fmt),
-                ('Other Deductions', hdr_ded_fmt),
-                ('TDS (Income Tax)', hdr_ded_fmt),
-                ('Total Deductions', hdr_ded_fmt),
-                ('Net Pay', hdr_final_fmt),
-                ('Employer EPS (8.33%)', hdr_er_fmt),
-                ('Employer EPF Share (3.67%)', hdr_er_fmt),
-                ('EPF Admin & EDLI (1.0%)', hdr_er_fmt),
-                ('Total Employer PF', hdr_er_fmt),
-                ('Employer ESI (3.25%)', hdr_er_fmt),
-                ('Employer LWF', hdr_er_fmt),
-                ('Other Employer Contrib.', hdr_er_fmt),
-                ('Total Employer Cost (CTC)', hdr_final_fmt),
+                "EMPLOYEE CODE",
+                "EMPLOYEE NAME",
+                "Basic Salary",
+                "Dearness Allowance (DA)",
+                "House Rent Allowance",
+                "Standard Allowance",
+                "Performance Bonus",
+                "Leave Travel Allowance",
+                "Fixed Allowance",
+                "Overtime Pay",
+                "Other Allowances",
+                "Phone Subscription",
+                "Internet Subscription",
+                "Meal Vouchers",
+                "Company Transport",
+                "Taxable Salary",
+                "Professional Tax",
+                "Provident Fund - Employee",
+                "Provident Fund - Employer",
+                "Gratuity",
+                "Medical Insurance",
+                "Employee's State Insurance Corporation",
+                "Employer's State Insurance Corporation",
+                "Employee's Deduction Towards State Labour Welfare Fund",
+                "Employer's Deduction Towards State Labour Welfare Fund",
+                "Tax Deducted at Source (TDS)",
+                "Attachment of Salary",
+                "Assignment of Salary",
+                "Child Support",
+                "Expenses Reimbursement",
+                "Deduction",
+                "Other Deductions",
+                "Reimbursement",
+                "Net Salary"
             ]
 
-            for col_idx, (text, fmt) in enumerate(headers):
-                sheet.write(3, col_idx, text, fmt)
+            for col_idx, h in enumerate(headers):
+                sheet.write(5, col_idx, h, header_fmt)
 
-            for row_idx, r in enumerate(rows, start=4):
-                sheet.write(row_idx, 0, r['emp_ref'], text_fmt)
-                sheet.write(row_idx, 1, r['emp_name'], text_fmt)
-                sheet.write(row_idx, 2, r['department'], text_fmt)
-                sheet.write(row_idx, 3, r['job_position'], text_fmt)
-                sheet.write(row_idx, 4, r['payslip_num'], text_fmt)
-                sheet.write(row_idx, 5, r['month'], text_fmt)
-                sheet.write(row_idx, 6, r['basic'], num_fmt)
-                sheet.write(row_idx, 7, r['hra'], num_fmt)
-                sheet.write(row_idx, 8, r['alw'], num_fmt)
-                sheet.write(row_idx, 9, r['other_earn'], num_fmt)
-                sheet.write(row_idx, 10, r['gross'], num_fmt)
-                sheet.write(row_idx, 11, r['pf_ee'], num_fmt)
-                sheet.write(row_idx, 12, r['esi_ee'], num_fmt)
-                sheet.write(row_idx, 13, r['pt'], num_fmt)
-                sheet.write(row_idx, 14, r['lwf_ee'], num_fmt)
-                sheet.write(row_idx, 15, r['other_ded'], num_fmt)
-                sheet.write(row_idx, 16, r['tds'], num_fmt)
-                sheet.write(row_idx, 17, r['total_ded'], num_fmt)
-                sheet.write(row_idx, 18, r['net'], num_fmt)
-                sheet.write(row_idx, 19, r['pf_er_eps'], num_fmt)
-                sheet.write(row_idx, 20, r['pf_er_share'], num_fmt)
-                sheet.write(row_idx, 21, r['pf_er_admin'], num_fmt)
-                sheet.write(row_idx, 22, r['pf_er'], num_fmt)
-                sheet.write(row_idx, 23, r['esi_er'], num_fmt)
-                sheet.write(row_idx, 24, r['lwf_er'], num_fmt)
-                sheet.write(row_idx, 25, r['other_er'], num_fmt)
-                sheet.write(row_idx, 26, r['cost'], num_fmt)
-
-            tot_row = len(rows) + 4
-            sheet.write(tot_row, 0, "TOTAL", total_text_fmt)
-            sheet.write(tot_row, 1, f"{len(rows)} Employees", total_text_fmt)
-            for c in range(2, 6):
-                sheet.write(tot_row, c, "", total_text_fmt)
-
-            totals_data = [
-                (6, round(tot_basic, 2)),
-                (7, round(tot_hra, 2)),
-                (8, round(tot_alw, 2)),
-                (9, round(tot_other_earn, 2)),
-                (10, round(tot_gross, 2)),
-                (11, round(tot_pf_ee, 2)),
-                (12, round(tot_esi_ee, 2)),
-                (13, round(tot_pt, 2)),
-                (14, round(tot_lwf_ee, 2)),
-                (15, round(tot_other_ded, 2)),
-                (16, round(tot_tds, 2)),
-                (17, round(tot_total_ded, 2)),
-                (18, round(tot_net, 2)),
-                (19, round(tot_pf_eps, 2)),
-                (20, round(tot_pf_share, 2)),
-                (21, round(tot_pf_admin, 2)),
-                (22, round(tot_pf_er, 2)),
-                (23, round(tot_esi_er, 2)),
-                (24, round(tot_lwf_er, 2)),
-                (25, round(tot_other_er, 2)),
-                (26, round(tot_cost, 2)),
+            # Column Widths
+            col_widths = [
+                18, 26, 16, 24, 22, 20, 20, 24, 18, 18,
+                20, 20, 20, 16, 20, 16, 18, 26, 26, 14,
+                18, 38, 38, 52, 52, 28, 22, 22, 16, 24,
+                14, 18, 16, 14
             ]
-            for col_idx, val in totals_data:
-                sheet.write(tot_row, col_idx, val, total_fmt)
+            for col_idx, width in enumerate(col_widths):
+                sheet.set_column(col_idx, col_idx, width)
+
+            # Data Rows (Row 7 onwards, index 6)
+            numeric_keys = [
+                'basic_salary', 'dearness_allowance', 'house_rent_allowance',
+                'standard_allowance', 'performance_bonus', 'leave_travel_allowance',
+                'fixed_allowance', 'overtime_pay', 'other_allowances',
+                'phone_subscription', 'internet_subscription', 'meal_vouchers',
+                'company_transport', 'taxable_salary', 'professional_tax',
+                'pf_employee', 'pf_employer', 'gratuity', 'medical_insurance',
+                'esic_employee', 'esic_employer', 'lwf_employee', 'lwf_employer',
+                'tds', 'attachment_of_salary', 'assignment_of_salary',
+                'child_support', 'expenses_reimbursement', 'deduction',
+                'other_deductions', 'reimbursement', 'net_salary'
+            ]
+
+            for row_offset, r in enumerate(data_rows):
+                curr_row = 6 + row_offset
+                sheet.write(curr_row, 0, r['emp_code'], data_text_fmt)
+                sheet.write(curr_row, 1, r['emp_name'], data_text_fmt)
+
+                for num_idx, k in enumerate(numeric_keys):
+                    val = round(r[k], 2)
+                    col_pos = 2 + num_idx
+                    sheet.write_number(curr_row, col_pos, val, data_num_fmt)
+
+            # Summary TOTAL row
+            if data_rows:
+                total_row_idx = 6 + len(data_rows)
+                sheet.write(total_row_idx, 0, "TOTAL", total_label_fmt)
+                sheet.write(total_row_idx, 1, f"{len(data_rows)} Employee(s)", total_label_fmt)
+
+                first_data_row = 7  # 1-indexed for Excel formulas
+                last_data_row = 6 + len(data_rows)  # 1-indexed for Excel formulas
+
+                for num_idx, k in enumerate(numeric_keys):
+                    col_pos = 2 + num_idx
+                    col_letter = xl_col_to_name(col_pos)
+                    formula = f"=SUM({col_letter}{first_data_row}:{col_letter}{last_data_row})"
+                    sheet.write_formula(total_row_idx, col_pos, formula, total_num_fmt)
 
             workbook.close()
             output.seek(0)
@@ -504,8 +583,14 @@ class HdsSalaryRegisterWizard(models.TransientModel):
         else:
             xlsx_content = b"Excel export requires xlsxwriter library."
 
+        try:
+            from odoo.tools import BinaryBytes
+            file_data = BinaryBytes(xlsx_content, filename=filename)
+        except Exception:
+            file_data = base64.b64encode(xlsx_content).decode('utf-8')
+
         self.write({
-            'xlsx_file': base64.b64encode(xlsx_content),
+            'xlsx_file': file_data,
             'xlsx_filename': filename,
         })
 

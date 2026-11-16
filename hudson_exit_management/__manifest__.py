@@ -24,11 +24,11 @@ A clean, country-agnostic exit and offboarding framework for Odoo 19:
         'mail',
     ],
     'data': [
-        'security/exit_security.xml',
         'security/ir.access.csv',
         'data/resignation_sequence.xml',
         'views/hr_resignation_views.xml',
         'views/hudson_exit_clearance_views.xml',
+        'views/hr_employee_departure_views.xml',
         'views/exit_menu_views.xml',
     ],
     'installable': True,

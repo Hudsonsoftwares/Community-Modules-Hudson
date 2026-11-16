@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Patient invoices link back to their consultation -->
+    <record id="view_move_form_inherit_dental_core" model="ir.ui.view">
+        <field name="name">account.move.form.inherit.dental.core</field>
+        <field name="model">account.move</field>
+        <field name="inherit_id" ref="account.view_move_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//div[@name='button_box']" position="inside">
+                <!-- Clinical record link only for clinical staff; receptionists have no access to cases -->
+                <field name="dental_case_id" invisible="1" groups="dental_base.group_dental_dentist,dental_base.group_dental_manager"/>
+                <button name="action_view_dental_case" type="object" class="oe_stat_button" icon="fa-user-md"
+                        groups="dental_base.group_dental_dentist,dental_base.group_dental_manager"
+                        invisible="not dental_case_id">
+                    <div class="o_stat_info">
+                        <span class="o_stat_text">Dental Case</span>
+                    </div>
+                </button>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- Billing settings in the Dental Clinic settings app -->
+    <record id="res_config_settings_view_form_inherit_dental_billing" model="ir.ui.view">
+        <field name="name">res.config.settings.view.form.inherit.dental.billing</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="dental_base.res_config_settings_view_form_inherit_dental"/>
+        <field name="arch" type="xml">
+            <xpath expr="//block[@name='dental_appointment_settings']" position="after">
+                <block title="Patient Billing" name="dental_billing_settings">
+                    <setting id="dental_auto_invoice_setting" help="Prepare a draft invoice for the front desk as soon as the doctor completes the consultation">
+                        <field name="dental_auto_invoice"/>
+                    </setting>
+                    <setting id="dental_consultation_product_setting" string="Consultation Fee Service"
+                             help="Service used for the consultation fee line. The amount comes from the doctor's consultation fee, then the appointment type price, then this service's price.">
+                        <field name="dental_consultation_product_id" options="{'no_create': True}" placeholder="Consultation (catalog default)"/>
+                    </setting>
+                </block>
+            </xpath>
+        </field>
+    </record>
+</odoo>

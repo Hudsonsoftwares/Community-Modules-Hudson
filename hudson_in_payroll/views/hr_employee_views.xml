@@ -7,24 +7,32 @@
         <field name="inherit_id" ref="hr.view_employee_form"/>
         <field name="arch" type="xml">
             <xpath expr="//div[@name='button_box']" position="inside">
+                <field name="hds_in_tds_applicable" invisible="1"/>
+                <field name="hds_in_enable_professional_tax" invisible="1"/>
+                <field name="hds_in_enable_lwf" invisible="1"/>
+                <field name="hds_in_enable_epf" invisible="1"/>
+                <field name="hds_in_enable_esic" invisible="1"/>
+                <field name="hds_in_enable_tds" invisible="1"/>
                 <button name="action_view_statutory_audits"
                         type="object"
                         class="oe_stat_button"
                         icon="security"
                         invisible="hds_in_statutory_audit_count == 0">
-                    <field name="hds_in_statutory_audit_count" widget="statinfo" string="Statutory Audits"/>
+                    <field name="hds_in_statutory_audit_count" widget="statinfo" string="Audit Trail"/>
                 </button>
                 <button name="action_view_tax_regimes"
                         type="object"
                         class="oe_stat_button"
                         icon="list_alt"
+                        invisible="not hds_in_enable_tds or not hds_in_tds_applicable"
                         groups="hudson_payroll_base.group_payroll_user">
                     <field name="hds_in_tax_regime_count" widget="statinfo" string="Tax Regimes"/>
                 </button>
                 <button name="action_open_tax_declaration_dashboard"
                         type="object"
                         class="oe_stat_button"
-                        icon="calculate">
+                        icon="calculate"
+                        invisible="not hds_in_enable_tds or not hds_in_tds_applicable">
                     <div class="o_stat_info">
                         <span class="o_stat_text">Tax</span>
                         <span class="o_stat_text">Declarations</span>
@@ -32,6 +40,11 @@
                 </button>
             </xpath>
 
+
+            <!-- Employee Code under Work Information -->
+            <xpath expr="//page[@name='work_information']//field[@name='department_id']" position="before">
+                <field name="registration_number" string="Employee Code" placeholder="e.g. EMP001"/>
+            </xpath>
 
             <!-- Position Employer Cost fields in Left Column (Contract Overview) right below wage -->
             <xpath expr="//div[@name='wage']" position="after">
@@ -47,29 +60,41 @@
                 </div>
             </xpath>
 
-            <!-- Left Column: Provident Fund and Professional Tax positioned directly under Schedule -->
-            <xpath expr="//field[@name='resource_calendar_id']" position="after">
-                <separator string="Provident Fund" class="mt-4 mb-2"/>
-                <field name="hds_in_epf_applicable" string="EPF Applicable"/>
-                <field name="hds_in_is_international_worker" invisible="not hds_in_epf_applicable"/>
+            <!-- Left Column: Place Schedule, Provident Fund, and Professional Tax inside Left Column (group contract) -->
+            <xpath expr="//group[@name='contract']" position="inside">
+                <div colspan="2" class="col-lg-6 w-100 mt-4 mb-3 o_horizontal_separator text-uppercase fw-bolder small d-flex">
+                    <span>Schedule</span>
+                </div>
+                <field name="resource_calendar_id" help="The default working hours are set in configuration." context="{'employee_id': id}"/>
+
+                <separator string="Provident Fund" class="mt-4 mb-2" invisible="not hds_in_enable_epf"/>
+                <field name="hds_in_epf_applicable" string="EPF Applicable" invisible="not hds_in_enable_epf"/>
+                <field name="hds_in_is_international_worker" invisible="not hds_in_enable_epf or not hds_in_epf_applicable"/>
 
                 <!-- Employee Contribution Subdivision -->
-                <separator string="Employee Contribution" class="mt-3 mb-2" invisible="not hds_in_epf_applicable"/>
-                <field name="hds_in_pf_contribution_basis" string="Contribution Basis" invisible="not hds_in_epf_applicable"/>
+                <separator string="Employee Contribution" class="mt-3 mb-2" invisible="not hds_in_enable_epf or not hds_in_epf_applicable"/>
+                <field name="hds_in_pf_contribution_basis" string="Contribution Basis" invisible="not hds_in_enable_epf or not hds_in_epf_applicable"/>
                 <field name="hds_in_pf_wage_is_below_ceiling" invisible="1"/>
-                <div class="text-info small mt-1 mb-2" invisible="not hds_in_epf_applicable or not hds_in_pf_wage_is_below_ceiling or hds_in_pf_contribution_basis != 'statutory_ceiling'">
+                <div class="text-info small mt-1 mb-2" invisible="not hds_in_enable_epf or not hds_in_epf_applicable or not hds_in_pf_wage_is_below_ceiling or hds_in_pf_contribution_basis != 'statutory_ceiling'">
                     <i class="fa fa-info-circle me-1"/>
                     <field name="hds_in_pf_wage_info_note" readonly="1" class="d-inline"/>
                 </div>
 
                 <!-- Employer Contribution Subdivision -->
-                <separator string="Employer Contribution" class="mt-3 mb-2" invisible="not hds_in_epf_applicable"/>
-                <field name="hds_in_pf_employer_basis" string="Contribution Basis" invisible="not hds_in_epf_applicable"/>
-                <field name="hds_in_eps_applicable" string="EPS Applicable" invisible="not hds_in_epf_applicable"/>
+                <separator string="Employer Contribution" class="mt-3 mb-2" invisible="not hds_in_enable_epf or not hds_in_epf_applicable"/>
+                <field name="hds_in_pf_employer_basis" string="Contribution Basis" invisible="not hds_in_enable_epf or not hds_in_epf_applicable"/>
+                <field name="hds_in_eps_applicable" string="EPS Applicable" invisible="not hds_in_enable_epf or not hds_in_epf_applicable"/>
 
-                <separator string="Professional Tax (PT)" class="mt-4 mb-2"/>
-                <field name="hds_in_pt_applicable" string="PT Applicable"/>
+                <separator string="Professional Tax (PT)" class="mt-4 mb-2" invisible="not hds_in_enable_professional_tax"/>
+                <field name="hds_in_pt_applicable" string="PT Applicable" invisible="not hds_in_enable_professional_tax"/>
+
+                <!-- Employer NPS Contribution (Section 124) directly below Professional Tax (PT) -->
+                <separator string="Employer NPS Contribution (Section 124)" class="mt-4 mb-2" invisible="not hds_in_enable_tds or not hds_in_tds_applicable"/>
+                <field name="hds_in_decl_80ccd2_employer_nps" string="Employer NPS Contribution — Section 124 (₹)" invisible="not hds_in_enable_tds or not hds_in_tds_applicable"/>
             </xpath>
+
+            <!-- Remove separate schedule group to eliminate grid-row height lock and unwanted white spaces -->
+            <xpath expr="//group[@name='schedule']" position="replace"/>
 
             <!-- Right Column: Salary Components and Benefits stacked in 2nd column matching Screenshot 5 -->
             <xpath expr="//group[@name='contract']" position="after">
@@ -123,15 +148,6 @@
                         <span class="ms-auto text-muted text-nowrap text-end pe-2" style="min-width: 4.5rem;"><field name="performance_bonus_percent" readonly="1"/> %</span>
                     </div>
 
-                    <label for="retention_bonus"/>
-                    <div class="o_row w-100 d-flex align-items-center justify-content-between">
-                        <div class="d-flex align-items-center">
-                            <field name="retention_bonus" class="oe_inline o_hr_narrow_field" widget="monetary" nolabel="1" style="max-width: 120px;"/>
-                            <span class="text-muted ms-2 text-nowrap">/ month</span>
-                        </div>
-                        <span class="ms-auto text-muted text-nowrap text-end pe-2" style="min-width: 4.5rem;"><field name="retention_bonus_percent" readonly="1"/> %</span>
-                    </div>
-
                     <label for="lta_allowance"/>
                     <div class="o_row w-100 d-flex align-items-center justify-content-between">
                         <div class="d-flex align-items-center">
@@ -170,6 +186,24 @@
                     <field name="breakdown_is_equal" invisible="1"/>
 
                     <div colspan="2" class="col-lg-6 w-100 mt-4 mb-3 o_horizontal_separator text-uppercase fw-bolder small d-flex">
+                        <span>Retention</span>
+                    </div>
+                    <label for="retention_bonus" string="Retention Bonus Amount"/>
+                    <div class="o_row" name="retention_bonus_row">
+                        <field name="retention_bonus" class="oe_inline o_hr_narrow_field" widget="monetary" nolabel="1"/>
+                        <span class="text-muted ms-2">one-time</span>
+                    </div>
+                    <label for="retention_period" string="Retention Period"/>
+                    <div class="o_row" name="retention_period_row">
+                        <field name="retention_period" class="oe_inline o_hr_narrow_field" nolabel="1"/>
+                        <field name="retention_period_unit" class="oe_inline" nolabel="1"/>
+                    </div>
+                    <field name="retention_start_date" string="Counted From" placeholder="Joining date"/>
+                    <field name="retention_eligible_date" string="Eligible On" invisible="not retention_bonus"/>
+                    <field name="retention_status" string="Status" invisible="not retention_bonus"/>
+                    <field name="retention_payslip_id" string="Payslip" invisible="not retention_payslip_id"/>
+
+                    <div colspan="2" class="col-lg-6 w-100 mt-4 mb-3 o_horizontal_separator text-uppercase fw-bolder small d-flex">
                         <span>Benefits</span>
                     </div>
                     <label for="benefit_phone" string="Phone Subscription"/>
@@ -193,24 +227,53 @@
                         <span class="text-muted ms-2">/ month</span>
                     </div>
 
+                    <div colspan="2" class="col-lg-6 w-100 mt-4 mb-3 o_horizontal_separator text-uppercase fw-bolder small d-flex">
+                        <span>Insurance Benefits</span>
+                    </div>
+                    <label for="benefit_medical_insurance_per_person" string="Medical Insurance" help="Monthly medical insurance premium rate per person."/>
+                    <div class="o_row" name="benefit_medical_insurance_per_person_row">
+                        <field name="benefit_medical_insurance_per_person" class="oe_inline o_hr_narrow_field" widget="monetary" nolabel="1"/>
+                        <span class="text-muted ms-2">/ person</span>
+                    </div>
+                    <field name="benefit_insured_spouse" string="Insured Spouse" invisible="not benefit_medical_insurance_per_person or benefit_medical_insurance_per_person &lt;= 0"/>
+                    <field name="benefit_insured_first_child" string="Insured First-Child" invisible="not benefit_medical_insurance_per_person or benefit_medical_insurance_per_person &lt;= 0"/>
+                    <field name="benefit_insured_second_child" string="Insured Second-Child" invisible="not benefit_medical_insurance_per_person or benefit_medical_insurance_per_person &lt;= 0"/>
+                    <label for="benefit_medical_insurance_amount" string="Medical Insurance Amount" invisible="not benefit_medical_insurance_per_person or benefit_medical_insurance_per_person &lt;= 0"/>
+                    <div class="o_row" name="benefit_medical_insurance_amount_row" invisible="not benefit_medical_insurance_per_person or benefit_medical_insurance_per_person &lt;= 0">
+                        <field name="benefit_medical_insurance_amount" class="oe_inline o_hr_narrow_field fw-bold" widget="monetary" readonly="1" nolabel="1"/>
+                    </div>
+
+                    <label for="benefit_employer_cost_monthly" string="Employer Benefit Cost (Monthly)"/>
+                    <div class="o_row" name="benefit_employer_cost_monthly_row">
+                        <field name="benefit_employer_cost_monthly" class="oe_inline o_hr_narrow_field fw-bold" widget="monetary" readonly="1" nolabel="1"/>
+                        <span class="text-muted ms-2">/ month</span>
+                    </div>
+                    <label for="benefit_employer_cost_yearly" string="Employer Benefit Cost (Yearly)"/>
+                    <div class="o_row" name="benefit_employer_cost_yearly_row">
+                        <field name="benefit_employer_cost_yearly" class="oe_inline o_hr_narrow_field fw-bold" widget="monetary" readonly="1" nolabel="1"/>
+                        <span class="text-muted ms-2">/ year</span>
+                    </div>
+
                     <!-- ESIC Module with clean separator and standard checkbox directly under Benefits -->
-                    <separator string="Employees' State Insurance (ESIC)" class="mt-4 mb-2"/>
-                    <field name="hds_in_esic_applicable" string="ESIC Applicable"/>
-                    <field name="hds_in_esic_contribution_period" string="Contribution Period" readonly="1"/>
+                    <separator string="Employees' State Insurance (ESIC)" class="mt-4 mb-2" invisible="not hds_in_enable_esic"/>
+                    <field name="hds_in_esic_applicable" string="ESIC Applicable" invisible="not hds_in_enable_esic"/>
+                    <field name="hds_in_esic_contribution_period" string="Contribution Period" readonly="1" invisible="not hds_in_enable_esic or not hds_in_esic_applicable"/>
                     <field name="hds_in_esic_ip_status" widget="badge"
+                           invisible="not hds_in_enable_esic or not hds_in_esic_applicable"
                            decoration-success="hds_in_esic_ip_status == 'active'"
                            decoration-warning="hds_in_esic_ip_status == 'exempt'"
                            decoration-danger="hds_in_esic_ip_status == 'resigned'"
                            decoration-muted="hds_in_esic_ip_status == 'disabled'"/>
 
                     <!-- Labour Welfare Fund (LWF) directly below ESIC -->
-                    <separator string="Labour Welfare Fund (LWF)" class="mt-4 mb-2"/>
-                    <field name="hds_in_lwf_applicable" string="LWF Applicable"/>
+                    <separator string="Labour Welfare Fund (LWF)" class="mt-4 mb-2" invisible="not hds_in_enable_lwf"/>
+                    <field name="hds_in_lwf_applicable" string="LWF Applicable" invisible="not hds_in_enable_lwf"/>
 
                     <!-- Tax Deducted at Source (TDS) directly below LWF -->
-                    <separator string="Tax Deducted at Source (TDS)" class="mt-4 mb-2"/>
-                    <field name="hds_in_tds_applicable" string="Enable TDS"/>
-                    <field name="hds_in_tds_month_division" string="TDS Month Division" readonly="1" invisible="not hds_in_tds_applicable or not hds_in_tds_month_division"/>
+                    <separator string="Tax Deducted at Source (TDS)" class="mt-4 mb-2" invisible="not hds_in_enable_tds"/>
+                    <field name="hds_in_tds_applicable" string="Enable TDS" invisible="not hds_in_enable_tds"/>
+                    <field name="hds_in_tds_month_division" string="TDS Month Division" readonly="1" invisible="not hds_in_enable_tds or not hds_in_tds_applicable or not hds_in_tds_month_division"/>
+                    <field name="hds_in_is_agnipath" string="Employee under Agnipath Scheme" invisible="not hds_in_enable_tds or not hds_in_tds_applicable"/>
                 </group>
             </xpath>
 
@@ -223,11 +286,10 @@
             <xpath expr="//page[@name='personal_information']/group" position="inside">
                 <group string="Statutory Information" name="group_statutory_information">
                     <field name="hds_in_pan" string="PAN" placeholder="e.g. ABCDE1234F"/>
-                    <field name="hds_in_uan" string="UAN" placeholder="12 digit Universal Account Number"/>
-                    <field name="hds_in_pf_member_id" string="PF Account Number" placeholder="22 character PF A/c Number"/>
-                    <field name="hds_in_lwf_number" string="LWF Account Number" placeholder="Labour Welfare Fund Account Number"/>
-                    <field name="hds_in_esic_ip_number" string="ESIC Number" placeholder="e.g. 1234567890"/>
-                    <field name="hds_in_payment_mode" string="Payment Mode"/>
+                    <field name="hds_in_uan" string="UAN" placeholder="12 digit Universal Account Number" invisible="not hds_in_enable_epf or not hds_in_epf_applicable"/>
+                    <field name="hds_in_pf_member_id" string="PF Account Number" placeholder="22 character PF A/c Number" invisible="not hds_in_enable_epf or not hds_in_epf_applicable"/>
+                    <field name="hds_in_lwf_number" string="LWF Account Number" placeholder="Labour Welfare Fund Account Number" invisible="not hds_in_enable_lwf or not hds_in_lwf_applicable"/>
+                    <field name="hds_in_esic_ip_number" string="ESIC Number" placeholder="e.g. 1234567890" invisible="not hds_in_enable_esic or not hds_in_esic_applicable"/>
                 </group>
                 <group string="Disability &amp; Special Status" name="group_disability_status">
                     <field name="hds_in_is_pwd"/>
@@ -238,7 +300,7 @@
             <!-- 3. INDIAN INCOME TAX (TDS) PROFILE NOTEBOOK PAGE       -->
             <!-- ======================================================= -->
             <xpath expr="//notebook" position="inside">
-                <page string="Income Tax (TDS)" name="income_tax_tds_profile" invisible="not hds_in_tds_applicable">
+                <page string="Income Tax (TDS)" name="income_tax_tds_profile" invisible="not hds_in_enable_tds or not hds_in_tds_applicable">
 
                     <!-- Section 2: Active Tax Year Configuration & Summary Figures -->
                     <separator string="Section 2: Active Tax Year Configuration &amp; Summary Figures"/>
@@ -258,6 +320,7 @@
                         </group>
                         <group string="Tax Deductions &amp; Liability Summary">
                             <field name="hds_in_decl_total_declared" widget="monetary"/>
+                            <field name="hds_in_decl_80ccd2_employer_nps" string="Employer NPS Contribution (Section 124)" widget="monetary" readonly="1"/>
                             <field name="hds_in_decl_total_approved" widget="monetary"/>
                             <field name="hds_in_decl_net_estimated_tax" widget="monetary" class="fw-bold text-danger"/>
                         </group>
@@ -270,13 +333,13 @@
                                 <i class="fa fa-calculator me-2"/>Complete Tax Declaration &amp; Statutory Approval
                             </h5>
                             <p class="text-muted mb-0 small">
-                                Manage investment declaration proofs, Chapter VI-A line items, regime switcher, and statutory tax calculation reports.
+                                Manage investment declaration proofs, Chapter VI-A line items, tax declarations, and statutory tax calculation reports.
                             </p>
                         </div>
                         <button name="action_open_tax_declaration_dashboard"
                                 type="object"
                                 class="btn btn-primary btn-lg shadow-sm"
-                                icon="east"
+                                icon="arrow_forward"
                                 string="Manage &amp; Approve Full Tax Declaration"/>
                     </div>
                     <!-- Previous Employer LTA History (Section 10(5) — Old Regime Only) -->
@@ -324,6 +387,50 @@
             <xpath expr="//field[@name='is_non_resident']" position="before">
                 <field name="hds_in_residential_status" string="Residential Status"/>
             </xpath>
+        </field>
+    </record>
+
+    <!-- Employee Tree View: Show Employee Code -->
+    <record id="hds_in_view_employee_tree" model="ir.ui.view">
+        <field name="name">hr.employee.tree.inherit.hds.code</field>
+        <field name="model">hr.employee</field>
+        <field name="inherit_id" ref="hr.view_employee_tree"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='name']" position="before">
+                <field name="registration_number" string="Employee Code" optional="show"/>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- Employee Search View: Search by Employee Code -->
+    <record id="hds_in_view_employee_filter" model="ir.ui.view">
+        <field name="name">hr.employee.search.inherit.hds.code</field>
+        <field name="model">hr.employee</field>
+        <field name="inherit_id" ref="hr.view_employee_filter"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='name']" position="after">
+                <field name="registration_number" string="Employee Code"/>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- Contract dates of employees (Payroll dashboard: Employees Without Running Contract cards) -->
+    <record id="view_hr_employee_list_contract_status" model="ir.ui.view">
+        <field name="name">hr.employee.list.contract.status</field>
+        <field name="model">hr.employee</field>
+        <field name="priority">99</field>
+        <field name="arch" type="xml">
+            <list string="Employees" create="false">
+                <field name="name"/>
+                <field name="registration_number" string="Employee Code" optional="show"/>
+                <field name="department_id" optional="show"/>
+                <field name="job_id" optional="show"/>
+                <field name="structure_type_id" optional="hide"/>
+                <field name="first_contract_date" optional="show"/>
+                <field name="contract_date_start"/>
+                <field name="contract_date_end"/>
+                <field name="company_id" groups="base.group_multi_company" optional="hide"/>
+            </list>
         </field>
     </record>
 </odoo>

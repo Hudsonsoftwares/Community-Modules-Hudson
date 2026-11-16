@@ -269,6 +269,9 @@
                 <filter string="Urgent" name="priority_urgent" domain="[('fs_priority', '=', '3')]"/>
                 <filter string="High Priority" name="priority_high" domain="[('fs_priority', '=', '2')]"/>
                 <filter string="Low Priority" name="priority_low" domain="[('fs_priority', '=', '1')]"/>
+                <separator/>
+                <filter string="Upcoming" name="upcoming"
+                        domain="[('date_end', '>=', context_today().strftime('%Y-%m-%d'))]"/>
             </filter>
             <filter name="group_role" position="after">
                 <filter string="Worksheet" name="group_worksheet" context="{'group_by': 'fs_worksheet_template_id'}"/>

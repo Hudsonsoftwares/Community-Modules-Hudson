@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import logging
+# pyrefly: ignore [missing-import]
 from odoo import fields
 from ..base import BaseStatutoryService
 from .annual_income_projection_service import AnnualIncomeProjectionService
@@ -47,6 +48,31 @@ class TdsComputationResult:
     def total_annual_tax_liability(self):
         """Total projected annual tax liability after cess."""
         return self.health_education_cess.total_annual_tax_liability
+
+    @property
+    def total_tds_paid_so_far(self):
+        """Total TDS paid so far (YTD + previous employer)."""
+        return getattr(self.monthly_tds_distribution, 'total_tds_paid_so_far', 0.0)
+
+    @property
+    def ytd_tds_deducted(self):
+        """Current employer YTD TDS deducted."""
+        return getattr(self.monthly_tds_distribution, 'ytd_tds_deducted', 0.0)
+
+    @property
+    def prev_employer_tds(self):
+        """Previous employer TDS deducted from Form 12B."""
+        return getattr(self.monthly_tds_distribution, 'prev_employer_tds', 0.0)
+
+    @property
+    def remaining_annual_tax_liability(self):
+        """Remaining annual tax liability to be distributed."""
+        return getattr(self.monthly_tds_distribution, 'remaining_annual_tax_liability', 0.0)
+
+    @property
+    def remaining_payroll_periods(self):
+        """Remaining payroll periods in FY."""
+        return getattr(self.monthly_tds_distribution, 'remaining_payroll_periods', 1)
 
     @property
     def surcharge_before_relief(self):
@@ -107,16 +133,17 @@ class TdsOrchestrationEngine(BaseStatutoryService):
         eval_month_str = eval_date.strftime('%Y%m') if hasattr(eval_date, 'strftime') else str(eval_date)[:7]
         calc_run_id = f"RUN-EMP{employee.id}-{eval_month_str}-{call_idx}"
         self.env = self.env(context=dict(self.env.context, tds_calc_run_id=calc_run_id))
-        debug_enabled = self.env['ir.config_parameter'].sudo().get_param('hudson_in_payroll.tds_debug_logging', 'False') == 'True'
-
-        import inspect
-        import os
-        caller_stack = inspect.stack()
-        caller_func = "unknown"
-        if len(caller_stack) > 1:
-            caller_func = f"{caller_stack[1].function}:{caller_stack[1].lineno} ({os.path.basename(caller_stack[1].filename)})"
-
+        icp = self.env['ir.config_parameter'].sudo()
+        get_param_fn = getattr(icp, 'get_param', None) or getattr(icp, 'get_str', None)
+        debug_enabled = (get_param_fn('hudson_in_payroll.tds_debug_logging', 'False') == 'True') if get_param_fn else False
         if debug_enabled:
+            import inspect
+            import os
+            caller_stack = inspect.stack()
+            caller_func = "unknown"
+            if len(caller_stack) > 1:
+                caller_func = f"{caller_stack[1].function}:{caller_stack[1].lineno} ({os.path.basename(caller_stack[1].filename)})"
+
             _logger.warning("""[80E_BUG_TRACE] CALCULATION_START
 calculation_run_id=%s
 employee=%s
@@ -135,7 +162,7 @@ month=%s""",
         if debug_enabled:
             _logger.warning("Before AnnualIncomeProjectionService")
         projection_svc = AnnualIncomeProjectionService(self.env)
-        annual_projection = projection_svc.project_annual_income(employee, eval_date=eval_date)
+        annual_projection = projection_svc.project_annual_income(employee, eval_date=eval_date, payslip=payslip)
         if debug_enabled:
             _logger.warning(
                 "After AnnualIncomeProjectionService | Current Employer Salary: %s, Previous Employer Income: %s, Other Income: %s, Gross Total Income: %s",
@@ -165,17 +192,39 @@ month=%s""",
             financial_year=financial_year,
             regime_context=regime_context,
             eval_date=eval_date,
-            gross_salary_income=gross_salary_income
+            gross_salary_income=gross_salary_income,
+            payslip=payslip,
+            annual_projection=annual_projection
         )
         if debug_enabled:
             _logger.warning(
-                "After DeductionCalculationService | Standard Deduction: %s, Chapter VI-A Deductions: %s, HRA Exemption: %s, Home Loan Deduction: %s, Total Deductions: %s",
+                "After DeductionCalculationService | Standard Deduction: %s, PT 16(iii): %s, Chapter VI-A Deductions: %s, HRA Exemption: %s, Home Loan Deduction: %s, Total Deductions: %s",
                 deduction_calc.standard_deduction,
+                getattr(deduction_calc, 'professional_tax_16iii', 0.0),
                 deduction_calc.total_chapter_6a,
                 deduction_calc.hra_exemption,
                 deduction_calc.home_loan_interest_24b,
                 deduction_calc.total_approved_deductions
             )
+
+        _logger.warning("""[SECTION_16III_PT_DEDUCTION_AUDIT]
+calculation_run_id=%s
+employee=%s
+financial_year=%s
+regime=%s
+annual_salary=%s
+standard_deduction=%s
+professional_tax_16iii=%s
+taxable_salary_before_chapter_6a=%s""",
+            calc_run_id,
+            employee.name if employee else 'N/A',
+            financial_year.name if financial_year else 'N/A',
+            regime_code.upper(),
+            f"INR {gross_salary_income:,.2f}",
+            f"INR {float(deduction_calc.standard_deduction or 0.0):,.2f}",
+            f"INR {float(getattr(deduction_calc, 'professional_tax_16iii', 0.0) or 0.0):,.2f}",
+            f"INR {max(0.0, gross_salary_income - (deduction_calc.standard_deduction or 0.0) - (getattr(deduction_calc, 'professional_tax_16iii', 0.0) or 0.0)):,.2f}"
+        )
 
         _logger.warning("""[HRA_EXEMPTION_AT_ANNUAL_TAX_CALCULATION_POINT]
 calculation_run_id=%s
@@ -196,6 +245,75 @@ gross_total_income=%s""",
             f"INR {float(gti or 0.0):,.2f}"
         )
 
+        # ── Step 4b: Section 71(3A) Aggregate House-Property Loss Cap ──────────────
+        # Under Section 71(3A) (applicable to Old Regime only), the TOTAL house
+        # property loss that may be set off against salary / other income in any
+        # assessment year is capped at ₹2,00,000.  The engine currently applies:
+        #   • Let-out property loss  → subtracted from GTI in OtherIncomeAggregationService
+        #   • Self-occupied interest → subtracted as a deduction in HomeLoanDeductionService
+        # Both reductions are each capped at ₹2L individually, but their COMBINED
+        # impact can reach ₹4L, which is statutorily impermissible.
+        # Fix: measure both components together; trim the self-occupied 24(b) deduction
+        # so that (let_out_loss_absorbed + self_occ_interest_allowed) ≤ ₹2L cap.
+        if regime_code == 'old':
+            from .tds_parameter_service import TdsParameterService as _TdsParamSvc
+            _tds_param_svc_71 = _TdsParamSvc(self.env)
+            _sec_71_3a_cap = _tds_param_svc_71.get_house_property_loss_limit(eval_date=eval_date) or 200000.0
+
+            # Let-out loss already absorbed in GTI (effective_hp_gti_impact is negative when a loss)
+            _other_inc_agg = annual_projection.other_income_aggregation
+            _letout_loss_absorbed = abs(min(0.0, float(getattr(_other_inc_agg, 'effective_hp_gti_impact', 0.0) or 0.0)))
+
+            # Self-occupied interest allowed as a deduction
+            _self_occ_24b = float(deduction_calc.home_loan_interest_24b or 0.0)
+
+            _combined_hp_relief = _letout_loss_absorbed + _self_occ_24b
+
+            if _combined_hp_relief > _sec_71_3a_cap:
+                # Remaining room for self-occupied 24(b) after the let-out loss has used its share
+                _allowed_self_occ_24b = max(0.0, _sec_71_3a_cap - _letout_loss_absorbed)
+                _trimmed_24b = _self_occ_24b - _allowed_self_occ_24b  # amount being removed
+
+                _logger.warning(
+                    """[SECTION_71_3A_AGGREGATE_CAP_ENFORCEMENT]
+regime                      : OLD
+sec_71_3a_statutory_cap     : INR %s
+letout_loss_absorbed_in_gti : INR %s  (already reduced GTI via OtherIncomeAggregationService)
+self_occ_24b_deduction      : INR %s  (computed by HomeLoanDeductionService)
+combined_hp_relief_pre_cap  : INR %s
+combined_hp_relief_post_cap : INR %s
+trimmed_self_occ_24b        : INR %s  (excess removed to honour aggregate cap)
+final_allowed_self_occ_24b  : INR %s
+decision                    : self-occupied 24(b) capped to leave room within ₹2L aggregate limit""",
+                    f"{_sec_71_3a_cap:,.2f}",
+                    f"{_letout_loss_absorbed:,.2f}",
+                    f"{_self_occ_24b:,.2f}",
+                    f"{_combined_hp_relief:,.2f}",
+                    f"{_sec_71_3a_cap:,.2f}",
+                    f"{_trimmed_24b:,.2f}",
+                    f"{_allowed_self_occ_24b:,.2f}",
+                )
+
+                # Adjust the deduction summary in-place before it is consumed by TaxableIncomeService
+                deduction_calc.home_loan_interest_24b = _allowed_self_occ_24b
+                deduction_calc.total_allowable_deductions = (
+                    deduction_calc.total_allowable_deductions - _trimmed_24b
+                )
+            else:
+                _logger.warning(
+                    """[SECTION_71_3A_AGGREGATE_CAP_ENFORCEMENT]
+regime                      : OLD
+sec_71_3a_statutory_cap     : INR %s
+letout_loss_absorbed_in_gti : INR %s
+self_occ_24b_deduction      : INR %s
+combined_hp_relief          : INR %s
+decision                    : combined HP relief is within ₹2L cap — no adjustment required""",
+                    f"{_sec_71_3a_cap:,.2f}",
+                    f"{_letout_loss_absorbed:,.2f}",
+                    f"{_self_occ_24b:,.2f}",
+                    f"{_combined_hp_relief:,.2f}",
+                )
+
         # Step 5: Net Taxable Income Computation
         if debug_enabled:
             _logger.warning("Before TaxableIncomeService")
@@ -214,30 +332,38 @@ gross_total_income=%s""",
         _logger.warning("""[TAX_SLAB_INPUT_AUDIT]
 gross_annual_income=%s
 standard_deduction=%s
+professional_tax_16iii=%s
 hra_exemption_received=%s
 chapter_6a_deductions=%s
 total_deductions=%s
 taxable_income_passed_to_tax_calculator=%s""",
             f"INR {float(gti or 0.0):,.2f}",
             f"INR {float(deduction_calc.standard_deduction or 0.0):,.2f}",
+            f"INR {float(getattr(deduction_calc, 'professional_tax_16iii', 0.0) or 0.0):,.2f}",
             f"INR {float(deduction_calc.hra_exemption or 0.0):,.2f}",
             f"INR {float(deduction_calc.total_chapter_6a or 0.0):,.2f}",
             f"INR {float(deduction_calc.total_approved_deductions or 0.0):,.2f}",
             f"INR {float(taxable_inc.net_taxable_income or 0.0):,.2f}"
         )
 
+        # Step 6a: Resolve employee age category for Old Regime slab selection
+        # Per CBDT Circular No. 19/2015: age determined as of March 31 of the Financial Year
+        age_category = IncomeTaxSlabService.resolve_age_category(employee, financial_year, eval_date)
+
         if debug_enabled:
-            _logger.warning("Before IncomeTaxSlabService")
+            _logger.warning("Before IncomeTaxSlabService | Age Category: %s", age_category)
         slab_svc = IncomeTaxSlabService(self.env)
         slab_calc = slab_svc.calculate_base_tax(
             net_taxable_income=taxable_inc.net_taxable_income,
             financial_year=financial_year,
-            regime_code=regime_code
+            regime_code=regime_code,
+            age_category=age_category
         )
         if debug_enabled:
             _logger.warning(
-                "After IncomeTaxSlabService | Base Tax: %s",
-                slab_calc.base_tax_liability
+                "After IncomeTaxSlabService | Base Tax: %s | Age Category: %s",
+                slab_calc.base_tax_liability,
+                slab_calc.age_category
             )
 
         # Step 7: Section 87A Rebate Engine Application
@@ -265,7 +391,8 @@ taxable_income_passed_to_tax_calculator=%s""",
             net_taxable_income=taxable_inc.net_taxable_income,
             tax_after_rebate=rebate_calc.tax_after_rebate,
             financial_year=financial_year,
-            regime_code=regime_code
+            regime_code=regime_code,
+            age_category=age_category
         )
         if debug_enabled:
             _logger.warning(
@@ -334,7 +461,8 @@ tax_difference=%s""",
             employee=employee,
             financial_year=financial_year,
             total_annual_tax_liability=cess_calc.total_annual_tax_liability,
-            eval_date=eval_date
+            eval_date=eval_date,
+            payslip=payslip
         )
 
         decl_rec = self.env['tds.employee.declaration'].sudo().search([
@@ -350,6 +478,7 @@ tax_difference=%s""",
 
         c6a_obj = getattr(deduction_calc, 'chapter_6a_deductions', None)
         std_ded_val = float(deduction_calc.standard_deduction or 0.0)
+        pt_16iii_val = float(getattr(deduction_calc, 'professional_tax_16iii', 0.0) or 0.0)
         hra_ex_val = float(deduction_calc.hra_exemption or 0.0)
         lta_ex_val = float(deduction_calc.lta_exemption or 0.0)
         s80c_val = float(getattr(c6a_obj, 'section_80c', 0.0) or 0.0) if c6a_obj else 0.0
@@ -704,6 +833,7 @@ Result         : ₹{sec_80eea_ded:,.2f}
 [STAGE 11 — TOTAL ALLOWABLE DEDUCTIONS]
 Input          :
   Standard Deduction   : ₹{deduction_calc.standard_deduction:,.2f}
+  Professional Tax 16(iii): ₹{pt_16iii_val:,.2f}
   Chapter VI-A Total   : ₹{total_c6a_val:,.2f}
   Employer NPS (Sec 124): ₹{emp_nps_80ccd2:,.2f}
   HRA Exemption        : ₹{deduction_calc.hra_exemption:,.2f}
@@ -780,6 +910,7 @@ FINAL SUMMARY
 ================================================================================
 Gross Total Income         : ₹{annual_projection.gross_total_income:,.2f}
 Standard Deduction         : ₹{deduction_calc.standard_deduction:,.2f}
+Professional Tax 16(iii)   : ₹{pt_16iii_val:,.2f}
 Chapter VI-A Total         : ₹{total_c6a_val:,.2f}
 Section 57(iia)            : ₹{fam_pension_57:,.2f}
 HRA Exemption              : ₹{deduction_calc.hra_exemption:,.2f}
@@ -1067,7 +1198,9 @@ allowed=%s""", decl_for_log.decl_80ccd1b_nps if decl_for_log else sec_80ccd1b_va
             nps2_claimed = float(getattr(decl_for_log, 'decl_80ccd2_employer_nps', 0.0) or (next((l.declared_amount for l in decl_for_log.declaration_line_ids if l.category == '80ccd2'), 0.0) if decl_for_log else 0.0) or 0.0) if decl_for_log else emp_nps_80ccd2
             if nps2_claimed == 0.0:
                 nps2_claimed = emp_nps_80ccd2
-            nps2_limit = round(((sal_proj.total_basic or 0.0) + (sal_proj.total_da or 0.0)) * (0.14 if regime_code == 'new' else 0.10), 2) if sal_proj else emp_nps_80ccd2
+            emp_type = getattr(employee, 'hds_in_employer_category', getattr(employee, 'employer_type', 'private')) or 'private'
+            nps2_pct = self.param_service.get_employer_nps_limit(regime=regime_code, employer_type=emp_type, eval_date=eval_date, as_decimal=True) or (0.14 if regime_code == 'new' else 0.10)
+            nps2_limit = round(((sal_proj.total_basic or 0.0) + (sal_proj.total_da or 0.0)) * nps2_pct, 2) if sal_proj else emp_nps_80ccd2
             if nps2_limit == 0.0:
                 nps2_limit = emp_nps_80ccd2
 
@@ -1320,34 +1453,8 @@ current_month_tds=%s""", ann_tax_liab, monthly_tds.current_month_tds)
             ('state', '!=', 'rejected')
         ], limit=1)
 
-        # Create static audit snapshot entry for historical & compliance auditing (with idempotency guard)
-        if 'hds.in.payroll.audit' in self.env:
-            decl_amt = decl.total_declared_amount if decl else 0.0
-            app_amt = decl.total_approved_amount if decl else 0.0
-            audit_msg = (
-                f"TDS Payroll Calculation Audit Snapshot | Employee: {employee.name} | FY: {financial_year.name} | "
-                f"Declared Amount: ₹{decl_amt:,.2f} | Approved Amount: ₹{app_amt:,.2f} | "
-                f"Eligible Deduction Used: ₹{deduction_calc.total_approved_deductions:,.2f} | "
-                f"Taxable Income Used: ₹{taxable_inc.net_taxable_income:,.2f} | "
-                f"Annual Tax Used: ₹{cess_calc.total_annual_tax_liability:,.2f}"
-            )
-            existing_audit = self.env['hds.in.payroll.audit'].sudo().search([
-                ('employee_id', '=', employee.id),
-                ('rule_code', '=', 'TDS_SNAPSHOT'),
-                ('calculation_date', '=', eval_date)
-            ], limit=1)
-            if existing_audit:
-                existing_audit.write({'messages': audit_msg})
-            else:
-                self.env['hds.in.payroll.audit'].sudo().create({
-                    'employee_id': employee.id,
-                    'company_id': employee.company_id.id if employee.company_id else self.env.company.id,
-                    'statutory_module': 'tds',
-                    'rule_code': 'TDS_SNAPSHOT',
-                    'calculation_date': eval_date,
-                    'messages': audit_msg,
-                    'status': 'success',
-                })
+        # Suppressed automated TDS_SNAPSHOT per user requirement so Audit Trail shows only
+        # actual tax declarations made and employee Income Tax tab value changes.
 
 
         if debug_enabled:
@@ -1393,7 +1500,8 @@ current_month_tds=%s""", ann_tax_liab, monthly_tds.current_month_tds)
             dist_m = max(1, min(12, int(getattr(financial_year, 'tds_recalculation_distribution_months', 3) or 3)))
             recalc_start_fy_idx = 12 - dist_m + 1
 
-            fy_start = financial_year.start_date
+            eval_m_num = eval_date.month if hasattr(eval_date, 'month') else 4
+            fy_start = financial_year.start_date if financial_year else False
             if fy_start:
                 fy_start_year = fy_start.year
                 fy_start_month = fy_start.month
@@ -1402,7 +1510,6 @@ current_month_tds=%s""", ann_tax_liab, monthly_tds.current_month_tds)
                 elapsed_months = (eval_year - fy_start_year) * 12 + (eval_month - fy_start_month) + 1
                 eval_fy_idx = min(12, max(1, elapsed_months))
             else:
-                eval_m_num = eval_date.month if hasattr(eval_date, 'month') else 4
                 eval_fy_idx = eval_m_num - 3 if eval_m_num >= 4 else eval_m_num + 9
 
             is_recalc_active = (eval_fy_idx >= recalc_start_fy_idx)
@@ -1410,6 +1517,8 @@ current_month_tds=%s""", ann_tax_liab, monthly_tds.current_month_tds)
             month_names_dict = {1: 'January', 2: 'February', 3: 'March', 4: 'April', 5: 'May', 6: 'June',
                                 7: 'July', 8: 'August', 9: 'September', 10: 'October', 11: 'November', 12: 'December'}
             payroll_month_name = month_names_dict.get(eval_m_num, str(eval_m_num))
+            start_cal_m = recalc_start_fy_idx + 3 if recalc_start_fy_idx <= 9 else recalc_start_fy_idx - 9
+            recalc_month_name = month_names_dict.get(start_cal_m, str(start_cal_m))
 
             other_agg = annual_projection.other_income_aggregation
             raw_hp_inc = float(getattr(other_agg, 'net_house_property_income_loss', 0.0) or 0.0)

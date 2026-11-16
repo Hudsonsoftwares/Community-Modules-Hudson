@@ -109,7 +109,19 @@ class HrPayrollHeadcountLine(models.Model):
         required=True,
         ondelete='cascade'
     )
-    department_id = fields.Many2one('hr.department', string='Department')
+    company_id = fields.Many2one(
+        'res.company',
+        string='Company',
+        related='headcount_id.company_id',
+        store=True,
+        index=True,
+        readonly=True
+    )
+    department_id = fields.Many2one(
+        'hr.department',
+        string='Department',
+        domain="['|', ('company_id', '=', False), ('company_id', '=', company_id)]"
+    )
     employee_count = fields.Integer(string='Employees')
     employee_ids = fields.Many2many(
         'hr.employee',

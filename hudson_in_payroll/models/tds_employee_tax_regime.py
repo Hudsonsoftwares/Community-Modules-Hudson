@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
+# pyrefly: ignore [missing-import]
 from odoo import api, fields, models, _
+# pyrefly: ignore [missing-import]
 from odoo.exceptions import ValidationError
 
 
@@ -165,10 +167,16 @@ class TdsEmployeeTaxRegime(models.Model):
         # Log audit entry
         if 'hds.in.payroll.audit' in self.env:
             self.env['hds.in.payroll.audit'].create({
-                'name': f"Tax Regime Administrative Unlock: {self.employee_id.name} [{self.financial_year_id.name}]",
                 'employee_id': self.employee_id.id,
                 'company_id': self.company_id.id,
-                'audit_type': 'manual_override',
-                'action_taken': f"Tax Regime selection unlocked administratively for {self.financial_year_id.name}.",
-                'remarks': self.lock_reason,
+                'user_id': self.env.uid,
+                'statutory_module': 'tds',
+                'rule_code': 'TAX_REGIME_UNLOCK',
+                'calculation_date': fields.Date.today(),
+                'calculation_type': 'manual_override',
+                'messages': (
+                    f"Tax Regime Administrative Unlock: {self.employee_id.name} [{self.financial_year_id.name}]. "
+                    f"Unlocked by {self.env.user.name}. Reason: {self.lock_reason or 'N/A'}"
+                ),
+                'status': 'success',
             })

@@ -1,0 +1,122 @@
+/* ==========================================================================
+   Structured Clinical Examination
+   Used by the examination form and the Examination tab of the case form.
+   ========================================================================== */
+
+/* Section progress strip: one chip per examination section */
+.o_dental_exam_steps {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 0.75rem 0 1rem;
+
+    .o_dental_exam_step {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 12px;
+        border-radius: 999px;
+        border: 1px solid #a7f3d0;
+        background: #ecfdf5;
+        color: #065f46;
+        font-size: 0.85rem;
+        font-weight: 600;
+
+        &.is-pending {
+            border-color: #e2e8f0;
+            background: #f8fafc;
+            color: #475569;
+            font-weight: 500;
+        }
+    }
+}
+
+/* Status card at the top of the case's Examination tab */
+.o_dental_exam_card {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem 1rem;
+    padding: 1rem 1.25rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    background: #f8fafc;
+
+    .o_dental_exam_progress {
+        display: block;
+        max-width: 360px;
+        margin-top: 0.35rem;
+    }
+
+    > .btn {
+        white-space: nowrap;
+    }
+}
+
+/* Multi-line summary kept readable (one line per section) */
+.o_dental_exam_summary {
+    white-space: pre-wrap;
+    line-height: 1.6;
+}
+
+.o_dental_exam_form {
+    .o_dental_exam_alerts p:last-child {
+        margin-bottom: 0;
+    }
+
+    .o_dental_exam_section_title {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        gap: 0.25rem 0.75rem;
+        margin: 1.25rem 0 0.5rem;
+        padding-bottom: 0.35rem;
+        border-bottom: 1px solid #e2e8f0;
+
+        > span {
+            font-size: 1rem;
+            font-weight: 700;
+            color: #0f172a;
+        }
+
+        &.mt-0 {
+            margin-top: 0;
+        }
+    }
+
+    /* Badge pickers: compact, wrap on narrow screens */
+    .o_field_badges_selection .o_selection_badge {
+        margin-bottom: 0;
+    }
+
+    /* BPE: 3 x 2 grid of sextants (upper row, lower row) */
+    .o_dental_bpe_grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(56px, 88px));
+        gap: 6px;
+
+        > div {
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
+            padding: 4px 6px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            background: #ffffff;
+
+            > small {
+                color: #64748b;
+                font-weight: 600;
+                text-align: center;
+            }
+        }
+    }
+
+    /* Probing-depth columns stay narrow so the full chart fits */
+    .o_field_x2many[name="perio_chart_ids"] .o_list_renderer {
+        td.o_data_cell,
+        th.o_column_sortable {
+            padding-inline: 6px;
+        }
+    }
+}

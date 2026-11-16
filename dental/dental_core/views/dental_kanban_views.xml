@@ -1,0 +1,236 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Kanban cards: title + status on top, patient/people in the middle, date/amount in the footer -->
+
+    <record id="view_dental_case_kanban" model="ir.ui.view">
+        <field name="name">dental.case.kanban</field>
+        <field name="model">dental.case</field>
+        <field name="arch" type="xml">
+            <kanban class="o_kanban_mobile" sample="1">
+                <templates>
+                    <t t-name="card">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <field name="patient_id" class="fw-bold fs-6"/>
+                            <field name="state" widget="badge"
+                                   decoration-info="state in ('draft', 'open')"
+                                   decoration-warning="state == 'under_treatment'"
+                                   decoration-success="state == 'completed'"
+                                   decoration-muted="state == 'cancelled'"/>
+                        </div>
+                        <div class="text-muted small"><field name="name"/></div>
+                        <field name="chief_complaint" class="small text-truncate"/>
+                        <footer class="pt-1">
+                            <span class="small"><i class="fa fa-user-md me-1" title="Doctor"/><field name="doctor_id"/></span>
+                            <span class="small ms-auto"><field name="case_date"/></span>
+                        </footer>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+
+    <record id="view_dental_clinical_examination_kanban" model="ir.ui.view">
+        <field name="name">dental.clinical.examination.kanban</field>
+        <field name="model">dental.clinical.examination</field>
+        <field name="arch" type="xml">
+            <kanban class="o_kanban_mobile" sample="1">
+                <templates>
+                    <t t-name="card">
+                        <field name="patient_id" class="fw-bold fs-6"/>
+                        <div class="text-muted small"><field name="name"/> · <field name="case_id"/></div>
+                        <field name="chief_complaint" class="small text-truncate"/>
+                        <field name="sections_progress" widget="progressbar" class="mt-1"/>
+                        <footer class="pt-1">
+                            <span class="small"><i class="fa fa-user-md me-1" title="Doctor"/><field name="doctor_id"/></span>
+                            <field name="state" widget="badge" class="ms-auto" decoration-info="state == 'draft'" decoration-success="state == 'done'"/>
+                            <span class="small ms-2"><field name="examination_date" widget="date"/></span>
+                        </footer>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+
+    <record id="view_dental_diagnosis_kanban" model="ir.ui.view">
+        <field name="name">dental.diagnosis.kanban</field>
+        <field name="model">dental.diagnosis</field>
+        <field name="arch" type="xml">
+            <kanban class="o_kanban_mobile" sample="1">
+                <templates>
+                    <t t-name="card">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <field name="name" class="fw-bold fs-6"/>
+                            <field name="code" class="badge text-bg-light" invisible="not code"/>
+                        </div>
+                        <field name="description" class="text-muted small"/>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+
+    <record id="view_dental_patient_diagnosis_kanban" model="ir.ui.view">
+        <field name="name">dental.patient.diagnosis.kanban</field>
+        <field name="model">dental.patient.diagnosis</field>
+        <field name="arch" type="xml">
+            <kanban class="o_kanban_mobile" sample="1">
+                <templates>
+                    <t t-name="card">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <field name="diagnosis_id" class="fw-bold fs-6"/>
+                            <field name="status" widget="badge"
+                                   decoration-warning="status == 'suspected'"
+                                   decoration-danger="status == 'confirmed'"
+                                   decoration-success="status == 'resolved'"/>
+                        </div>
+                        <field name="patient_id"/>
+                        <div class="small" invisible="not tooth_reference">Tooth <field name="tooth_reference"/></div>
+                        <footer class="pt-1">
+                            <span class="small"><i class="fa fa-user-md me-1" title="Doctor"/><field name="doctor_id"/></span>
+                            <span class="small ms-auto"><field name="date"/></span>
+                        </footer>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+
+    <record id="view_dental_tooth_finding_kanban" model="ir.ui.view">
+        <field name="name">dental.tooth.finding.kanban</field>
+        <field name="model">dental.tooth.finding</field>
+        <field name="arch" type="xml">
+            <kanban class="o_kanban_mobile" sample="1">
+                <templates>
+                    <t t-name="card">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <span class="fw-bold fs-6">Tooth <field name="tooth_number"/></span>
+                            <field name="condition" widget="badge"/>
+                        </div>
+                        <field name="patient_id"/>
+                        <div class="text-muted small"><field name="name"/></div>
+                        <footer class="pt-1">
+                            <span class="small"><field name="finding_date"/></span>
+                        </footer>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+
+    <record id="view_dental_treatment_plan_kanban" model="ir.ui.view">
+        <field name="name">dental.treatment.plan.kanban</field>
+        <field name="model">dental.treatment.plan</field>
+        <field name="arch" type="xml">
+            <kanban class="o_kanban_mobile" sample="1">
+                <templates>
+                    <t t-name="card">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <field name="patient_id" class="fw-bold fs-6"/>
+                            <field name="state" widget="badge"
+                                   decoration-info="state in ('draft', 'proposed')"
+                                   decoration-warning="state in ('approved', 'in_progress')"
+                                   decoration-success="state == 'completed'"
+                                   decoration-muted="state == 'cancelled'"/>
+                        </div>
+                        <div class="text-muted small"><field name="name"/></div>
+                        <div class="small" invisible="not doctor_id"><i class="fa fa-user-md me-1" title="Doctor"/><field name="doctor_id"/></div>
+                        <footer class="pt-1">
+                            <span class="small"><field name="plan_date"/></span>
+                            <field name="estimated_total" widget="monetary" class="ms-auto fw-bold"/>
+                            <field name="currency_id" invisible="1"/>
+                        </footer>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+
+    <record id="view_dental_treatment_session_kanban" model="ir.ui.view">
+        <field name="name">dental.treatment.session.kanban</field>
+        <field name="model">dental.treatment.session</field>
+        <field name="arch" type="xml">
+            <kanban class="o_kanban_mobile" sample="1">
+                <templates>
+                    <t t-name="card">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <field name="patient_id" class="fw-bold fs-6"/>
+                            <field name="state" widget="badge"
+                                   decoration-info="state == 'planned'"
+                                   decoration-warning="state == 'in_progress'"
+                                   decoration-success="state == 'completed'"
+                                   decoration-muted="state == 'cancelled'"/>
+                        </div>
+                        <field name="plan_line_id" class="small"/>
+                        <div class="text-muted small"><field name="name"/></div>
+                        <footer class="pt-1">
+                            <span class="small"><i class="fa fa-user-md me-1" title="Doctor"/><field name="doctor_id"/></span>
+                            <span class="small ms-auto"><field name="session_date"/></span>
+                        </footer>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+
+    <record id="view_dental_patient_document_kanban" model="ir.ui.view">
+        <field name="name">dental.patient.document.kanban</field>
+        <field name="model">dental.patient.document</field>
+        <field name="arch" type="xml">
+            <kanban class="o_kanban_mobile" sample="1">
+                <templates>
+                    <t t-name="card">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <field name="name" class="fw-bold fs-6"/>
+                            <field name="document_type" widget="badge"/>
+                        </div>
+                        <field name="patient_id"/>
+                        <footer class="pt-1">
+                            <span class="small"><field name="document_date"/></span>
+                        </footer>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+
+    <!-- Reception Desk billing: invoice cards with the same actions as the billing list -->
+    <record id="view_dental_billing_invoice_kanban" model="ir.ui.view">
+        <field name="name">account.move.kanban.dental.billing</field>
+        <field name="model">account.move</field>
+        <field name="priority">99</field>
+        <field name="arch" type="xml">
+            <kanban class="o_kanban_mobile" create="0" sample="1">
+                <templates>
+                    <t t-name="card">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <field name="partner_id" class="fw-bold fs-6"/>
+                            <field name="payment_state" widget="badge" invisible="state != 'posted'"
+                                   decoration-danger="payment_state == 'not_paid'"
+                                   decoration-warning="payment_state == 'partial'"
+                                   decoration-success="payment_state in ('paid', 'in_payment')"/>
+                            <field name="state" widget="badge" invisible="state == 'posted'" decoration-info="state == 'draft'"/>
+                        </div>
+                        <div class="text-muted small"><field name="name"/> <span invisible="not invoice_origin">· <field name="invoice_origin"/></span></div>
+                        <div class="d-flex mt-1">
+                            <span class="small"><field name="invoice_date"/></span>
+                            <span class="ms-auto fw-bold"><field name="amount_total" widget="monetary"/></span>
+                        </div>
+                        <div class="d-flex small text-danger" invisible="state != 'posted' or not amount_residual">
+                            <span>Balance due</span>
+                            <span class="ms-auto fw-bold"><field name="amount_residual" widget="monetary"/></span>
+                        </div>
+                        <field name="currency_id" invisible="1"/>
+                        <footer class="pt-1">
+                            <button name="action_post" string="Confirm" type="object" class="btn btn-sm btn-primary"
+                                    invisible="state != 'draft'"/>
+                            <button name="action_register_payment" string="Collect Payment" type="object" class="btn btn-sm btn-success"
+                                    invisible="state != 'posted' or payment_state in ('paid', 'in_payment', 'reversed')"/>
+                            <button name="action_print_pdf" string="Print" type="object" class="btn btn-sm btn-secondary ms-auto"
+                                    invisible="state != 'posted'"/>
+                        </footer>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+</odoo>

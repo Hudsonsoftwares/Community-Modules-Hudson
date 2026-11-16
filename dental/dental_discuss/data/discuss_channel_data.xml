@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+
+    <!-- Categories in Discuss -->
+    <record id="discuss_category_dental_departments" model="discuss.category">
+        <field name="name">Dental Departments</field>
+        <field name="sequence">20</field>
+    </record>
+
+    <record id="discuss_category_dental_broadcast" model="discuss.category">
+        <field name="name">Clinic Announcements</field>
+        <field name="sequence">15</field>
+    </record>
+
+    <!-- Administrative Broadcast Channel (Read-Only for general staff, postable by managers/admins) -->
+    <record id="channel_dental_hospital_announcements" model="discuss.channel">
+        <field name="name">Dental Hospital Announcements</field>
+        <field name="channel_type">channel</field>
+        <field name="dental_channel_type">announcement</field>
+        <field name="dental_department">management</field>
+        <field name="discuss_category_id" ref="discuss_category_dental_broadcast"/>
+        <field name="is_readonly" eval="True"/>
+        <field name="description">Clinic-wide policies, infection control protocols, hospital meetings and administrative notices. Read-only channel.</field>
+        <field name="group_public_id" ref="base.group_user"/>
+    </record>
+
+    <!-- Department Channels -->
+    <record id="channel_dept_general_dentistry" model="discuss.channel">
+        <field name="name">Dept: General Dentistry</field>
+        <field name="channel_type">channel</field>
+        <field name="dental_channel_type">department</field>
+        <field name="dental_department">general</field>
+        <field name="discuss_category_id" ref="discuss_category_dental_departments"/>
+        <field name="description">General clinical discussions, restorative cases, operative dentistry protocols and clinical peer reviews.</field>
+        <field name="group_public_id" ref="dental_base.group_dental_dentist"/>
+    </record>
+
+    <record id="channel_dept_orthodontics" model="discuss.channel">
+        <field name="name">Dept: Orthodontics</field>
+        <field name="channel_type">channel</field>
+        <field name="dental_channel_type">department</field>
+        <field name="dental_department">ortho</field>
+        <field name="discuss_category_id" ref="discuss_category_dental_departments"/>
+        <field name="description">Orthodontic cephalometric reviews, aligner workflows, bracket selection and malocclusion treatment coordination.</field>
+        <field name="group_public_id" ref="dental_base.group_dental_dentist"/>
+    </record>
+
+    <record id="channel_dept_endodontics" model="discuss.channel">
+        <field name="name">Dept: Endodontics</field>
+        <field name="channel_type">channel</field>
+        <field name="dental_channel_type">department</field>
+        <field name="dental_department">endo</field>
+        <field name="discuss_category_id" ref="discuss_category_dental_departments"/>
+        <field name="description">Root canal therapy, rotary instrumentation, canal anatomy discussions, re-treatments and apical surgery cases.</field>
+        <field name="group_public_id" ref="dental_base.group_dental_dentist"/>
+    </record>
+
+    <record id="channel_dept_oral_surgery" model="discuss.channel">
+        <field name="name">Dept: Oral &amp; Maxillofacial Surgery</field>
+        <field name="channel_type">channel</field>
+        <field name="dental_channel_type">department</field>
+        <field name="dental_department">oral_surgery</field>
+        <field name="discuss_category_id" ref="discuss_category_dental_departments"/>
+        <field name="description">Surgical extractions, impactions, sinus lifts, bone grafting and surgical sedation planning.</field>
+        <field name="group_public_id" ref="dental_base.group_dental_dentist"/>
+    </record>
+
+    <record id="channel_dept_periodontics" model="discuss.channel">
+        <field name="name">Dept: Periodontics &amp; Implantology</field>
+        <field name="channel_type">channel</field>
+        <field name="dental_channel_type">department</field>
+        <field name="dental_department">perio</field>
+        <field name="discuss_category_id" ref="discuss_category_dental_departments"/>
+        <field name="description">Periodontal therapy, regenerative procedures, soft tissue grafting, and dental implant placement protocols.</field>
+        <field name="group_public_id" ref="dental_base.group_dental_dentist"/>
+    </record>
+
+    <record id="channel_dept_prosthodontics" model="discuss.channel">
+        <field name="name">Dept: Prosthodontics &amp; Aesthetics</field>
+        <field name="channel_type">channel</field>
+        <field name="dental_channel_type">department</field>
+        <field name="dental_department">prosth</field>
+        <field name="discuss_category_id" ref="discuss_category_dental_departments"/>
+        <field name="description">Fixed and removable prosthetics, crowns, bridges, veneers, full mouth rehabilitations and smile designs.</field>
+        <field name="group_public_id" ref="dental_base.group_dental_dentist"/>
+    </record>
+
+    <record id="channel_dept_pediatric" model="discuss.channel">
+        <field name="name">Dept: Pediatric Dentistry</field>
+        <field name="channel_type">channel</field>
+        <field name="dental_channel_type">department</field>
+        <field name="dental_department">pediatric</field>
+        <field name="discuss_category_id" ref="discuss_category_dental_departments"/>
+        <field name="description">Pedodontic care, preventive sealants, space maintainers, pulpotomies, and pediatric behavior management.</field>
+        <field name="group_public_id" ref="dental_base.group_dental_dentist"/>
+    </record>
+
+    <record id="channel_dept_reception" model="discuss.channel">
+        <field name="name">Front Desk &amp; Reception Coordination</field>
+        <field name="channel_type">channel</field>
+        <field name="dental_channel_type">department</field>
+        <field name="dental_department">reception</field>
+        <field name="discuss_category_id" ref="discuss_category_dental_departments"/>
+        <field name="description">Front desk coordination, patient check-ins, chair prep alerts, walk-in triage, and doctor schedule adjustments.</field>
+        <field name="group_public_id" ref="base.group_user"/>
+    </record>
+
+    <record id="channel_dept_laboratory" model="discuss.channel">
+        <field name="name">Dental Laboratory Coordination</field>
+        <field name="channel_type">channel</field>
+        <field name="dental_channel_type">lab</field>
+        <field name="dental_department">lab</field>
+        <field name="discuss_category_id" ref="discuss_category_dental_departments"/>
+        <field name="description">Coordination between dental technicians and clinicians on custom prosthetics, shade approvals, and deliveries.</field>
+        <field name="group_public_id" ref="base.group_user"/>
+    </record>
+
+    <record id="channel_dept_pharmacy" model="discuss.channel">
+        <field name="name">Hospital Pharmacy Discussions</field>
+        <field name="channel_type">channel</field>
+        <field name="dental_channel_type">pharmacy</field>
+        <field name="dental_department">pharmacy</field>
+        <field name="discuss_category_id" ref="discuss_category_dental_departments"/>
+        <field name="description">Pharmacist consultations, formulary inquiries, therapeutic drug alternatives, and prescription dispensing queries.</field>
+        <field name="group_public_id" ref="base.group_user"/>
+    </record>
+
+</odoo>
+

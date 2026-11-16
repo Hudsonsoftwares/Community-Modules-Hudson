@@ -409,12 +409,14 @@ permitted_status=%s""",
                     nps_pct = tds_param_svc.get_employer_nps_limit(regime=regime_code, employer_type=emp_type, eval_date=eval_date)
                     param_code = 'HDS_IN_TDS_NPS_LIMIT_NEW' if regime_code == 'new' else ('HDS_IN_TDS_NPS_LIMIT_OLD_GOVT' if 'govt' in str(emp_type).lower() else 'HDS_IN_TDS_NPS_LIMIT_OLD_PRIVATE')
                     calc_ceiling = sal_b * (nps_pct / 100.0)
+                    selected_amt = min(amt, round(calc_ceiling, 2))
+                    reason = f"Section 80CCD(2) statutory approved deduction (capped at ₹{calc_ceiling:,.2f}): ₹{selected_amt:,.2f}"
 
                     contract_obj = sal_svc._get_employee_contract(employee) if hasattr(sal_svc, '_get_employee_contract') else False
                     c_id = getattr(contract_obj, 'id', 'N/A') if contract_obj else 'N/A'
                     from .payroll_period_service import PayrollPeriodService
                     _period_svc = PayrollPeriodService(self.env)
-                    _emp_periods = _period_svc.calculate_total_periods_in_fy(employee, fy, eval_date=eval_date) if (employee and fy) else 12.0
+                    _emp_periods = _period_svc.calculate_total_periods_in_fy(employee, financial_year, eval_date=eval_date) if (employee and financial_year) else 12.0
                     m_b = float(getattr(contract_obj, 'basic_salary', 0.0) or 0.0) if contract_obj else (annual_b / float(_emp_periods or 12))
                     m_d = float(getattr(contract_obj, 'da', 0.0) or getattr(contract_obj, 'da_amount', 0.0) or 0.0) if contract_obj else (annual_d / float(_emp_periods or 12))
 
@@ -593,7 +595,7 @@ TOTAL_CHAPTER6A_DEDUCTIONS_SO_FAR=%s""",
             c_id = getattr(contract_obj, 'id', 'N/A') if contract_obj else 'N/A'
             from .payroll_period_service import PayrollPeriodService
             _period_svc = PayrollPeriodService(self.env)
-            _emp_periods = _period_svc.calculate_total_periods_in_fy(employee, fy, eval_date=eval_date) if (employee and fy) else 12.0
+            _emp_periods = _period_svc.calculate_total_periods_in_fy(employee, financial_year, eval_date=eval_date) if (employee and financial_year) else 12.0
             m_b = float(getattr(contract_obj, 'basic_salary', 0.0) or 0.0) if contract_obj else (annual_b / float(_emp_periods or 12))
             m_d = float(getattr(contract_obj, 'da', 0.0) or getattr(contract_obj, 'da_amount', 0.0) or 0.0) if contract_obj else (annual_d / float(_emp_periods or 12))
             

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_dental_case_form_inherit_second_opinion" model="ir.ui.view">
+        <field name="name">dental.case.form.inherit.second.opinion</field>
+        <field name="model">dental.case</field>
+        <field name="inherit_id" ref="dental_core.view_dental_case_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//div[@name='button_box']" position="inside">
+                <button name="action_view_second_opinions" type="object" class="oe_stat_button" icon="fa-user-md"
+                        invisible="second_opinion_count == 0">
+                    <field name="second_opinion_count" widget="statinfo" string="Second Opinions"/>
+                </button>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- Actions (cog) menu of the case form: collaboration entries (sequence 10-19) -->
+    <record id="action_server_dental_case_request_second_opinion" model="ir.actions.server">
+        <field name="name">Request Second Opinion</field>
+        <field name="model_id" ref="dental_core.model_dental_case"/>
+        <field name="binding_model_id" ref="dental_core.model_dental_case"/>
+        <field name="binding_view_types">form</field>
+        <field name="sequence">12</field>
+        <field name="group_ids" eval="[Command.set([ref('dental_base.group_dental_dentist'), ref('dental_base.group_dental_manager')])]"/>
+        <field name="state">code</field>
+        <field name="code">action = record.action_request_second_opinion()</field>
+    </record>
+</odoo>

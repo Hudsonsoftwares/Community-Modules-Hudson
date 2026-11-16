@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Plan cards on the case's Treatment tab open the plan's board (one card per phase) -->
+    <record id="view_dental_case_form_project" model="ir.ui.view">
+        <field name="name">dental.case.form.project</field>
+        <field name="model">dental.case</field>
+        <field name="inherit_id" ref="dental_core.view_dental_case_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='treatment_plan_ids']/kanban" position="attributes">
+                <attribute name="action">action_dental_open_board</attribute>
+            </xpath>
+            <xpath expr="//div[@name='plan_card_actions']" position="inside">
+                <button name="action_open_form" type="object" string="Details" class="btn btn-sm btn-outline-secondary"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>

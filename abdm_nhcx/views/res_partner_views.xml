@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_partner_form_insurance_nhcx" model="ir.ui.view">
+        <field name="name">res.partner.form.insurance.nhcx</field>
+        <field name="model">res.partner</field>
+        <field name="inherit_id" ref="insurance_base.view_partner_form_insurance"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='insurance_connector']/.." position="after">
+                <group string="NHCX" invisible="insurance_connector != 'nhcx'">
+                    <field name="nhcx_participant_code" required="insurance_connector == 'nhcx'"/>
+                    <field name="nhcx_participant_status"/>
+                    <field name="nhcx_encryption_cert" placeholder="Filled by &quot;Refresh from NHCX&quot;"/>
+                    <button name="action_nhcx_refresh" type="object" string="Refresh from NHCX"
+                            icon="refresh" class="btn-link" colspan="2" invisible="not nhcx_participant_code"/>
+                </group>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_partner_list_insurance_payer_nhcx" model="ir.ui.view">
+        <field name="name">res.partner.list.insurance.payer.nhcx</field>
+        <field name="model">res.partner</field>
+        <field name="inherit_id" ref="insurance_base.view_partner_list_insurance_payer"/>
+        <field name="arch" type="xml">
+            <field name="insurance_connector" position="after">
+                <field name="nhcx_participant_code" optional="show"/>
+            </field>
+        </field>
+    </record>
+</odoo>

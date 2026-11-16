@@ -2,6 +2,24 @@
 from odoo import api, fields, models, _
 from odoo.exceptions import UserError
 
+# Employee deductions (salary rule codes) -> payroll account key of the company
+DEDUCTION_ACCOUNTS = [
+    ({'HDS_IN_TDS', 'TDS', 'INCOME_TAX', 'IT'}, 'tds'),
+    ({'EPF', 'PF', 'EE_PF'}, 'pf_employee'),
+    ({'ESIC_EE', 'EE_ESI'}, 'esic_employee'),
+    ({'PT', 'PROF_TAX'}, 'pt'),
+    ({'LWF_EE', 'EE_LWF', 'LWF'}, 'lwf_employee'),
+]
+# Deductions that reduce the salary expense instead of being owed to someone (unpaid leave)
+CONTRA_EXPENSE_CODES = {'UNPAID'}
+# Employer statutory contributions (payslip fields, Indian payroll) -> payable account key, label
+EMPLOYER_CONTRIBUTIONS = [
+    (('hds_in_employer_epf',), 'pf_employer', 'Provident Fund - Employer'),
+    (('hds_in_employer_edli', 'hds_in_employer_epf_admin'), 'pf_admin', 'EPF Admin & EDLI'),
+    (('hds_in_employer_esic',), 'esic_employer', "Employer's State Insurance Corporation"),
+    (('hds_in_employer_lwf',), 'lwf_employer', 'Labour Welfare Fund - Employer'),
+]
+
 
 class HrPayslip(models.Model):
     _inherit = 'hr.payslip'
@@ -53,6 +71,7 @@ class HrPayslip(models.Model):
         copy=False,
         help="Accounting entry generated for this payslip."
     )
+    move_state = fields.Selection(related='move_id.state', string='Journal Entry Status')
 
     @api.depends('journal_id', 'journal_id.name')
     def _compute_journal_name(self):
@@ -77,6 +96,9 @@ class HrPayslip(models.Model):
             'type': 'ir.actions.act_window',
             'res_model': 'account.move',
             'view_mode': 'list,form',
+            'views': [(self.env.ref('hudson_payroll_account.view_move_tree_payroll').id, 'list'),
+                      (self.env.ref('account.view_move_form').id, 'form')],
+            'search_view_id': [self.env.ref('account.view_account_move_filter').id],
             'domain': [('journal_id', '=', journal.id)],
             'context': {
                 'default_journal_id': journal.id,
@@ -115,14 +137,8 @@ class HrPayslip(models.Model):
     def write(self, vals):
         res = super(HrPayslip, self).write(vals)
         # When moving to paid or done status, ensure entry is generated in draft status
-        if vals.get('state') == 'paid' or vals.get('paid'):
-            for slip in self:
-                if not slip.move_id:
-                    slip._create_account_move()
-        elif vals.get('state') == 'done':
-            for slip in self:
-                if not slip.move_id:
-                    slip._create_account_move()
+        if vals.get('state') in ('done', 'paid') or vals.get('paid'):
+            self.filtered(lambda slip: not slip.move_id)._create_account_move()
         return res
 
     @api.onchange('contract_id')
@@ -133,28 +149,24 @@ class HrPayslip(models.Model):
             self.journal_id = self.contract_id.journal_id
 
     def action_payslip_cancel(self):
-        """Cancel the payroll slip and remove or cancel associated accounting entries."""
-        for slip in self:
-            if slip.move_id:
-                move = slip.move_id
-                if move.state == 'posted':
-                    move.button_draft()
-                move.unlink()
+        """Cancel the payslip: its draft journal entry is deleted, a posted one is reversed."""
+        self._hds_release_account_move()
         return super(HrPayslip, self).action_payslip_cancel()
+
+    def unlink(self):
+        self._hds_release_account_move()
+        return super().unlink()
 
     def action_payslip_done(self):
         """Finalize the payslip and create draft journal entry."""
         res = super(HrPayslip, self).action_payslip_done()
-        for slip in self:
-            slip._create_account_move()
+        self._create_account_move()
         return res
 
     def action_payslip_paid(self):
         """Mark payslip as paid and generate draft journal entry."""
         res = super(HrPayslip, self).action_payslip_paid()
-        for slip in self:
-            if not slip.move_id:
-                slip._create_account_move()
+        self.filtered(lambda slip: not slip.move_id)._create_account_move()
         return res
 
     def action_post_account_move(self):
@@ -166,189 +178,213 @@ class HrPayslip(models.Model):
             self.move_id.action_post()
         return True
 
-    def _create_account_move(self):
-        """Creates a balanced journal entry (account.move) for the payslip."""
-        for slip in self:
-            if slip.move_id:
-                continue
+    # ------------------------------------------------------------------
+    # Journal entry of the payslip
+    # ------------------------------------------------------------------
+    def _hds_account_override(self, account):
+        """A salary rule's own account, when it belongs to the payslip's company."""
+        self.ensure_one()
+        return account if account and self.company_id in account.company_ids else False
 
-            if not slip.journal_id:
-                slip.journal_id = slip._default_journal_id()
+    def _hds_payroll_move_lines(self, accounts):
+        """(account, label, debit, credit, partner, analytic) of the payslip's journal entry:
+        Dr salary expense (gross) and employer contribution expense; Cr each employee deduction's
+        payable, each employer contribution's payable and the net salary payable (employee)."""
+        self.ensure_one()
+        currency = self.company_id.currency_id
+        lines = []
+        employee_partner = (self.employee_id.work_contact_id or self.employee_id.user_id.partner_id)
+        analytic = False
+        if self.contract_id and getattr(self.contract_id, 'analytic_account_id', False):
+            analytic = {str(self.contract_id.analytic_account_id.id): 100}
 
-            line_ids = []
-            debit_sum = 0.0
-            credit_sum = 0.0
-            date_entry = slip.date or slip.date_to or fields.Date.today()
-            currency = slip.company_id.currency_id or self.env.company.currency_id
-            company_id = slip.company_id.id or self.env.company.id
+        def amount(value):
+            return currency.round(abs(value or 0.0))
 
-            # Fallback default accounts if rule does not have explicit account configured
-            def get_company_account(code=None, account_types=None, name_keyword=None):
-                domain = [('company_ids', 'in', [company_id])]
-                if code:
-                    domain.append(('code', '=', code))
-                if account_types:
-                    domain.append(('account_type', 'in', account_types))
-                if name_keyword:
-                    domain.append(('name', 'ilike', name_keyword))
-                return self.env['account.account'].search(domain, limit=1)
+        def add(account, label, debit=0.0, credit=0.0, partner=False, analytic_distribution=False):
+            if account and not (currency.is_zero(debit) and currency.is_zero(credit)):
+                lines.append((account, label, debit, credit, partner, analytic_distribution))
 
-            def_expense_acc = (
-                get_company_account(code='210100')
-                or get_company_account(account_types=['expense'], name_keyword='salary')
-                or get_company_account(account_types=['expense'])
-            )
-            def_payable_acc = (
-                get_company_account(code='112410')
-                or get_company_account(code='300010')
-                or get_company_account(account_types=['liability_payable', 'liability_current'], name_keyword='wage')
-                or get_company_account(account_types=['liability_payable', 'liability_current'])
-            )
+        slip_lines = self.line_ids.filtered(lambda line: not currency.is_zero(line.total))
 
-            is_refund = bool(slip.credit_note)
+        # Gross salary (all earnings) -> salary expense
+        gross_lines = slip_lines.filtered(lambda line: (line.code or '').upper() == 'GROSS')
+        gross = amount(sum(gross_lines.mapped('total'))) if gross_lines else amount(self.gross_wage)
+        gross_rule = gross_lines[:1].salary_rule_id
+        add(self._hds_account_override(gross_rule.account_debit_id) or accounts['salary_expense'],
+            _('Gross Salary'), debit=gross, analytic_distribution=analytic)
 
-            for line in slip.line_ids:
-                if currency.is_zero(line.total):
-                    continue
+        # Employee deductions -> their payable (unpaid leave reduces the salary expense)
+        for line in slip_lines.filtered(lambda l: l.salary_rule_id.category_id.code == 'DED'):
+            code = (line.code or '').upper()
+            if code in CONTRA_EXPENSE_CODES:
+                account = accounts['salary_expense']
+            else:
+                key = next((k for codes, k in DEDUCTION_ACCOUNTS if code in codes), 'other_deductions')
+                account = self._hds_account_override(line.salary_rule_id.account_credit_id) or accounts[key]
+            add(account, line.name, credit=amount(line.total))
 
-                rule = line.salary_rule_id
-                cat_code = rule.category_id.code if rule.category_id else ''
+        # Employer statutory contributions -> employer expense / their payable
+        employer_total = 0.0
+        for field_names, key, label in EMPLOYER_CONTRIBUTIONS:
+            value = amount(sum(getattr(self, name, 0.0) or 0.0 for name in field_names if name in self._fields))
+            if not currency.is_zero(value):
+                employer_total += value
+                add(accounts[key], label, credit=value)
+        add(accounts['employer_expense'], _('Employer Statutory Contributions'),
+            debit=currency.round(employer_total), analytic_distribution=analytic)
 
-                # Subtotals and intermediate calculations should not generate accounting lines
-                if cat_code in ('GROSS', 'PF_CALC', 'ESIC_CALC') or rule.code in ('GROSS', 'PF_WAGE', 'ESIC_WAGE'):
-                    continue
+        # Net salary -> salary payable to the employee
+        net_lines = slip_lines.filtered(lambda line: (line.code or '').upper() == 'NET')
+        net = amount(sum(net_lines.mapped('total'))) if net_lines else amount(self.net_wage)
+        net_rule = net_lines[:1].salary_rule_id
+        add(self._hds_account_override(net_rule.account_credit_id) or accounts['net_payable'],
+            _('Net Salary'), credit=net, partner=employee_partner.id if employee_partner else False)
 
-                abs_amt = currency.round(abs(line.total))
-                if currency.is_zero(abs_amt):
-                    continue
+        # Earnings outside the gross (e.g. reimbursements after it) or deductions outside DED keep
+        # the entry balanced on the salary expense / other deductions payable
+        difference = currency.round(sum(l[3] for l in lines) - sum(l[2] for l in lines))
+        if difference > 0:
+            add(accounts['salary_expense'], _('Other Earnings'), debit=difference, analytic_distribution=analytic)
+        elif difference < 0:
+            add(accounts['other_deductions'], _('Other Deductions'), credit=-difference)
+        return lines
 
-                debit_account_id = rule.account_debit_id.id
-                credit_account_id = rule.account_credit_id.id
-
-                # Intelligent fallback if not explicitly configured on rule
-                if not debit_account_id and not credit_account_id:
-                    if cat_code in ('BASIC', 'ALW') or (rule.code in ('BASIC', 'HRA', 'DA', 'FIXED', 'OT', 'BONUS')):
-                        debit_account_id = def_expense_acc.id if def_expense_acc else False
-                    elif cat_code == 'NET' or rule.code == 'NET':
-                        credit_account_id = def_payable_acc.id if def_payable_acc else False
-                    elif cat_code == 'DED':
-                        ded_acc = (
-                            get_company_account(name_keyword=rule.name)
-                            or get_company_account(name_keyword=rule.code)
-                            or def_payable_acc
-                        )
-                        credit_account_id = ded_acc.id if ded_acc else False
-
-                # Analytic Distribution: rule analytic_distribution takes precedence, then rule analytic_account_id, then contract
-                analytic_distribution = False
-                if getattr(rule, 'analytic_distribution', False):
-                    analytic_distribution = rule.analytic_distribution
-                elif rule.analytic_account_id:
-                    analytic_distribution = {str(rule.analytic_account_id.id): 100}
-                elif slip.contract_id.analytic_account_id:
-                    analytic_distribution = {str(slip.contract_id.analytic_account_id.id): 100}
-
-                line_name = f"{slip.employee_id.name} - {line.name}" if (rule.split_names or rule.set_employee_on_account_line) else line.name
-
-                if debit_account_id:
-                    debit_amt = 0.0 if is_refund else abs_amt
-                    credit_amt = abs_amt if is_refund else 0.0
-                    partner_id = line._get_partner_id(credit_account=False)
-                    debit_vals = {
-                        'name': line_name,
-                        'partner_id': partner_id,
-                        'account_id': debit_account_id,
-                        'journal_id': slip.journal_id.id,
-                        'date': date_entry,
-                        'debit': debit_amt,
-                        'credit': credit_amt,
-                    }
-                    if analytic_distribution:
-                        debit_vals['analytic_distribution'] = analytic_distribution
-                    if getattr(rule, 'debit_tax_grid_ids', False):
-                        debit_vals['tax_tag_ids'] = [(6, 0, rule.debit_tax_grid_ids.ids)]
-                    if rule.account_tax_id:
-                        debit_vals['tax_ids'] = [(6, 0, [rule.account_tax_id.id])]
-                    line_ids.append((0, 0, debit_vals))
-                    debit_sum += debit_amt
-                    credit_sum += credit_amt
-
-                if credit_account_id:
-                    debit_amt = abs_amt if is_refund else 0.0
-                    credit_amt = 0.0 if is_refund else abs_amt
-                    partner_id = line._get_partner_id(credit_account=True)
-                    credit_vals = {
-                        'name': line_name,
-                        'partner_id': partner_id,
-                        'account_id': credit_account_id,
-                        'journal_id': slip.journal_id.id,
-                        'date': date_entry,
-                        'debit': debit_amt,
-                        'credit': credit_amt,
-                    }
-                    if analytic_distribution:
-                        credit_vals['analytic_distribution'] = analytic_distribution
-                    if getattr(rule, 'credit_tax_grid_ids', False):
-                        credit_vals['tax_tag_ids'] = [(6, 0, rule.credit_tax_grid_ids.ids)]
-                    if rule.account_tax_id:
-                        credit_vals['tax_ids'] = [(6, 0, [rule.account_tax_id.id])]
-                    line_ids.append((0, 0, credit_vals))
-                    debit_sum += debit_amt
-                    credit_sum += credit_amt
-
-            if not line_ids:
-                continue
-
-            # Auto-balance rounding adjustments if debit and credit sum differ
-            if currency.compare_amounts(credit_sum, debit_sum) == -1:
-                acc_id = slip.journal_id.default_account_id.id
-                if not acc_id:
-                    fallback_acc = self.env['account.account'].search([
-                        ('company_ids', 'in', [company_id]),
-                        ('account_type', 'in', ('expense', 'liability_current', 'equity_unaffected'))
-                    ], limit=1)
-                    acc_id = fallback_acc.id if fallback_acc else False
-                if acc_id:
-                    adjust_credit = (0, 0, {
-                        'name': _('Adjustment Entry'),
-                        'partner_id': False,
-                        'account_id': acc_id,
-                        'journal_id': slip.journal_id.id,
-                        'date': date_entry,
-                        'debit': 0.0,
-                        'credit': currency.round(debit_sum - credit_sum),
-                    })
-                    line_ids.append(adjust_credit)
-            elif currency.compare_amounts(debit_sum, credit_sum) == -1:
-                acc_id = slip.journal_id.default_account_id.id
-                if not acc_id:
-                    fallback_acc = self.env['account.account'].search([
-                        ('company_ids', 'in', [company_id]),
-                        ('account_type', 'in', ('expense', 'liability_current', 'equity_unaffected'))
-                    ], limit=1)
-                    acc_id = fallback_acc.id if fallback_acc else False
-                if acc_id:
-                    adjust_debit = (0, 0, {
-                        'name': _('Adjustment Entry'),
-                        'partner_id': False,
-                        'account_id': acc_id,
-                        'journal_id': slip.journal_id.id,
-                        'date': date_entry,
-                        'debit': currency.round(credit_sum - debit_sum),
-                        'credit': 0.0,
-                    })
-                    line_ids.append(adjust_debit)
-
-            move_dict = {
-                'narration': _('Payslip of %s (%s - %s)') % (slip.employee_id.name, slip.date_from, slip.date_to),
-                'ref': slip.number or slip.name,
-                'journal_id': slip.journal_id.id,
-                'date': date_entry,
-                'line_ids': line_ids,
+    def _hds_move_line_values(self, accounts, label_employee=False):
+        """Journal items (create commands) of the payslip, linked to it."""
+        self.ensure_one()
+        refund = bool(self.credit_note)
+        commands = []
+        for account, label, debit, credit, partner, analytic in self._hds_payroll_move_lines(accounts):
+            vals = {
+                'name': f'{self.employee_id.name} - {label}' if label_employee else label,
+                'account_id': account.id,
+                'partner_id': partner,
+                'debit': credit if refund else debit,
+                'credit': debit if refund else credit,
+                'hds_payslip_id': self.id,
             }
-            move = self.env['account.move'].create(move_dict)
-            slip.write({'move_id': move.id, 'date': date_entry})
+            if analytic:
+                vals['analytic_distribution'] = analytic
+            commands.append((0, 0, vals))
+        return commands
+
+    def _hds_uses_batch_entry(self):
+        """Payslip of a pay run whose company makes one consolidated entry per pay run."""
+        self.ensure_one()
+        return bool(self.payslip_run_id) and bool(getattr(self.company_id, 'payrun_accounting', False))
+
+    def _create_account_move(self):
+        """Create the draft journal entry of validated / paid payslips, in the company's Salary
+        Journal, with the company's payroll accounts (Payroll Settings): one entry per payslip, or
+        one entry per pay run when Batch Accounting Entries is enabled."""
+        slips = self.filtered(lambda slip: not slip.move_id and slip.state in ('done', 'paid'))
+        ready = self.browse()
+        for slip in slips:
+            company = slip.company_id or self.env.company
+            if company._hds_has_chart_of_accounts():
+                ready |= slip
+            else:
+                slip.message_post(body=_(
+                    "No journal entry was created: %s has no chart of accounts. Set it up in "
+                    "Settings > Invoicing > Fiscal Localization.", company.name))
+        batch = ready.filtered(lambda slip: slip._hds_uses_batch_entry())
+        for slip in ready - batch:
+            company = slip.company_id or self.env.company
+            accounts = company._hds_get_payroll_accounts()
+            journal = slip._hds_salary_journal()
+            date_entry = slip.date or slip.date_to or fields.Date.context_today(slip)
+            line_vals = slip._hds_move_line_values(accounts)
+            if not line_vals:
+                continue
+            # Created as superuser: payroll users validate payslips without accounting rights
+            move = self.env['account.move'].sudo().with_company(company).create({
+                'move_type': 'entry',
+                'journal_id': journal.id,
+                'date': date_entry,
+                'ref': slip.number or slip.name,
+                'narration': _('Payslip of %(employee)s (%(start)s - %(end)s)', employee=slip.employee_id.name,
+                               start=slip.date_from, end=slip.date_to),
+                'line_ids': line_vals,
+            })
+            slip.write({'move_id': move.id, 'date': date_entry, 'journal_id': journal.id})
+        for run in batch.payslip_run_id:
+            run_slips = batch.filtered(lambda slip: slip.payslip_run_id == run)
+            company = run_slips[0].company_id or self.env.company
+            accounts = company._hds_get_payroll_accounts()
+            journal = run_slips[0]._hds_salary_journal()
+            date_entry = run_slips[0].date or run.date_end or run_slips[0].date_to or fields.Date.context_today(run)
+            line_vals = []
+            for slip in run_slips:
+                line_vals += slip._hds_move_line_values(accounts, label_employee=True)
+            if not line_vals:
+                continue
+            # The pay run's draft entry receives the newly validated payslips
+            move = (run.slip_ids - run_slips).move_id.filtered(
+                lambda m: m.state == 'draft' and m.journal_id == journal and m.date == date_entry)[:1].sudo()
+            if move:
+                move.write({'line_ids': line_vals})
+            else:
+                move = self.env['account.move'].sudo().with_company(company).create({
+                    'move_type': 'entry',
+                    'journal_id': journal.id,
+                    'date': date_entry,
+                    'ref': run.name,
+                    'narration': _('Pay run %(run)s (%(start)s - %(end)s)', run=run.name,
+                                   start=run.date_start, end=run.date_end),
+                    'line_ids': line_vals,
+                })
+            run_slips.write({'move_id': move.id, 'date': date_entry, 'journal_id': journal.id})
         return True
+
+    def _hds_salary_journal(self):
+        self.ensure_one()
+        company = self.company_id or self.env.company
+        return self.journal_id if self.journal_id.company_id == company else \
+            self.with_company(company)._default_journal_id()
+
+    def _hds_release_account_move(self):
+        """Cancelled / deleted payslip: its draft journal entry is deleted and a posted one is
+        reversed. In a pay run's consolidated entry, only the payslip's own journal items are removed
+        (draft) or reversed (posted)."""
+        for slip in self.filtered('move_id'):
+            move = slip.move_id.sudo()
+            own_lines = move.line_ids.filtered(lambda line: line.hds_payslip_id == slip)
+            shared = bool(own_lines) and bool(move.line_ids - own_lines)
+            if not shared:
+                if move.state == 'posted':
+                    reversal = move._reverse_moves([{
+                        'date': fields.Date.context_today(slip),
+                        'ref': _('Reversal of %(entry)s (payslip %(slip)s cancelled)', entry=move.name,
+                                 slip=slip.number or slip.name),
+                    }], cancel=True)
+                    slip.message_post(body=_("Journal entry %(entry)s reversed by %(reversal)s.",
+                                             entry=move.name, reversal=reversal.name))
+                elif move.state == 'draft':
+                    move.unlink()
+            elif move.state == 'draft':
+                own_lines.with_context(dynamic_unlink=True).unlink()
+            elif move.state == 'posted':
+                reversal = self.env['account.move'].sudo().with_company(move.company_id).create({
+                    'move_type': 'entry',
+                    'journal_id': move.journal_id.id,
+                    'date': fields.Date.context_today(slip),
+                    'ref': _('Reversal of %(slip)s in %(entry)s (payslip cancelled)', slip=slip.number or slip.name,
+                             entry=move.name),
+                    'line_ids': [(0, 0, {
+                        'name': line.name,
+                        'account_id': line.account_id.id,
+                        'partner_id': line.partner_id.id,
+                        'debit': line.credit,
+                        'credit': line.debit,
+                        'analytic_distribution': line.analytic_distribution,
+                        'hds_payslip_id': slip.id,
+                    }) for line in own_lines],
+                })
+                reversal.action_post()
+                slip.message_post(body=_("Payslip amounts of journal entry %(entry)s reversed by %(reversal)s.",
+                                         entry=move.name, reversal=reversal.name))
+            slip.move_id = False
 
     def action_open_account_move(self):
         """Opens the related Accounting Entry for this payslip."""

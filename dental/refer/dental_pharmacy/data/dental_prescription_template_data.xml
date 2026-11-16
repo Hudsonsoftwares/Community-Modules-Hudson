@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="0">
+        <!-- 1. Post-Extraction Standard Regimen -->
+        <record id="template_post_extraction" model="dental.prescription.template">
+            <field name="name">Post-Extraction Standard Regimen</field>
+            <field name="code">POST-EXT-01</field>
+            <field name="indication">Post-Extraction Prophylaxis &amp; Pain Management</field>
+            <field name="notes">Patient Advice: Do not spit vigorously or rinse for the first 24 hours. Apply cold pack to cheek if swollen. Soft diet only. Start warm salt water rinses after 24 hours.</field>
+            <field name="line_ids" eval="[
+                (0, 0, {
+                    'medicine_id': ref('dental_pharmacy.product_med_augmentin_625'),
+                    'dose': '1 tablet',
+                    'route': 'oral',
+                    'frequency': 'bid',
+                    'duration': 5,
+                    'quantity': 10.0,
+                    'instructions': 'After meals twice daily',
+                }),
+                (0, 0, {
+                    'medicine_id': ref('dental_pharmacy.product_med_combiflam'),
+                    'dose': '1 tablet',
+                    'route': 'oral',
+                    'frequency': 'tid',
+                    'duration': 3,
+                    'quantity': 9.0,
+                    'instructions': 'After meals for pain relief',
+                }),
+                (0, 0, {
+                    'medicine_id': ref('dental_pharmacy.product_med_chlohex_mouthwash'),
+                    'dose': '15 ml',
+                    'route': 'topical',
+                    'frequency': 'bid',
+                    'duration': 7,
+                    'quantity': 1.0,
+                    'instructions': 'Rinse mouth gently for 1 min after 24 hours',
+                }),
+            ]"/>
+        </record>
+
+        <!-- 2. Acute Odontogenic Abscess / Infection Protocol -->
+        <record id="template_acute_infection" model="dental.prescription.template">
+            <field name="name">Acute Odontogenic Abscess / Infection Protocol</field>
+            <field name="code">ABSCESS-01</field>
+            <field name="indication">Acute Dental Abscess &amp; Space Infection</field>
+            <field name="notes">Clinical Advice: Complete full course of antibiotics even if symptoms resolve earlier. Take with meals to avoid gastrointestinal discomfort.</field>
+            <field name="line_ids" eval="[
+                (0, 0, {
+                    'medicine_id': ref('dental_pharmacy.product_med_augmentin_625'),
+                    'dose': '1 tablet',
+                    'route': 'oral',
+                    'frequency': 'bid',
+                    'duration': 5,
+                    'quantity': 10.0,
+                    'instructions': 'After meals',
+                }),
+                (0, 0, {
+                    'medicine_id': ref('dental_pharmacy.product_med_metrogyl_400'),
+                    'dose': '1 tablet',
+                    'route': 'oral',
+                    'frequency': 'tid',
+                    'duration': 5,
+                    'quantity': 15.0,
+                    'instructions': 'After meals with water',
+                }),
+                (0, 0, {
+                    'medicine_id': ref('dental_pharmacy.product_med_combiflam'),
+                    'dose': '1 tablet',
+                    'route': 'oral',
+                    'frequency': 'tid',
+                    'duration': 3,
+                    'quantity': 9.0,
+                    'instructions': 'After food for relief of pain and swelling',
+                }),
+            ]"/>
+        </record>
+
+        <!-- 3. Severe Dental Pain / Pulpitis Regimen -->
+        <record id="template_severe_pain" model="dental.prescription.template">
+            <field name="name">Acute Pulpitis / Severe Dental Pain Regimen</field>
+            <field name="code">PULP-PAIN</field>
+            <field name="indication">Acute Irreversible Pulpitis / Severe Pre-Op Pain</field>
+            <field name="notes">Advice: Dissolve dispersible tablet in 1 spoon of water. Do not exceed prescribed frequency. Visit clinic for definitive endodontic treatment.</field>
+            <field name="line_ids" eval="[
+                (0, 0, {
+                    'medicine_id': ref('dental_pharmacy.product_med_ketorol_dt'),
+                    'dose': '1 tablet',
+                    'route': 'oral',
+                    'frequency': 'prn',
+                    'duration': 2,
+                    'quantity': 6.0,
+                    'instructions': 'Dissolve in a spoonful of water, max 3 times daily as needed',
+                }),
+                (0, 0, {
+                    'medicine_id': ref('dental_pharmacy.product_med_combiflam'),
+                    'dose': '1 tablet',
+                    'route': 'oral',
+                    'frequency': 'bid',
+                    'duration': 3,
+                    'quantity': 6.0,
+                    'instructions': 'After meals',
+                }),
+            ]"/>
+        </record>
+
+        <!-- 4. Oral Ulcers / Aphthous Stomatitis Regimen -->
+        <record id="template_aphthous_ulcer" model="dental.prescription.template">
+            <field name="name">Aphthous Stomatitis / Oral Ulcer Protocol</field>
+            <field name="code">ULCER-01</field>
+            <field name="indication">Recurrent Aphthous Stomatitis &amp; Mucosal Ulceration</field>
+            <field name="notes">Advice: Dry the ulcer before applying paste. Do not eat or drink for 30 minutes after application. Avoid spicy and acidic foods.</field>
+            <field name="line_ids" eval="[
+                (0, 0, {
+                    'medicine_id': ref('dental_pharmacy.product_med_kenacort_paste'),
+                    'dose': 'Apply thin dab',
+                    'route': 'topical',
+                    'frequency': 'tid',
+                    'duration': 5,
+                    'quantity': 1.0,
+                    'instructions': 'Apply small dab over ulcer before bed and after meals without rubbing',
+                }),
+                (0, 0, {
+                    'medicine_id': ref('dental_pharmacy.product_med_chlohex_mouthwash'),
+                    'dose': '15 ml',
+                    'route': 'topical',
+                    'frequency': 'bid',
+                    'duration': 7,
+                    'quantity': 1.0,
+                    'instructions': 'Rinse mouth gently twice daily after meals',
+                }),
+            ]"/>
+        </record>
+    </data>
+</odoo>

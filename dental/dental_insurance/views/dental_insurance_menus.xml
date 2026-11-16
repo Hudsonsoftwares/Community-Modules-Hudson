@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Dental Clinic > Configuration > Insurance -->
+    <menuitem id="menu_dental_insurance_config" name="Insurance"
+              parent="dental_base.menu_dental_configuration" sequence="60"
+              groups="insurance_base.group_insurance_manager"/>
+    <menuitem id="menu_dental_insurance_insurer" name="Insurance Companies"
+              parent="menu_dental_insurance_config"
+              action="insurance_base.action_insurance_insurer" sequence="10"/>
+    <menuitem id="menu_dental_insurance_tpa" name="TPAs"
+              parent="menu_dental_insurance_config"
+              action="insurance_base.action_insurance_tpa" sequence="20"/>
+    <menuitem id="menu_dental_insurance_plan" name="Insurance Plans"
+              parent="menu_dental_insurance_config"
+              action="insurance_base.action_insurance_plan" sequence="30"/>
+    <menuitem id="menu_dental_insurance_policy" name="Patient Policies"
+              parent="menu_dental_insurance_config"
+              action="insurance_base.action_insurance_policy" sequence="40"/>
+    <menuitem id="menu_dental_insurance_eligibility" name="Eligibility Checks"
+              parent="menu_dental_insurance_config"
+              action="insurance_base.action_insurance_eligibility" sequence="50"/>
+</odoo>

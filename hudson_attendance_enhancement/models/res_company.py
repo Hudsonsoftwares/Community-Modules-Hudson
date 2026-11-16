@@ -5,6 +5,7 @@ class ResCompany(models.Model):
 
     attendance_radius_punching = fields.Boolean(string="Enable Radius Punching", default=False)
     attendance_location_ids = fields.One2many('hr.attendance.location', 'company_id', string="Allowed Locations")
+    attendance_capture_check_out = fields.Boolean(string="Take Pictures on Check-Out", default=False)
 
     # Work From Home (WFH) Configuration
     enable_work_from_home = fields.Boolean(string="Enable Work From Home", default=False)

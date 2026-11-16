@@ -72,37 +72,39 @@ class AccountAssetCategory(models.Model):
     _name = 'account.asset.category'
     _description = 'Asset category'
     _inherit = ['mail.thread', 'mail.activity.mixin', 'analytic.mixin']
+    _check_company_auto = True
 
     exclude_types = ['asset_receivable', 'asset_cash', 'liability_payable',
                      'liability_credit_card', 'equity', 'equity_unaffected']
 
     active = fields.Boolean(default=True, tracking=True)
     name = fields.Char(required=True, index=True, string="Name", tracking=True)
-    account_analytic_id = fields.Many2one('account.analytic.account', string='Analytic Account', tracking=True)
+    account_analytic_id = fields.Many2one(
+        'account.analytic.account', string='Analytic Account', check_company=True, tracking=True)
     account_asset_id = fields.Many2one(
         'account.account', string='Asset Account',
-        required=True,
+        required=True, check_company=True,
         domain=[('account_type', 'not in', exclude_types)],
         help="Account used to record the purchase of the asset at its original price.",
         tracking=True
     )
     account_depreciation_id = fields.Many2one(
         'account.account', string='Depreciation Entries: Asset Account',
-        required=True,
+        required=True, check_company=True,
         domain=[('account_type', 'not in', exclude_types)],
         help="Account used in the depreciation entries, to decrease the asset value.",
         tracking=True
     )
     account_depreciation_expense_id = fields.Many2one(
         'account.account', string='Depreciation Entries: Expense Account',
-        required=True,
+        required=True, check_company=True,
         domain=[('account_type', 'not in', exclude_types)],
         help="Account used in the periodical entries "
              "to record a part of the asset as expense.",
         tracking=True
     )
     journal_id = fields.Many2one(
-        'account.journal', string='Journal', required=True,
+        'account.journal', string='Journal', required=True, check_company=True,
         tracking=True
     )
     company_id = fields.Many2one(
@@ -168,7 +170,7 @@ class AccountAssetCategory(models.Model):
     )
     date_first_depreciation = fields.Selection([
         ('last_day_period', 'Based on Last Day of Purchase Period'),
-        ('manual', 'Manual (Defaulted on Purchase Date)')],
+        ('manual', 'Manual (Defaulted on End of Purchase Period)')],
         string='Depreciation Dates', default='manual', required=True,
         help='The way to compute the date of the first depreciation.\n'
              '  * Based on last day of purchase period: The depreciation dates will'
@@ -250,6 +252,7 @@ class AccountAssetAsset(models.Model):
     _name = 'account.asset.asset'
     _description = 'Asset/Revenue Recognition'
     _inherit = ['mail.thread', 'mail.activity.mixin', 'analytic.mixin']
+    _check_company_auto = True
 
     entry_count = fields.Integer(compute='_entry_count', string='# Asset Entries')
     name = fields.Char(string='Asset Name', required=True, tracking=True)
@@ -265,7 +268,7 @@ class AccountAssetAsset(models.Model):
     note = fields.Text()
     category_id = fields.Many2one(
         'account.asset.category', string='Category',
-        required=True, change_default=True,
+        required=True, change_default=True, check_company=True,
         tracking=True
     )
     date = fields.Date(string='Date', required=True, default=fields.Date.context_today, tracking=True)
@@ -341,9 +344,10 @@ class AccountAssetAsset(models.Model):
              "software. The board is computed from the asset date and this amount is deducted from "
              "the first depreciations, so no journal entry is created for it."
     )
-    invoice_id = fields.Many2one('account.move', string='Invoice', copy=False)
+    invoice_id = fields.Many2one('account.move', string='Invoice', copy=False, check_company=True)
     type = fields.Selection(related="category_id.type", string='Type', required=True)
-    account_analytic_id = fields.Many2one('account.analytic.account', string='Analytic Account', tracking=True)
+    account_analytic_id = fields.Many2one(
+        'account.analytic.account', string='Analytic Account', check_company=True, tracking=True)
     date_first_depreciation = fields.Selection([
         ('last_day_period', 'Based on Last Day of Purchase Period'),
         ('manual', 'Manual')],
@@ -375,6 +379,7 @@ class AccountAssetAsset(models.Model):
     )
     parent_id = fields.Many2one(
         'account.asset.asset', string='Parent Asset', index='btree_not_null', copy=False, readonly=True,
+        check_company=True,
         help="Set on value increases: the asset whose value was increased by a re-evaluation."
     )
     children_ids = fields.One2many('account.asset.asset', 'parent_id', string='Value Increases')
@@ -405,20 +410,30 @@ class AccountAssetAsset(models.Model):
     # BOARD COMPUTATION
     # -------------------------------------------------------------------------
 
+    def _get_default_first_depreciation_date(self):
+        """ End of the period of the purchase date, like Odoo dates its depreciations: the last day of
+        the purchase month, or of the fiscal year for yearly depreciations. With prorata temporis the
+        first entry covers the purchase date to that day, else the whole period. """
+        self.ensure_one()
+        if not self.date:
+            return False
+        first_date = self.date + relativedelta(day=31)
+        if self.method_period == 12:
+            first_date = first_date + relativedelta(month=int(self.company_id.fiscalyear_last_month),
+                                                    day=int(self.company_id.fiscalyear_last_day))
+            if first_date < self.date:
+                first_date = first_date + relativedelta(years=1)
+        return first_date
+
     def _get_first_period_end(self):
         """ Date of the first depreciation of the asset. """
         self.ensure_one()
-        first_date = self.date
-        if self.date_first_depreciation == 'last_day_period':
-            first_date = first_date + relativedelta(day=31)
-            if self.method_period == 12:
-                first_date = first_date + relativedelta(month=int(self.company_id.fiscalyear_last_month),
-                                                        day=int(self.company_id.fiscalyear_last_day))
-                if first_date < self.date:
-                    first_date = first_date + relativedelta(years=1)
-        elif self.first_depreciation_manual_date:
-            first_date = self.first_depreciation_manual_date
-        return first_date
+        if self.date_first_depreciation == 'manual' and self.first_depreciation_manual_date:
+            return self.first_depreciation_manual_date
+        # an unset manual date must not default to the purchase date: the first period would end
+        # on the day of the purchase (a one-day entry with prorata temporis, a period depreciated
+        # before the purchase without it)
+        return self._get_default_first_depreciation_date()
 
     def _get_period_end(self, first_end, periods):
         """ Date of the depreciation `periods` periods after `first_end`. """
@@ -490,10 +505,12 @@ class AccountAssetAsset(models.Model):
             cursor = max(cursor, self.depreciation_restart_date - timedelta(days=1))
         return cursor
 
-    def _compute_board_values(self, residual_amount, cursor, imported_amount):
+    def _compute_board_values(self, residual_amount, cursor, imported_amount, declining_base=None):
         """ Depreciations of `residual_amount` from the day after `cursor` to the end of the life.
 
         :param imported_amount: depreciation booked before the import, deducted from the first depreciations
+        :param declining_base: degressive methods, value left to depreciate at the start of the fiscal
+                               year of the day after `cursor` (`residual_amount` when not given)
         :return: list of ``(period_start, period_end, amount)``
         """
         self.ensure_one()
@@ -501,13 +518,24 @@ class AccountAssetAsset(models.Model):
         start = self._get_lifetime_start()
         remaining_months = self._get_lifetime_months() - _month_fraction(start, cursor)
         depreciable_value = self.value - self.salvage_value
+        # The degressive factor is a yearly rate. Like in Odoo, it applies to the value left at the
+        # start of the fiscal year, spread over the months of the year: a monthly asset of 12,000
+        # with a factor of 30% depreciates 300 a month during its first year.
+        if declining_base is None:
+            declining_base = residual_amount
+        company = self.company_id
+        fiscal_year_end = company.compute_fiscalyear_dates(cursor + timedelta(days=1))['date_to']
         values = []
         for _dummy in range(5000):
             if currency.is_zero(residual_amount):
                 break
+            if cursor >= fiscal_year_end:
+                declining_base = residual_amount
+                fiscal_year_end = company.compute_fiscalyear_dates(cursor + timedelta(days=1))['date_to']
             period_end = self._get_period_end_after(cursor)
             months = _month_fraction(cursor, period_end)
             is_last = remaining_months <= months + 1e-6
+            degressive_amount = declining_base * self.method_progress_factor * months / 12.0
             if self.method_time == 'rate':
                 amount = depreciable_value * self.method_rate / 100.0 * months / 12.0
             elif is_last:
@@ -515,10 +543,10 @@ class AccountAssetAsset(models.Model):
             elif self.method == 'linear':
                 amount = residual_amount * months / remaining_months
             elif self.method == 'degressive':
-                amount = residual_amount * self.method_progress_factor * months / self.method_period
+                amount = degressive_amount
             else:
-                amount = max(residual_amount * self.method_progress_factor * months / self.method_period,
-                             residual_amount * months / remaining_months)
+                # switch to linear once spreading the residual value over the remaining life gives more
+                amount = max(degressive_amount, residual_amount * months / remaining_months)
             if is_last or abs(amount) > abs(residual_amount):
                 amount = residual_amount
             amount = currency.round(amount)
@@ -557,7 +585,13 @@ class AccountAssetAsset(models.Model):
         residual_amount = (self.value - self.salvage_value - self.opening_depreciation
                            - sum(kept_moves.mapped('asset_depreciation_amount')) + imported_amount)
         cursor = self._get_board_cursor(kept_moves)
-        board_values = self._compute_board_values(residual_amount, cursor, imported_amount)
+        # the degressive depreciation of the running fiscal year is based on the value left at its start
+        fiscal_year_start = self.company_id.compute_fiscalyear_dates(cursor + timedelta(days=1))['date_from']
+        declining_base = residual_amount + sum(kept_moves.filtered(
+            lambda m: m.asset_entry_type == 'depreciation' and not m.reversed_entry_id
+            and not m.reversal_move_ids and fiscal_year_start <= m.date <= cursor
+        ).mapped('asset_depreciation_amount'))
+        board_values = self._compute_board_values(residual_amount, cursor, imported_amount, declining_base)
         moves = self.env['account.move'].create([
             self._prepare_depreciation_move_vals(amount, period_start, period_end)
             for period_start, period_end, amount in board_values
@@ -818,6 +852,9 @@ class AccountAssetAsset(models.Model):
         disposal_date = disposal_date or fields.Date.context_today(self)
         if self.state not in ('open', 'paused'):
             raise UserError(_('Only running or paused assets can be sold or disposed of.'))
+        if disposal_date > fields.Date.context_today(self):
+            # the depreciation up to that day is not booked yet: the disposal entry could not cancel it
+            raise UserError(_('A sale or disposal cannot be recorded in the future: record it on its day.'))
         assets = self._with_running_increases(('open', 'paused'))
         if sale_lines and assets != self:
             raise UserError(_('"%s" has running value increases: dispose of them before selling it.', self.name))
@@ -964,7 +1001,7 @@ class AccountAssetAsset(models.Model):
                 to_company_currency(opening, self.date) + to_company_currency(depreciation, disposal_date))
 
     def _dispose(self, disposal_date, sale_lines, note=None):
-        """ Depreciate up to `disposal_date` and create the draft entry removing the asset from the books. """
+        """ Depreciate up to `disposal_date` and post the entry removing the asset from the books. """
         self.ensure_one()
         if disposal_date < self.date - timedelta(days=1):
             raise UserError(_('"%s" cannot be disposed of before its acquisition.', self.name))
@@ -994,6 +1031,8 @@ class AccountAssetAsset(models.Model):
                     for account, balance in balances
                 ],
             })
+            # the asset is closed: its disposal must be in the books too
+            disposal_move._post(soft=False)
         self.write({
             'state': 'close',
             'pause_date': False,
@@ -1061,8 +1100,8 @@ class AccountAssetAsset(models.Model):
     @api.onchange('date_first_depreciation')
     def onchange_date_first_depreciation(self):
         for record in self:
-            if record.date_first_depreciation == 'manual':
-                record.first_depreciation_manual_date = record.date
+            if record.date_first_depreciation == 'manual' and record.date:
+                record.first_depreciation_manual_date = record._get_default_first_depreciation_date()
 
     @api.depends('depreciation_move_ids.state', 'disposal_move_id', 'increase_move_id')
     def _entry_count(self):

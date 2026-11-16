@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_partner_form_dental_insurance" model="ir.ui.view">
+        <field name="name">res.partner.form.dental.insurance</field>
+        <field name="model">res.partner</field>
+        <field name="inherit_id" ref="dental_patient.view_partner_form_dental"/>
+        <field name="arch" type="xml">
+            <xpath expr="//h2[field[@name='dental_patient_id']]" position="after">
+                <div invisible="not is_dental_patient or not has_valid_insurance"
+                     groups="insurance_base.group_insurance_user">
+                    <span class="badge rounded-pill text-bg-success">Insured</span>
+                </div>
+            </xpath>
+            <xpath expr="//page[@name='dental_info']" position="after">
+                <page string="Insurance" name="dental_insurance" invisible="not is_dental_patient"
+                      groups="insurance_base.group_insurance_user">
+                    <field name="insurance_policy_ids"
+                           context="{'default_partner_id': id, 'default_holder_id': id}">
+                        <list decoration-muted="status in ('expired', 'inactive')">
+                            <field name="priority"/>
+                            <field name="insurer_id"/>
+                            <field name="plan_id"/>
+                            <field name="member_id"/>
+                            <field name="date_start"/>
+                            <field name="date_end"/>
+                            <field name="status" widget="badge" decoration-success="status == 'valid'"
+                                   decoration-warning="status == 'not_started'" decoration-danger="status == 'expired'"/>
+                            <field name="last_verified_date" optional="hide"/>
+                            <button name="action_check_eligibility" type="object" string="Check"
+                                    icon="check_circle" class="btn-link"/>
+                        </list>
+                    </field>
+                </page>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_partner_tree_dental_insurance" model="ir.ui.view">
+        <field name="name">res.partner.list.dental.insurance</field>
+        <field name="model">res.partner</field>
+        <field name="inherit_id" ref="dental_patient.view_partner_tree_dental"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='name']" position="after">
+                <field name="has_valid_insurance" optional="hide" groups="insurance_base.group_insurance_user"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>

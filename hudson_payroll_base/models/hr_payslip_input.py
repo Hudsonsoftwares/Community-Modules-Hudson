@@ -49,6 +49,14 @@ class HrPayslipInput(models.Model):
         readonly=True,
         index=True
     )
+    company_id = fields.Many2one(
+        'res.company',
+        string='Company',
+        related='payslip_id.company_id',
+        store=True,
+        readonly=True,
+        index=True
+    )
     sequence = fields.Integer(string='Sequence', default=10, required=True, index=True)
     input_type_id = fields.Many2one(
         'hr.payslip.input.type',

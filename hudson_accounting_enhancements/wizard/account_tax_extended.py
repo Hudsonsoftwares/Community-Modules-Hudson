@@ -40,6 +40,11 @@ class AccountTaxExtendedWizard(models.TransientModel):
         default=lambda self: self.env.company,
     )
 
+    def _report_company_ids(self):
+        """The companies the report covers: the ones selected in the company
+        switcher, which always include the wizard's company (checked above)."""
+        return (self.env.companies | self.company_id).ids
+
     def _get_journal_clause(self):
         """Restrict to the journals of the selected Multi Ledgers (passed in context)."""
         journal_ids = self.env.context.get('report_journal_ids')
@@ -54,7 +59,8 @@ class AccountTaxExtendedWizard(models.TransientModel):
         states = ('posted',) if self.target_move == 'posted' else ('draft', 'posted')
         MoveLine = self.env['account.move.line']
         domain = Domain([
-            ('company_id', '=', self.company_id.id),
+            # all the companies of the company switcher, as in Odoo
+            ('company_id', 'in', self._report_company_ids()),
             ('date', '>=', self.date_from),
             ('date', '<=', self.date_to),
             ('parent_state', 'in', states),

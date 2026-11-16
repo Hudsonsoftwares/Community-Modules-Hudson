@@ -53,6 +53,37 @@
             <field name="hds_in_include_in_pf_wage">False</field>
         </record>
 
+        <!-- Benefits -> Include in PF Wage = False -->
+        <record id="hr_rule_benefit_phone_india" model="hr.salary.rule">
+            <field name="hds_in_include_in_pf_wage">False</field>
+        </record>
+        <record id="hr_rule_benefit_internet_india" model="hr.salary.rule">
+            <field name="hds_in_include_in_pf_wage">False</field>
+        </record>
+        <record id="hr_rule_benefit_meal_india" model="hr.salary.rule">
+            <field name="hds_in_include_in_pf_wage">False</field>
+        </record>
+        <record id="hr_rule_benefit_transport_india" model="hr.salary.rule">
+            <field name="hds_in_include_in_pf_wage">False</field>
+        </record>
+
+        <!-- Enterprise In-Service Leave Encashment Rule (Earnings) -->
+        <record id="hds_in_rule_leave_encash" model="hr.salary.rule">
+            <field name="name">Leave Encashment</field>
+            <field name="sequence" eval="88"/>
+            <field name="code">LEAVE_ENCASH</field>
+            <field name="category_id" ref="hudson_payroll_base.rule_category_alw"/>
+            <field name="struct_id" ref="hudson_payroll_base.structure_base"/>
+            <field name="company_id" eval="False"/>
+            <field name="condition_select">python</field>
+            <field name="condition_python"><![CDATA[result = payslip_record.hds_in_has_approved_leave_encashment()]]></field>
+            <field name="amount_select">code</field>
+            <field name="amount_python_compute"><![CDATA[result = payslip_record.hds_in_compute_in_service_leave_encashment()]]></field>
+            <field name="appears_on_payslip" eval="True"/>
+            <field name="hds_in_include_in_pf_wage" eval="False"/>
+            <field name="active" eval="True"/>
+        </record>
+
         <!-- Enterprise Statutory PF Rules (Thin HrPayslip API Delegated) -->
         <record id="hds_in_rule_epf" model="hr.salary.rule">
             <field name="name">Employee Provident Fund (EPF)</field>
@@ -60,7 +91,9 @@
             <field name="code">EPF</field>
             <field name="category_id" ref="hudson_payroll_base.rule_category_ded"/>
             <field name="struct_id" ref="hudson_payroll_base.structure_base"/>
-            <field name="condition_select">none</field>
+            <field name="company_id" eval="False"/>
+            <field name="condition_select">python</field>
+            <field name="condition_python"><![CDATA[result = payslip_record.hds_in_is_epf_applicable()]]></field>
             <field name="amount_select">code</field>
             <field name="amount_python_compute"><![CDATA[result = payslip_record.hds_in_compute_employee_epf()]]></field>
             <field name="appears_on_payslip" eval="True"/>
@@ -73,7 +106,9 @@
             <field name="code">EMPLOYER_EPF</field>
             <field name="category_id" ref="hudson_payroll_base.rule_category_comp"/>
             <field name="struct_id" ref="hudson_payroll_base.structure_base"/>
-            <field name="condition_select">none</field>
+            <field name="company_id" eval="False"/>
+            <field name="condition_select">python</field>
+            <field name="condition_python"><![CDATA[result = payslip_record.hds_in_is_epf_applicable()]]></field>
             <field name="amount_select">code</field>
             <field name="amount_python_compute"><![CDATA[result = payslip_record.hds_in_compute_employer_epf()]]></field>
             <field name="appears_on_payslip" eval="False"/>
@@ -87,7 +122,9 @@
             <field name="code">EPS</field>
             <field name="category_id" ref="hudson_payroll_base.rule_category_comp"/>
             <field name="struct_id" ref="hudson_payroll_base.structure_base"/>
-            <field name="condition_select">none</field>
+            <field name="company_id" eval="False"/>
+            <field name="condition_select">python</field>
+            <field name="condition_python"><![CDATA[result = payslip_record.hds_in_is_epf_applicable()]]></field>
             <field name="amount_select">code</field>
             <field name="amount_python_compute"><![CDATA[result = payslip_record.hds_in_compute_employer_eps()]]></field>
             <field name="appears_on_payslip" eval="False"/>
@@ -100,7 +137,9 @@
             <field name="code">EPF_SHARE</field>
             <field name="category_id" ref="hudson_payroll_base.rule_category_comp"/>
             <field name="struct_id" ref="hudson_payroll_base.structure_base"/>
-            <field name="condition_select">none</field>
+            <field name="company_id" eval="False"/>
+            <field name="condition_select">python</field>
+            <field name="condition_python"><![CDATA[result = payslip_record.hds_in_is_epf_applicable()]]></field>
             <field name="amount_select">code</field>
             <field name="amount_python_compute"><![CDATA[result = payslip_record.hds_in_compute_employer_epf_share()]]></field>
             <field name="appears_on_payslip" eval="False"/>
@@ -113,7 +152,9 @@
             <field name="code">EDLI</field>
             <field name="category_id" ref="hudson_payroll_base.rule_category_comp"/>
             <field name="struct_id" ref="hudson_payroll_base.structure_base"/>
-            <field name="condition_select">none</field>
+            <field name="company_id" eval="False"/>
+            <field name="condition_select">python</field>
+            <field name="condition_python"><![CDATA[result = payslip_record.hds_in_is_epf_applicable()]]></field>
             <field name="amount_select">code</field>
             <field name="amount_python_compute"><![CDATA[result = payslip_record.hds_in_compute_employer_edli()]]></field>
             <field name="appears_on_payslip" eval="False"/>
@@ -127,7 +168,9 @@
             <field name="code">EPF_ADMIN</field>
             <field name="category_id" ref="hudson_payroll_base.rule_category_comp"/>
             <field name="struct_id" ref="hudson_payroll_base.structure_base"/>
-            <field name="condition_select">none</field>
+            <field name="company_id" eval="False"/>
+            <field name="condition_select">python</field>
+            <field name="condition_python"><![CDATA[result = payslip_record.hds_in_is_epf_applicable()]]></field>
             <field name="amount_select">code</field>
             <field name="amount_python_compute"><![CDATA[result = payslip_record.hds_in_compute_epf_admin()]]></field>
             <field name="appears_on_payslip" eval="False"/>
@@ -141,7 +184,9 @@
             <field name="code">EDLI_ADMIN</field>
             <field name="category_id" ref="hudson_payroll_base.rule_category_comp"/>
             <field name="struct_id" ref="hudson_payroll_base.structure_base"/>
-            <field name="condition_select">none</field>
+            <field name="company_id" eval="False"/>
+            <field name="condition_select">python</field>
+            <field name="condition_python"><![CDATA[result = payslip_record.hds_in_is_epf_applicable()]]></field>
             <field name="amount_select">code</field>
             <field name="amount_python_compute"><![CDATA[result = payslip_record.hds_in_compute_edli_admin()]]></field>
             <field name="appears_on_payslip" eval="False"/>
@@ -156,6 +201,7 @@
             <field name="code">HDS_IN_TDS</field>
             <field name="category_id" ref="hudson_payroll_base.rule_category_ded"/>
             <field name="struct_id" ref="hudson_payroll_base.structure_base"/>
+            <field name="company_id" eval="False"/>
             <field name="condition_select">none</field>
             <field name="amount_select">code</field>
             <field name="amount_python_compute"><![CDATA[

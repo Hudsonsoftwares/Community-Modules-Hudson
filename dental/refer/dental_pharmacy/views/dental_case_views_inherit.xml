@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_dental_case_form_inherit_pharmacy" model="ir.ui.view">
+        <field name="name">dental.case.form.inherit.pharmacy</field>
+        <field name="model">dental.case</field>
+        <field name="inherit_id" ref="dental_core.view_dental_case_form"/>
+        <field name="arch" type="xml">
+            <!-- No smart button: prescriptions have their own tab on the consultation (avoids a duplicate entry point) -->
+            <xpath expr="//page[@name='patient_history']/field[@name='history_session_ids']" position="after">
+                <separator string="Prescriptions (all cases)"/>
+                <field name="history_prescription_ids" readonly="1" nolabel="1">
+                    <list create="0" delete="0">
+                        <field name="prescription_date"/>
+                        <field name="name"/>
+                        <field name="case_id"/>
+                        <field name="diagnosis"/>
+                        <field name="dentist_id"/>
+                        <field name="state" widget="badge"/>
+                    </list>
+                </field>
+            </xpath>
+
+            <!-- PRESCRIPTIONS tab: this case's prescriptions, then every earlier prescription of the patient as its own card -->
+            <xpath expr="//page[@name='treatment_plans']" position="after">
+                <page string="Prescriptions" name="prescriptions">
+                    <field name="current_prescription_id" invisible="1"/>
+                    <field name="rx_branch_has_pharmacy" invisible="1"/>
+
+                    <!-- 1. Today's prescription: medicines are added inline, like sales order lines -->
+                    <div name="rx_editor" invisible="not id or state in ('completed', 'cancelled')"
+                         groups="dental_base.group_dental_dentist,dental_base.group_dental_manager">
+                        <div class="o_dental_section_title">
+                            <span>Prescribe (today's visit)</span>
+                            <small class="text-muted" invisible="not current_prescription_id">
+                                Draft <field name="current_prescription_id" readonly="1" class="d-inline" options="{'no_open': True}"/>
+                            </small>
+                        </div>
+                        <group>
+                            <group>
+                                <field name="rx_diagnosis" placeholder="e.g. Irreversible pulpitis 36, post-extraction 48"/>
+                            </group>
+                            <group>
+                                <field name="rx_template_id" options="{'no_create': True, 'no_open': True}"
+                                       placeholder="Pick a regimen to add its medicines"/>
+                            </group>
+                        </group>
+                        <field name="rx_line_ids" nolabel="1"
+                               context="{'dental_rx_patient_id': patient_id, 'dental_rx_company_id': company_id}">
+                            <list editable="bottom" decoration-danger="has_allergy_conflict">
+                                <field name="has_allergy_conflict" column_invisible="1"/>
+                                <field name="medicine_id" options="{'no_create': True}" placeholder="Search medicine..."/>
+                                <widget name="dental_rx_stock" width="20px"/>
+                                <field name="allergy_conflict_note" string="Allergy" widget="badge" decoration-danger="has_allergy_conflict"
+                                       invisible="not has_allergy_conflict" optional="hide"/>
+                                <field name="dose"/>
+                                <field name="route" optional="hide"/>
+                                <field name="frequency" width="190px"/>
+                                <field name="duration" string="Days"/>
+                                <field name="quantity" string="Qty"/>
+                                <field name="uom_id" string="Unit" optional="show"/>
+                                <field name="instructions" optional="show"/>
+                                <field name="generic_name" optional="hide"/>
+                                <field name="strength" optional="hide"/>
+                                <field name="dispensed_qty" column_invisible="1"/>
+                            </list>
+                        </field>
+                        <field name="rx_clinical_notes" nolabel="1" class="mt-2"
+                               placeholder="Advice to the patient: warm saline rinses, soft diet, no hot drinks for 24 hours..."/>
+                        <div class="d-flex flex-wrap gap-2 mt-2 mb-4">
+                            <button name="action_rx_finalize" type="object" string="Send to Pharmacy" icon="send"
+                                    class="btn btn-primary" invisible="not rx_branch_has_pharmacy or not current_prescription_id"/>
+                            <button name="action_rx_finalize" type="object" string="Issue &amp; Email to Patient" icon="send"
+                                    class="btn btn-primary" invisible="rx_branch_has_pharmacy or not current_prescription_id"/>
+                            <button name="action_rx_open_current" type="object" string="Preview" icon="visibility"
+                                    class="btn btn-secondary" invisible="not current_prescription_id"/>
+                            <span class="text-muted small align-self-center" invisible="current_prescription_id">
+                                Add medicines and save: the prescription is created automatically.
+                            </span>
+                            <span class="text-muted small align-self-center" invisible="not current_prescription_id">
+                                Completing the consultation also sends unsent prescriptions.
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- 2. Prescriptions of this case (sent, issued, dispensed) -->
+                    <div class="o_dental_section_title" name="current_prescriptions">
+                        <span>Prescriptions in this Case</span>
+                    </div>
+                    <field name="prescription_ids" nolabel="1" readonly="1">
+                        <list create="0" delete="0" default_order="prescription_date desc, id desc"
+                              decoration-muted="state == 'cancelled'">
+                            <field name="name"/>
+                            <field name="prescription_date"/>
+                            <field name="dentist_id"/>
+                            <field name="diagnosis" optional="show"/>
+                            <field name="medication_summary" string="Medicines"/>
+                            <field name="fulfillment" optional="show"/>
+                            <field name="state" widget="badge"
+                                   decoration-info="state in ('confirmed', 'issued')"
+                                   decoration-warning="state == 'partially_dispensed'"
+                                   decoration-success="state == 'fully_dispensed'"/>
+                            <button name="action_print_for_patient" type="object" title="Print" icon="print" class="btn-link"
+                                    invisible="state in ('draft', 'cancelled')"/>
+                            <button name="action_send_to_patient" type="object" title="Email to patient" icon="mail" class="btn-link"
+                                    invisible="state != 'issued'"/>
+                            <button name="action_open_prescription" type="object" title="Open" icon="open_in_new" class="btn-link"/>
+                        </list>
+                    </field>
+
+                    <div class="o_dental_section_title" name="previous_prescriptions">
+                        <span>Previous Prescriptions</span>
+                        <small class="text-muted">Earlier visits and other cases of this patient, newest first.</small>
+                    </div>
+                    <div class="text-muted fst-italic mb-3" invisible="previous_prescription_ids">
+                        No earlier prescriptions for this patient.
+                    </div>
+                    <field name="previous_prescription_ids" mode="kanban" readonly="1" nolabel="1"
+                           invisible="not previous_prescription_ids">
+                        <kanban create="0" delete="0">
+                            <field name="medicine_count"/>
+                            <templates>
+                                <t t-name="card" class="o_dental_rx_card">
+                                    <div class="d-flex align-items-center gap-2 mb-1">
+                                        <i class="oi oi-fw text-primary" data-icon="description" title="Prescription"/>
+                                        <field name="name" class="fw-bold"/>
+                                        <field name="state" widget="badge" class="ms-auto"
+                                               decoration-info="state in ('confirmed', 'issued')"
+                                               decoration-warning="state == 'partially_dispensed'"
+                                               decoration-success="state == 'fully_dispensed'"
+                                               decoration-muted="state == 'cancelled'"/>
+                                    </div>
+                                    <div class="small text-muted mb-2">
+                                        <field name="prescription_date"/> ·
+                                        <field name="dentist_id"/>
+                                        <span invisible="not case_id"> · Case <field name="case_id"/></span>
+                                    </div>
+                                    <div class="mb-1" invisible="not diagnosis">
+                                        <strong>Indication:</strong> <field name="diagnosis"/>
+                                    </div>
+                                    <div class="mb-1" invisible="not medicine_count">
+                                        <strong>Medicines</strong>
+                                        <div style="white-space: pre-line;"><field name="medication_summary"/></div>
+                                    </div>
+                                    <div class="small text-muted" invisible="not clinical_notes" style="white-space: pre-line;">
+                                        <strong>Advice:</strong> <field name="clinical_notes"/>
+                                    </div>
+                                    <footer class="pt-1">
+                                        <button name="action_open_prescription" type="object" class="btn btn-link btn-sm p-0 ms-auto">
+                                            Open
+                                        </button>
+                                    </footer>
+                                </t>
+                            </templates>
+                        </kanban>
+                    </field>
+                </page>
+            </xpath>
+        </field>
+    </record>
+</odoo>

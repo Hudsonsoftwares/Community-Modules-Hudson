@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="res_config_settings_view_form_teleconsult" model="ir.ui.view">
+        <field name="name">res.config.settings.view.form.dental.teleconsult</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="dental_base.res_config_settings_view_form_inherit_dental"/>
+        <field name="arch" type="xml">
+            <xpath expr="//block[@name='dental_appointment_settings']" position="after">
+                <block title="Online Video Consultations" name="dental_teleconsult_settings">
+                    <setting id="dental_teleconsult_enabled_setting" company_dependent="1"
+                             help="Hold appointments of this branch as secure video calls on Odoo Discuss">
+                        <field name="dental_teleconsult_enabled"/>
+                    </setting>
+                    <setting id="dental_teleconsult_prepayment_setting" company_dependent="1"
+                             invisible="not dental_teleconsult_enabled"
+                             help="The patient must pay the consultation fee online before entering the waiting room">
+                        <field name="dental_teleconsult_require_prepayment"/>
+                    </setting>
+                    <setting id="dental_teleconsult_window_setting" company_dependent="1"
+                             invisible="not dental_teleconsult_enabled" string="Joining Window"
+                             help="When the patient's join link is valid">
+                        <div class="d-flex align-items-center gap-2 mt-2">
+                            <span>Opens</span>
+                            <field name="dental_teleconsult_join_before" class="oe_inline" style="width: 4rem;"/>
+                            <span>min before start, closes</span>
+                            <field name="dental_teleconsult_join_after" class="oe_inline" style="width: 4rem;"/>
+                            <span>min after end</span>
+                        </div>
+                    </setting>
+                    <setting id="dental_teleconsult_reminder_setting" company_dependent="1"
+                             invisible="not dental_teleconsult_enabled" string="Patient Reminder"
+                             help="Email the join link again shortly before the start (0 = off)">
+                        <div class="d-flex align-items-center gap-2 mt-2">
+                            <field name="dental_teleconsult_reminder_minutes" class="oe_inline" style="width: 4rem;"/>
+                            <span>minutes before start</span>
+                        </div>
+                    </setting>
+                    <setting id="dental_teleconsult_identity_setting" company_dependent="1"
+                             invisible="not dental_teleconsult_enabled"
+                             help="Patients joining without logging in confirm their date of birth (or last 4 phone digits)">
+                        <field name="dental_teleconsult_verify_identity"/>
+                    </setting>
+                    <setting id="dental_teleconsult_recording_setting" company_dependent="1"
+                             invisible="not dental_teleconsult_enabled"
+                             help="Doctors may record calls when the patient consents. Requires an Odoo SFU server (Discuss settings).">
+                        <field name="dental_teleconsult_allow_recording"/>
+                    </setting>
+                </block>
+            </xpath>
+        </field>
+    </record>
+</odoo>

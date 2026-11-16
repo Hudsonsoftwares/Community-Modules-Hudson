@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        Reception Desk > Billing follows the life of a patient bill:
+          1. Ready for Billing : finished visits whose invoice is not created or not confirmed yet
+          2. Pending Bills     : confirmed invoices still waiting for (full) payment
+          3. Billing History   : settled invoices (paid / in payment / reversed), read-only
+    -->
+
+    <!-- Pending Bills: confirmed invoices with money to collect -->
+    <record id="view_dental_billing_invoice_list" model="ir.ui.view">
+        <field name="name">account.move.list.dental.billing</field>
+        <field name="model">account.move</field>
+        <field name="priority">99</field>
+        <field name="arch" type="xml">
+            <list create="0" decoration-muted="state == 'cancel'" decoration-info="state == 'draft'"
+                  default_order="invoice_date desc, id desc">
+                <field name="name" string="Invoice"/>
+                <field name="invoice_date"/>
+                <field name="partner_id" string="Patient"/>
+                <field name="invoice_origin" string="Visit / Case" optional="show"/>
+                <field name="invoice_user_id" string="Prepared By" optional="hide"/>
+                <field name="amount_total" string="Total" sum="Total"/>
+                <field name="amount_residual" string="Balance Due" sum="Balance Due"/>
+                <field name="currency_id" column_invisible="1"/>
+                <field name="state" widget="badge" string="Invoice Status"
+                       decoration-info="state == 'draft'" decoration-success="state == 'posted'"/>
+                <field name="payment_state" widget="badge" string="Payment Status"
+                       decoration-danger="payment_state == 'not_paid' and state == 'posted'"
+                       decoration-warning="payment_state == 'partial'"
+                       decoration-success="payment_state in ('paid', 'in_payment')"
+                       invisible="state != 'posted'"/>
+                <button name="action_post" string="Confirm" type="object" icon="fa-check" class="btn-link"
+                        invisible="state != 'draft'"/>
+                <button name="action_register_payment" string="Collect Payment" type="object" icon="fa-money" class="btn-link text-success"
+                        invisible="state != 'posted' or payment_state in ('paid', 'in_payment', 'reversed')"/>
+                <button name="action_print_pdf" string="Print" type="object" icon="fa-print" class="btn-link"
+                        invisible="state != 'posted'"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- Billing History: a plain read-only record of settled bills (no payment actions) -->
+    <record id="view_dental_billing_history_list" model="ir.ui.view">
+        <field name="name">account.move.list.dental.billing.history</field>
+        <field name="model">account.move</field>
+        <field name="priority">99</field>
+        <field name="arch" type="xml">
+            <list create="0" edit="0" delete="0" default_order="invoice_date desc, id desc"
+                  decoration-muted="payment_state == 'reversed'">
+                <field name="invoice_date" string="Date"/>
+                <field name="name" string="Invoice"/>
+                <field name="partner_id" string="Patient"/>
+                <field name="invoice_origin" string="Visit / Case" optional="show"/>
+                <field name="invoice_user_id" string="Billed By" optional="hide"/>
+                <field name="amount_untaxed" string="Untaxed" sum="Untaxed" optional="hide"/>
+                <field name="amount_total" string="Amount" sum="Total Billed"/>
+                <field name="currency_id" column_invisible="1"/>
+                <field name="payment_state" widget="badge" string="Status"
+                       decoration-success="payment_state in ('paid', 'in_payment')"
+                       decoration-muted="payment_state == 'reversed'"/>
+                <button name="action_print_pdf" string="Print" type="object" icon="fa-print" class="btn-link"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- Ready for Billing: finished visits awaiting an invoice or its confirmation -->
+    <record id="view_dental_ready_for_billing_list" model="ir.ui.view">
+        <field name="name">dental.appointment.list.ready.for.billing</field>
+        <field name="model">dental.appointment</field>
+        <field name="priority">99</field>
+        <field name="arch" type="xml">
+            <list create="0" edit="0" delete="0" default_order="date_start desc"
+                  decoration-info="billing_state == 'to_invoice'" decoration-warning="billing_state == 'draft'">
+                <field name="date_start" string="Visit Date"/>
+                <field name="name" string="Visit"/>
+                <field name="patient_id"/>
+                <field name="doctor_id"/>
+                <field name="treatment_id" optional="show"/>
+                <field name="has_draft_invoice" column_invisible="1"/>
+                <field name="billing_state" widget="badge" string="Billing Status"
+                       decoration-info="billing_state == 'to_invoice'"
+                       decoration-warning="billing_state == 'draft'"/>
+                <button name="action_create_invoice" string="Create Invoice" type="object" icon="fa-file-text-o"
+                        class="btn-link" invisible="billing_state != 'to_invoice' or has_draft_invoice"/>
+                <button name="action_create_invoice" string="Add to Invoice" type="object" icon="fa-plus"
+                        class="btn-link" invisible="billing_state != 'to_invoice' or not has_draft_invoice"/>
+                <button name="action_view_invoices" string="Review &amp; Confirm" type="object" icon="fa-check"
+                        class="btn-link text-success" invisible="not has_draft_invoice"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="action_dental_ready_for_billing" model="ir.actions.act_window">
+        <field name="name">Ready for Billing</field>
+        <field name="res_model">dental.appointment</field>
+        <field name="view_mode">list,form</field>
+        <field name="view_ids" eval="[(5, 0, 0),
+            (0, 0, {'view_mode': 'list', 'view_id': ref('view_dental_ready_for_billing_list')}),
+            (0, 0, {'view_mode': 'form'})]"/>
+        <field name="domain">[('billing_state', 'in', ('to_invoice', 'draft'))]</field>
+        <field name="context">{'create': False}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Nothing waiting to be billed</p>
+            <p>Completed visits appear here until their invoice is created and confirmed.
+               Once confirmed, the bill moves to Pending Bills for payment.</p>
+        </field>
+    </record>
+
+    <record id="action_dental_pending_bills" model="ir.actions.act_window">
+        <field name="name">Pending Bills</field>
+        <field name="res_model">account.move</field>
+        <field name="view_mode">list,kanban,form</field>
+        <field name="view_ids" eval="[(5, 0, 0),
+            (0, 0, {'view_mode': 'list', 'view_id': ref('view_dental_billing_invoice_list')}),
+            (0, 0, {'view_mode': 'kanban', 'view_id': ref('view_dental_billing_invoice_kanban')}),
+            (0, 0, {'view_mode': 'form', 'view_id': ref('account.view_move_form')})]"/>
+        <field name="search_view_id" ref="account.view_account_invoice_filter"/>
+        <field name="domain">[('move_type', '=', 'out_invoice'), ('state', '=', 'posted'),
+                              ('payment_state', 'in', ('not_paid', 'partial')),
+                              '|', '|', ('dental_case_id', '!=', False),
+                                        ('invoice_line_ids.dental_appointment_id', '!=', False),
+                                        ('invoice_line_ids.dental_session_id', '!=', False)]</field>
+        <field name="context">{'default_move_type': 'out_invoice', 'create': False}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">No pending bills</p>
+            <p>Confirmed patient invoices appear here until they are fully paid.</p>
+        </field>
+    </record>
+
+    <record id="action_dental_billing_history" model="ir.actions.act_window">
+        <field name="name">Billing History</field>
+        <field name="res_model">account.move</field>
+        <field name="view_mode">list,form</field>
+        <field name="view_ids" eval="[(5, 0, 0),
+            (0, 0, {'view_mode': 'list', 'view_id': ref('view_dental_billing_history_list')}),
+            (0, 0, {'view_mode': 'form', 'view_id': ref('account.view_move_form')})]"/>
+        <field name="search_view_id" ref="account.view_account_invoice_filter"/>
+        <field name="domain">[('move_type', '=', 'out_invoice'), ('state', '=', 'posted'),
+                              ('payment_state', 'in', ('paid', 'in_payment', 'reversed')),
+                              '|', '|', ('dental_case_id', '!=', False),
+                                        ('invoice_line_ids.dental_appointment_id', '!=', False),
+                                        ('invoice_line_ids.dental_session_id', '!=', False)]</field>
+        <field name="context">{'default_move_type': 'out_invoice', 'create': False, 'edit': False, 'delete': False}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">No billing history yet</p>
+            <p>Fully paid patient invoices are listed here.</p>
+        </field>
+    </record>
+
+    <menuitem id="menu_reception_billing"
+              name="Billing"
+              parent="menu_dental_reception_desk"
+              sequence="27"
+              groups="dental_base.group_dental_receptionist,dental_base.group_dental_manager"/>
+    <menuitem id="menu_reception_ready_for_billing"
+              name="Ready for Billing"
+              parent="menu_reception_billing"
+              action="action_dental_ready_for_billing"
+              sequence="10"/>
+    <menuitem id="menu_reception_pending_bills"
+              name="Pending Bills"
+              parent="menu_reception_billing"
+              action="action_dental_pending_bills"
+              sequence="20"/>
+    <menuitem id="menu_reception_billing_history"
+              name="Billing History"
+              parent="menu_reception_billing"
+              action="action_dental_billing_history"
+              sequence="30"/>
+</odoo>

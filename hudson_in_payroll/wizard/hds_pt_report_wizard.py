@@ -3,23 +3,24 @@ import base64
 import calendar
 import io
 from datetime import date
-from odoo import api, fields, models, _
-from odoo.exceptions import UserError
+from odoo import api, fields, models, _# pyrefly: ignore [missing-import]
+from odoo.exceptions import UserError# pyrefly: ignore [missing-import]
 
 try:
-    import xlsxwriter
+    import xlsxwriter# pyrefly: ignore [missing-import]
 except ImportError:
     xlsxwriter = None
 
 
-class HdsPtReportWizard(models.TransientModel):
+class HdsPtReportWizard(models.Model):
     """
-    Unified Professional Tax (PT) Report Wizard.
-    Modeled in the exact same format and structure as the ESIC and Labour Statutory Report Wizards.
+    Unified Professional Tax (PT) Report.
+    Modeled in the exact same format and structure as the ESIC and Labour Statutory Reports.
     Provides monthly/periodic selection, multi-company and state filtering, Excel export, and live summary statistics.
     """
     _name = 'hds.pt.report.wizard'
-    _description = 'Professional Tax (PT) Report Wizard'
+    _description = 'Professional Tax (PT) Report'
+    _order = 'id desc'
 
     @api.model
     def _default_year(self):
@@ -53,13 +54,11 @@ class HdsPtReportWizard(models.TransientModel):
         ('pt_report', 'Professional Tax Register'),
         ('pt_summary', 'Monthly PT Summary'),
         ('pt_state_summary', 'State-wise PT Summary'),
-    ], string='Report Type', default='pt_report', required=True)
+    ], string='Report Type', default='pt_summary', required=True)
 
     payslip_state = fields.Selection([
         ('all', 'All States (Draft, Verify, Done, Paid)'),
         ('confirmed', 'Confirmed & Paid (Done, Paid)'),
-        ('done', 'Done Only'),
-        ('paid', 'Paid Only'),
     ], string='Payslip Status', default='all', required=True)
 
     company_id = fields.Many2one(
@@ -93,15 +92,29 @@ class HdsPtReportWizard(models.TransientModel):
     total_pt_wages = fields.Float(string='Total Gross / PT Wages', readonly=True)
     total_pt_deduction = fields.Float(string='Total PT Deductions', readonly=True)
 
-    @api.depends('month', 'year', 'report_type', 'state_id')
+    @api.depends('month', 'year', 'report_type')
     def _compute_name(self):
         month_dict = dict(self._fields['month'].selection)
         report_dict = dict(self._fields['report_type'].selection)
         for rec in self:
             m_label = month_dict.get(rec.month, '')
-            r_label = report_dict.get(rec.report_type, 'PT Report')
-            state_label = f" ({rec.state_id.code or rec.state_id.name})" if rec.state_id else ""
-            rec.name = f"{r_label}{state_label} / {m_label}-{rec.year}"
+            r_label = report_dict.get(rec.report_type, 'Monthly PT Summary')
+            rec.name = f"{r_label} / {m_label}-{rec.year}"
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        records = super().create(vals_list)
+        for rec in records:
+            try:
+                data = rec._get_pt_data()
+                rec.write({
+                    'record_count': data.get('record_count', 0),
+                    'total_pt_wages': data.get('tot_wages', 0.0),
+                    'total_pt_deduction': data.get('tot_pt', 0.0),
+                })
+            except Exception:
+                pass
+        return records
 
     def _get_date_range(self):
         self.ensure_one()
@@ -146,6 +159,7 @@ class HdsPtReportWizard(models.TransientModel):
             ('company_id', '=', self.company_id.id),
             ('date_from', '>=', date_from),
             ('date_to', '<=', date_to),
+            ('employee_id.hds_in_pt_applicable', '=', True),
         ]
         if self.employee_id:
             domain.append(('employee_id', '=', self.employee_id.id))
@@ -181,7 +195,7 @@ class HdsPtReportWizard(models.TransientModel):
             raise UserError(_("No payslips found for the selected period (%s) matching criteria.") % self._get_month_label())
 
         # Pre-export statutory PT compliance validation
-        from odoo.addons.hudson_in_payroll.services.compliance.statutory_compliance_service import StatutoryComplianceValidationService
+        from odoo.addons.hudson_in_payroll.services.compliance.statutory_compliance_service import StatutoryComplianceValidationService# pyrefly: ignore [missing-import]
         compliance_service = StatutoryComplianceValidationService(self.env)
         compliance_service.validate_scope_compliance(
             employees=payslips.mapped('employee_id'),
@@ -259,104 +273,220 @@ class HdsPtReportWizard(models.TransientModel):
         tot_pt = data['tot_pt']
 
         month_label = self._get_month_label().replace(' ', '_')
-        xlsx_filename = f"PT_Report_{self.report_type}_{month_label}.xlsx"
+        xlsx_filename = f"Monthly_PT_Summary_{month_label}.xlsx"
 
         output = io.BytesIO()
         if xlsxwriter:
             workbook = xlsxwriter.Workbook(output, {'in_memory': True})
+            sheet = workbook.add_worksheet('Monthly PT Summary')
+
+            # Ensure grid lines are visible on screen
+            sheet.hide_gridlines(0)
+
+            # Modern Styling Theme (matching LWF, ECR-ECF, and ESIC reports)
+            title_fmt = workbook.add_format({
+                'bold': True,
+                'font_size': 18,
+                'align': 'center',
+                'valign': 'vcenter',
+                'font_color': '#000000',
+            })
+            company_fmt = workbook.add_format({
+                'font_size': 11,
+                'valign': 'vcenter',
+                'font_color': '#000000',
+            })
+            subheader_fmt = workbook.add_format({
+                'font_size': 10,
+                'valign': 'vcenter',
+                'font_color': '#000000',
+            })
+            period_fmt = workbook.add_format({
+                'font_size': 10,
+                'align': 'right',
+                'valign': 'vcenter',
+                'font_color': '#000000',
+            })
             header_fmt = workbook.add_format({
-                'bold': True, 'bg_color': '#1F4E78', 'font_color': '#FFFFFF',
-                'border': 1, 'align': 'center', 'valign': 'vcenter'
+                'bold': True,
+                'bg_color': '#E0E0E0',
+                'font_color': '#000000',
+                'font_size': 10,
+                'border': 1,
+                'border_color': '#D9D9D9',
+                'align': 'left',
+                'valign': 'vcenter',
             })
-            sub_fmt = workbook.add_format({
-                'bold': True, 'bg_color': '#D9E1F2', 'border': 1
+            header_center_fmt = workbook.add_format({
+                'bold': True,
+                'bg_color': '#E0E0E0',
+                'font_color': '#000000',
+                'font_size': 10,
+                'border': 1,
+                'border_color': '#D9D9D9',
+                'align': 'center',
+                'valign': 'vcenter',
             })
-            num_fmt = workbook.add_format({'num_format': '#,##0.00', 'border': 1})
-            text_fmt = workbook.add_format({'border': 1})
-            tot_fmt = workbook.add_format({
-                'bold': True, 'bg_color': '#D9E1F2', 'border': 1, 'num_format': '#,##0.00'
+            header_right_fmt = workbook.add_format({
+                'bold': True,
+                'bg_color': '#E0E0E0',
+                'font_color': '#000000',
+                'font_size': 10,
+                'border': 1,
+                'border_color': '#D9D9D9',
+                'align': 'right',
+                'valign': 'vcenter',
+            })
+            text_fmt = workbook.add_format({
+                'font_size': 10,
+                'border': 1,
+                'border_color': '#D9D9D9',
+                'valign': 'vcenter',
+                'align': 'left',
+            })
+            center_fmt = workbook.add_format({
+                'font_size': 10,
+                'border': 1,
+                'border_color': '#D9D9D9',
+                'valign': 'vcenter',
+                'align': 'center',
+            })
+            curr_fmt = workbook.add_format({
+                'font_size': 10,
+                'num_format': '#,##0.00',
+                'border': 1,
+                'border_color': '#D9D9D9',
+                'align': 'right',
+                'valign': 'vcenter',
             })
             tot_label_fmt = workbook.add_format({
-                'bold': True, 'bg_color': '#D9E1F2', 'border': 1, 'align': 'center'
+                'bold': True,
+                'font_size': 10,
+                'bg_color': '#E0E0E0',
+                'border': 1,
+                'border_color': '#D9D9D9',
+                'valign': 'vcenter',
+                'align': 'center',
+            })
+            tot_num_fmt = workbook.add_format({
+                'bold': True,
+                'font_size': 10,
+                'bg_color': '#E0E0E0',
+                'border': 1,
+                'border_color': '#D9D9D9',
+                'num_format': '#,##0.00',
+                'align': 'right',
+                'valign': 'vcenter',
             })
 
-            if self.report_type == 'pt_summary':
-                sheet = workbook.add_worksheet('PT Summary')
-                headers = [
-                    'Establishment / Company', 'Period (Month-Year)',
-                    'Total Covered Employees', 'Total Gross Wages (Rs)', 'Total PT Deductions (Rs)'
+            # Row 1 (Index 0): Merged Title A1:G1
+            sheet.merge_range(0, 0, 0, 6, "Professional Tax Monthly Summary", title_fmt)
+            sheet.set_row(0, 36)
+
+            # Row 2 (Index 1): Company Name in A2
+            sheet.write(1, 0, self.company_id.name or '', company_fmt)
+            sheet.set_row(1, 20)
+
+            # Row 3 (Index 2): PT Registration No in A3, Period in F3:G3
+            pt_reg = (
+                getattr(self.company_id, 'hds_in_professional_tax_registration_no', False)
+                or getattr(self.company_id, 'hds_in_pt_registration_no', False)
+                or getattr(self.company_id, 'pt_registration_no', False)
+                or ''
+            )
+            pt_reg_text = f"PT Registration No: {pt_reg}" if pt_reg else "PT Registration No:"
+            sheet.write(2, 0, pt_reg_text, subheader_fmt)
+            period_str = f"Period: {self._get_month_label()}"
+            sheet.merge_range(2, 5, 2, 6, period_str, period_fmt)
+            sheet.set_row(2, 20)
+
+            # Column widths
+            sheet.set_column(0, 0, 6)   # Sr.
+            sheet.set_column(1, 1, 16)  # Employee ID
+            sheet.set_column(2, 2, 26)  # Employee Name
+            sheet.set_column(3, 3, 22)  # Department
+            sheet.set_column(4, 4, 20)  # Work State
+            sheet.set_column(5, 5, 22)  # Gross Salary (INR)
+            sheet.set_column(6, 6, 22)  # PT Deduction (INR)
+
+            # Row 4 (Index 3): Column Headers
+            headers = [
+                ('Sr.', header_center_fmt),
+                ('Employee ID', header_fmt),
+                ('Employee Name', header_fmt),
+                ('Department', header_fmt),
+                ('Work State', header_fmt),
+                ('Gross Salary (INR)', header_right_fmt),
+                ('PT Deduction (INR)', header_right_fmt),
+            ]
+            sheet.set_row(3, 26)
+            for col_idx, (text, fmt) in enumerate(headers):
+                sheet.write(3, col_idx, text, fmt)
+
+            # Rows 5+ (Index 4+): Data Rows
+            for idx, r in enumerate(pt_rows, start=1):
+                row_idx = 3 + idx
+                sheet.set_row(row_idx, 20)
+                sheet.write(row_idx, 0, idx, center_fmt)
+                sheet.write(row_idx, 1, r.get('employee_code', '') or '', text_fmt)
+                sheet.write(row_idx, 2, r.get('employee_name', '') or '', text_fmt)
+                sheet.write(row_idx, 3, r.get('department', '') or '', text_fmt)
+                sheet.write(row_idx, 4, r.get('state_name', '') or '', text_fmt)
+                sheet.write(row_idx, 5, r.get('gross_wage', 0.0), curr_fmt)
+                sheet.write(row_idx, 6, r.get('pt_amount', 0.0), curr_fmt)
+
+            # Total Row
+            tot_row_idx = 4 + len(pt_rows)
+            sheet.set_row(tot_row_idx, 22)
+            sheet.write(tot_row_idx, 0, 'TOTAL', tot_label_fmt)
+            for c in range(1, 5):
+                sheet.write(tot_row_idx, c, '', tot_label_fmt)
+            sheet.write(tot_row_idx, 5, round(tot_wages, 2), tot_num_fmt)
+            sheet.write(tot_row_idx, 6, round(tot_pt, 2), tot_num_fmt)
+
+            # Optional Sheet 2: State-wise Summary (if multiple states exist)
+            if len(data.get('state_summary_rows', [])) > 1:
+                st_sheet = workbook.add_worksheet('State-wise Summary')
+                st_sheet.hide_gridlines(0)
+
+                st_sheet.merge_range(0, 0, 0, 3, "Professional Tax - State-wise Summary", title_fmt)
+                st_sheet.set_row(0, 36)
+
+                st_sheet.write(1, 0, self.company_id.name or '', company_fmt)
+                st_sheet.set_row(1, 20)
+
+                st_sheet.write(2, 0, f"Period: {self._get_month_label()}", subheader_fmt)
+                st_sheet.set_row(2, 20)
+
+                st_sheet.set_column(0, 0, 26)  # Work State
+                st_sheet.set_column(1, 1, 18)  # Employee Count
+                st_sheet.set_column(2, 2, 24)  # Total Gross Wages (INR)
+                st_sheet.set_column(3, 3, 24)  # Total PT Deductions (INR)
+
+                st_headers = [
+                    ('Work State', header_fmt),
+                    ('Employee Count', header_center_fmt),
+                    ('Total Gross Wages (INR)', header_right_fmt),
+                    ('Total PT Deductions (INR)', header_right_fmt),
                 ]
-                for col_idx, text in enumerate(headers):
-                    sheet.write(0, col_idx, text, header_fmt)
+                st_sheet.set_row(3, 26)
+                for c_idx, (t_text, t_fmt) in enumerate(st_headers):
+                    st_sheet.write(3, c_idx, t_text, t_fmt)
 
-                sheet.write(1, 0, self.company_id.name or '', text_fmt)
-                sheet.write(1, 1, self._get_month_label(), text_fmt)
-                sheet.write(1, 2, len(pt_rows), text_fmt)
-                sheet.write(1, 3, round(tot_wages, 2), num_fmt)
-                sheet.write(1, 4, round(tot_pt, 2), num_fmt)
+                for s_idx, s in enumerate(data['state_summary_rows'], start=1):
+                    s_row = 3 + s_idx
+                    st_sheet.set_row(s_row, 20)
+                    st_sheet.write(s_row, 0, s['state_name'], text_fmt)
+                    st_sheet.write(s_row, 1, s['count'], center_fmt)
+                    st_sheet.write(s_row, 2, s['wages'], curr_fmt)
+                    st_sheet.write(s_row, 3, s['pt'], curr_fmt)
 
-                sheet.set_column('A:A', 30)
-                sheet.set_column('B:E', 22)
-
-            elif self.report_type == 'pt_state_summary':
-                sheet = workbook.add_worksheet('State-wise PT Summary')
-                headers = ['Work State', 'Employee Count', 'Total Gross Wages', 'Total PT Deductions']
-                for col_idx, text in enumerate(headers):
-                    sheet.write(0, col_idx, text, header_fmt)
-
-                row_idx = 1
-                for s in data['state_summary_rows']:
-                    sheet.write(row_idx, 0, s['state_name'], text_fmt)
-                    sheet.write(row_idx, 1, s['count'], text_fmt)
-                    sheet.write(row_idx, 2, s['wages'], num_fmt)
-                    sheet.write(row_idx, 3, s['pt'], num_fmt)
-                    row_idx += 1
-
-                sheet.write(row_idx, 0, 'TOTAL', tot_label_fmt)
-                sheet.write(row_idx, 1, len(pt_rows), tot_label_fmt)
-                sheet.write(row_idx, 2, round(tot_wages, 2), tot_fmt)
-                sheet.write(row_idx, 3, round(tot_pt, 2), tot_fmt)
-
-                sheet.set_column('A:A', 26)
-                sheet.set_column('B:D', 20)
-
-            else:
-                # Default: Professional Tax Register
-                sheet = workbook.add_worksheet('PT Register')
-                headers = [
-                    'Sr.', 'Employee ID', 'Employee Name', 'Department',
-                    'Work Location / State', 'Payslip Ref', 'Gross Salary (Rs)', 'PT Deduction (Rs)'
-                ]
-                for col_idx, text in enumerate(headers):
-                    sheet.write(0, col_idx, text, header_fmt)
-
-                for idx, r in enumerate(pt_rows, start=1):
-                    sheet.write(idx, 0, idx, text_fmt)
-                    sheet.write(idx, 1, r['employee_code'], text_fmt)
-                    sheet.write(idx, 2, r['employee_name'], text_fmt)
-                    sheet.write(idx, 3, r['department'], text_fmt)
-                    sheet.write(idx, 4, r['state_name'], text_fmt)
-                    sheet.write(idx, 5, r['payslip_number'], text_fmt)
-                    sheet.write(idx, 6, r['gross_wage'], num_fmt)
-                    sheet.write(idx, 7, r['pt_amount'], num_fmt)
-
-                last_row = len(pt_rows) + 1
-                sheet.write(last_row, 0, 'TOTAL', tot_label_fmt)
-                sheet.write(last_row, 1, '', tot_label_fmt)
-                sheet.write(last_row, 2, '', tot_label_fmt)
-                sheet.write(last_row, 3, '', tot_label_fmt)
-                sheet.write(last_row, 4, '', tot_label_fmt)
-                sheet.write(last_row, 5, '', tot_label_fmt)
-                sheet.write(last_row, 6, round(tot_wages, 2), tot_fmt)
-                sheet.write(last_row, 7, round(tot_pt, 2), tot_fmt)
-
-                sheet.set_column('A:A', 6)
-                sheet.set_column('B:B', 14)
-                sheet.set_column('C:C', 26)
-                sheet.set_column('D:D', 20)
-                sheet.set_column('E:E', 22)
-                sheet.set_column('F:F', 18)
-                sheet.set_column('G:H', 18)
+                s_tot_row = 4 + len(data['state_summary_rows'])
+                st_sheet.set_row(s_tot_row, 22)
+                st_sheet.write(s_tot_row, 0, 'TOTAL', tot_label_fmt)
+                st_sheet.write(s_tot_row, 1, len(pt_rows), tot_label_fmt)
+                st_sheet.write(s_tot_row, 2, round(tot_wages, 2), tot_num_fmt)
+                st_sheet.write(s_tot_row, 3, round(tot_pt, 2), tot_num_fmt)
 
             workbook.close()
             output.seek(0)
@@ -364,9 +494,15 @@ class HdsPtReportWizard(models.TransientModel):
         else:
             xlsx_content = b"Excel export requires xlsxwriter library."
 
+        try:
+            from odoo.tools import BinaryBytes# pyrefly: ignore [missing-import]
+            file_data = BinaryBytes(xlsx_content, filename=xlsx_filename)
+        except Exception:
+            file_data = base64.b64encode(xlsx_content).decode('utf-8')
+
         self.write({
             'state': 'generated',
-            'xlsx_file': base64.b64encode(xlsx_content),
+            'xlsx_file': file_data,
             'xlsx_filename': xlsx_filename,
             'record_count': len(pt_rows),
             'total_pt_wages': tot_wages,
@@ -374,9 +510,28 @@ class HdsPtReportWizard(models.TransientModel):
         })
 
         return {
-            'type': 'ir.actions.act_window',
-            'res_model': self._name,
-            'res_id': self.id,
-            'view_mode': 'form',
-            'target': 'current',
+            'type': 'ir.actions.act_url',
+            'url': f'/web/content/?model={self._name}&id={self.id}&field=xlsx_file&filename_field=xlsx_filename&download=true',
+            'target': 'new',
         }
+
+    def action_download_xlsx(self):
+        self.ensure_one()
+        if not self.xlsx_file:
+            return self.action_generate_xlsx()
+        return {
+            'type': 'ir.actions.act_url',
+            'url': f'/web/content/?model={self._name}&id={self.id}&field=xlsx_file&filename_field=xlsx_filename&download=true',
+            'target': 'new',
+        }
+
+    @api.onchange('month', 'year', 'payslip_state', 'company_id')
+    def _onchange_report_filters(self):
+        try:
+            data = self._get_pt_data()
+            self.record_count = data.get('record_count', 0)
+            self.total_pt_wages = data.get('tot_wages', 0.0)
+            self.total_pt_deduction = data.get('tot_pt', 0.0)
+        except Exception:
+            pass
+

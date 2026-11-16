@@ -14,6 +14,7 @@
                     </div>
                     <group>
                         <field name="code"/>
+                        <field name="category"/>
                         <field name="active"/>
                     </group>
                     <notebook>
@@ -31,17 +32,34 @@
         <field name="model">dental.diagnosis</field>
         <field name="arch" type="xml">
             <list>
-                <field name="name"/>
                 <field name="code"/>
-                <field name="active"/>
+                <field name="name"/>
+                <field name="category"/>
+                <field name="active" optional="hide"/>
             </list>
+        </field>
+    </record>
+
+    <record id="view_dental_diagnosis_search" model="ir.ui.view">
+        <field name="name">dental.diagnosis.search</field>
+        <field name="model">dental.diagnosis</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name" filter_domain="['|', ('name', 'ilike', self), ('code', 'ilike', self)]"/>
+                <field name="category"/>
+                <filter string="Archived" name="archived" domain="[('active', '=', False)]"/>
+                <group>
+                    <filter string="Category" name="group_by_category" context="{'group_by': 'category'}"/>
+                </group>
+            </search>
         </field>
     </record>
 
     <record id="action_dental_diagnosis" model="ir.actions.act_window">
         <field name="name">Diagnosis Master</field>
         <field name="res_model">dental.diagnosis</field>
-        <field name="view_mode">list,form</field>
+        <field name="view_mode">kanban,list,form</field>
+        <field name="search_view_id" ref="view_dental_diagnosis_search"/>
     </record>
 
     <!-- Patient Diagnosis Views -->
@@ -57,9 +75,10 @@
                     <group>
                         <group>
                             <field name="diagnosis_id"/>
+                            <field name="tooth_reference" placeholder="FDI, e.g. 36 or 11, 21"/>
                             <field name="patient_id"/>
                             <field name="case_id"/>
-                            <field name="examination_id"/>
+                            <field name="examination_id" domain="[('case_id', '=', case_id)] if case_id else []" options="{'no_create': True}"/>
                         </group>
                         <group>
                             <field name="date"/>
@@ -73,6 +92,37 @@
                     </notebook>
                 </sheet>
                 <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <!-- Quick dialog from the case's Clinical Chart: patient, case and visit come from the case -->
+    <record id="view_dental_patient_diagnosis_quick_form" model="ir.ui.view">
+        <field name="name">dental.patient.diagnosis.quick.form</field>
+        <field name="model">dental.patient.diagnosis</field>
+        <field name="priority">90</field>
+        <field name="arch" type="xml">
+            <form string="Add Diagnosis">
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="diagnosis_id" options="{'no_create': True}" placeholder="Search by code or name"/>
+                            <field name="tooth_reference" placeholder="FDI, e.g. 36 or 11, 21 (empty = general)"/>
+                        </group>
+                        <group>
+                            <field name="status" widget="radio" options="{'horizontal': True}"/>
+                            <field name="date"/>
+                        </group>
+                    </group>
+                    <field name="notes" placeholder="Clinical notes (optional)"/>
+                    <field name="patient_id" invisible="1"/>
+                    <field name="case_id" invisible="1"/>
+                    <field name="doctor_id" invisible="1"/>
+                </sheet>
+                <footer>
+                    <button string="Save" special="save" class="btn-primary"/>
+                    <button string="Discard" special="cancel" class="btn-secondary"/>
+                </footer>
             </form>
         </field>
     </record>
@@ -94,6 +144,6 @@
     <record id="action_dental_patient_diagnosis" model="ir.actions.act_window">
         <field name="name">Patient Diagnoses</field>
         <field name="res_model">dental.patient.diagnosis</field>
-        <field name="view_mode">list,form</field>
+        <field name="view_mode">kanban,list,form</field>
     </record>
 </odoo>

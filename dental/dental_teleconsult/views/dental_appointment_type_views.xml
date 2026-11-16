@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_dental_appointment_type_form_teleconsult" model="ir.ui.view">
+        <field name="name">dental.appointment.type.form.teleconsult</field>
+        <field name="model">dental.appointment.type</field>
+        <field name="inherit_id" ref="dental_appointment.view_dental_appointment_type_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='price']" position="after">
+                <field name="allow_online" widget="boolean_toggle"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>

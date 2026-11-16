@@ -97,6 +97,53 @@ class HudsonDynamicReport(models.AbstractModel):
         return labels
 
     @api.model
+    def _hudson_apply_company_scope(self, model_name, wizard_id, form_data):
+        """Scope the report on the companies of the company switcher
+        (``self.env.companies``), as Odoo does, not on the company of the wizard.
+
+        The wizard keeps the company it was created in and only that company's
+        journals, and the client stores the report options (``company_id``,
+        ``journal_ids``, ``used_context``) to restore the report after a reload.
+        A company switch reloads the page: without this, the report kept showing
+        the first company, and with several companies selected only one of them.
+        Journals picked in the report filter (``journal_ids_user_selected``) are
+        kept as long as they belong to the selected companies."""
+        companies = self.env.companies
+        company = self.env.company
+        scope_journals = self.env['account.journal'].search([('company_id', 'in', companies.ids)])
+        journals = scope_journals
+        if form_data.get('journal_ids_user_selected'):
+            chosen = {j for j in (form_data.get('journal_ids') or []) if isinstance(j, int)}
+            journals = scope_journals.filtered(lambda j: j.id in chosen) or scope_journals
+        if journals == scope_journals:
+            form_data['journal_ids_user_selected'] = False
+
+        if wizard_id and model_name in self.env and not self.env.context.get('hudson_report_keep_wizard'):
+            wizard = self.env[model_name].browse(wizard_id).exists()
+            if wizard:
+                vals = {}
+                field = wizard._fields.get('company_id')
+                if field and field.store and not field.related and field.comodel_name == 'res.company' \
+                        and wizard.company_id != company:
+                    vals['company_id'] = company.id
+                field = wizard._fields.get('journal_ids')
+                if field and field.store and field.comodel_name == 'account.journal' \
+                        and wizard.journal_ids != journals:
+                    vals['journal_ids'] = [Command.set(journals.ids)]
+                if vals:
+                    wizard.write(vals)
+
+        form_data['company_id'] = [company.id, company.display_name]
+        form_data['company_ids'] = companies.ids
+        form_data['journal_ids'] = journals.ids
+        used_context = dict(form_data.get('used_context') or {})
+        # no company_id: account.move.line._query_get then filters on the
+        # allowed companies of the request context
+        used_context.pop('company_id', None)
+        used_context['company_ids'] = companies.ids
+        used_context['journal_ids'] = journals.ids
+        form_data['used_context'] = used_context
+
     def _hudson_wizard_from_form(self, model_name, wizard_id, form_data):
         """The wizard of the report, or a new one built from the report options
         when it was vacuumed (transient records are cleaned up regularly): only
@@ -1258,6 +1305,7 @@ class HudsonDynamicReport(models.AbstractModel):
             except Exception:
                 pass
 
+        self._hudson_apply_company_scope(model_name, wizard_id, form_data)
         self._hudson_check_dates(form_data)
 
         # Ensure used_context is built and up-to-date with date_from/date_to!
@@ -2720,7 +2768,7 @@ class HudsonDynamicReport(models.AbstractModel):
                 date_from = date_from or fiscal_dates['date_from']
                 date_to = date_to or fiscal_dates['date_to']
 
-            company_ids = (self.env.company.id,)
+            company_ids = tuple(self.env.companies.ids)
             
             cr = self.env.cr
             # 1. Journals Summary

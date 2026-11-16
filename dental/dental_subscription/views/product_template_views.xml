@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_product_template_form_dental_membership" model="ir.ui.view">
+        <field name="name">product.template.form.dental.membership</field>
+        <field name="model">product.template</field>
+        <field name="inherit_id" ref="product.product_template_form_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//notebook" position="inside">
+                <page name="dental_membership" string="Dental Membership" invisible="not recurring_invoice"
+                      groups="dental_subscription.group_membership_user">
+                    <group>
+                        <group>
+                            <field name="dental_membership_type" readonly="not recurring_invoice"/>
+                            <field name="dental_max_members" invisible="not dental_membership_type"/>
+                        </group>
+                        <group invisible="dental_membership_type != 'installment'">
+                            <div class="text-muted" colspan="2">
+                                Installment plans are created from a treatment plan
+                                (Finance with Installments): the price is the financed amount divided
+                                by the number of installments, and the plan's sessions are billed at zero.
+                            </div>
+                        </group>
+                    </group>
+                    <separator string="Benefits" invisible="not dental_membership_type or dental_membership_type == 'installment'"/>
+                    <field name="dental_benefit_rule_ids" groups="!dental_subscription.group_membership_manager"
+                           invisible="not dental_membership_type or dental_membership_type == 'installment'" readonly="1">
+                        <list>
+                            <field name="name"/>
+                            <field name="treatment_id"/>
+                            <field name="treatment_category_id"/>
+                            <field name="benefit_type"/>
+                            <field name="discount"/>
+                            <field name="quantity_limit"/>
+                            <field name="limit_period"/>
+                        </list>
+                    </field>
+                    <field name="dental_benefit_rule_ids" groups="dental_subscription.group_membership_manager"
+                           invisible="not dental_membership_type or dental_membership_type == 'installment'">
+                        <list editable="bottom">
+                            <field name="sequence" widget="handle"/>
+                            <field name="name"/>
+                            <field name="treatment_id" options="{'no_create': True}"/>
+                            <field name="treatment_category_id" options="{'no_create': True}"/>
+                            <field name="benefit_type"/>
+                            <field name="discount" invisible="benefit_type != 'discount'" required="benefit_type == 'discount'"/>
+                            <field name="quantity_limit"/>
+                            <field name="limit_period"/>
+                        </list>
+                    </field>
+                    <div class="text-muted" invisible="not dental_membership_type or dental_membership_type == 'installment'">
+                        Benefits are copied onto each subscription when it is confirmed. "Uses Allowed" = 0 means unlimited.
+                        A rule without treatment and category applies to every dental treatment and consultation.
+                    </div>
+                </page>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="action_dental_membership_products" model="ir.actions.act_window">
+        <field name="name">Membership Products</field>
+        <field name="res_model">product.template</field>
+        <field name="view_mode">kanban,list,form</field>
+        <field name="domain">[('dental_membership_type', '!=', False)]</field>
+        <field name="context">{'default_recurring_invoice': True, 'default_type': 'service', 'default_dental_membership_type': 'membership', 'default_purchase_ok': False}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Create a membership or care package</p>
+            <p>Memberships, family memberships, preventive packages, maintenance plans and orthodontic installment products are subscription products with a dental type and benefit rules.</p>
+        </field>
+    </record>
+</odoo>

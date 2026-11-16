@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        Full-screen education player used for the dentist preview and for clinic monitors / tablets.
+        Standalone page (no asset bundle) so it loads fast on any screen. All texts are QWeb terms,
+        therefore translatable and rendered in the patient's language. Data is passed through a
+        data-attribute (HTML-escaped by QWeb) and rendered with textContent only.
+    -->
+    <template id="education_presenter" name="Dental Patient Education Player">
+        <t t-out="'&lt;!DOCTYPE html&gt;'"/>
+        <html>
+        <head>
+            <meta charset="utf-8"/>
+            <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+            <meta name="robots" content="noindex, nofollow"/>
+            <title t-esc="title"/>
+            <link rel="stylesheet" href="/dental_dms_education/static/src/css/presenter.css"/>
+        </head>
+        <body>
+            <div class="app" id="edu-app" t-att-data-payload="data_json">
+                <header>
+                    <h1>Your Treatment Guide</h1>
+                    <span class="who" t-if="patient_label">for <t t-esc="patient_label"/></span>
+                    <span class="spacer"/>
+                    <button type="button" id="btn-prev">Previous</button>
+                    <button type="button" id="btn-next" class="primary">Next</button>
+                    <button type="button" id="btn-full">Full screen</button>
+                </header>
+                <main>
+                    <div class="stage" id="stage"><div class="empty">No media to show.</div></div>
+                    <div class="meta">
+                        <h2 id="media-title"/>
+                        <div class="langs" id="langs" aria-label="Language"/>
+                        <p class="desc" id="media-desc"/>
+                    </div>
+                    <div class="ack" id="ack">
+                        <strong>Do you have any questions for your dentist?</strong>
+                        <textarea id="ack-note" maxlength="2000" placeholder="Write your questions here (optional)"/>
+                        <button type="button" class="primary" id="btn-ack">I have watched and understood</button>
+                        <span class="thanks" id="ack-thanks">Thank you! Your dentist has been notified.</span>
+                    </div>
+                </main>
+                <aside id="playlist" aria-label="Playlist"/>
+            </div>
+            <script src="/dental_dms_education/static/src/js/presenter.js"/>
+        </body>
+        </html>
+    </template>
+</odoo>

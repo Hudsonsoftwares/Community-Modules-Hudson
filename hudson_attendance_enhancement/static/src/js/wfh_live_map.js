@@ -1,6 +1,6 @@
 /** @odoo-module **/
 
-import { Component, useState, useRef, onMounted, onWillUnmount } from "@odoo/owl";
+import { Component, proxy, signal, onMounted, onWillUnmount } from "@odoo/owl";
 import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
 import { rpc } from "@web/core/network/rpc";
@@ -12,9 +12,9 @@ export class WfhLiveMapView extends Component {
     setup() {
         this.actionService = useService("action");
         this.notification = useService("notification");
-        this.mapContainerRef = useRef("mapContainer");
+        this.mapContainerRef = signal.ref();
 
-        this.state = useState({
+        this.state = proxy({
             employees: [],
             logs: [],
             stats: {
@@ -69,7 +69,7 @@ export class WfhLiveMapView extends Component {
     }
 
     async initMap(retries = 5) {
-        if (!this.mapContainerRef.el) {
+        if (!this.mapContainerRef()) {
             return;
         }
         if (!window.L) {
@@ -84,7 +84,7 @@ export class WfhLiveMapView extends Component {
             this.map = null;
         }
 
-        this.map = window.L.map(this.mapContainerRef.el, {
+        this.map = window.L.map(this.mapContainerRef(), {
             zoomControl: true,
         }).setView([25.2048, 55.2708], 5);
 
@@ -265,7 +265,7 @@ export class WfhLiveMapView extends Component {
             name: _t("Location History"),
             type: 'ir.actions.act_window',
             res_model: 'hr.employee.location.log',
-            view_mode: 'list,form',
+            views: [[false, 'list'], [false, 'form']],
             domain: [['employee_id', '=', employeeId]],
             context: { default_employee_id: employeeId },
             target: 'current',

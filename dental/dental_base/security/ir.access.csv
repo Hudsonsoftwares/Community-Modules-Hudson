@@ -1,0 +1,4 @@
+id,name,model_id,group_id/id,operation,domain
+access_dental_clinic_hours_user,dental.clinic.hours.user,dental.clinic.hours,base.group_user,r,"[('company_id', 'in', company_ids)]"
+access_dental_clinic_hours_admin,dental.clinic.hours.admin,dental.clinic.hours,dental_base.group_dental_admin,crud,"[('company_id', 'in', company_ids)]"
+access_res_company_dental_admin,res.company.dental.admin,res.company,dental_base.group_dental_admin,crud,"[('id', 'in', company_ids)]"

@@ -1,0 +1,275 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- ========================================================================= -->
+    <!-- 1. SEARCH VIEW                                                            -->
+    <!-- ========================================================================= -->
+    <record id="view_dental_payment_summary_search" model="ir.ui.view">
+        <field name="name">dental.payment.summary.search</field>
+        <field name="model">dental.payment.summary</field>
+        <field name="arch" type="xml">
+            <search string="Search End of Day Summaries">
+                <field name="name" string="Summary Ref"/>
+                <field name="date"/>
+                <field name="user_id" string="Cashier / Receptionist"/>
+                <field name="company_id" string="Clinic Branch"/>
+                <filter string="Today" name="filter_today"
+                        domain="[('date', '=', context_today().strftime('%Y-%m-%d'))]"/>
+                <filter string="Draft / Open" name="filter_draft" domain="[('state', '=', 'draft')]"/>
+                <filter string="Closed &amp; Reconciled" name="filter_closed" domain="[('state', '=', 'closed')]"/>
+                <separator/>
+                <filter string="Has Cash Discrepancy" name="filter_discrepancy" domain="[('cash_difference', '!=', 0)]"/>
+                <group>
+                    <filter string="Date" name="group_by_date" context="{'group_by': 'date'}"/>
+                    <filter string="Cashier" name="group_by_user" context="{'group_by': 'user_id'}"/>
+                    <filter string="Clinic Branch" name="group_by_company" context="{'group_by': 'company_id'}"/>
+                    <filter string="Status" name="group_by_state" context="{'group_by': 'state'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <!-- ========================================================================= -->
+    <!-- 2. LIST VIEW                                                              -->
+    <!-- ========================================================================= -->
+    <record id="view_dental_payment_summary_list" model="ir.ui.view">
+        <field name="name">dental.payment.summary.list</field>
+        <field name="model">dental.payment.summary</field>
+        <field name="arch" type="xml">
+            <list string="End of Day Payment Summaries" default_order="date desc, id desc"
+                  decoration-muted="state == 'cancel'" decoration-success="state == 'closed'">
+                <field name="name" string="Reference"/>
+                <field name="date" string="Date"/>
+                <field name="user_id" string="Cashier"/>
+                <field name="company_id" string="Clinic Branch" groups="base.group_multi_company"/>
+                <field name="payment_count" string="Txns"/>
+                <field name="total_collected" string="Collections" sum="Total Collections"/>
+                <field name="total_refunded" string="Refunds" sum="Total Refunds" optional="hide"/>
+                <field name="net_collected" string="Net Total" sum="Net Collections"/>
+                <field name="total_cash_expected" string="Expected Cash" sum="Expected Cash"/>
+                <field name="total_cash_counted" string="Counted Cash" sum="Counted Cash"/>
+                <field name="cash_difference" string="Cash Difference"
+                       widget="badge"
+                       decoration-danger="cash_difference &lt; 0"
+                       decoration-warning="cash_difference &gt; 0"
+                       decoration-success="cash_difference == 0"/>
+                <field name="total_invoiced" string="Invoiced Today" sum="Total Invoiced" optional="show"/>
+                <field name="currency_id" column_invisible="1"/>
+                <field name="state" widget="badge" string="Status"
+                       decoration-info="state == 'draft'"
+                       decoration-success="state == 'closed'"
+                       decoration-muted="state == 'cancel'"/>
+                <button name="action_print_pdf" string="Print" type="object" icon="fa-print" class="btn-link"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- ========================================================================= -->
+    <!-- 3. FORM VIEW                                                              -->
+    <!-- ========================================================================= -->
+    <record id="view_dental_payment_summary_form" model="ir.ui.view">
+        <field name="name">dental.payment.summary.form</field>
+        <field name="model">dental.payment.summary</field>
+        <field name="arch" type="xml">
+            <form string="End of Day Payment Summary">
+                <header>
+                    <button name="action_close" string="Close &amp; Reconcile Day" type="object"
+                            class="oe_highlight btn-success" invisible="state != 'draft'"/>
+                    <button name="action_fetch_payments" string="Refresh Payments" type="object"
+                            class="btn-secondary" icon="fa-refresh" invisible="state != 'draft'"/>
+                    <button name="action_print_pdf" string="Print Summary PDF" type="object"
+                            class="btn-primary" icon="fa-print"/>
+                    <button name="action_reopen" string="Reopen to Draft" type="object"
+                            class="btn-secondary"
+                            groups="dental_base.group_dental_manager,dental_base.group_dental_admin"
+                            invisible="state != 'closed'"/>
+                    <button name="action_cancel" string="Cancel" type="object"
+                            class="btn-outline-danger" invisible="state != 'draft'"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,closed"/>
+                </header>
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_view_payments" type="object" class="oe_stat_button" icon="fa-money">
+                            <field name="payment_count" widget="statinfo" string="Payments"/>
+                        </button>
+                        <button name="action_view_invoices" type="object" class="oe_stat_button" icon="fa-file-text-o">
+                            <field name="invoices_count" widget="statinfo" string="Invoices Today"/>
+                        </button>
+                    </div>
+
+                    <div class="oe_title">
+                        <span class="o_form_label text-muted">End of Day Payment Summary</span>
+                        <h1 class="d-flex align-items-center gap-2">
+                            <field name="name" readonly="1"/>
+                        </h1>
+                    </div>
+
+                    <group>
+                        <group name="header_left">
+                            <field name="date" readonly="state != 'draft'"/>
+                            <field name="user_id" readonly="state != 'draft'"/>
+                            <field name="company_id" groups="base.group_multi_company" readonly="state != 'draft'"/>
+                            <field name="currency_id" invisible="1"/>
+                        </group>
+                        <group name="header_right">
+                            <field name="closing_user_id" invisible="not closing_user_id"/>
+                            <field name="closing_date" invisible="not closing_date"/>
+                        </group>
+                    </group>
+
+                    <!-- Prominent Highlight Summary Cards -->
+                    <div class="row g-3 my-3">
+                        <div class="col-md-3 col-sm-6">
+                            <div class="p-3 border rounded bg-light text-center shadow-sm">
+                                <div class="text-muted small text-uppercase fw-bold">Net Collected</div>
+                                <div class="fs-4 fw-bold text-primary">
+                                    <field name="net_collected" widget="monetary" options="{'currency_field': 'currency_id'}"/>
+                                </div>
+                                <div class="small text-muted"><field name="payment_count"/> Transactions</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 col-sm-6">
+                            <div class="p-3 border rounded bg-light text-center shadow-sm">
+                                <div class="text-muted small text-uppercase fw-bold">Expected Cash</div>
+                                <div class="fs-4 fw-bold text-dark">
+                                    <field name="total_cash_expected" widget="monetary" options="{'currency_field': 'currency_id'}"/>
+                                </div>
+                                <div class="small text-muted">Cash Drawer Target</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 col-sm-6">
+                            <div class="p-3 border rounded bg-light text-center shadow-sm">
+                                <div class="text-muted small text-uppercase fw-bold">Counted Cash</div>
+                                <div class="fs-4 fw-bold text-success">
+                                    <field name="total_cash_counted" widget="monetary" options="{'currency_field': 'currency_id'}"/>
+                                </div>
+                                <div class="small text-muted">Physical Count</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 col-sm-6">
+                            <div class="p-3 border rounded bg-light text-center shadow-sm">
+                                <div class="text-muted small text-uppercase fw-bold">Cash Discrepancy</div>
+                                <div class="fs-4 fw-bold">
+                                    <field name="cash_difference" widget="monetary" options="{'currency_field': 'currency_id'}"/>
+                                </div>
+                                <div class="small">
+                                    <span invisible="cash_difference != 0" class="text-success fw-bold">Balanced</span>
+                                    <span invisible="cash_difference &gt;= 0" class="text-danger fw-bold">Shortage</span>
+                                    <span invisible="cash_difference &lt;= 0" class="text-warning fw-bold">Overage</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Notebook with Tabs -->
+                    <notebook>
+                        <!-- TAB 1: Payment Method Breakdown -->
+                        <page string="Payment Methods Breakdown" name="page_methods">
+                            <field name="journal_line_ids" readonly="state != 'draft'">
+                                <list editable="bottom" create="0" delete="0">
+                                    <field name="journal_id" readonly="1"/>
+                                    <field name="journal_type" readonly="1" widget="badge"/>
+                                    <field name="transaction_count" readonly="1" string="Txns"/>
+                                    <field name="amount_collected" readonly="1" sum="Total Gross"/>
+                                    <field name="amount_refunded" readonly="1" sum="Total Refunds"/>
+                                    <field name="amount_expected" readonly="1" sum="Total Expected"/>
+                                    <field name="amount_counted" sum="Total Counted"/>
+                                    <field name="amount_difference" readonly="1" sum="Total Diff"
+                                           decoration-danger="amount_difference &lt; 0"
+                                           decoration-warning="amount_difference &gt; 0"
+                                           decoration-success="amount_difference == 0"/>
+                                    <field name="notes" placeholder="Notes..."/>
+                                    <field name="currency_id" column_invisible="1"/>
+                                </list>
+                            </field>
+                        </page>
+
+                        <!-- TAB 2: Cash Denominations Sheet -->
+                        <page string="Cash Denominations Sheet" name="page_denominations">
+                            <div class="alert alert-info py-2 mb-3" role="alert">
+                                <i class="fa fa-info-circle me-1"/>
+                                <strong>Cash Counting Sheet:</strong> Enter the number of pieces for each note or coin counted in the physical cash drawer.
+                                The subtotal will automatically calculate your <strong>Counted Cash</strong>.
+                            </div>
+                            <field name="denomination_ids" readonly="state != 'draft'">
+                                <list editable="bottom" create="1" delete="1">
+                                    <field name="denomination_value" string="Denomination"/>
+                                    <field name="count" string="Pieces / Count"/>
+                                    <field name="total_amount" readonly="1" sum="Total Cash Counted"/>
+                                    <field name="currency_id" column_invisible="1"/>
+                                </list>
+                            </field>
+                        </page>
+
+                        <!-- TAB 3: Itemized Transactions -->
+                        <page string="Payment Transactions" name="page_transactions">
+                            <field name="line_ids" readonly="1">
+                                <list create="0" delete="0" default_order="payment_time asc">
+                                    <field name="payment_name" string="Payment Ref"/>
+                                    <field name="payment_time" string="Time"/>
+                                    <field name="partner_id" string="Patient"/>
+                                    <field name="patient_identifier" string="Patient ID" optional="show"/>
+                                    <field name="journal_id" string="Method"/>
+                                    <field name="payment_type" widget="badge"
+                                           decoration-success="payment_type == 'inbound'"
+                                           decoration-danger="payment_type == 'outbound'"/>
+                                    <field name="amount" sum="Total Amount"/>
+                                    <field name="invoice_origin" string="Invoice / Visit" optional="show"/>
+                                    <field name="dentist_id" string="Doctor" optional="show"/>
+                                    <field name="cashier_id" string="Cashier" optional="show"/>
+                                    <field name="communication" string="Memo" optional="hide"/>
+                                    <field name="currency_id" column_invisible="1"/>
+                                </list>
+                            </field>
+                        </page>
+
+                        <!-- TAB 4: Today's Billing & Notes -->
+                        <page string="Today's Invoicing &amp; Audit Notes" name="page_notes">
+                            <group string="Billing Performance Today">
+                                <group>
+                                    <field name="total_invoiced" readonly="1"/>
+                                    <field name="invoices_count" readonly="1"/>
+                                </group>
+                                <group>
+                                    <field name="invoices_settled_count" readonly="1"/>
+                                    <field name="pending_invoices_amount" readonly="1"/>
+                                </group>
+                            </group>
+                            <group string="Audit Notes &amp; Discrepancy Explanation">
+                                <field name="note" nolabel="1"
+                                       placeholder="Explain any cash overage/shortage, cancelled receipts, or reconciliation notes here..."
+                                       readonly="state == 'closed'"/>
+                            </group>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <!-- ========================================================================= -->
+    <!-- 4. ACTIONS                                                                -->
+    <!-- ========================================================================= -->
+    <!-- Action: All Day Summaries List/Form -->
+    <record id="action_dental_payment_summary" model="ir.actions.act_window">
+        <field name="name">End of Day Summaries</field>
+        <field name="res_model">dental.payment.summary</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_dental_payment_summary_search"/>
+        <field name="context">{'search_default_filter_today': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">No End of Day Payment Summaries yet</p>
+            <p>End of Day Payment Summaries allow receptionists to reconcile all patient payments (Cash, Cards, UPI, Online) and verify cash drawer totals at the end of each shift or day.</p>
+        </field>
+    </record>
+
+    <!-- Action: Today's Summary (Opens or Creates Instantly) -->
+    <record id="action_dental_payment_summary_today" model="ir.actions.server">
+        <field name="name">End of Day Payment Summary</field>
+        <field name="model_id" ref="model_dental_payment_summary"/>
+        <field name="state">code</field>
+        <field name="code">
+action = model.action_open_or_create_today()
+        </field>
+    </record>
+</odoo>

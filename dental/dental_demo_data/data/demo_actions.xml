@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="action_refresh_today_demo" model="ir.actions.server">
+        <field name="name">Refresh Today's Demo Schedule</field>
+        <field name="model_id" ref="model_dental_demo_data"/>
+        <field name="state">code</field>
+        <field name="code">action = model.action_refresh_today()</field>
+        <field name="group_ids" eval="[(4, ref('base.group_system'))]"/>
+    </record>
+
+    <menuitem id="menu_refresh_today_demo"
+              name="Refresh Today's Demo Schedule"
+              parent="dental_base.menu_dental_configuration"
+              action="action_refresh_today_demo"
+              groups="base.group_system"
+              sequence="999"/>
+</odoo>

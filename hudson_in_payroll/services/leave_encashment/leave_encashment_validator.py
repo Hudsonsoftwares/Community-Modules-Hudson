@@ -104,7 +104,7 @@ class LeaveEncashmentValidator:
             )
 
         # Check 4: Configured Encashable Leave Types Check
-        encashable_leave_types = self.env['hr.leave.type'].search([
+        encashable_leave_types = self.env['hr.work.entry.type'].search([
             ('include_in_leave_encashment', '=', True)
         ])
         if not encashable_leave_types:

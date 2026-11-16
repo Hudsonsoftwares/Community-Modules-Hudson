@@ -1,0 +1,163 @@
+/* Orthodontic bracket chart: both arches as FDI tooth cells coloured by appliance status. */
+.o_ortho_chart {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 0.5rem 0;
+
+    .o_ortho_arch {
+        display: flex;
+        flex-direction: column;
+        gap: 0.4rem;
+    }
+
+    .o_ortho_arch_label {
+        display: flex;
+        align-items: baseline;
+        gap: 0.75rem;
+        font-weight: 700;
+        color: #0f172a;
+
+        small {
+            font-weight: 500;
+            color: #0f5f5a;
+            background: #e3f2ef;
+            border-radius: 6px;
+            padding: 1px 8px;
+        }
+    }
+
+    .o_ortho_row {
+        display: flex;
+        align-items: stretch;
+        justify-content: center;
+        gap: 0;
+        position: relative;
+
+        /* The archwire runs through the brackets */
+        &::before {
+            content: "";
+            position: absolute;
+            left: 2%;
+            right: 2%;
+            top: 50%;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, #94a3b8 6%, #94a3b8 94%, transparent);
+            z-index: 0;
+        }
+    }
+
+    .o_ortho_half {
+        display: grid;
+        grid-template-columns: repeat(8, minmax(0, 1fr));
+        gap: 6px;
+        flex: 1 1 0;
+        max-width: 560px;
+        position: relative;
+        z-index: 1;
+    }
+
+    .o_ortho_mid {
+        width: 2px;
+        margin: 0 10px;
+        background: repeating-linear-gradient(#cbd5e1 0 5px, transparent 5px 9px);
+        z-index: 1;
+    }
+
+    .o_ortho_tooth {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 2px;
+        min-height: 58px;
+        border-radius: 12px 12px 16px 16px;
+        border: 1.5px solid #cbd5e1;
+        background: #ffffff;
+        font-variant-numeric: tabular-nums;
+
+        .o_ortho_num {
+            font-weight: 700;
+            font-size: 0.95rem;
+            color: #0f172a;
+        }
+        .o_ortho_app {
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            padding: 0 6px;
+            border-radius: 4px;
+        }
+
+        &.is-planned {
+            border-style: dashed;
+            border-color: #0ea5e9;
+            .o_ortho_app { color: #0369a1; background: #e0f2fe; }
+        }
+        &.is-bonded {
+            border-color: #0f766e;
+            background: #ecfdf5;
+            .o_ortho_app { color: #ffffff; background: #0f766e; }
+        }
+        &.is-failed {
+            border-color: #dc2626;
+            background: #fef2f2;
+            .o_ortho_app { color: #ffffff; background: #dc2626; }
+        }
+        &.is-debonded {
+            border-color: #94a3b8;
+            background: #f1f5f9;
+            .o_ortho_app { color: #475569; background: #e2e8f0; }
+        }
+        &.is-missing {
+            border-style: dotted;
+            background: repeating-linear-gradient(135deg, #f8fafc 0 6px, #eef2f6 6px 12px);
+            .o_ortho_num { color: #94a3b8; text-decoration: line-through; }
+        }
+        &.is-none {
+            background: #f8fafc;
+            .o_ortho_num { color: #64748b; }
+        }
+    }
+
+    .o_ortho_legend {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.5rem 1rem;
+        font-size: 0.85rem;
+        color: #475569;
+    }
+
+    .o_ortho_key {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+
+        i {
+            width: 14px;
+            height: 14px;
+            border-radius: 4px;
+            border: 1.5px solid #cbd5e1;
+            background: #ffffff;
+        }
+        &.is-planned i { border-style: dashed; border-color: #0ea5e9; }
+        &.is-bonded i { border-color: #0f766e; background: #ecfdf5; }
+        &.is-failed i { border-color: #dc2626; background: #fef2f2; }
+        &.is-debonded i { border-color: #94a3b8; background: #f1f5f9; }
+        &.is-missing i { border-style: dotted; background: #eef2f6; }
+        &.is-none i { background: #f8fafc; }
+    }
+
+    .o_ortho_abbr {
+        margin-left: auto;
+        color: #64748b;
+    }
+}
+
+/* Small screens: teeth wrap into two rows per half arch */
+@media (max-width: 768px) {
+    .o_ortho_chart .o_ortho_half {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+}

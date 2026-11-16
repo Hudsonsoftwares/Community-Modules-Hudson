@@ -1,13 +1,69 @@
 # -*- coding: utf-8 -*-
+import json
 import re
+# pyrefly: ignore [missing-import]
+from markupsafe import Markup
 # pyrefly: ignore [missing-import]
 from odoo import api, fields, models, _
 # pyrefly: ignore [missing-import]
-from odoo.exceptions import ValidationError
+from odoo.exceptions import ValidationError, UserError
 
 
 class HrEmployee(models.Model):
     _inherit = 'hr.employee'
+
+    _INCOME_TAX_AUDIT_FIELDS = [
+        'hds_in_current_tax_regime_id',
+        'hds_in_tax_regime',
+        'hds_in_tds_applicable',
+        'hds_in_is_agnipath',
+        'hds_in_residential_status',
+        'hds_in_pan',
+        'hds_in_aadhaar',
+        'hds_in_decl_80ccd2_employer_nps',
+        'hds_in_decl_57iia_family_pension',
+        'hds_in_prev_taxable_gross',
+        'hds_in_prev_tds_deducted',
+        'hds_in_prev_pt_deducted',
+        'hds_in_prev_employer_pf',
+        'hds_in_prev_employer_nps',
+        # Income from Other Sources & Let-Out Property
+        'hds_in_savings_bank_interest',
+        'hds_in_fixed_deposit_interest',
+        'hds_in_dividend_income',
+        'hds_in_other_sources_income',
+        'hds_in_total_other_sources_income',
+        'hds_in_annual_let_out_rent',
+        'hds_in_municipal_taxes_paid',
+        'hds_in_let_out_interest_paid',
+        'hds_in_net_house_property_income_loss',
+    ]
+
+    registration_number = fields.Char(
+        string="Employee Code",
+        copy=False,
+        help="Configurable internal Employee Code or Registration Number (e.g. EMP001)."
+    )
+    employee_code = fields.Char(
+        string="Employee Code",
+        related='registration_number',
+        readonly=False,
+        store=True,
+        help="Configurable Employee Code (alias for registration_number)."
+    )
+
+    @api.constrains('registration_number')
+    def _check_unique_registration_number(self):
+        for emp in self:
+            if emp.registration_number:
+                domain = [
+                    ('registration_number', '=', emp.registration_number),
+                    ('id', '!=', emp.id),
+                ]
+                if emp.company_id:
+                    domain.append(('company_id', '=', emp.company_id.id))
+                if self.search_count(domain):
+                    raise ValidationError(_("The Employee Code '%s' is already assigned to another employee.") % emp.registration_number)
 
     previous_lta_history_ids = fields.One2many(
         'tds.lta.previous.employer',
@@ -22,10 +78,19 @@ class HrEmployee(models.Model):
         help="Unabsorbed House Property losses carried forward under Section 71B for inter-year set-off."
     )
 
+    def _default_hds_in_epf_applicable(self):
+        company = self.env.company
+        return bool(company and getattr(company, 'hds_in_epf_applicable', False))
+
     # EPF / UAN Information
+    hds_in_enable_epf = fields.Boolean(
+        string="Company Enables EPF",
+        related='company_id.hds_in_epf_applicable',
+        readonly=True,
+    )
     hds_in_epf_applicable = fields.Boolean(
         string="EPF Applicable",
-        default=True,
+        default=_default_hds_in_epf_applicable,
         help="Enable EPF statutory deductions for this employee."
     )
     hds_in_uan = fields.Char(
@@ -57,6 +122,12 @@ class HrEmployee(models.Model):
         default=True,
         help="Enable EPS statutory pension allocation (8.33%)."
     )
+
+    @api.onchange('hds_in_epf_applicable')
+    def _onchange_hds_in_epf_applicable(self):
+        for emp in self:
+            if not emp.hds_in_epf_applicable:
+                emp.hds_in_eps_applicable = False
     hds_in_existing_eps_member = fields.Boolean(
         string="Existing EPS Member",
         default=True,
@@ -68,11 +139,11 @@ class HrEmployee(models.Model):
         help="Check if employee opted for higher pension scheme under SC judgment guidelines."
     )
     hds_in_pf_contribution_basis = fields.Selection([
-        ('statutory_ceiling', 'Statutory Ceiling (₹15,000 Cap)'),
+        ('statutory_ceiling', 'Statutory Wage Ceiling'),
         ('actual_pf_wage', 'Actual PF Wage (Uncapped)'),
     ], string="Employee PF Contribution Basis", default='statutory_ceiling', required=True)
     hds_in_pf_employer_basis = fields.Selection([
-        ('statutory_ceiling', 'Statutory Ceiling (₹15,000 Cap)'),
+        ('statutory_ceiling', 'Statutory Wage Ceiling'),
         ('actual_pf_wage', 'Actual PF Wage (Uncapped)'),
     ], string="Employer PF Contribution Basis", default='statutory_ceiling', required=True)
 
@@ -133,11 +204,12 @@ class HrEmployee(models.Model):
             elif hasattr(emp, 'wage') and emp.wage:
                 pf_wage = float(emp.wage)
 
-            if 0.0 < pf_wage < 15000.0:
+            pf_ceiling = self.env['hr.rule.parameter'].get_pf_parameter('PF_WAGE_CEILING') or 25000.0
+            if 0.0 < pf_wage < pf_ceiling:
                 emp.hds_in_pf_wage_is_below_ceiling = True
                 pf_deduction = round(pf_wage * 0.12)
                 emp.hds_in_pf_wage_info_note = (
-                    f"Current PF wage (₹{pf_wage:,.0f}) is below the ₹15,000 ceiling. "
+                    f"Current PF wage (₹{pf_wage:,.0f}) is below the ₹{pf_ceiling:,.0f} ceiling. "
                     f"Therefore, PF (12%) will only be deducted on the actual wage of ₹{pf_wage:,.0f} (₹{pf_deduction:,.0f}/month)."
                 )
 
@@ -157,7 +229,15 @@ class HrEmployee(models.Model):
         help="Additional VPF fixed amount contributed by employee."
     )
 
+    def _default_hds_in_esic_applicable(self):
+        return False
+
     # ESIC Information
+    hds_in_enable_esic = fields.Boolean(
+        string="Company Enables ESIC",
+        related='company_id.hds_in_esic_applicable',
+        readonly=True,
+    )
     hds_in_esic_applicable = fields.Boolean(
         string="ESIC Applicable",
         default=False,
@@ -213,10 +293,23 @@ class HrEmployee(models.Model):
         ('other', 'Other'),
     ], string="Reason for Exit ESIC", help="Reason for exit from ESIC coverage.")
 
+    def _default_hds_in_lwf_applicable(self):
+        company = self.env.company
+        return bool(company and getattr(company, 'hds_in_enable_lwf', False))
+
+    def _default_hds_in_pt_applicable(self):
+        company = self.env.company
+        return bool(company and getattr(company, 'hds_in_enable_professional_tax', False))
+
     # Labour Welfare Fund (LWF) Information
+    hds_in_enable_lwf = fields.Boolean(
+        string="Company Enables LWF",
+        related='company_id.hds_in_enable_lwf',
+        readonly=True,
+    )
     hds_in_lwf_applicable = fields.Boolean(
         string="LWF Applicable",
-        default=True,
+        default=_default_hds_in_lwf_applicable,
         help="Enable Labour Welfare Fund (LWF) statutory deductions for this employee."
     )
     hds_in_lwf_number = fields.Char(
@@ -225,11 +318,50 @@ class HrEmployee(models.Model):
     )
 
     # Professional Tax (PT) Information
+    hds_in_enable_professional_tax = fields.Boolean(
+        string="Company Enables Professional Tax",
+        related='company_id.hds_in_enable_professional_tax',
+        readonly=True,
+    )
     hds_in_pt_applicable = fields.Boolean(
         string="Professional Tax (PT) Applicable",
-        default=True,
+        default=_default_hds_in_pt_applicable,
         help="Enable Professional Tax (PT) statutory deduction for this employee based on state slab rules."
     )
+
+    @api.onchange('company_id')
+    def _onchange_company_id_statutory_applicability(self):
+        for emp in self:
+            comp = emp.company_id or self.env.company
+            if comp:
+                if not getattr(comp, 'hds_in_epf_applicable', False):
+                    emp.hds_in_epf_applicable = False
+                if not getattr(comp, 'hds_in_esic_applicable', False):
+                    emp.hds_in_esic_applicable = False
+                if not getattr(comp, 'hds_in_enable_lwf', False):
+                    emp.hds_in_lwf_applicable = False
+                if not getattr(comp, 'hds_in_enable_professional_tax', False):
+                    emp.hds_in_pt_applicable = False
+                if not getattr(comp, 'hds_in_tds_applicable', False):
+                    emp.hds_in_tds_applicable = False
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        for vals in vals_list:
+            cid = vals.get('company_id')
+            company = self.env['res.company'].browse(cid) if cid else self.env.company
+            if company:
+                if not getattr(company, 'hds_in_epf_applicable', False) and 'hds_in_epf_applicable' not in vals:
+                    vals['hds_in_epf_applicable'] = False
+                if not getattr(company, 'hds_in_esic_applicable', False) and 'hds_in_esic_applicable' not in vals:
+                    vals['hds_in_esic_applicable'] = False
+                if not getattr(company, 'hds_in_enable_lwf', False) and 'hds_in_lwf_applicable' not in vals:
+                    vals['hds_in_lwf_applicable'] = False
+                if not getattr(company, 'hds_in_enable_professional_tax', False) and 'hds_in_pt_applicable' not in vals:
+                    vals['hds_in_pt_applicable'] = False
+                if not getattr(company, 'hds_in_tds_applicable', False) and 'hds_in_tds_applicable' not in vals:
+                    vals['hds_in_tds_applicable'] = False
+        return super().create(vals_list)
 
     @api.constrains('hds_in_epf_applicable', 'hds_in_uan')
     def _check_hds_in_uan_format(self):
@@ -265,17 +397,10 @@ class HrEmployee(models.Model):
     )
 
     hds_in_statutory_audit_count = fields.Integer(
-        string="Statutory Audits Count",
+        string="Audit Trail Count",
         compute='_compute_hds_in_statutory_audit_count'
     )
 
-    hds_in_payment_mode = fields.Many2one(
-        'hds.payment.mode',
-        string="Payment Mode",
-        tracking=True,
-        help="Preferred mode of salary payment for this employee. "
-             "Configured in Payroll Settings → Payment Modes.",
-    )
 
 
     @api.depends(
@@ -343,7 +468,7 @@ class HrEmployee(models.Model):
         breakdown = float(
             (getattr(self, 'basic_salary', 0.0) or 0.0) + (getattr(self, 'hra', 0.0) or 0.0) +
             (getattr(self, 'da', 0.0) or 0.0) + (getattr(self, 'standard_allowance', 0.0) or 0.0) +
-            (getattr(self, 'performance_bonus', 0.0) or 0.0) + (getattr(self, 'retention_bonus', 0.0) or 0.0) +
+            (getattr(self, 'performance_bonus', 0.0) or 0.0) +
             (getattr(self, 'lta_allowance', 0.0) or 0.0) + (getattr(self, 'fixed_allowance', 0.0) or 0.0)
         )
         if breakdown > wage:
@@ -355,7 +480,7 @@ class HrEmployee(models.Model):
                 orig_bd = float(
                     (getattr(origin, 'basic_salary', 0.0) or 0.0) + (getattr(origin, 'hra', 0.0) or 0.0) +
                     (getattr(origin, 'da', 0.0) or 0.0) + (getattr(origin, 'standard_allowance', 0.0) or 0.0) +
-                    (getattr(origin, 'performance_bonus', 0.0) or 0.0) + (getattr(origin, 'retention_bonus', 0.0) or 0.0) +
+                    (getattr(origin, 'performance_bonus', 0.0) or 0.0) +
                     (getattr(origin, 'lta_allowance', 0.0) or 0.0) + (getattr(origin, 'fixed_allowance', 0.0) or 0.0)
                 )
                 wage = max(orig_wage, orig_bd)
@@ -440,7 +565,7 @@ class HrEmployee(models.Model):
 
     @api.onchange(
         'wage', 'basic_salary', 'da', 'hra', 'fixed_allowance', 'standard_allowance',
-        'performance_bonus', 'retention_bonus', 'lta_allowance',
+        'performance_bonus', 'lta_allowance',
         'contract_date_start', 'date_start', 'date_version', 'hds_in_esic_joining_date',
         'hds_in_is_pwd', 'company_id'
     )
@@ -473,6 +598,82 @@ class HrEmployee(models.Model):
                 emp.hds_in_esic_ip_status = 'active'
                 emp.hds_in_esic_exit_reason = False
 
+    @api.onchange(
+        'wage', 'basic_salary', 'da', 'hra', 'fixed_allowance', 'standard_allowance',
+        'performance_bonus', 'lta_allowance', 'company_id'
+    )
+    def _onchange_wage_check_tds_threshold(self):
+        """
+        Dynamically checks whether the entered salary/wage on the employee profile
+        projects an annual taxable salary exceeding the statutory zero-tax threshold
+        (Standard Deduction + Section 87A Rebate).
+        If threshold is exceeded and TDS is not yet enabled, automatically selects 'Enable TDS'
+        and displays an informative advisory warning popup to the payroll administrator.
+        """
+        for emp in self:
+            company = emp.company_id or self.env.company
+            if not getattr(company, 'hds_in_tds_applicable', False):
+                continue
+
+            # If TDS is already enabled on employee, do not show repeated alert
+            if emp.hds_in_tds_applicable:
+                continue
+
+            gross = emp._get_gross_wage()
+            if gross <= 0.0:
+                continue
+
+            annual_gross = gross * 12.0
+            eval_date = fields.Date.today()
+            if hasattr(emp, 'contract_date_start') and emp.contract_date_start:
+                eval_date = emp.contract_date_start
+            elif hasattr(emp, 'date_start') and emp.date_start:
+                eval_date = emp.date_start
+
+            regime = getattr(emp, 'hds_in_tax_regime', False) or (
+                emp.hds_in_current_tax_regime_id.code
+                if hasattr(emp, 'hds_in_current_tax_regime_id') and emp.hds_in_current_tax_regime_id
+                else False
+            )
+            if not regime:
+                regime = getattr(company, 'hds_in_default_tax_regime', 'new') or 'new'
+            regime_code = (regime or 'new').lower()
+
+            # pyrefly: ignore [missing-import]
+            from odoo.addons.hudson_in_payroll.services.tds.tds_parameter_service import TdsParameterService
+            tds_param_svc = TdsParameterService(self.env)
+            std_deduction = tds_param_svc.get_parameter('STD_DEDUCTION', eval_date=eval_date, regime=regime_code) or (
+                75000.0 if regime_code == 'new' else 50000.0
+            )
+            rebate_limit = tds_param_svc.get_parameter('87A_LIMIT', eval_date=eval_date, regime=regime_code) or (
+                1200000.0 if regime_code == 'new' else 500000.0
+            )
+
+            tax_free_threshold = rebate_limit + std_deduction
+
+            if annual_gross > tax_free_threshold:
+                emp.hds_in_tds_applicable = True
+
+                regime_label = _("New Tax Regime (Section 115BAC)") if regime_code == 'new' else _("Old Tax Regime")
+                return {
+                    'warning': {
+                        'title': _("Statutory TDS Notice: Tax Liability Detected"),
+                        'message': _(
+                            "The entered monthly salary of ₹%(monthly_wage)s (Annual Gross: ₹%(annual_gross)s) "
+                            "exceeds the dynamic tax-free threshold of ₹%(threshold)s "
+                            "(Standard Deduction: ₹%(std_ded)s + Section 87A Rebate: ₹%(rebate)s under %(regime)s).\n\n"
+                            "The 'Enable TDS' option has been automatically selected for this employee to ensure statutory compliance."
+                        ) % {
+                            'monthly_wage': f"{gross:,.2f}",
+                            'annual_gross': f"{annual_gross:,.2f}",
+                            'threshold': f"{tax_free_threshold:,.2f}",
+                            'std_ded': f"{std_deduction:,.2f}",
+                            'rebate': f"{rebate_limit:,.2f}",
+                            'regime': regime_label,
+                        }
+                    }
+                }
+
     @api.model_create_multi
     def create(self, vals_list):
         for vals in vals_list:
@@ -480,7 +681,7 @@ class HrEmployee(models.Model):
             if wage is None or float(wage or 0.0) <= 0.0:
                 bd = sum(float(vals.get(k, 0.0) or 0.0) for k in (
                     'basic_salary', 'da', 'hra', 'fixed_allowance', 'standard_allowance',
-                    'performance_bonus', 'retention_bonus', 'lta_allowance'
+                    'performance_bonus', 'lta_allowance'
                 ))
                 if bd > 0:
                     wage = bd
@@ -502,6 +703,11 @@ class HrEmployee(models.Model):
         return super().create(vals_list)
 
     def write(self, vals):
+        if 'hds_in_residential_status' in vals and 'is_non_resident' not in vals:
+            vals['is_non_resident'] = (vals.get('hds_in_residential_status') == 'nre')
+        elif 'is_non_resident' in vals and 'hds_in_residential_status' not in vals:
+            vals['hds_in_residential_status'] = 'nre' if vals.get('is_non_resident') else 'ror'
+
         if 'hds_in_esic_applicable' in vals and not vals['hds_in_esic_applicable']:
             if 'hds_in_esic_ip_status' not in vals:
                 vals['hds_in_esic_ip_status'] = 'exempt'
@@ -514,7 +720,117 @@ class HrEmployee(models.Model):
                     vals['hds_in_esic_ip_status'] = 'exempt'
                     vals['hds_in_esic_exit_reason'] = 'wage_exceeded'
                     break
+
+        # Capture old values for Income Tax (TDS) Profile fields
+        tracked_income_tax = [f for f in self._INCOME_TAX_AUDIT_FIELDS if f in vals]
+        old_income_tax_state = {}
+        if tracked_income_tax and not self.env.context.get('no_tds_audit'):
+            for emp in self:
+                emp_state = {}
+                for f in tracked_income_tax:
+                    val = getattr(emp, f, None)
+                    if f in ('hds_in_current_tax_regime_id', 'hds_in_tax_regime'):
+                        reg = emp.hds_in_current_tax_regime_id
+                        emp_state[f] = reg.name if reg else ('New Tax Regime' if emp.hds_in_is_new_tax_regime else 'Old Tax Regime')
+                    else:
+                        emp_state[f] = val
+                old_income_tax_state[emp.id] = emp_state
+
         res = super().write(vals)
+
+        # Audit Trail & Chatter Logging for Income Tax (TDS) Profile Changes
+        if tracked_income_tax and not self.env.context.get('no_tds_audit') and 'hds.in.payroll.audit' in self.env:
+            audit_model = self.env['hds.in.payroll.audit']
+            for emp in self:
+                old_dict = old_income_tax_state.get(emp.id, {})
+                old_diff = {}
+                new_diff = {}
+                for f in tracked_income_tax:
+                    old_v = old_dict.get(f)
+                    if f in ('hds_in_current_tax_regime_id', 'hds_in_tax_regime'):
+                        reg = emp.hds_in_current_tax_regime_id
+                        new_v = reg.name if reg else ('New Tax Regime' if emp.hds_in_is_new_tax_regime else 'Old Tax Regime')
+                    else:
+                        new_v = getattr(emp, f, None)
+
+                    if isinstance(old_v, (int, float)) and isinstance(new_v, (int, float)):
+                        if round(float(old_v or 0.0), 2) != round(float(new_v or 0.0), 2):
+                            old_diff[f] = float(old_v or 0.0)
+                            new_diff[f] = float(new_v or 0.0)
+                    elif old_v != new_v:
+                        if old_v or new_v:
+                            old_diff[f] = old_v
+                            new_diff[f] = new_v
+
+                if new_diff:
+                    # Avoid duplicate regime logging if both fields were in vals
+                    if 'hds_in_current_tax_regime_id' in new_diff and 'hds_in_tax_regime' in new_diff:
+                        del new_diff['hds_in_tax_regime']
+                        if 'hds_in_tax_regime' in old_diff:
+                            del old_diff['hds_in_tax_regime']
+
+                    calc_date = fields.Date.today()
+                    audit_model.sudo().create({
+                        'employee_id': emp.id,
+                        'company_id': emp.company_id.id or self.env.company.id,
+                        'user_id': self.env.uid,
+                        'statutory_module': 'tds',
+                        'rule_code': 'TDS_PROFILE_CHANGE',
+                        'calculation_type': 'profile_update',
+                        'calculation_date': calc_date,
+                        'inputs_json': json.dumps(old_diff, default=str),
+                        'outputs_json': json.dumps(new_diff, default=str),
+                        'status': 'success',
+                    })
+
+                    diff_html_parts = []
+                    label_map = {
+                        'hds_in_current_tax_regime_id': 'Tax Regime',
+                        'hds_in_tax_regime': 'Tax Regime',
+                        'hds_in_tds_applicable': 'TDS Applicable',
+                        'hds_in_is_agnipath': 'Employee under Agnipath Scheme',
+                        'hds_in_residential_status': 'Residential Status',
+                        'hds_in_pan': 'PAN',
+                        'hds_in_aadhaar': 'Aadhaar Number',
+                        'hds_in_decl_80ccd2_employer_nps': 'Employer NPS Contribution (80CCD(2))',
+                        'hds_in_decl_57iia_family_pension': 'Family Pension Received (Section 57(iia))',
+                        'hds_in_prev_taxable_gross': 'Previous Employer Taxable Salary',
+                        'hds_in_prev_tds_deducted': 'Previous Employer TDS Deducted',
+                        'hds_in_prev_pt_deducted': 'Previous Employer PT Deducted',
+                        'hds_in_prev_employer_pf': 'Previous Employer EPF',
+                        'hds_in_prev_employer_nps': 'Previous Employer NPS',
+                        'hds_in_savings_bank_interest': 'Savings Account Interest',
+                        'hds_in_fixed_deposit_interest': 'Fixed Deposit Interest',
+                        'hds_in_dividend_income': 'Dividend Income',
+                        'hds_in_other_sources_income': 'Other Miscellaneous Income',
+                        'hds_in_total_other_sources_income': 'Total Other Sources Income',
+                        'hds_in_annual_let_out_rent': 'Gross Annual Rent (Let-Out Property)',
+                        'hds_in_municipal_taxes_paid': 'Municipal Taxes Paid',
+                        'hds_in_let_out_interest_paid': 'Housing Loan Interest (Let-Out Property)',
+                        'hds_in_net_house_property_income_loss': 'Net Property Income / Loss',
+                    }
+                    for k in self._INCOME_TAX_AUDIT_FIELDS:
+                        if k in new_diff:
+                            old_f = audit_model._format_audit_value(k, old_diff.get(k))
+                            new_f = audit_model._format_audit_value(k, new_diff.get(k))
+                            lbl = label_map.get(k, k.replace('_', ' ').title())
+                            diff_html_parts.append(
+                                f'<div style="line-height: 1.45; margin-bottom: 1px;">'
+                                f'<span style="color: #212529;">{old_f}</span>'
+                                f'<span style="color: #495057;"> → </span>'
+                                f'<b style="color: #008784;">{new_f}</b>'
+                                f' <span style="color: #6c757d; font-style: italic;">({lbl})</span>'
+                                f'</div>'
+                            )
+                    if diff_html_parts and hasattr(emp, 'message_post'):
+                        today_str = fields.Date.today().strftime('%b %d, %Y').replace(' 0', ' ')
+                        chatter_body = (
+                            f'<div style="color: #008784; font-weight: bold; margin-bottom: 3px;">'
+                            f'→ As of {today_str}</div>'
+                            + ''.join(diff_html_parts)
+                        )
+                        emp.message_post(body=Markup(chatter_body), subtype_xmlid='mail.mt_note')
+
         if any(k in vals for k in ('wage', 'basic_salary', 'hds_in_is_pwd', 'company_id')):
             for emp in self:
                 gross = float(getattr(emp, 'wage', 0.0) or getattr(emp, 'basic_salary', 0.0) or 0.0)
@@ -532,7 +848,7 @@ class HrEmployee(models.Model):
                             update_vals['hds_in_esic_exit_reason'] = False
         if any(k in vals for k in (
             'wage', 'basic_salary', 'da', 'hra', 'fixed_allowance', 'standard_allowance',
-            'performance_bonus', 'retention_bonus', 'lta_allowance',
+            'performance_bonus', 'lta_allowance',
             'hds_in_pf_contribution_basis', 'hds_in_pf_employer_basis',
             'hds_in_epf_applicable', 'hds_in_eps_applicable', 'hds_in_esic_applicable', 'hds_in_lwf_applicable',
             'hds_in_pt_applicable',
@@ -545,7 +861,7 @@ class HrEmployee(models.Model):
 
     @api.onchange(
         'wage', 'basic_salary', 'da', 'hra', 'fixed_allowance', 'standard_allowance',
-        'performance_bonus', 'retention_bonus', 'lta_allowance',
+        'performance_bonus', 'lta_allowance',
         'hds_in_pf_contribution_basis', 'hds_in_pf_employer_basis',
         'hds_in_epf_applicable', 'hds_in_eps_applicable', 'hds_in_esic_applicable', 'hds_in_lwf_applicable',
         'hds_in_pt_applicable',
@@ -558,7 +874,7 @@ class HrEmployee(models.Model):
 
     @api.depends(
         'wage', 'basic_salary', 'da', 'hra', 'fixed_allowance', 'standard_allowance',
-        'performance_bonus', 'retention_bonus', 'lta_allowance',
+        'performance_bonus', 'lta_allowance',
         'hds_in_pf_contribution_basis', 'hds_in_pf_employer_basis',
         'hds_in_epf_applicable', 'hds_in_eps_applicable', 'hds_in_esic_applicable', 'hds_in_lwf_applicable',
         'private_state_id', 'work_location_id', 'address_id', 'company_id',
@@ -614,7 +930,7 @@ class HrEmployee(models.Model):
                 breakdown = float(
                     (getattr(emp, 'basic_salary', 0.0) or 0.0) + (getattr(emp, 'hra', 0.0) or 0.0) +
                     (getattr(emp, 'da', 0.0) or 0.0) + (getattr(emp, 'standard_allowance', 0.0) or 0.0) +
-                    (getattr(emp, 'performance_bonus', 0.0) or 0.0) + (getattr(emp, 'retention_bonus', 0.0) or 0.0) +
+                    (getattr(emp, 'performance_bonus', 0.0) or 0.0) +
                     (getattr(emp, 'lta_allowance', 0.0) or 0.0) + (getattr(emp, 'fixed_allowance', 0.0) or 0.0)
                 )
                 if gross_wage <= 0.0 and breakdown > 0.0:
@@ -629,12 +945,14 @@ class HrEmployee(models.Model):
 
                 employer_contrib = 0.0
                 if emp.hds_in_epf_applicable and actual_pf_wage > 0.0:
+                    pf_ceiling = self.env['hr.rule.parameter'].get_pf_parameter('PF_WAGE_CEILING') or 25000.0
+                    edli_ceiling = self.env['hr.rule.parameter'].get_pf_parameter('EDLI_WAGE_CEILING') or 25000.0
                     if emp.hds_in_pf_employer_basis in ('actual_pf_wage', 'actual_basic'):
                         pf_basis_wage = actual_pf_wage
                     else:
-                        pf_basis_wage = min(actual_pf_wage, 15000.0)
+                        pf_basis_wage = min(actual_pf_wage, pf_ceiling)
                     er_pf = round(pf_basis_wage * 0.12, 2)
-                    edli = round(min(actual_pf_wage, 15000.0) * 0.005, 2)
+                    edli = round(min(actual_pf_wage, edli_ceiling) * 0.005, 2)
                     admin = round(pf_basis_wage * 0.005, 2)
                     employer_contrib += (er_pf + edli + admin)
 
@@ -649,11 +967,65 @@ class HrEmployee(models.Model):
                     work_state = PayrollWorkLocationService(self.env).get_work_state(emp)
                     rate_cfg = LWFRateService(self.env).get_rate_config(work_state, eval_date=fields.Date.today(), company=company)
                     if rate_cfg:
-                        employer_contrib += float(rate_cfg.empl_contribution or 0.0)
+                        er_contrib = float(rate_cfg.empl_contribution or 0.0)
+                        freq = rate_cfg.deduction_frequency or 'monthly'
+                        if freq == 'half_yearly':
+                            employer_contrib += round((er_contrib * 2.0) / 12.0, 2)
+                        elif freq == 'annual':
+                            employer_contrib += round(er_contrib / 12.0, 2)
+                        else:
+                            employer_contrib += er_contrib
 
                 monthly_ctc = round(gross_wage + employer_contrib, 2)
                 emp.hds_in_employer_cost_monthly = monthly_ctc
                 emp.hds_in_employer_cost_annual = round(monthly_ctc * 12.0, 2)
+
+    @api.onchange(
+        'benefit_medical_insurance_per_person',
+        'benefit_insured_spouse',
+        'benefit_insured_first_child',
+        'benefit_insured_second_child'
+    )
+    def _onchange_medical_insurance_benefits(self):
+        rate = float(self.benefit_medical_insurance_per_person or 0.0)
+        if rate <= 0.0:
+            self.benefit_insured_spouse = False
+            self.benefit_insured_first_child = False
+            self.benefit_insured_second_child = False
+            self.benefit_medical_insurance_amount = 0.0
+        else:
+            count = 1
+            if self.benefit_insured_spouse:
+                count += 1
+            if self.benefit_insured_first_child:
+                count += 1
+            if self.benefit_insured_second_child:
+                count += 1
+            self.benefit_medical_insurance_amount = round(count * rate, 2)
+
+        monthly = round(
+            float(getattr(self, 'benefit_phone', 0.0) or 0.0) +
+            float(getattr(self, 'benefit_internet', 0.0) or 0.0) +
+            float(getattr(self, 'benefit_meal_vouchers', 0.0) or 0.0) +
+            float(getattr(self, 'benefit_transport', 0.0) or 0.0) +
+            float(self.benefit_medical_insurance_amount or 0.0),
+            2
+        )
+        self.benefit_employer_cost_monthly = monthly
+        self.benefit_employer_cost_yearly = round(monthly * 12.0, 2)
+
+    @api.onchange('benefit_phone', 'benefit_internet', 'benefit_meal_vouchers', 'benefit_transport')
+    def _onchange_benefit_employer_costs(self):
+        monthly = round(
+            float(getattr(self, 'benefit_phone', 0.0) or 0.0) +
+            float(getattr(self, 'benefit_internet', 0.0) or 0.0) +
+            float(getattr(self, 'benefit_meal_vouchers', 0.0) or 0.0) +
+            float(getattr(self, 'benefit_transport', 0.0) or 0.0) +
+            float(getattr(self, 'benefit_medical_insurance_amount', 0.0) or 0.0),
+            2
+        )
+        self.benefit_employer_cost_monthly = monthly
+        self.benefit_employer_cost_yearly = round(monthly * 12.0, 2)
 
     def _compute_hds_in_statutory_audit_count(self):
         for emp in self:
@@ -665,9 +1037,9 @@ class HrEmployee(models.Model):
         self.ensure_one()
         return {
             'type': 'ir.actions.act_window',
-            'name': _('Statutory Audit Logs'),
+            'name': _('Audit Trail'),
             'res_model': 'hds.in.payroll.audit',
-            'view_mode': 'list,form',
+            'view_mode': 'list',
             'domain': [('employee_id', '=', self.id)],
             'context': {'default_employee_id': self.id},
         }
@@ -679,6 +1051,8 @@ class HrEmployee(models.Model):
         Auto-resolves/creates tds.employee.declaration record for (employee_id, financial_year_id).
         """
         self.ensure_one()
+        if not self.hds_in_tds_applicable:
+            raise UserError(_("Income Tax (TDS) is not enabled for employee '%s'. Please enable TDS under Payroll & Statutory configuration first.") % (self.name or ''))
         today = fields.Date.today()
         fy = self.company_id.hds_in_default_tax_year or self.env['tds.financial.year'].search([
             ('start_date', '<=', today),
@@ -690,17 +1064,36 @@ class HrEmployee(models.Model):
         if not fy:
             raise ValidationError(_("No active Financial Year configuration exists. Please contact HR to set up the Financial Year."))
 
+        # Ensure employee tax regime record exists and is synced with employee's selection
+        if self.hds_in_current_tax_regime_id:
+            reg_rec = self.env['tds.employee.tax.regime'].sudo().search([
+                ('employee_id', '=', self.id),
+                ('financial_year_id', '=', fy.id),
+            ], limit=1)
+            if not reg_rec:
+                self.env['tds.employee.tax.regime'].sudo().create({
+                    'employee_id': self.id,
+                    'financial_year_id': fy.id,
+                    'regime_id': self.hds_in_current_tax_regime_id.id,
+                })
+            elif reg_rec.regime_id != self.hds_in_current_tax_regime_id:
+                reg_rec.sudo().write({'regime_id': self.hds_in_current_tax_regime_id.id})
+
         decl = self.env['tds.employee.declaration'].sudo().search([
             ('employee_id', '=', self.id),
             ('financial_year_id', '=', fy.id)
         ], limit=1)
 
         if not decl:
+            regime = self.hds_in_current_tax_regime_id or self.env['tds.tax.regime'].search([('code', '=', 'new')], limit=1)
             decl = self.env['tds.employee.declaration'].sudo().create({
                 'employee_id': self.id,
                 'financial_year_id': fy.id,
+                'tax_regime_id': regime.id if regime else False,
                 'state': 'draft',
             })
+        elif self.hds_in_current_tax_regime_id and decl.tax_regime_id != self.hds_in_current_tax_regime_id:
+            decl.sudo().write({'tax_regime_id': self.hds_in_current_tax_regime_id.id})
 
         # Also ensure regime choice and income declaration records exist
         inc_decl = self.env['tds.employee.income.declaration'].sudo().search([
@@ -723,6 +1116,7 @@ class HrEmployee(models.Model):
             'view_mode': 'form',
             'views': [(view_id.id if view_id else False, 'form')],
             'target': 'current',
+            'context': {'create': False, 'delete': False, 'edit': True},
         }
 
     # =========================================================================
@@ -736,9 +1130,18 @@ class HrEmployee(models.Model):
         string="Aadhaar Number",
         help="12-digit Aadhaar Card Number."
     )
+    def _default_hds_in_tds_applicable(self):
+        company = self.env.company
+        return bool(company and getattr(company, 'hds_in_tds_applicable', False))
+
+    hds_in_enable_tds = fields.Boolean(
+        string="Company Enables TDS",
+        related='company_id.hds_in_tds_applicable',
+        readonly=True,
+    )
     hds_in_tds_applicable = fields.Boolean(
         string="Enable TDS",
-        default=False,
+        default=_default_hds_in_tds_applicable,
         help="Enable Indian Income Tax (TDS) withholding computation for this employee."
     )
     hds_in_tds_month_division = fields.Integer(
@@ -747,6 +1150,11 @@ class HrEmployee(models.Model):
         store=False,
         readonly=True,
         help="Remaining months in the Financial Year from employee's joining date to Financial Year end."
+    )
+    hds_in_is_agnipath = fields.Boolean(
+        string="Employee under Agnipath Scheme",
+        default=False,
+        help="Check if the employee is enrolled under the Agnipath Scheme (eligible for Section 80CCH Agniveer Corpus Fund deduction)."
     )
 
     def _get_employee_joining_date(self):
@@ -859,13 +1267,6 @@ class HrEmployee(models.Model):
                 vals['hds_in_residential_status'] = 'nre' if vals.get('is_non_resident') else 'ror'
         return super().create(vals_list)
 
-    def write(self, vals):
-        if 'hds_in_residential_status' in vals and 'is_non_resident' not in vals:
-            vals['is_non_resident'] = (vals.get('hds_in_residential_status') == 'nre')
-        elif 'is_non_resident' in vals and 'hds_in_residential_status' not in vals:
-            vals['hds_in_residential_status'] = 'nre' if vals.get('is_non_resident') else 'ror'
-        return super().write(vals)
-
     # Previous Employer Income & TDS (For Mid-Year Joiners)
     hds_in_prev_taxable_gross = fields.Monetary(
         string="Previous Employer Taxable Salary (₹)",
@@ -951,9 +1352,12 @@ class HrEmployee(models.Model):
 
     def _compute_hds_in_tax_regime_count(self):
         for emp in self:
-            emp.hds_in_tax_regime_count = self.env['tds.employee.tax.regime'].search_count([
-                ('employee_id', '=', emp.id)
-            ])
+            if not emp.hds_in_tds_applicable:
+                emp.hds_in_tax_regime_count = 0
+            else:
+                emp.hds_in_tax_regime_count = self.env['tds.employee.tax.regime'].search_count([
+                    ('employee_id', '=', emp.id)
+                ])
 
     def action_view_tax_regimes(self):
         """
@@ -962,6 +1366,8 @@ class HrEmployee(models.Model):
         record for (employee_id, financial_year_id), defaulting to system default regime if new.
         """
         self.ensure_one()
+        if not self.hds_in_tds_applicable:
+            raise UserError(_("Income Tax (TDS) is not enabled for employee '%s'. Please enable TDS under Payroll & Statutory configuration first.") % (self.name or ''))
         today = fields.Date.today()
         fy = self.company_id.hds_in_default_tax_year or self.env['tds.financial.year'].search([
             ('start_date', '<=', today),
@@ -1115,18 +1521,20 @@ class HrEmployee(models.Model):
                 # Flexible policy: Respect employee-level selection
                 if fy and emp.id:
                     rec = reg_map.get((emp.id, fy.id))
-                    reg_id = rec.regime_id if rec else False
+                    reg_id = rec.regime_id if (rec and rec.regime_id) else reg_new
                     emp.hds_in_current_tax_regime_id = reg_id
                     code = reg_id.code if reg_id else 'new'
                     emp.hds_in_is_new_tax_regime = (code == 'new')
                     emp.hds_in_tax_regime = code
                 else:
-                    emp.hds_in_current_tax_regime_id = False
+                    emp.hds_in_current_tax_regime_id = reg_new
                     emp.hds_in_is_new_tax_regime = True
                     emp.hds_in_tax_regime = 'new'
 
     def _inverse_hds_in_tax_regime(self):
         for emp in self:
+            if not emp.id or not emp.hds_in_tds_applicable:
+                continue
             company = emp.company_id or self.env.company
             policy = company.hds_in_default_tax_regime or 'new'
             if policy in ('new', 'old'):
@@ -1140,70 +1548,25 @@ class HrEmployee(models.Model):
                     emp._inverse_current_tax_regime()
 
     def _search_hds_in_tax_regime(self, operator, value):
+        """Search on the computed regime so filters/counts match what each employee shows.
+
+        The regime depends on the company policy ('new' / 'old' / 'flexible') and, for flexible
+        companies, the employee's regime record for the current FY (default 'new'). Searching only
+        regime records missed employees who are on the default regime, so the matching employees
+        are taken from _compute_current_fy_regime itself.
+        """
         if operator not in ('=', '!=', 'in', 'not in'):
             return []
-
-        today = fields.Date.today()
-        company = self.env.company
-        fy = company.hds_in_default_tax_year or self.env['tds.financial.year'].sudo().search([
-            ('start_date', '<=', today),
-            ('end_date', '>=', today),
-            ('active', '=', True),
-            ('is_closed', '=', False)
-        ], limit=1)
-
-        default_regime = company.hds_in_default_tax_regime or 'new'
-
-        old_emp_ids = set()
-        new_emp_ids = set()
-
-        if fy:
-            # Check tds.employee.tax.regime records (primary authority)
-            reg_records = self.env['tds.employee.tax.regime'].sudo().search([
-                ('financial_year_id', '=', fy.id)
-            ])
-            for r in reg_records:
-                if r.employee_id:
-                    if r.regime_code == 'old':
-                        old_emp_ids.add(r.employee_id.id)
-                    elif r.regime_code == 'new':
-                        new_emp_ids.add(r.employee_id.id)
-
-            # Check tds.employee.declaration records for any declarations
-            decl_records = self.env['tds.employee.declaration'].sudo().search([
-                ('financial_year_id', '=', fy.id)
-            ])
-            for d in decl_records:
-                if d.employee_id and d.employee_id.id not in old_emp_ids and d.employee_id.id not in new_emp_ids:
-                    code = d.regime_code or (d.tax_regime_id.code if d.tax_regime_id else False)
-                    if code == 'old':
-                        old_emp_ids.add(d.employee_id.id)
-                    elif code == 'new':
-                        new_emp_ids.add(d.employee_id.id)
-
-        target_values = [value] if isinstance(value, str) else list(value or [])
-        is_positive = operator in ('=', 'in')
-        wants_old = 'old' in target_values
-        wants_new = 'new' in target_values
-
-        if wants_old and wants_new:
-            return [(1, '=', 1)] if is_positive else [('id', '=', False)]
-
-        # Matching OLD regime
-        if (wants_old and is_positive) or (wants_new and not is_positive):
-            if default_regime == 'old':
-                return [('id', 'not in', list(new_emp_ids))] if new_emp_ids else [(1, '=', 1)]
-            else:
-                return [('id', 'in', list(old_emp_ids))] if old_emp_ids else [('id', '=', False)]
-
-        # Matching NEW regime
-        if (wants_new and is_positive) or (wants_old and not is_positive):
-            if default_regime == 'new':
-                return [('id', 'not in', list(old_emp_ids))] if old_emp_ids else [(1, '=', 1)]
-            else:
-                return [('id', 'in', list(new_emp_ids))] if new_emp_ids else [('id', '=', False)]
-
-        return []
+        # Odoo may pass a single value or any collection (list, tuple, set, OrderedSet)
+        if isinstance(value, str) or not hasattr(value, '__iter__'):
+            targets = {value}
+        else:
+            targets = set(value)
+        employees = self.sudo().with_context(active_test=False).search([])
+        matched_ids = employees.filtered(lambda emp: emp.hds_in_tax_regime in targets).ids
+        if operator in ('=', 'in'):
+            return [('id', 'in', matched_ids)]
+        return [('id', 'not in', matched_ids)]
 
     def _inverse_current_tax_regime(self):
         today = fields.Date.today()
@@ -1215,6 +1578,8 @@ class HrEmployee(models.Model):
         ], limit=1)
 
         for emp in self:
+            if not emp.id or not emp.hds_in_tds_applicable:
+                continue
             company = emp.company_id or self.env.company
             policy = company.hds_in_default_tax_regime or 'new'
             if policy in ('new', 'old'):
@@ -1246,7 +1611,8 @@ class HrEmployee(models.Model):
                     ('financial_year_id', '=', fy.id)
                 ], limit=1)
                 if decl:
-                    decl.sudo().write({'tax_regime_id': emp.hds_in_current_tax_regime_id.id})
+                    decl.with_context(no_tds_audit=True).sudo().write({'tax_regime_id': emp.hds_in_current_tax_regime_id.id})
+                    decl.invalidate_recordset(['regime_choice_id', 'regime_code', 'tax_regime_id'])
 
     # -------------------------------------------------------------------------
     # ACTIVE TAX DECLARATION LIVE SUMMARY & KPI FIELDS
@@ -1301,7 +1667,7 @@ class HrEmployee(models.Model):
         for emp in self:
             fy = emp.hds_in_current_fy_id
             decl = False
-            if fy and emp.id:
+            if fy and emp.id and emp.hds_in_tds_applicable:
                 decl = self.env['tds.employee.declaration'].sudo().search([
                     ('employee_id', '=', emp.id),
                     ('financial_year_id', '=', fy.id)
@@ -1309,6 +1675,7 @@ class HrEmployee(models.Model):
 
             emp.hds_in_current_declaration_id = decl
             if decl:
+                decl._compute_totals()
                 emp.hds_in_decl_status = decl.state
                 emp.hds_in_decl_total_declared = decl.total_declared_amount
                 emp.hds_in_decl_total_approved = decl.total_approved_amount
@@ -1365,6 +1732,10 @@ class HrEmployee(models.Model):
                     <div style="background: #ffffff; padding: 14px; border-radius: 8px; border: 1px solid #e2e8f0;">
                         <div style="font-size: 12px; color: #64748b; font-weight: 600;">Total Declared Deductions</div>
                         <div style="font-size: 20px; font-weight: 700; color: #1e293b; margin-top: 4px;">{curr} {emp.hds_in_decl_total_declared:,.2f}</div>
+                    </div>
+                    <div style="background: #ffffff; padding: 14px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                        <div style="font-size: 12px; color: #64748b; font-weight: 600;">Employer NPS (Sec 124)</div>
+                        <div style="font-size: 20px; font-weight: 700; color: #0284c7; margin-top: 4px;">{curr} {emp.hds_in_decl_80ccd2_employer_nps:,.2f}</div>
                     </div>
                     <div style="background: #ffffff; padding: 14px; border-radius: 8px; border: 1px solid #e2e8f0;">
                         <div style="font-size: 12px; color: #64748b; font-weight: 600;">Total Approved Deductions</div>
@@ -1454,7 +1825,7 @@ class HrEmployee(models.Model):
             ('is_closed', '=', False)
         ], limit=1)
 
-        valid_emp_ids = [e.id for e in self if e.id]
+        valid_emp_ids = [e.id for e in self if e.id and e.hds_in_tds_applicable]
         fy_map = {}
         decl_map = {}
 
@@ -1543,7 +1914,7 @@ class HrEmployee(models.Model):
         }
 
         for emp in self:
-            if not emp.id:
+            if not emp.id or not emp.hds_in_tds_applicable:
                 continue
             company = emp.company_id or self.env.company
             fy = emp.hds_in_current_fy_id or company.hds_in_default_tax_year or default_fy_fallback
@@ -1568,7 +1939,7 @@ class HrEmployee(models.Model):
                 if abs(float_val - decl_val) > 0.001:
                     vals[decl_f] = float_val
             if vals:
-                decl.sudo().write(vals)
+                decl.sudo().with_context(no_tds_audit=True).write(vals)
 
     # -------------------------------------------------------------------------
     # SECTION 4: DEDUCTION DECLARATION HELPER FIELDS (Old Regime Only)
@@ -1632,12 +2003,12 @@ class HrEmployee(models.Model):
         help="Employer contribution under Section 124 (formerly Section 80CCD(2)) (up to 14%/10% of Basic + DA, permitted under BOTH Old and New Regimes)."
     )
     hds_in_decl_57iia_family_pension = fields.Monetary(
-        string="Family Pension Deduction 57(iia) (₹)",
+        string="Family Pension Received (annual) — Section 93(1)(d) (₹)",
         currency_field='currency_id',
         compute='_compute_current_deduction_decl',
         inverse='_inverse_current_deduction_decl',
         store=False,
-        help="Family Pension deduction under Section 57(iia) (permitted under BOTH Old and New Regimes)."
+        help="Family Pension received under Section 93(1)(d) / Section 57(iia) (Income from Other Sources). Standard deduction: min(1/3rd of family pension, ₹25,000)."
     )
     hds_in_decl_80cch_agniveer = fields.Monetary(
         string="Agniveer Corpus Fund 80CCH (₹)",
@@ -1667,7 +2038,7 @@ class HrEmployee(models.Model):
             ('is_closed', '=', False)
         ], limit=1)
 
-        valid_emp_ids = [e.id for e in self if e.id]
+        valid_emp_ids = [e.id for e in self if e.id and e.hds_in_tds_applicable]
         fy_map = {}
         decl_map = {}
 
@@ -1773,13 +2144,12 @@ class HrEmployee(models.Model):
                             if line.is_severe_disability:
                                 emp.hds_in_decl_80dd_is_severe = True
                         elif cat == 'other': emp.hds_in_decl_other_amount += amt
-                        elif cat == '80ccd2': emp.hds_in_decl_80ccd2_employer_nps += amt
+                        elif cat == '80ccd2': pass
                         elif cat == '57iia': emp.hds_in_decl_57iia_family_pension += amt
                         elif cat == '80cch': emp.hds_in_decl_80cch_agniveer += amt
 
-                    # Fallback to direct header fields if line was not found
-                    if not emp.hds_in_decl_80ccd2_employer_nps and decl.decl_80ccd2_employer_nps:
-                        emp.hds_in_decl_80ccd2_employer_nps = decl.decl_80ccd2_employer_nps
+                    # Employer NPS Contribution is read directly from declaration header
+                    emp.hds_in_decl_80ccd2_employer_nps = float(decl.decl_80ccd2_employer_nps or 0.0) if decl else 0.0
                     if not emp.hds_in_decl_57iia_family_pension and decl.decl_57iia_family_pension:
                         emp.hds_in_decl_57iia_family_pension = decl.decl_57iia_family_pension
                     if not emp.hds_in_decl_80cch_agniveer and decl.decl_80cch_agniveer:
@@ -1825,7 +2195,7 @@ class HrEmployee(models.Model):
         ], limit=1)
 
         for emp in self:
-            if not emp.id:
+            if not emp.id or not emp.hds_in_tds_applicable:
                 continue
             company = emp.company_id or self.env.company
             fy = emp.hds_in_current_fy_id or company.hds_in_default_tax_year or default_fy_fallback
@@ -1896,7 +2266,12 @@ class HrEmployee(models.Model):
                     'decl_80dd_amount': 0.0, 'decl_80dd_expenditure_amount': 0.0, 'decl_80dd_is_severe_disability': False,
                 })
 
-            decl.sudo().write(decl_vals)
+            decl.sudo().with_context(no_tds_audit=True).write(decl_vals)
+
+            # Unlink any legacy child lines for employer NPS (Employer NPS Section 124 is an employer contribution, not an employee investment line item)
+            legacy_nps_lines = decl.declaration_line_ids.filtered(lambda l: l.category == '80ccd2')
+            if legacy_nps_lines:
+                legacy_nps_lines.unlink()
 
             # Handle 'other' statutory deduction line
             other_amt = float(emp.hds_in_decl_other_amount or 0.0) if not is_new else 0.0
@@ -1918,23 +2293,7 @@ class HrEmployee(models.Model):
 
 
 
-    def _compute_hds_in_tax_regime_count(self):
-        for emp in self:
-            emp.hds_in_tax_regime_count = self.env['tds.employee.tax.regime'].search_count([
-                ('employee_id', '=', emp.id)
-            ])
 
-    def action_view_tax_regimes(self):
-
-        self.ensure_one()
-        return {
-            'type': 'ir.actions.act_window',
-            'name': _('Financial Year Tax Selections'),
-            'res_model': 'tds.employee.tax.regime',
-            'view_mode': 'list,form',
-            'domain': [('employee_id', '=', self.id)],
-            'context': {'default_employee_id': self.id},
-        }
 
     def action_view_home_loans(self):
         self.ensure_one()

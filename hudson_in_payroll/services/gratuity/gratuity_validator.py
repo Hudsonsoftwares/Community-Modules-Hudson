@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 from datetime import date, datetime
 from dateutil.relativedelta import relativedelta
-from odoo import fields
-from odoo.tools.translate import _
+from odoo import fields# pyrefly: ignore [missing-import]
+from odoo.tools.translate import _# pyrefly: ignore [missing-import]
 import logging
 
 _logger = logging.getLogger(__name__)
@@ -127,19 +127,32 @@ class GratuityValidator:
                 reason=_("Separation date (%s) cannot be earlier than joining date (%s).") % (separation_date, joining_date)
             )
 
-        # Validation 4: Calculate Service Duration (Payment of Gratuity Act Rules)
-        duration_info = self._calculate_service_duration(joining_date, separation_date)
+        # Validation 4: Resolve Statutory Minimum Service Years via Rule Parameter Engine
+        ref_date = calc_date or separation_date or fields.Date.today()
+        min_required_years = self._resolve_min_service_years_parameter(ref_date)
+
+        # Validation 5: Calculate Service Duration (Payment of Gratuity Act Rules)
+        # Note: Under Section 4(1), continuous service of not less than 5 full continuous years
+        # is mandatory for eligibility. Section 4(2) fraction rounding (> 6 months = 1 year)
+        # applies ONLY to compute the payout multiplier AFTER completing the mandatory 5 years,
+        # or under the statutory waiver for death/disablement.
+        is_death_or_disablement_applicable = bool(
+            is_death_or_disablement or self._check_death_disablement_exception(employee, contract)
+        )
+
+        duration_info = self._calculate_service_duration(
+            joining_date,
+            separation_date,
+            min_service_years=min_required_years,
+            is_death_or_disablement=is_death_or_disablement_applicable
+        )
         total_years = duration_info['total_years']
         remaining_months = duration_info['remaining_months']
         remaining_days = duration_info['remaining_days']
         completed_years = duration_info['completed_years']
 
-        # Validation 5: Resolve Statutory Minimum Service Years via Rule Parameter Engine
-        ref_date = calc_date or separation_date or fields.Date.today()
-        min_required_years = self._resolve_min_service_years_parameter(ref_date)
-
         # Validation 6 & 7: Check Statutory Eligibility & Future-Ready Exceptions
-        if is_death_or_disablement or self._check_death_disablement_exception(employee, contract):
+        if is_death_or_disablement_applicable:
             return GratuityValidationResult(
                 is_eligible=True,
                 reason=_("Eligible for gratuity under Death/Disablement exemption (minimum service requirement waived per Section 4(1) proviso)."),
@@ -166,10 +179,17 @@ class GratuityValidator:
                 min_required_years=min_required_years
             )
 
-        if completed_years >= min_required_years:
+        # Statutory Eligibility Gate (Section 4(1)):
+        # An employee must render continuous service for not less than 5 full years.
+        # Section 4(2) fraction rounding rule cannot be used to bridge service below 5 years.
+        if total_years >= min_required_years:
+            if completed_years > total_years:
+                reason = _("Eligible for gratuity. Completed %s full years of continuous service (statutory minimum: %s years; payout calculated on %s years per Section 4(2)).") % (total_years, min_required_years, completed_years)
+            else:
+                reason = _("Eligible for gratuity. Completed %s years of service (minimum required: %s years).") % (completed_years, min_required_years)
             return GratuityValidationResult(
                 is_eligible=True,
-                reason=_("Eligible for gratuity. Completed %s years of service (minimum required: %s years).") % (completed_years, min_required_years),
+                reason=reason,
                 joining_date=joining_date,
                 separation_date=separation_date,
                 total_years=total_years,
@@ -181,7 +201,7 @@ class GratuityValidator:
 
         return GratuityValidationResult(
             is_eligible=False,
-            reason=_("Ineligible for gratuity. Completed %s years of service, which is below the statutory minimum required %s years.") % (completed_years, min_required_years),
+            reason=_("Ineligible for gratuity. Completed %s years and %s months of continuous service, which is below the statutory minimum required %s full years under Section 4(1).") % (total_years, remaining_months, int(min_required_years) if isinstance(min_required_years, (int, float)) and min_required_years.is_integer() else min_required_years),
             joining_date=joining_date,
             separation_date=separation_date,
             total_years=total_years,
@@ -202,8 +222,6 @@ class GratuityValidator:
                 return fields.Date.from_string(contract.contract_date_start)
             if getattr(contract, 'date_start', None):
                 return fields.Date.from_string(contract.date_start)
-        if getattr(employee, 'create_date', None):
-            return fields.Date.from_string(employee.create_date)
         return None
 
     def _resolve_separation_date(self, employee, contract=None, explicit_date=None):
@@ -216,18 +234,34 @@ class GratuityValidator:
             return fields.Date.from_string(contract.date_end)
         return None
 
-    def _calculate_service_duration(self, joining_date, separation_date):
+    def _calculate_service_duration(self, joining_date, separation_date, min_service_years=5.0, is_death_or_disablement=False):
         """
-        Calculates service duration and completed years under Payment of Gratuity Act 1972 Section 4(2).
-        Rule: Any service period exceeding 6 months in a fraction year counts as 1 full completed year.
+        Calculates service duration and completed years under Payment of Gratuity Act 1972.
+        - Section 4(1): Mandatory threshold of 5 full continuous years (waived for death/disablement).
+        - Section 4(2): Payout rounding rule - any period exceeding 6 months in a fraction year
+          counts as 1 full completed year ONLY AFTER the employee has satisfied Section 4(1) eligibility
+          (or under the death/disablement statutory waiver).
         """
-        rdelta = relativedelta(separation_date, joining_date)
+        if not joining_date or not separation_date or separation_date < joining_date:
+            return {
+                'total_years': 0,
+                'remaining_months': 0,
+                'remaining_days': 0,
+                'completed_years': 0,
+            }
+
+        # Inclusive end date: separation date is worked and paid under statutory rules
+        end_date = separation_date + relativedelta(days=1)
+        rdelta = relativedelta(end_date, joining_date)
         total_years = max(0, rdelta.years)
         remaining_months = max(0, rdelta.months)
         remaining_days = max(0, rdelta.days)
 
-        # Statutory Rounding Rule: > 6 months in fraction year rounds UP to 1 completed year
-        if remaining_months > 6 or (remaining_months == 6 and remaining_days > 0):
+        # Statutory Rounding Rule (Section 4(2)):
+        # Fraction rounding (> 6 months = 1 year) applies ONLY if the employee has completed
+        # the statutory minimum service years (Section 4(1)) or has a statutory waiver (death/disablement).
+        is_eligible_for_rounding = (total_years >= min_service_years) or is_death_or_disablement
+        if is_eligible_for_rounding and (remaining_months > 6 or (remaining_months == 6 and remaining_days > 0)):
             completed_years = total_years + 1
         else:
             completed_years = total_years

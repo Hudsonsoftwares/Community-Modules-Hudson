@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="res_config_settings_view_form_activity" model="ir.ui.view">
+        <field name="name">res.config.settings.view.form.activity.monitor</field>
+        <field name="model">res.config.settings</field>
+        <field name="priority" eval="90"/>
+        <field name="inherit_id" ref="base.res_config_settings_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//form" position="inside">
+                <app data-string="Activity Monitor" string="Activity Monitor" name="hudson_activity_monitor"
+                     groups="hudson_activity_monitor.group_activity_admin">
+                    <block title="Tracking" name="activity_tracking">
+                        <setting string="Idle Detection" help="No keyboard or mouse input for this long counts as idle.">
+                            <field name="activity_idle_minutes" class="w-25"/> <span>minutes</span>
+                        </setting>
+                        <setting string="Upload Frequency" help="How often agents send their data (seconds).">
+                            <field name="activity_upload_interval" class="w-25"/> <span>seconds</span>
+                        </setting>
+                        <setting help="Agents pause automatically when the employee is checked out.">
+                            <field name="activity_only_checked_in"/>
+                        </setting>
+                        <setting help="Hide the Quit option from the agent's tray menu.">
+                            <field name="activity_block_quit"/>
+                        </setting>
+                    </block>
+                    <block title="Privacy" name="activity_privacy">
+                        <setting help="Collect application names only, never window titles.">
+                            <field name="activity_hide_titles"/>
+                        </setting>
+                        <setting string="Private Applications"
+                                 help="Comma-separated process names whose window titles are never collected.">
+                            <field name="activity_private_apps" placeholder="WhatsApp.exe, com.apple.MobileSMS"/>
+                        </setting>
+                        <setting string="Retention" help="Detailed activity is deleted after this period; daily summaries are kept.">
+                            <field name="activity_retention_days" class="w-25"/> <span>days</span>
+                        </setting>
+                    </block>
+                    <block title="Agents" name="activity_agents">
+                        <setting string="Server Address for Agents"
+                                 help="Address employees' computers use to reach Odoo. Leave empty to use the web base URL.">
+                            <field name="activity_public_url" placeholder="https://erp.example.com"/>
+                        </setting>
+                    </block>
+                </app>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="action_activity_settings" model="ir.actions.act_window">
+        <field name="name">Settings</field>
+        <field name="res_model">res.config.settings</field>
+        <field name="view_mode">form</field>
+        <field name="context">{'module': 'hudson_activity_monitor'}</field>
+    </record>
+</odoo>

@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        Demo data sheet (Odoo Online-style layout): one section per scenario, with
+        barcodes taken from the current company's own records. Only barcodes this
+        app can act on are printed (see stock.picking.type._get_barcode_demo_sheet_sections).
+    -->
+    <template id="report_barcode_demo_sheet_document">
+        <t t-call="web.html_container">
+            <t t-call="web.basic_layout">
+                <div class="page" style="font-family: Arial, Helvetica, sans-serif;">
+                    <t t-set="sections" t-value="env['stock.picking.type']._get_barcode_demo_sheet_sections()"/>
+                    <t t-foreach="sections" t-as="section">
+                        <div class="mb-4" style="page-break-inside: avoid;">
+                            <div style="font-size: 20px; margin-bottom: 2px;" t-out="section['title']"/>
+                            <div t-if="section['hint']" style="font-size: 11px; color: #555; margin-bottom: 6px;" t-out="section['hint']"/>
+                            <t t-foreach="section['rows']" t-as="row">
+                                <div style="margin-bottom: 14px;">
+                                    <t t-foreach="row" t-as="bc">
+                                        <div style="width: 32%; display: inline-block; vertical-align: top; margin-bottom: 10px;">
+                                            <div style="font-size: 14px; margin-bottom: 2px; white-space: nowrap; overflow: hidden;" t-out="bc['label']"/>
+                                            <img t-att-src="'/report/barcode/?barcode_type=Code128&amp;value=%s&amp;width=600&amp;height=120' % bc['code']" style="width: 210px; height: 55px;" alt="Barcode"/>
+                                            <div style="width: 210px; text-align: center; font-size: 10px;" t-out="bc['code']"/>
+                                        </div>
+                                    </t>
+                                </div>
+                            </t>
+                        </div>
+                    </t>
+                    <p t-if="not sections" class="text-center text-muted mt-5">
+                        No demo data to print yet: add barcodes to your products (and enable lots, packages or
+                        storage locations to get more scenarios).
+                    </p>
+                </div>
+            </t>
+        </t>
+    </template>
+
+    <record id="action_report_barcode_demo_sheet" model="ir.actions.report">
+        <field name="name">Barcode Demo Data Sheet</field>
+        <field name="model">stock.picking.type</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">Barcode.report_barcode_demo_sheet_document</field>
+        <field name="print_report_name">'Barcode_Demo_Data_Sheet'</field>
+        <field name="binding_model_id" eval="False"/>
+    </record>
+</odoo>

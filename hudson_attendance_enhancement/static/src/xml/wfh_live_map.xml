@@ -7,18 +7,18 @@
                 <!-- Title & Period Filter -->
                 <div class="d-flex align-items-center flex-wrap gap-2">
                     <h5 class="mb-0 fw-bold text-dark me-2">
-                        <i class="fa fa-map-marker text-danger me-2"/>Remote Workforce Telemetry
+                        <i class="oi text-danger me-2" data-icon="location_on"/>Remote Workforce Telemetry
                     </h5>
 
                     <!-- Period Filter Dropdown -->
                     <div class="dropdown">
                         <button class="btn btn-sm btn-outline-secondary dropdown-toggle fw-semibold" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                            <i class="fa fa-calendar me-1"/>
-                            <t t-if="state.datePeriod === 'live'">🔴 Live Active Now</t>
-                            <t t-elif="state.datePeriod === 'today'">📅 Today</t>
-                            <t t-elif="state.datePeriod === 'week'">📆 This Week</t>
-                            <t t-elif="state.datePeriod === 'month'">🗓️ This Month</t>
-                            <t t-elif="state.datePeriod === 'custom'">⚙️ Custom Range</t>
+                            <i class="oi me-1" data-icon="calendar_today"/>
+                            <t t-if="this.state.datePeriod === 'live'">🔴 Live Active Now</t>
+                            <t t-elif="this.state.datePeriod === 'today'">📅 Today</t>
+                            <t t-elif="this.state.datePeriod === 'week'">📆 This Week</t>
+                            <t t-elif="this.state.datePeriod === 'month'">🗓️ This Month</t>
+                            <t t-elif="this.state.datePeriod === 'custom'">⚙️ Custom Range</t>
                         </button>
                         <ul class="dropdown-menu">
                             <li><a class="dropdown-item" href="#" t-on-click="() => this.setDatePeriod('live')">🔴 Live Active (Currently Working)</a></li>
@@ -31,10 +31,10 @@
                     </div>
 
                     <!-- Custom Date Inputs -->
-                    <div t-if="state.datePeriod === 'custom'" class="d-flex align-items-center gap-1">
-                        <input type="date" class="form-control form-control-sm" t-model="state.customDateFrom" t-on-change="onCustomDateChange" style="width: 135px;"/>
+                    <div t-if="this.state.datePeriod === 'custom'" class="d-flex align-items-center gap-1">
+                        <input type="date" class="form-control form-control-sm" t-model.proxy="this.state.customDateFrom" t-on-change="this.onCustomDateChange" style="width: 135px;"/>
                         <span class="text-muted small">to</span>
-                        <input type="date" class="form-control form-control-sm" t-model="state.customDateTo" t-on-change="onCustomDateChange" style="width: 135px;"/>
+                        <input type="date" class="form-control form-control-sm" t-model.proxy="this.state.customDateTo" t-on-change="this.onCustomDateChange" style="width: 135px;"/>
                     </div>
                 </div>
 
@@ -43,73 +43,73 @@
                     <!-- View Mode Buttons (Map, Table, Graph) -->
                     <div class="btn-group btn-group-sm me-2" role="group">
                         <button type="button" class="btn" 
-                                t-att-class="state.viewMode === 'map' ? 'btn-primary' : 'btn-outline-secondary'"
+                                t-att-class="this.state.viewMode === 'map' ? 'btn-primary' : 'btn-outline-secondary'"
                                 t-on-click="() => this.setViewMode('map')" title="Interactive Map View">
-                            <i class="fa fa-map me-1"/> Map
+                            <i class="oi me-1" data-icon="map"/> Map
                         </button>
                         <button type="button" class="btn" 
-                                t-att-class="state.viewMode === 'table' ? 'btn-primary' : 'btn-outline-secondary'"
+                                t-att-class="this.state.viewMode === 'table' ? 'btn-primary' : 'btn-outline-secondary'"
                                 t-on-click="() => this.setViewMode('table')" title="Tabular View">
-                            <i class="fa fa-table me-1"/> Table
+                            <i class="oi me-1" data-icon="table"/> Table
                         </button>
                         <button type="button" class="btn" 
-                                t-att-class="state.viewMode === 'graph' ? 'btn-primary' : 'btn-outline-secondary'"
+                                t-att-class="this.state.viewMode === 'graph' ? 'btn-primary' : 'btn-outline-secondary'"
                                 t-on-click="() => this.setViewMode('graph')" title="Graphical Analytics View">
-                            <i class="fa fa-bar-chart me-1"/> Analytics
+                            <i class="oi me-1" data-icon="bar_chart"/> Analytics
                         </button>
                     </div>
 
                     <!-- Quick Metrics -->
                     <span class="badge rounded-pill bg-success-subtle text-success px-3 py-2 border border-success-subtle">
-                        At Home: <strong><t t-out="state.stats.at_home"/></strong> (<t t-out="state.stats.at_home_pct"/>%)
+                        At Home: <strong><t t-out="this.state.stats.at_home"/></strong> (<t t-out="this.state.stats.at_home_pct"/>%)
                     </span>
                     <span class="badge rounded-pill bg-danger-subtle text-danger px-3 py-2 border border-danger-subtle">
-                        Offsite: <strong><t t-out="state.stats.offsite"/></strong>
+                        Offsite: <strong><t t-out="this.state.stats.offsite"/></strong>
                     </span>
 
-                    <button class="btn btn-sm btn-outline-secondary ms-1" type="button" t-on-click="() => this.loadEmployees(false)" t-att-disabled="state.isLoading">
-                        <i t-if="state.isLoading" class="spinner-border spinner-border-sm me-1" role="status"/>
-                        <i t-else="" class="fa fa-refresh me-1"/>
+                    <button class="btn btn-sm btn-outline-secondary ms-1" type="button" t-on-click="() => this.loadEmployees(false)" t-att-disabled="this.state.isLoading">
+                        <i t-if="this.state.isLoading" class="spinner-border spinner-border-sm me-1" role="status"/>
+                        <i t-else="" class="oi me-1" data-icon="refresh"/>
                         Refresh
                     </button>
                 </div>
             </div>
 
             <!-- VIEW 1: MAP VIEW -->
-            <div t-if="state.viewMode === 'map'" class="hudson-wfh-content flex-grow-1 position-relative d-flex overflow-hidden">
+            <div t-if="this.state.viewMode === 'map'" class="hudson-wfh-content flex-grow-1 position-relative d-flex overflow-hidden">
                 <!-- Sidebar Employee List -->
                 <div class="hudson-wfh-sidebar bg-white border-end d-flex flex-column" style="width: 340px; min-width: 320px; z-index: 100;">
                     <!-- Filter and Search -->
                     <div class="p-3 border-bottom bg-light-subtle">
                         <div class="input-group mb-2">
-                            <span class="input-group-text bg-white"><i class="fa fa-search text-muted"/></span>
-                            <input type="text" class="form-control form-control-sm" placeholder="Search employee or dept..." t-model="state.searchQuery"/>
+                            <span class="input-group-text bg-white"><i class="oi text-muted" data-icon="search"/></span>
+                            <input type="text" class="form-control form-control-sm" placeholder="Search employee or dept..." t-model.proxy="this.state.searchQuery"/>
                         </div>
                         <div class="btn-group btn-group-sm w-100" role="group">
-                            <button type="button" class="btn" t-att-class="state.filterStatus === 'all' ? 'btn-primary' : 'btn-outline-secondary'" t-on-click="() => state.filterStatus = 'all'">
-                                All (<t t-out="filteredEmployees.length"/>)
+                            <button type="button" class="btn" t-att-class="this.state.filterStatus === 'all' ? 'btn-primary' : 'btn-outline-secondary'" t-on-click="() => this.state.filterStatus = 'all'">
+                                All (<t t-out="this.filteredEmployees.length"/>)
                             </button>
-                            <button type="button" class="btn" t-att-class="state.filterStatus === 'at_home' ? 'btn-success' : 'btn-outline-secondary'" t-on-click="() => state.filterStatus = 'at_home'">
-                                At Home (<t t-out="state.stats.at_home"/>)
+                            <button type="button" class="btn" t-att-class="this.state.filterStatus === 'at_home' ? 'btn-success' : 'btn-outline-secondary'" t-on-click="() => this.state.filterStatus = 'at_home'">
+                                At Home (<t t-out="this.state.stats.at_home"/>)
                             </button>
-                            <button type="button" class="btn" t-att-class="state.filterStatus === 'offsite' ? 'btn-danger' : 'btn-outline-secondary'" t-on-click="() => state.filterStatus = 'offsite'">
-                                Offsite (<t t-out="state.stats.offsite"/>)
+                            <button type="button" class="btn" t-att-class="this.state.filterStatus === 'offsite' ? 'btn-danger' : 'btn-outline-secondary'" t-on-click="() => this.state.filterStatus = 'offsite'">
+                                Offsite (<t t-out="this.state.stats.offsite"/>)
                             </button>
                         </div>
                     </div>
 
                     <!-- Scrollable Employee Cards -->
                     <div class="hudson-employee-list flex-grow-1 overflow-auto p-2">
-                        <t t-if="filteredEmployees.length === 0">
+                        <t t-if="this.filteredEmployees.length === 0">
                             <div class="text-center text-muted p-4">
-                                <i class="fa fa-users fa-2x mb-2 text-secondary opacity-50"/>
+                                <i class="oi fs-2 mb-2 text-secondary opacity-50" data-icon="group"/>
                                 <p class="small mb-0">No remote employee records found.</p>
                             </div>
                         </t>
 
-                        <t t-foreach="filteredEmployees" t-as="emp" t-key="emp.id">
+                        <t t-foreach="this.filteredEmployees" t-as="emp" t-key="emp.id">
                             <div class="card mb-2 border cursor-pointer hudson-employee-card transition-all"
-                                 t-att-class="state.selectedEmployee and state.selectedEmployee.id === emp.id ? 'border-primary shadow-sm bg-primary-subtle' : 'hover-shadow'"
+                                 t-att-class="this.state.selectedEmployee and this.state.selectedEmployee.id === emp.id ? 'border-primary shadow-sm bg-primary-subtle' : 'hover-shadow'"
                                  t-on-click="() => this.selectEmployee(emp)">
                                 <div class="card-body p-2 d-flex align-items-center gap-2">
                                     <div class="position-relative">
@@ -123,13 +123,13 @@
                                         <div class="text-muted small text-truncate" t-out="emp.department_name || emp.job_title || 'Remote Employee'"/>
                                         <div class="d-flex align-items-center gap-1 mt-1">
                                             <span t-if="emp.status === 'at_home'" class="badge bg-success-subtle text-success small">
-                                                At Home (<t t-out="formatDistance(emp.distance_from_home_m)"/>)
+                                                At Home (<t t-out="this.formatDistance(emp.distance_from_home_m)"/>)
                                             </span>
                                             <span t-elif="emp.status === 'near_home'" class="badge bg-warning-subtle text-warning small">
-                                                Near Home (<t t-out="formatDistance(emp.distance_from_home_m)"/>)
+                                                Near Home (<t t-out="this.formatDistance(emp.distance_from_home_m)"/>)
                                             </span>
                                             <span t-else="" class="badge bg-danger-subtle text-danger small">
-                                                Offsite (<t t-out="formatDistance(emp.distance_from_home_m)"/>)
+                                                Offsite (<t t-out="this.formatDistance(emp.distance_from_home_m)"/>)
                                             </span>
                                         </div>
                                     </div>
@@ -141,39 +141,39 @@
 
                 <!-- Live Map Canvas -->
                 <div class="flex-grow-1 h-100 position-relative">
-                    <div class="w-100 h-100" t-ref="mapContainer"/>
+                    <div class="w-100 h-100" t-ref="this.mapContainerRef"/>
                 </div>
 
                 <!-- Selected Employee Detail Drawer (Flyout) -->
-                <div t-if="state.selectedEmployee" class="hudson-detail-drawer position-absolute top-0 end-0 h-100 bg-white shadow-lg border-start p-3 d-flex flex-column" style="width: 380px; z-index: 1000; overflow-y: auto;">
+                <div t-if="this.state.selectedEmployee" class="hudson-detail-drawer position-absolute top-0 end-0 h-100 bg-white shadow-lg border-start p-3 d-flex flex-column" style="width: 380px; z-index: 1000; overflow-y: auto;">
                     <div class="d-flex justify-content-between align-items-start border-bottom pb-2 mb-3">
                         <h5 class="mb-0 fw-bold">Employee Live Telemetry</h5>
-                        <button type="button" class="btn-close" aria-label="Close" t-on-click="closeDrawer"/>
+                        <button type="button" class="btn-close" aria-label="Close" t-on-click="this.closeDrawer"/>
                     </div>
 
                     <!-- Profile Header -->
                     <div class="text-center mb-3">
-                        <img t-att-src="state.selectedEmployee.avatar_url" class="rounded-circle border shadow-sm mb-2" style="width: 72px; height: 72px; object-fit: cover;"/>
-                        <h6 class="fw-bold mb-0" t-out="state.selectedEmployee.name"/>
-                        <div class="text-muted small" t-out="state.selectedEmployee.department_name || state.selectedEmployee.job_title"/>
+                        <img t-att-src="this.state.selectedEmployee.avatar_url" class="rounded-circle border shadow-sm mb-2" style="width: 72px; height: 72px; object-fit: cover;"/>
+                        <h6 class="fw-bold mb-0" t-out="this.state.selectedEmployee.name"/>
+                        <div class="text-muted small" t-out="this.state.selectedEmployee.department_name || this.state.selectedEmployee.job_title"/>
                         <div class="mt-2">
-                            <span t-if="state.selectedEmployee.status === 'at_home'" class="badge bg-success px-3 py-1">
-                                <i class="fa fa-home me-1"/> Verified at Home
+                            <span t-if="this.state.selectedEmployee.status === 'at_home'" class="badge bg-success px-3 py-1">
+                                <i class="oi me-1" data-icon="home"/> Verified at Home
                             </span>
-                            <span t-elif="state.selectedEmployee.status === 'near_home'" class="badge bg-warning text-dark px-3 py-1">
-                                <i class="fa fa-map-marker me-1"/> Near Home
+                            <span t-elif="this.state.selectedEmployee.status === 'near_home'" class="badge bg-warning text-dark px-3 py-1">
+                                <i class="oi me-1" data-icon="location_on"/> Near Home
                             </span>
                             <span t-else="" class="badge bg-danger px-3 py-1">
-                                <i class="fa fa-exclamation-circle me-1"/> Offsite / Outside Radius
+                                <i class="oi me-1" data-icon="error"/> Offsite / Outside Radius
                             </span>
                         </div>
                     </div>
 
                     <!-- Check-In Verification Photo -->
-                    <div t-if="state.selectedEmployee.check_in_photo" class="card mb-3 border-0 bg-light-subtle">
+                    <div t-if="this.state.selectedEmployee.check_in_photo_url" class="card mb-3 border-0 bg-light-subtle">
                         <div class="card-body p-2 text-center">
                             <div class="text-muted small fw-bold mb-1">Today's Check-In Verification Photo</div>
-                            <img t-att-src="'data:image/jpeg;base64,' + state.selectedEmployee.check_in_photo" class="rounded border shadow-sm img-fluid" style="max-height: 160px; object-fit: cover;"/>
+                            <img t-att-src="this.state.selectedEmployee.check_in_photo_url" class="rounded border shadow-sm img-fluid" style="max-height: 160px; object-fit: cover;"/>
                         </div>
                     </div>
 
@@ -182,59 +182,59 @@
                         <div class="card-body p-3 small">
                             <div class="d-flex justify-content-between mb-2">
                                 <span class="text-muted">Distance from Home:</span>
-                                <strong t-att-class="state.selectedEmployee.status === 'at_home' ? 'text-success' : 'text-danger'">
-                                    <t t-out="formatDistance(state.selectedEmployee.distance_from_home_m)"/>
+                                <strong t-att-class="this.state.selectedEmployee.status === 'at_home' ? 'text-success' : 'text-danger'">
+                                    <t t-out="this.formatDistance(this.state.selectedEmployee.distance_from_home_m)"/>
                                 </strong>
                             </div>
                             <div class="d-flex justify-content-between mb-2">
                                 <span class="text-muted">Allowed Home Radius:</span>
                                 <span class="badge bg-primary-subtle text-primary border border-primary-subtle">
-                                    <t t-out="state.selectedEmployee.home_radius || 150"/> m
+                                    <t t-out="this.state.selectedEmployee.home_radius || 150"/> m
                                 </span>
                             </div>
                             <div class="d-flex justify-content-between mb-2">
                                 <span class="text-muted">Distance from First Punch:</span>
-                                <strong><t t-out="formatDistance(state.selectedEmployee.distance_from_checkin_m)"/></strong>
+                                <strong><t t-out="this.formatDistance(this.state.selectedEmployee.distance_from_checkin_m)"/></strong>
                             </div>
                             <div class="d-flex justify-content-between mb-2">
                                 <span class="text-muted">First Checked In:</span>
-                                <strong><t t-out="state.selectedEmployee.check_in_time || 'N/A'"/></strong>
+                                <strong><t t-out="this.state.selectedEmployee.check_in_time || 'N/A'"/></strong>
                             </div>
                             <div class="d-flex justify-content-between mb-2">
                                 <span class="text-muted">Worked Hours Today:</span>
-                                <strong><t t-out="state.selectedEmployee.worked_hours"/> hrs</strong>
+                                <strong><t t-out="this.state.selectedEmployee.worked_hours"/> hrs</strong>
                             </div>
                             <div class="d-flex justify-content-between mb-2">
                                 <span class="text-muted">Last GPS Ping:</span>
-                                <strong><t t-out="state.selectedEmployee.last_update || 'N/A'"/></strong>
+                                <strong><t t-out="this.state.selectedEmployee.last_update || 'N/A'"/></strong>
                             </div>
                             <div class="border-top pt-2 mt-2">
                                 <span class="text-muted d-block mb-1">Registered Home Address:</span>
-                                <span class="fw-semibold text-break" t-out="state.selectedEmployee.home_address"/>
+                                <span class="fw-semibold text-break" t-out="this.state.selectedEmployee.home_address"/>
                             </div>
                         </div>
                     </div>
 
                     <!-- Action Buttons -->
                     <div class="mt-auto d-flex flex-column gap-2">
-                        <button type="button" class="btn btn-outline-primary btn-sm w-100" t-on-click="() => this.openLocationHistory(state.selectedEmployee.id)">
-                            <i class="fa fa-history me-1"/> View Movement History
+                        <button type="button" class="btn btn-outline-primary btn-sm w-100" t-on-click="() => this.openLocationHistory(this.state.selectedEmployee.id)">
+                            <i class="oi me-1" data-icon="history"/> View Movement History
                         </button>
-                        <button type="button" class="btn btn-outline-secondary btn-sm w-100" t-on-click="() => this.openEmployeeRecord(state.selectedEmployee.id)">
-                            <i class="fa fa-user me-1"/> View Full Employee Profile
+                        <button type="button" class="btn btn-outline-secondary btn-sm w-100" t-on-click="() => this.openEmployeeRecord(this.state.selectedEmployee.id)">
+                            <i class="oi me-1" data-icon="person"/> View Full Employee Profile
                         </button>
                     </div>
                 </div>
             </div>
 
             <!-- VIEW 2: TABULAR VIEW -->
-            <div t-if="state.viewMode === 'table'" class="flex-grow-1 overflow-auto p-4 bg-white">
+            <div t-if="this.state.viewMode === 'table'" class="flex-grow-1 overflow-auto p-4 bg-white">
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <h6 class="fw-bold mb-0 text-dark">
-                        <i class="fa fa-table text-primary me-2"/>Remote Employee Location Records (<t t-out="state.employees.length"/>)
+                        <i class="oi text-primary me-2" data-icon="table"/>Remote Employee Location Records (<t t-out="this.state.employees.length"/>)
                     </h6>
                     <div class="w-25">
-                        <input type="text" class="form-control form-control-sm" placeholder="Search table..." t-model="state.searchQuery"/>
+                        <input type="text" class="form-control form-control-sm" placeholder="Search table..." t-model.proxy="this.state.searchQuery"/>
                     </div>
                 </div>
 
@@ -255,14 +255,14 @@
                             </tr>
                         </thead>
                         <tbody>
-                            <t t-if="filteredEmployees.length === 0">
+                            <t t-if="this.filteredEmployees.length === 0">
                                 <tr>
                                     <td colspan="10" class="text-center py-4 text-muted">
                                         No employee records found for this period.
                                     </td>
                                 </tr>
                             </t>
-                            <t t-foreach="filteredEmployees" t-as="emp" t-key="emp.id">
+                            <t t-foreach="this.filteredEmployees" t-as="emp" t-key="emp.id">
                                 <tr>
                                     <td>
                                         <div class="d-flex align-items-center gap-2">
@@ -276,32 +276,32 @@
                                     <td t-out="emp.department_name || 'N/A'"/>
                                     <td>
                                         <span t-if="emp.status === 'at_home'" class="badge bg-success">
-                                            <i class="fa fa-home me-1"/> At Home
+                                            <i class="oi me-1" data-icon="home"/> At Home
                                         </span>
                                         <span t-elif="emp.status === 'near_home'" class="badge bg-warning text-dark">
-                                            <i class="fa fa-map-marker me-1"/> Near Home
+                                            <i class="oi me-1" data-icon="location_on"/> Near Home
                                         </span>
                                         <span t-else="" class="badge bg-danger">
-                                            <i class="fa fa-exclamation-circle me-1"/> Offsite
+                                            <i class="oi me-1" data-icon="error"/> Offsite
                                         </span>
                                     </td>
                                     <td>
                                         <strong t-att-class="emp.status === 'at_home' ? 'text-success' : 'text-danger'">
-                                            <t t-out="formatDistance(emp.distance_from_home_m)"/>
+                                            <t t-out="this.formatDistance(emp.distance_from_home_m)"/>
                                         </strong>
                                         <div class="text-muted small">Max: <t t-out="emp.home_radius || 150"/>m</div>
                                     </td>
-                                    <td t-out="formatDistance(emp.distance_from_checkin_m)"/>
+                                    <td t-out="this.formatDistance(emp.distance_from_checkin_m)"/>
                                     <td t-out="emp.check_in_time || 'N/A'"/>
                                     <td><t t-out="emp.worked_hours"/> hrs</td>
                                     <td t-out="emp.last_update || 'N/A'"/>
                                     <td class="small text-truncate" style="max-width: 180px;" t-out="emp.home_address"/>
                                     <td class="text-end">
                                         <button class="btn btn-sm btn-outline-primary me-1" type="button" t-on-click="() => this.openLocationHistory(emp.id)" title="View Logs">
-                                            <i class="fa fa-history"/>
+                                            <i class="oi" data-icon="history"/>
                                         </button>
                                         <button class="btn btn-sm btn-outline-secondary" type="button" t-on-click="() => this.openEmployeeRecord(emp.id)" title="View Profile">
-                                            <i class="fa fa-user"/>
+                                            <i class="oi" data-icon="person"/>
                                         </button>
                                     </td>
                                 </tr>
@@ -312,35 +312,35 @@
             </div>
 
             <!-- VIEW 3: GRAPHICAL ANALYTICS VIEW -->
-            <div t-if="state.viewMode === 'graph'" class="flex-grow-1 overflow-auto p-4 bg-light">
+            <div t-if="this.state.viewMode === 'graph'" class="flex-grow-1 overflow-auto p-4 bg-light">
                 <div class="row g-3 mb-4">
                     <!-- KPI Cards -->
                     <div class="col-md-3">
                         <div class="card border-0 shadow-sm rounded-3 bg-white p-3">
                             <div class="text-muted small text-uppercase fw-bold">Active Remote Employees</div>
-                            <div class="fs-2 fw-bolder text-primary mt-1"><t t-out="state.stats.total"/></div>
+                            <div class="fs-2 fw-bolder text-primary mt-1"><t t-out="this.state.stats.total"/></div>
                             <div class="text-muted small mt-1">Checked in and active</div>
                         </div>
                     </div>
                     <div class="col-md-3">
                         <div class="card border-0 shadow-sm rounded-3 bg-white p-3">
                             <div class="text-muted small text-uppercase fw-bold">Verified at Home</div>
-                            <div class="fs-2 fw-bolder text-success mt-1"><t t-out="state.stats.at_home"/> (<t t-out="state.stats.at_home_pct"/>%)</div>
-                            <div class="text-success small mt-1"><i class="fa fa-check-circle me-1"/> Within approved geofence</div>
+                            <div class="fs-2 fw-bolder text-success mt-1"><t t-out="this.state.stats.at_home"/> (<t t-out="this.state.stats.at_home_pct"/>%)</div>
+                            <div class="text-success small mt-1"><i class="oi me-1" data-icon="check_circle"/> Within approved geofence</div>
                         </div>
                     </div>
                     <div class="col-md-3">
                         <div class="card border-0 shadow-sm rounded-3 bg-white p-3">
                             <div class="text-muted small text-uppercase fw-bold">Offsite / Remote Away</div>
-                            <div class="fs-2 fw-bolder text-danger mt-1"><t t-out="state.stats.offsite"/> (<t t-out="state.stats.offsite_pct"/>%)</div>
-                            <div class="text-danger small mt-1"><i class="fa fa-exclamation-triangle me-1"/> Outside approved geofence</div>
+                            <div class="fs-2 fw-bolder text-danger mt-1"><t t-out="this.state.stats.offsite"/> (<t t-out="this.state.stats.offsite_pct"/>%)</div>
+                            <div class="text-danger small mt-1"><i class="oi me-1" data-icon="warning"/> Outside approved geofence</div>
                         </div>
                     </div>
                     <div class="col-md-3">
                         <div class="card border-0 shadow-sm rounded-3 bg-white p-3">
                             <div class="text-muted small text-uppercase fw-bold">Average Distance from Home</div>
-                            <div class="fs-2 fw-bolder text-dark mt-1"><t t-out="formatDistance(state.stats.avg_distance_home_m)"/></div>
-                            <div class="text-muted small mt-1">Max: <t t-out="formatDistance(state.stats.max_distance_home_m)"/></div>
+                            <div class="fs-2 fw-bolder text-dark mt-1"><t t-out="this.formatDistance(this.state.stats.avg_distance_home_m)"/></div>
+                            <div class="text-muted small mt-1">Max: <t t-out="this.formatDistance(this.state.stats.max_distance_home_m)"/></div>
                         </div>
                     </div>
                 </div>
@@ -349,32 +349,32 @@
                 <div class="row g-3 mb-4">
                     <div class="col-md-6">
                         <div class="card border-0 shadow-sm rounded-3 bg-white p-4 h-100">
-                            <h6 class="fw-bold mb-3 text-dark"><i class="fa fa-pie-chart text-primary me-2"/>Geofence Compliance Distribution</h6>
+                            <h6 class="fw-bold mb-3 text-dark"><i class="oi text-primary me-2" data-icon="pie_chart"/>Geofence Compliance Distribution</h6>
                             <div class="mb-4">
                                 <div class="d-flex justify-content-between small mb-1">
-                                    <span class="text-success fw-bold">At Home (&lt; <t t-out="state.stats.default_home_radius || 150"/>m)</span>
-                                    <span><t t-out="state.stats.at_home"/> (<t t-out="state.stats.at_home_pct"/>%)</span>
+                                    <span class="text-success fw-bold">At Home (&lt; <t t-out="this.state.stats.default_home_radius || 150"/>m)</span>
+                                    <span><t t-out="this.state.stats.at_home"/> (<t t-out="this.state.stats.at_home_pct"/>%)</span>
                                 </div>
                                 <div class="progress" style="height: 14px;">
-                                    <div class="progress-bar bg-success" role="progressbar" t-att-style="'width: ' + state.stats.at_home_pct + '%'"/>
+                                    <div class="progress-bar bg-success" role="progressbar" t-att-style="'width: ' + this.state.stats.at_home_pct + '%'"/>
                                 </div>
                             </div>
                             <div class="mb-4">
                                 <div class="d-flex justify-content-between small mb-1">
                                     <span class="text-warning fw-bold">Near Home (&lt; 1 km)</span>
-                                    <span><t t-out="state.stats.near_home"/></span>
+                                    <span><t t-out="this.state.stats.near_home"/></span>
                                 </div>
                                 <div class="progress" style="height: 14px;">
-                                    <div class="progress-bar bg-warning" role="progressbar" t-att-style="'width: ' + ((state.stats.near_home / (state.stats.total || 1)) * 100) + '%'"/>
+                                    <div class="progress-bar bg-warning" role="progressbar" t-att-style="'width: ' + ((this.state.stats.near_home / (this.state.stats.total || 1)) * 100) + '%'"/>
                                 </div>
                             </div>
                             <div>
                                 <div class="d-flex justify-content-between small mb-1">
                                     <span class="text-danger fw-bold">Offsite / Far (&gt; 1 km)</span>
-                                    <span><t t-out="state.stats.offsite"/> (<t t-out="state.stats.offsite_pct"/>%)</span>
+                                    <span><t t-out="this.state.stats.offsite"/> (<t t-out="this.state.stats.offsite_pct"/>%)</span>
                                 </div>
                                 <div class="progress" style="height: 14px;">
-                                    <div class="progress-bar bg-danger" role="progressbar" t-att-style="'width: ' + state.stats.offsite_pct + '%'"/>
+                                    <div class="progress-bar bg-danger" role="progressbar" t-att-style="'width: ' + this.state.stats.offsite_pct + '%'"/>
                                 </div>
                             </div>
                         </div>
@@ -382,12 +382,12 @@
 
                     <div class="col-md-6">
                         <div class="card border-0 shadow-sm rounded-3 bg-white p-4 h-100">
-                            <h6 class="fw-bold mb-3 text-dark"><i class="fa fa-sitemap text-primary me-2"/>Department Remote Work Distribution</h6>
+                            <h6 class="fw-bold mb-3 text-dark"><i class="oi text-primary me-2" data-icon="account_tree"/>Department Remote Work Distribution</h6>
                             <div class="list-group list-group-flush">
-                                <t t-if="state.stats.departments.length === 0">
+                                <t t-if="this.state.stats.departments.length === 0">
                                     <div class="text-muted small">No department data.</div>
                                 </t>
-                                <t t-foreach="state.stats.departments" t-as="dept" t-key="dept.name">
+                                <t t-foreach="this.state.stats.departments" t-as="dept" t-key="dept.name">
                                     <div class="list-group-item d-flex justify-content-between align-items-center px-0 py-2 border-bottom">
                                         <span class="fw-semibold" t-out="dept.name"/>
                                         <span class="badge bg-primary-subtle text-primary rounded-pill px-3 py-1">

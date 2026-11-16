@@ -4,7 +4,7 @@
 
 // ─── Design Tokens ───────────────────────────────────────────────
 :root {
-    --hk-sidebar-width: 260px;
+    --hk-sidebar-width: 280px;
     --hk-sidebar-bg: #f7f7f8;
     --hk-sidebar-hover: #ebebed;
     --hk-sidebar-active: #e0e0e5;
@@ -46,36 +46,35 @@
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    transition: width var(--hk-transition);
     padding: 0;
+    font-size: 14px;
+    color: var(--hk-sidebar-text);
+    user-select: none;
 
-    // New Article Button
+    // "+ New Article" and the search icon on one row (Odoo Online)
+    .o_knowledge_sidebar_top {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        padding: 10px 8px 6px 8px;
+    }
+
     .o_knowledge_new_article_btn {
         display: flex;
         align-items: center;
-        gap: 8px;
-        margin: 12px 12px 4px;
-        padding: 7px 12px;
-        background: transparent;
+        gap: 6px;
+        flex: 1 1 auto;
+        padding: 4px 8px;
         border: none;
-        border-radius: 6px;
+        border-radius: 4px;
+        background: transparent;
         color: var(--hk-sidebar-text);
-        font-size: 13px;
+        font-size: 14px;
         font-weight: 500;
-        cursor: pointer;
-        transition: background var(--hk-transition);
+        text-align: left;
 
-        .o_knowledge_new_icon {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 20px;
-            height: 20px;
-            background: var(--hk-accent);
-            color: white;
-            border-radius: 4px;
-            font-size: 14px;
-            font-weight: 700;
+        .oi {
+            font-size: 18px;
         }
 
         &:hover {
@@ -83,94 +82,108 @@
         }
     }
 
-    // Sidebar Search
-    .o_knowledge_sidebar_search {
+    .o_knowledge_sidebar_search_btn {
         display: flex;
         align-items: center;
-        margin: 0 12px 8px;
-        padding: 5px 10px;
-        background: rgba(0, 0, 0, 0.04);
-        border-radius: 6px;
-        cursor: pointer;
-        transition: background var(--hk-transition);
-        color: var(--hk-sidebar-muted);
-        font-size: 12px;
-        gap: 6px;
+        justify-content: center;
+        width: 30px;
+        height: 30px;
+        border: none;
+        border-radius: 4px;
+        background: transparent;
+        color: var(--hk-sidebar-text);
+
+        .oi {
+            font-size: 20px;
+        }
 
         &:hover {
             background: var(--hk-sidebar-hover);
         }
     }
 
-    // Scrollable tree area
     .o_knowledge_sidebar_tree {
-        flex: 1;
+        flex: 1 1 auto;
         overflow-y: auto;
-        padding: 0 0 8px;
+        overflow-x: hidden;
+        padding: 0 0 12px 0;
+    }
 
-        &::-webkit-scrollbar {
-            width: 4px;
-        }
-        &::-webkit-scrollbar-thumb {
-            background: #d1d5db;
-            border-radius: 4px;
+    .o_knowledge_section {
+        padding-bottom: 6px;
+        border-radius: 4px;
+        transition: background var(--hk-transition), box-shadow var(--hk-transition);
+
+        &.o_knowledge_drop_section {
+            background: rgba(113, 75, 103, 0.08);
+            box-shadow: inset 0 0 0 1px rgba(113, 75, 103, 0.45);
         }
     }
 
-    // Section headers
+    .o_knowledge_section_empty {
+        padding: 0 16px;
+        font-size: 12px;
+        color: var(--hk-sidebar-muted);
+        font-style: italic;
+        min-height: 6px;
+    }
+
+    .o_knowledge_is_dragging .o_knowledge_section_empty {
+        min-height: 30px;
+        display: flex;
+        align-items: center;
+        border: 1px dashed var(--hk-sidebar-border);
+        border-radius: 4px;
+        margin: 2px 8px;
+    }
+
     .o_knowledge_sidebar_section {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 16px 16px 4px;
+        padding: 10px 8px 2px 12px;
 
         .o_knowledge_section_title {
-            font-size: 11px;
-            font-weight: 600;
-            color: var(--hk-sidebar-muted);
-            text-transform: uppercase;
-            letter-spacing: 0.06em;
+            font-size: 14px;
+            font-weight: 400;
+            color: #6b7280;
         }
 
         .o_knowledge_section_add_btn {
-            background: none;
-            border: none;
-            padding: 0;
-            margin: 0;
-            width: 20px;
-            height: 20px;
-            display: inline-flex;
+            display: flex;
             align-items: center;
             justify-content: center;
-            color: var(--hk-sidebar-muted);
+            width: 22px;
+            height: 22px;
+            padding: 0;
+            border: none;
             border-radius: 4px;
-            cursor: pointer;
-            font-size: 11px;
-            opacity: 0.6;
-            transition: opacity 0.15s, background 0.15s;
+            background: transparent;
+            color: var(--hk-sidebar-text);
+            opacity: 0;
+            transition: opacity var(--hk-transition);
 
             &:hover {
-                opacity: 1;
-                background: rgba(0, 0, 0, 0.06);
-                color: var(--hk-sidebar-text);
+                background: var(--hk-sidebar-hover);
             }
+        }
+
+        &:hover .o_knowledge_section_add_btn {
+            opacity: 1;
         }
     }
 
-    // Article tree items
     .o_knowledge_tree_item {
         position: relative;
         display: flex;
         align-items: center;
-        padding: 3px 8px 3px 12px;
-        border-radius: 6px;
-        margin: 1px 8px;
-        cursor: pointer;
-        transition: background var(--hk-transition);
-        color: var(--hk-sidebar-text);
-        font-size: 13px;
         gap: 4px;
         min-height: 30px;
+        padding: 2px 6px 2px 8px;
+        margin: 0 4px;
+        border-radius: 4px;
+        cursor: pointer;
+        color: var(--hk-sidebar-text);
 
         &:hover {
             background: var(--hk-sidebar-hover);
@@ -185,30 +198,32 @@
             font-weight: 500;
         }
 
-        .o_knowledge_item_icon {
-            font-size: 15px;
-            width: 20px;
-            text-align: center;
-            flex-shrink: 0;
+        &.o_knowledge_dragging {
+            opacity: 0.45;
         }
 
-        .o_knowledge_item_name {
-            flex: 1;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
+        // drop indicators
+        &.o_knowledge_drop_before {
+            box-shadow: inset 0 2px 0 0 #714b67;
+        }
+
+        &.o_knowledge_drop_after {
+            box-shadow: inset 0 -2px 0 0 #714b67;
+        }
+
+        &.o_knowledge_drop_inside {
+            background: rgba(113, 75, 103, 0.12);
+            box-shadow: inset 0 0 0 1px rgba(113, 75, 103, 0.6);
         }
 
         .o_knowledge_item_toggle {
-            width: 16px;
-            height: 16px;
             display: flex;
             align-items: center;
             justify-content: center;
-            flex-shrink: 0;
-            border-radius: 3px;
+            flex: 0 0 16px;
+            width: 16px;
+            height: 16px;
             color: var(--hk-sidebar-muted);
-            font-size: 10px;
             transition: transform var(--hk-transition);
 
             &.o_knowledge_item_toggle_open {
@@ -216,89 +231,85 @@
             }
 
             &:hover {
-                background: var(--hk-sidebar-hover);
+                color: var(--hk-sidebar-text);
             }
+        }
+
+        .o_knowledge_item_icon {
+            flex: 0 0 auto;
+            width: 22px;
+            font-size: 15px;
+            line-height: 1;
+            text-align: center;
+        }
+
+        .o_knowledge_item_name {
+            flex: 1 1 auto;
+            min-width: 0;
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+            font-size: 14px;
         }
 
         .o_knowledge_item_actions {
             display: flex;
             align-items: center;
-            gap: 2px;
+            gap: 0;
+            flex: 0 0 auto;
             opacity: 0;
             transition: opacity var(--hk-transition);
 
             button {
-                background: transparent;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                width: 22px;
+                height: 22px;
+                padding: 0;
                 border: none;
-                padding: 2px 4px;
-                border-radius: 3px;
-                cursor: pointer;
-                color: var(--hk-sidebar-muted);
-                font-size: 12px;
-                line-height: 1;
+                border-radius: 4px;
+                background: transparent;
+                color: var(--hk-sidebar-text);
+
+                .oi {
+                    font-size: 16px;
+                }
 
                 &:hover {
-                    background: rgba(0, 0, 0, 0.07);
-                    color: var(--hk-sidebar-text);
+                    background: rgba(0, 0, 0, 0.08);
                 }
             }
         }
     }
 
-    // Sub-article tree branch lines & clear indentation (Issue 3)
     .o_knowledge_tree_branch_group {
         position: relative;
-        margin-left: 20px;
-        padding-left: 0;
-
-        &::before {
-            content: "";
-            position: absolute;
-            left: 9px;
-            top: 0;
-            bottom: 15px;
-            width: 1.5px;
-            background-color: #cbd5e1;
-        }
-
-        .o_knowledge_tree_item.o_knowledge_tree_subitem {
-            position: relative;
-            padding-left: 20px;
-
-            &::before {
-                content: "";
-                position: absolute;
-                left: 9px;
-                top: 50%;
-                width: 10px;
-                height: 1.5px;
-                background-color: #cbd5e1;
-            }
-        }
     }
 
-    // Bottom buttons (Browse Templates, Open Trash)
     .o_knowledge_sidebar_footer {
         border-top: 1px solid var(--hk-sidebar-border);
-        padding: 8px 0;
+        padding: 6px 4px 10px;
 
         .o_knowledge_footer_btn {
             display: flex;
             align-items: center;
             gap: 8px;
             width: 100%;
-            padding: 6px 20px;
-            background: transparent;
+            padding: 5px 10px;
             border: none;
-            font-size: 13px;
-            color: var(--hk-sidebar-muted);
-            cursor: pointer;
-            transition: color var(--hk-transition), background var(--hk-transition);
+            border-radius: 4px;
+            background: transparent;
+            color: var(--hk-sidebar-text);
+            font-size: 14px;
             text-align: left;
+
+            .oi {
+                font-size: 16px;
+            }
 
             &:hover {
                 background: var(--hk-sidebar-hover);
-                color: var(--hk-sidebar-text);
             }
         }
     }
@@ -322,6 +333,7 @@
         flex-shrink: 0;
 
         .o_knowledge_breadcrumb_parent {
+            white-space: nowrap;
             cursor: pointer;
             font-size: 14px;
             font-weight: 500;
@@ -360,23 +372,11 @@
             }
         }
 
-        .o_knowledge_cloud_status {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            padding: 2px 4px;
-            border-radius: 4px;
-            transition: all var(--hk-transition);
-
-            &:hover {
-                background: #f3f4f6;
-            }
-
-            svg {
-                width: 18px;
-                height: 18px;
-            }
+        // Odoo's FormStatusIndicator (Save / Discard) next to the title
+        .o_form_status_indicator {
+            display: flex;
+            align-self: center !important;
+            margin-right: 0 !important;
         }
 
         .o_knowledge_toolbar_close {
@@ -773,7 +773,7 @@
             li { margin-bottom: 4px; }
         }
 
-        table {
+        table:not(.o_list_table) {
             width: 100%;
             border-collapse: collapse;
             margin: 16px 0;
@@ -1317,7 +1317,7 @@
     font-weight: 500;
     border-bottom: 1px solid #fef08a;
 
-    .fa { font-size: 14px; }
+    .oi { font-size: 14px; }
 
     button {
         margin-left: auto;
@@ -2073,3 +2073,529 @@
     }
 }
 
+
+// ═════════════════════════════════════════════════════════════════
+// Article items: real Odoo kanban / list / calendar embedded in the
+// article body (data-embedded="knowledgeItemView")
+// ═════════════════════════════════════════════════════════════════
+.o_knowledge_item_view_host {
+    display: block;
+    margin: 12px 0;
+    border: 1px solid $border-color;
+    border-radius: 6px;
+    background-color: $o-view-background-color;
+    overflow: hidden;
+    user-select: none;
+
+    // The editor must not style the Odoo view like article content.
+    .o_knowledge_item_view {
+        height: 520px;
+        font-size: $font-size-base;
+        line-height: $line-height-base;
+        color: $body-color;
+
+        &.o_knowledge_item_view_list {
+            height: auto;
+            max-height: 520px;
+        }
+
+        > .o_view_controller,
+        > .o_action {
+            flex: 1 1 auto;
+            min-height: 0;
+        }
+
+        input, textarea, select, [contenteditable="true"] {
+            user-select: text;
+        }
+
+        h1, h2, h3, h4, h5, h6, p {
+            margin-bottom: 0;
+        }
+
+        .o_control_panel {
+            padding: 8px 12px;
+        }
+
+        .o_kanban_renderer {
+            min-height: 0;
+        }
+
+        .o_knowledge_item_card_icon {
+            flex: 0 0 auto;
+        }
+
+        .o_list_renderer {
+            max-height: 440px;
+            overflow: auto;
+        }
+    }
+}
+
+// ═════════════════════════════════════════════════════════════════
+// Sidebar context menu (Odoo Online look)
+// ═════════════════════════════════════════════════════════════════
+.o_knowledge_sidebar_dropdown {
+    border-radius: 4px;
+    min-width: 240px;
+    font-size: 14px;
+
+    .o_knowledge_dropdown_item {
+        padding: 6px 16px;
+        font-size: 14px;
+        color: #212529;
+
+        i {
+            font-size: 16px;
+            color: #212529;
+        }
+    }
+
+    .o_knowledge_dropdown_footer {
+        font-size: 13px !important;
+    }
+}
+
+.o_knowledge_readonly_banner {
+    background: #eef2ff;
+    color: #3730a3;
+}
+
+// ═════════════════════════════════════════════════════════════════
+// Share Settings dialog
+// ═════════════════════════════════════════════════════════════════
+.o_knowledge_share_dialog {
+    .modal-title {
+        font-size: 1.15rem;
+        font-weight: 500;
+    }
+
+    &.modal-content,
+    .modal-body {
+        overflow: visible !important;
+    }
+
+    .modal-body {
+        padding: 0;
+        max-height: none !important;
+    }
+
+    .o_knowledge_share_row {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 14px 24px;
+    }
+
+    .o_knowledge_share_separator {
+        border-top: 1px solid $border-color;
+    }
+
+    .o_knowledge_share_row_icon {
+        flex: 0 0 26px;
+        font-size: 24px;
+        text-align: center;
+        color: #212529;
+    }
+
+    .o_knowledge_share_row_title {
+        font-size: 1.05rem;
+        font-weight: 500;
+    }
+
+    .o_knowledge_share_row_label {
+        font-size: 1rem;
+    }
+
+    .o_knowledge_share_row_help {
+        font-size: 0.85rem;
+        color: $text-muted;
+    }
+
+    .o_knowledge_share_web_toggle {
+        width: 2.4em;
+        height: 1.3em;
+        cursor: pointer;
+    }
+
+    .o_knowledge_share_perm_btn {
+        padding: 4px 10px;
+        border: 1px solid transparent;
+        background: transparent;
+        color: #212529;
+        white-space: nowrap;
+
+        &:hover,
+        &.o_knowledge_share_perm_open {
+            border-color: $border-color;
+            background: $white;
+        }
+    }
+
+    .o_knowledge_share_perm_static {
+        padding: 4px 10px;
+        white-space: nowrap;
+        color: #212529;
+    }
+
+    .o_knowledge_share_menu {
+        position: absolute;
+        right: 0;
+        top: calc(100% + 4px);
+        z-index: 10;
+        min-width: 140px;
+        padding: 6px 0;
+        background: $white;
+        border: 1px solid $border-color;
+        border-radius: 4px;
+        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+
+        .dropdown-divider {
+            margin: 6px 0;
+        }
+    }
+
+    .o_knowledge_share_menu_item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        width: 100%;
+        padding: 6px 16px 6px 8px;
+        border: none;
+        background: transparent;
+        color: #212529;
+        text-align: left;
+        white-space: nowrap;
+
+        &:hover {
+            background: $gray-100;
+        }
+    }
+
+    .o_knowledge_share_check {
+        width: 16px;
+        font-size: 15px;
+        color: #017e84;
+    }
+
+    .o_knowledge_share_input {
+        min-height: 38px;
+        padding: 2px 8px;
+
+        input {
+            min-width: 120px;
+            outline: none;
+            background: transparent;
+        }
+    }
+
+    .o_knowledge_share_chip {
+        background: $gray-200;
+        color: #212529;
+        font-weight: 500;
+        padding: 4px 8px;
+    }
+
+    .o_knowledge_share_suggestions {
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: calc(100% + 2px);
+        z-index: 11;
+        max-height: 260px;
+        overflow-y: auto;
+        background: $white;
+        border: 1px solid $border-color;
+        border-radius: 4px;
+        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+    }
+
+    .o_knowledge_share_suggestion {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        width: 100%;
+        padding: 6px 10px;
+        border: none;
+        background: transparent;
+        text-align: left;
+
+        &:hover {
+            background: $gray-100;
+        }
+    }
+
+    .o_knowledge_share_members {
+        padding: 4px 0 10px;
+    }
+
+    .o_knowledge_share_member {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 8px 24px;
+    }
+
+    .o_knowledge_share_avatar {
+        flex: 0 0 38px;
+        width: 38px;
+        height: 38px;
+        border-radius: 4px;
+        object-fit: cover;
+    }
+
+    .o_knowledge_share_avatar_sm {
+        width: 24px;
+        height: 24px;
+        border-radius: 4px;
+        object-fit: cover;
+    }
+
+    .o_knowledge_share_member_name {
+        font-size: 1rem;
+        color: #212529;
+    }
+
+    .o_knowledge_share_member_email {
+        font-size: 0.9rem;
+        color: $text-muted;
+    }
+
+    .o_knowledge_share_admin {
+        font-size: 15px;
+        vertical-align: -2px;
+    }
+}
+
+// ═════════════════════════════════════════════════════════════════
+// Move To dialog
+// ═════════════════════════════════════════════════════════════════
+.o_knowledge_move_dialog {
+    .o_knowledge_move_list {
+        max-height: 50vh;
+        overflow-y: auto;
+    }
+
+    .o_knowledge_move_group {
+        padding: 8px 8px 4px;
+        font-size: 12px;
+        font-weight: 600;
+        text-transform: uppercase;
+        color: $text-muted;
+    }
+
+    .o_knowledge_move_target {
+        display: flex;
+        align-items: center;
+        width: 100%;
+        min-width: 0;
+        padding: 6px 8px;
+        border: none;
+        border-radius: 4px;
+        background: transparent;
+        text-align: left;
+
+        &:hover {
+            background: $gray-100;
+        }
+
+        &.active {
+            background: rgba(113, 75, 103, 0.12);
+            font-weight: 500;
+        }
+    }
+}
+
+// ─── Template browser (categories + preview, like Odoo) ──────────
+.o_knowledge_modal_backdrop .o_knowledge_modal.o_knowledge_template_browser {
+    max-width: 1100px;
+    width: 92vw;
+    height: 82vh;
+    max-height: 820px;
+
+    .o_knowledge_template_browser_body {
+        flex: 1;
+        display: flex;
+        min-height: 0;
+    }
+
+    .o_knowledge_template_browser_empty {
+        margin: auto;
+        padding: 40px;
+        text-align: center;
+    }
+
+    .o_knowledge_template_browser_list {
+        width: 280px;
+        flex-shrink: 0;
+        overflow-y: auto;
+        border-right: 1px solid #e5e7eb;
+        background: #f9fafb;
+        padding: 12px 8px;
+    }
+
+    .o_knowledge_template_category + .o_knowledge_template_category {
+        margin-top: 14px;
+    }
+
+    .o_knowledge_template_category_name {
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: #6b7280;
+        padding: 4px 10px 6px;
+    }
+
+    .o_knowledge_template_list_item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 10px;
+        border-radius: 6px;
+        cursor: pointer;
+        color: #111827;
+        user-select: none;
+
+        &:hover {
+            background: #eef2f7;
+        }
+
+        &.active {
+            background: #e6f7f0;
+            box-shadow: inset 3px 0 0 var(--hk-accent);
+            font-weight: 600;
+        }
+
+        .o_knowledge_template_list_icon {
+            font-size: 16px;
+            line-height: 1;
+        }
+
+        .o_knowledge_template_list_name {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+    }
+
+    .o_knowledge_template_browser_preview {
+        flex: 1;
+        overflow-y: auto;
+        background: #ffffff;
+    }
+
+    .o_knowledge_template_preview_cover img {
+        width: 100%;
+        height: 200px;
+        object-fit: cover;
+        display: block;
+    }
+
+    .o_knowledge_template_preview_content {
+        padding: 24px 40px 40px;
+
+        &.o_has_cover .o_knowledge_template_preview_icon {
+            margin-top: -48px;
+        }
+    }
+
+    .o_knowledge_template_preview_icon {
+        font-size: 48px;
+        line-height: 1;
+        margin-bottom: 12px;
+        position: relative;
+    }
+
+    .o_knowledge_template_preview_body {
+        pointer-events: none;
+
+        img {
+            max-width: 100%;
+        }
+    }
+}
+
+@media (max-width: 767.98px) {
+    .o_knowledge_modal_backdrop .o_knowledge_modal.o_knowledge_template_browser {
+        .o_knowledge_template_browser_body {
+            flex-direction: column;
+        }
+
+        .o_knowledge_template_browser_list {
+            width: 100%;
+            max-height: 40%;
+            border-right: 0;
+            border-bottom: 1px solid #e5e7eb;
+        }
+    }
+}
+
+// ═════════════════════════════════════════════════════════════════
+// Trash banner (article opened from the Trash)
+// ═════════════════════════════════════════════════════════════════
+.o_knowledge_trash_banner {
+    margin: 0 8px;
+    padding: 10px 24px;
+    text-align: center;
+    font-size: 14px;
+    background: #fdebcd;
+    color: #5f4300;
+    border-left: 3px solid #f3cc8b;
+    border-radius: 2px;
+
+    .o_knowledge_trash_restore {
+        margin-left: 2px;
+        font-weight: 700;
+        color: inherit;
+        text-decoration: underline;
+    }
+}
+
+// Locked / read-only article: icon is not clickable
+.o_knowledge_toolbar_emoji.o_readonly,
+.o_knowledge_icon_large.o_readonly {
+    cursor: default;
+    pointer-events: none;
+}
+
+// ── Knowledge in every app (form view button + "?" command palette) ──
+.o_knowledge_app_breadcrumb {
+    flex-shrink: 0;
+    max-width: 180px;
+    white-space: nowrap;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--primary, #017e84);
+    text-decoration: none;
+
+    &:hover {
+        text-decoration: underline;
+    }
+}
+
+.o_control_panel .o_knowledge_form_button {
+    color: var(--gray-600, #6c757d);
+    line-height: 1;
+
+    &:hover,
+    &:focus {
+        color: var(--primary, #017e84);
+    }
+}
+
+.o_command_palette .o_knowledge_command {
+    .o_knowledge_command_icon {
+        width: 20px;
+        text-align: center;
+        line-height: 1;
+    }
+
+    .o_knowledge_command_favorite {
+        color: #f3cc00;
+    }
+
+    .o_knowledge_command_path {
+        max-width: 40%;
+    }
+}

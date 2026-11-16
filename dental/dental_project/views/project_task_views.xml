@@ -1,0 +1,226 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Quick create on the board: just the phase's name; its treatments are added on the card -->
+    <record id="view_task_quick_create_dental" model="ir.ui.view">
+        <field name="name">project.task.quick.create.dental</field>
+        <field name="model">project.task</field>
+        <field name="priority">90</field>
+        <field name="arch" type="xml">
+            <form>
+                <group>
+                    <field name="name" string="Phase" placeholder="e.g. Phase 1 · Pain relief"/>
+                    <field name="project_id" string="Treatment Plan" required="1" options="{'no_create': True}"
+                           domain="[('dental_plan_id', '!=', False)]"
+                           invisible="context.get('default_project_id')"/>
+                    <field name="stage_id" invisible="1"/>
+                </group>
+            </form>
+        </field>
+    </record>
+
+    <!-- The plan's board: one card per phase, columns Planned / In Progress / Done -->
+    <record id="view_task_kanban_dental" model="ir.ui.view">
+        <field name="name">project.task.kanban.dental</field>
+        <field name="model">project.task</field>
+        <field name="priority">90</field>
+        <field name="arch" type="xml">
+            <kanban default_group_by="stage_id" default_order="sequence, id" class="o_dx_board"
+                    quick_create_view="dental_project.view_task_quick_create_dental"
+                    on_create="quick_create">
+                <field name="state"/>
+                <field name="sequence"/>
+                <field name="dental_currency_id"/>
+                <field name="dental_treatment_count"/>
+                <field name="project_sharing_portal_user_ids"/>
+                <field name="company_id"/>
+                <templates>
+                    <t t-name="card" class="o_dx_step_card">
+                        <div class="o_dx_step_head">
+                            <field name="name" class="o_dx_step_title"/>
+                            <field name="state" widget="badge" class="ms-auto" invisible="state != '1_canceled'"
+                                   decoration-muted="state == '1_canceled'"/>
+                        </div>
+                        <div class="o_dx_step_meta" invisible="context.get('default_project_id')">
+                            <field name="dental_patient_id"/>
+                        </div>
+                        <div class="o_dx_step_meta">
+                            <field name="dental_treatment_summary" invisible="not dental_treatment_count"/>
+                            <span invisible="dental_treatment_count" class="fst-italic">No treatment yet. Open to add.</span>
+                        </div>
+                        <field name="dental_progress" widget="progressbar" class="o_dx_step_progress"
+                               invisible="not dental_treatment_count or state == '1_canceled'"/>
+                        <footer class="o_dx_step_foot">
+                            <field name="date_deadline" widget="remaining_days" invisible="not date_deadline or state in ('1_done', '1_canceled')"/>
+                            <field name="dental_amount" widget="monetary" class="ms-auto fw-semibold"
+                                   options="{'currency_field': 'dental_currency_id'}"/>
+                            <field name="user_ids" widget="many2many_avatar_user"/>
+                        </footer>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+
+    <record id="view_task_list_dental" model="ir.ui.view">
+        <field name="name">project.task.list.dental</field>
+        <field name="model">project.task</field>
+        <field name="priority">90</field>
+        <field name="arch" type="xml">
+            <list default_order="sequence, id" decoration-success="state == '1_done'" decoration-muted="state == '1_canceled'">
+                <field name="sequence" widget="handle"/>
+                <field name="name" string="Phase"/>
+                <field name="dental_patient_id" optional="show"/>
+                <field name="dental_plan_id" optional="hide"/>
+                <field name="dental_treatment_summary" string="Treatments"/>
+                <field name="dental_progress" widget="progressbar" string="Progress"/>
+                <field name="user_ids" widget="many2many_avatar_user" string="Dentist" optional="show"/>
+                <field name="date_deadline" string="Target Date" optional="show"/>
+                <field name="stage_id" string="Status"/>
+                <field name="dental_amount" sum="Total"/>
+                <field name="dental_currency_id" column_invisible="1"/>
+                <field name="state" column_invisible="1"/>
+                <field name="project_sharing_portal_user_ids" column_invisible="1"/>
+                <field name="company_id" column_invisible="1"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_task_search_dental" model="ir.ui.view">
+        <field name="name">project.task.search.dental</field>
+        <field name="model">project.task</field>
+        <field name="priority">90</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name" string="Phase"/>
+                <field name="dental_patient_id"/>
+                <field name="dental_plan_id"/>
+                <field name="user_ids" string="Dentist"/>
+                <filter name="open" string="Open Phases" domain="[('state', 'not in', ('1_done', '1_canceled'))]"/>
+                <filter name="my_phases" string="My Phases" domain="[('user_ids', 'in', uid)]"/>
+                <filter name="done" string="Done" domain="[('state', '=', '1_done')]"/>
+                <group>
+                    <filter name="group_stage" string="Status" context="{'group_by': 'stage_id'}"/>
+                    <filter name="group_patient" string="Patient" context="{'group_by': 'dental_patient_id'}"/>
+                    <filter name="group_plan" string="Treatment Plan" context="{'group_by': 'dental_plan_id'}"/>
+                    <filter name="group_doctor" string="Dentist" context="{'group_by': 'user_ids'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <!-- One phase: its treatments, who and when -->
+    <record id="view_task_form_dental" model="ir.ui.view">
+        <field name="name">project.task.form.dental</field>
+        <field name="model">project.task</field>
+        <field name="priority">90</field>
+        <field name="arch" type="xml">
+            <form string="Treatment Phase">
+                <header>
+                    <button name="action_dental_create_invoice" type="object" string="Invoice this Phase" icon="receipt_long"
+                            class="oe_highlight" invisible="not dental_to_invoice"/>
+                    <field name="stage_id" widget="statusbar" options="{'clickable': '1'}"/>
+                </header>
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_dental_open_plan" type="object" class="oe_stat_button" icon="assignment"
+                                invisible="not dental_plan_id">
+                            <div class="o_stat_info">
+                                <span class="o_stat_value"><field name="dental_plan_state" readonly="1"/></span>
+                                <span class="o_stat_text">Treatment Plan</span>
+                            </div>
+                        </button>
+                        <button name="action_dental_view_invoices" type="object" class="oe_stat_button" icon="receipt_long"
+                                invisible="not dental_invoice_count">
+                            <field name="dental_invoice_count" widget="statinfo" string="Invoices"/>
+                        </button>
+                    </div>
+                    <div class="oe_title">
+                        <h1 class="d-flex align-items-center gap-2">
+                            <field name="name" placeholder="e.g. Phase 1 · Pain relief"/>
+                            <field name="state" widget="project_task_state_selection" class="ms-auto"/>
+                        </h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="dental_patient_id" readonly="1"/>
+                            <field name="dental_plan_id" readonly="1"/>
+                        </group>
+                        <group>
+                            <field name="user_ids" widget="many2many_avatar_user" string="Dentist"/>
+                            <field name="date_deadline" string="Target Date"/>
+                        </group>
+                    </group>
+
+                    <div class="o_dental_section_title" name="phase_treatments">
+                        <span>Treatments</span>
+                        <small class="text-muted">What is done in this phase. Visit Done records today's visit.</small>
+                    </div>
+                    <field name="dental_line_ids" nolabel="1"
+                           readonly="state in ('1_done', '1_canceled') or dental_plan_state == 'cancelled'"
+                           context="{'default_plan_id': dental_plan_id}">
+                        <list editable="bottom" open_form_view="1"
+                              decoration-success="state == 'completed'" decoration-muted="state == 'cancelled' or acceptance == 'declined'">
+                            <field name="treatment_id" options="{'no_create': True}"/>
+                            <field name="tooth_reference" string="Tooth" placeholder="e.g. 36"/>
+                            <field name="number_of_visits" string="Visits"/>
+                            <field name="unit_price" string="Price"/>
+                            <field name="estimated_amount" string="Amount" sum="Total"/>
+                            <field name="progress" widget="progressbar" string="Done"/>
+                            <field name="state" widget="badge" readonly="1" optional="hide"
+                                   decoration-info="state in ('draft', 'planned')" decoration-warning="state == 'in_progress'"
+                                   decoration-success="state == 'completed'"/>
+                            <field name="plan_id" column_invisible="1"/>
+                            <field name="acceptance" column_invisible="1"/>
+                            <field name="currency_id" column_invisible="1"/>
+                            <button name="action_mark_visit_done" type="object" string="Visit Done" icon="check" class="btn-link"
+                                    groups="dental_base.group_dental_dentist,dental_base.group_dental_manager"
+                                    invisible="not id or acceptance == 'declined' or state in ('completed', 'cancelled')"/>
+                        </list>
+                    </field>
+                    <group class="oe_subtotal_footer oe_right">
+                        <field name="dental_amount" widget="monetary" options="{'currency_field': 'dental_currency_id'}"/>
+                    </group>
+                    <div class="oe_clear"/>
+                    <field name="description" placeholder="Notes for this phase (optional)"/>
+                    <field name="project_id" invisible="1"/>
+                    <field name="partner_id" invisible="1"/>
+                    <field name="dental_currency_id" invisible="1"/>
+                    <field name="dental_to_invoice" invisible="1"/>
+                    <field name="project_sharing_portal_user_ids" invisible="1"/>
+                    <field name="company_id" invisible="1"/>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <!-- Phases opened from the Project app link back to their treatment plan -->
+    <record id="view_task_form2_dental" model="ir.ui.view">
+        <field name="name">project.task.form.dental.details</field>
+        <field name="model">project.task</field>
+        <field name="inherit_id" ref="project.view_task_form2"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='partner_id'][hasclass('o_task_customer_field')]" position="after">
+                <field name="dental_plan_id" invisible="not dental_plan_id" readonly="1"/>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- Every open phase of every patient -->
+    <record id="action_dental_treatment_board" model="ir.actions.act_window">
+        <field name="name">Treatment Board</field>
+        <field name="res_model">project.task</field>
+        <field name="view_mode">kanban,list,form</field>
+        <field name="domain">[('dental_plan_id', '!=', False)]</field>
+        <field name="context">{'search_default_open': 1}</field>
+        <field name="search_view_id" ref="view_task_search_dental"/>
+        <field name="view_ids" eval="[(5, 0, 0),
+            (0, 0, {'view_mode': 'kanban', 'view_id': ref('view_task_kanban_dental')}),
+            (0, 0, {'view_mode': 'list', 'view_id': ref('view_task_list_dental')}),
+            (0, 0, {'view_mode': 'form', 'view_id': ref('view_task_form_dental')})]"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">No treatment phases yet</p>
+            <p>Create a treatment plan from a patient's case: each card on its board is one phase.</p>
+        </field>
+    </record>
+</odoo>

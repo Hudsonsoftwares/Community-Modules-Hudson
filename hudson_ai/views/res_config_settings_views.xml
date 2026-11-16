@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+
+    <record id="res_config_settings_view_form" model="ir.ui.view">
+        <field name="name">res.config.settings.view.form.inherit.hudson_ai</field>
+        <field name="model">res.config.settings</field>
+        <field name="priority" eval="90"/>
+        <field name="inherit_id" ref="base.res_config_settings_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//form" position="inside">
+                <app data-string="Hudson AI" string="Hudson AI" name="hudson_ai" groups="base.group_system">
+                    <block title="AI Provider" name="hudson_ai_provider">
+                        <setting id="hudson_ai_provider_setting" string="Provider"
+                                 help="Groq is fast and has a free plan. Choose Hudson AI Gateway to use credits shared by another Hudson server.">
+                            <field name="hudson_ai_provider" widget="radio"/>
+                        </setting>
+                        <setting id="hudson_ai_custom_setting" string="Server URL"
+                                 help="For a gateway: https://your-hudson-server/hudson_ai/v1. For LM Studio: http://localhost:1234/v1."
+                                 invisible="hudson_ai_provider not in ('custom', 'hudson')">
+                            <field name="hudson_ai_base_url" placeholder="https://..."/>
+                            <div class="mt-2" invisible="hudson_ai_provider != 'hudson'">
+                                <label for="hudson_ai_gateway_database" class="o_light_label me-2"/>
+                                <field name="hudson_ai_gateway_database" class="oe_inline" placeholder="only if the server has several databases"/>
+                            </div>
+                        </setting>
+                        <setting id="hudson_ai_key_setting" string="API Key"
+                                 help="Paste only the key. Groq keys: console.groq.com/keys. Gateway keys start with hai_.">
+                            <field name="hudson_ai_api_key" password="True" placeholder="gsk_... / hai_..."/>
+                        </setting>
+                        <setting id="hudson_ai_model_setting" string="Model"
+                                 help="Leave empty to use the recommended model.">
+                            <div invisible="hudson_ai_provider == 'hudson'">
+                                <field name="hudson_ai_model"/>
+                                <div class="text-muted small mt-1" invisible="not hudson_ai_default_model">
+                                    Recommended: <field name="hudson_ai_default_model" class="oe_inline" readonly="1"/>
+                                </div>
+                            </div>
+                            <div class="text-muted" invisible="hudson_ai_provider != 'hudson'">
+                                Chosen by the gateway.
+                            </div>
+                            <div class="mt-2">
+                                <button name="action_hudson_ai_test" type="object"
+                                        string="Save &amp; Test Connection" class="btn-link" icon="east"/>
+                            </div>
+                        </setting>
+                    </block>
+                    <block title="Data Access" name="hudson_ai_access">
+                        <setting id="hudson_ai_access_setting" string="What the AI can read"
+                                 help="Each user can only ask about data of the apps they can open (a salesperson cannot query invoices or accounts). Add rules to block or allow specific models per group.">
+                            <button name="action_hudson_ai_access_rules" type="object"
+                                    string="Access Rules" class="btn-link" icon="east"/>
+                        </setting>
+                        <setting id="hudson_ai_usage_setting" string="Usage"
+                                 help="Tokens used per user, feature and gateway client.">
+                            <button name="%(hudson_ai.action_hudson_ai_usage)d" type="action"
+                                    string="Usage Report" class="btn-link" icon="east"/>
+                        </setting>
+                    </block>
+                    <block title="Gateway" name="hudson_ai_gateway" invisible="hudson_ai_provider == 'hudson'">
+                        <setting id="hudson_ai_gateway_setting"
+                                 help="Let your clients' Odoo databases use this database's AI key, each with its own key and monthly / daily limits. The provider key is never sent to them.">
+                            <field name="hudson_ai_gateway_enabled"/>
+                            <div class="mt-2" invisible="not hudson_ai_gateway_enabled">
+                                <button name="action_hudson_ai_clients" type="object"
+                                        string="Manage Clients" class="btn-link" icon="east"/>
+                                <span class="text-muted ms-1">(<field name="hudson_ai_client_count" class="oe_inline" readonly="1"/>)</span>
+                            </div>
+                        </setting>
+                    </block>
+                </app>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="action_hudson_ai_settings" model="ir.actions.act_window">
+        <field name="name">Settings</field>
+        <field name="res_model">res.config.settings</field>
+        <field name="view_mode">form</field>
+        <field name="context">{'module': 'hudson_ai', 'bin_size': False}</field>
+    </record>
+
+</odoo>

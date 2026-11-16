@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Dentists and dental managers work on the treatment boards (project tasks) -->
+    <record id="dental_base.group_dental_dentist" model="res.groups">
+        <field name="implied_ids" eval="[(4, ref('project.group_project_user'))]"/>
+    </record>
+    <record id="dental_base.group_dental_manager" model="res.groups">
+        <field name="implied_ids" eval="[(4, ref('project.group_project_user'))]"/>
+    </record>
+</odoo>

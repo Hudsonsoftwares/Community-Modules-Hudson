@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 from odoo import models, fields, api, _
-from odoo.exceptions import ValidationError, UserError
+from odoo.exceptions import AccessError, ValidationError, UserError
 from datetime import date
 
 class DentalPharmacyDispense(models.Model):
@@ -8,6 +8,7 @@ class DentalPharmacyDispense(models.Model):
     _description = 'Pharmacy Medicine Dispense Order'
     _inherit = ['mail.thread', 'mail.activity.mixin']
     _order = 'dispense_date desc, id desc'
+    _check_company_auto = True
 
     name = fields.Char(
         string='Dispense Order Number',
@@ -26,7 +27,8 @@ class DentalPharmacyDispense(models.Model):
         required=False,
         domain="[('state', 'in', ('confirmed', 'partially_dispensed'))]",
         tracking=True,
-        index=True
+        index=True,
+        check_company=True,
     )
     patient_id = fields.Many2one(
         'res.partner',
@@ -50,7 +52,8 @@ class DentalPharmacyDispense(models.Model):
     case_id = fields.Many2one(
         'dental.case',
         string='Dental Case',
-        domain="[('patient_id', '=', patient_id)]"
+        domain="[('patient_id', '=', patient_id)]",
+        check_company=True,
     )
     dispense_date = fields.Datetime(
         string='Dispense Date',
@@ -277,6 +280,10 @@ class DentalPharmacyDispense(models.Model):
                 if line.qty_to_dispense <= 0:
                     raise ValidationError(_("Quantity to dispense for %s must be greater than zero.") % line.medicine_id.display_name)
 
+                # Batch-tracked medicines leave the shelf from a known batch (expiry / recall traceability)
+                if line.medicine_id.tracking != 'none' and not line.lot_id:
+                    raise ValidationError(_("Select the batch (lot) to dispense for %s.") % line.medicine_id.display_name)
+
                 # Prescription remaining quantity check
                 if line.prescription_line_id and line.qty_to_dispense > line.prescription_line_id.remaining_qty:
                     raise ValidationError(_("Cannot dispense %(qty)s for %(med)s. Only %(rem)s remaining on the prescription.") % {
@@ -313,7 +320,11 @@ class DentalPharmacyDispense(models.Model):
                         'req': line.qty_to_dispense
                     })
 
-            # 4. Generate stock picking & move lines
+            # 4. Confirm the prescription's sales order (no separate delivery: this dispense is the delivery)
+            if record.prescription_id and record.prescription_id.fulfillment != 'patient':
+                record.prescription_id._confirm_sale_order_for_dispense()
+
+            # 5. Generate stock picking & move lines
             picking = record._create_stock_picking()
             record.picking_id = picking.id
 
@@ -375,6 +386,10 @@ class DentalPharmacyDispense(models.Model):
                 'picking_id': picking.id,
                 'company_id': self.company_id.id,
             }
+            # Delivered quantity on the prescription's sales order follows the dispensing
+            sale_line = line.prescription_line_id._get_active_sale_line() if line.prescription_line_id else False
+            if sale_line and sale_line.order_id.state == 'sale' and sale_line.product_id == line.medicine_id:
+                move_vals['sale_line_id'] = sale_line.id
             if 'description_picking' in self.env['stock.move']._fields:
                 move_vals['description_picking'] = f"Dispense {line.medicine_id.display_name}"
             elif 'name' in self.env['stock.move']._fields:
@@ -383,7 +398,8 @@ class DentalPharmacyDispense(models.Model):
                 move_vals['uom_id'] = line.medicine_id.uom_id.id
             elif 'product_uom' in self.env['stock.move']._fields:
                 move_vals['product_uom'] = line.medicine_id.uom_id.id
-            if 'quantity' in self.env['stock.move']._fields:
+            # With a batch, the move line below carries the quantity; setting it here too would double it
+            if 'quantity' in self.env['stock.move']._fields and not line.lot_id:
                 move_vals['quantity'] = line.qty_to_dispense
 
             move = self.env['stock.move'].create(move_vals)
@@ -408,17 +424,19 @@ class DentalPharmacyDispense(models.Model):
 
                 self.env['stock.move.line'].create(sml_vals)
 
-        try:
-            picking._action_done()
-        except Exception:
-            # Fallback validation
-            try:
-                picking.button_validate()
-            except Exception as e:
-                # Log and allow move if environment requires special picking hooks
-                pass
+        self._validate_transfer(picking)
 
         return picking
+
+    def _validate_transfer(self, picking):
+        """Complete the stock transfer for real. In Odoo 20 moves must be marked picked to be done;
+        a transfer left half-way would mean the medicine left the shelf without stock being updated."""
+        picking.move_ids.filtered(lambda m: m.state not in ('done', 'cancel')).picked = True
+        picking._action_done()
+        if picking.state != 'done':
+            raise UserError(_("Stock transfer %(pick)s could not be completed (status: %(state)s). "
+                              "Check the batches and quantities, then try again.",
+                              pick=picking.name, state=picking.state))
 
     def action_return(self):
         for record in self:
@@ -495,6 +513,12 @@ class DentalPharmacyDispense(models.Model):
                 'picking_id': picking.id,
                 'company_id': self.company_id.id,
             }
+            # The return lowers the delivered quantity on the prescription's sales order
+            original_move = self.picking_id.move_ids.filtered(
+                lambda m: m.product_id == line.medicine_id and m.sale_line_id)[:1]
+            if original_move:
+                move_vals['sale_line_id'] = original_move.sale_line_id.id
+                move_vals['origin_returned_move_id'] = original_move.id
             if 'description_picking' in self.env['stock.move']._fields:
                 move_vals['description_picking'] = f"Return {line.medicine_id.display_name}"
             elif 'name' in self.env['stock.move']._fields:
@@ -503,7 +527,8 @@ class DentalPharmacyDispense(models.Model):
                 move_vals['uom_id'] = line.medicine_id.uom_id.id
             elif 'product_uom' in self.env['stock.move']._fields:
                 move_vals['product_uom'] = line.medicine_id.uom_id.id
-            if 'quantity' in self.env['stock.move']._fields:
+            # With a batch, the move line below carries the quantity; setting it here too would double it
+            if 'quantity' in self.env['stock.move']._fields and not line.lot_id:
                 move_vals['quantity'] = line.qty_to_dispense
 
             move = self.env['stock.move'].create(move_vals)
@@ -528,14 +553,33 @@ class DentalPharmacyDispense(models.Model):
 
                 self.env['stock.move.line'].create(sml_vals)
 
-        try:
-            picking._action_done()
-        except Exception:
-            pass
+        self._validate_transfer(picking)
 
         return picking
 
     def action_create_invoice(self):
+        """Pharmacists prepare the medicine invoice without needing accounting rights;
+        the front desk (Invoicing rights) collects the payment."""
+        self.ensure_one()
+        if not self.env.user.has_groups('dental_pharmacy.group_dental_pharmacist,dental_base.group_dental_manager,'
+                                        'account.group_account_invoice'):
+            raise AccessError(_("You are not allowed to invoice pharmacy orders."))
+        self.check_access('write')
+        action = self.sudo()._create_pharmacy_invoice()
+        if self.env.user.has_group('account.group_account_invoice'):
+            return action
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'display_notification',
+            'params': {
+                'type': 'success',
+                'message': _("Invoice of %(amount)s prepared. The front desk collects the payment.",
+                             amount=self.sudo().invoice_id.amount_total),
+                'next': {'type': 'ir.actions.client', 'tag': 'soft_reload'},
+            },
+        }
+
+    def _create_pharmacy_invoice(self):
         self.ensure_one()
         if self.state not in ('dispensed', 'draft'):
             raise UserError(_("Invoices can only be generated for active or dispensed pharmacy orders."))
@@ -572,6 +616,10 @@ class DentalPharmacyDispense(models.Model):
             }
             if income_account:
                 line_vals['account_id'] = income_account.id
+            # Invoiced quantity on the prescription's sales order follows the pharmacy invoice
+            sale_line = line.prescription_line_id._get_active_sale_line() if line.prescription_line_id else False
+            if sale_line and sale_line.product_id == line.medicine_id:
+                line_vals['sale_line_ids'] = [(6, 0, sale_line.ids)]
             invoice_line_vals.append((0, 0, line_vals))
 
         move_vals = {
@@ -579,6 +627,7 @@ class DentalPharmacyDispense(models.Model):
             'partner_id': self.patient_id.id,
             'invoice_date': fields.Date.context_today(self),
             'ref': f"Pharmacy Dispense {self.name} - Rx {self.prescription_id.name}",
+            'invoice_origin': self.prescription_id.sale_order_id.name or self.prescription_id.name or self.name,
             'dental_case_id': self.case_id.id if self.case_id else False,
             'dental_prescription_id': self.prescription_id.id,
             'pharmacy_dispense_id': self.id,

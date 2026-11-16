@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <!-- Prescription emailed to the patient with the PDF attached
+             (replaces mail_template_prescription_to_patient, removed by the 20.0.1.5.0 migration) -->
+        <record id="mail_template_prescription_patient" model="mail.template">
+            <field name="name">Dental Prescription: Send to Patient</field>
+            <field name="model_id" ref="model_dental_prescription"/>
+            <field name="subject">Your prescription {{ object.name }} from {{ object.company_id.name }}</field>
+            <field name="partner_to">{{ object.patient_id.id }}</field>
+            <field name="email_from">{{ (object.company_id.email_formatted or user.email_formatted) }}</field>
+            <field name="report_template_ids" eval="[(4, ref('dental_pharmacy.action_report_dental_prescription'))]"/>
+            <field name="lang">{{ object.patient_id.lang }}</field>
+            <field name="auto_delete" eval="True"/>
+            <field name="body_html" type="html">
+<table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f4f7f8; padding: 24px 0; font-family: 'Segoe UI', Arial, Helvetica, sans-serif; color: #1e293b;">
+<tr><td align="center">
+<table border="0" cellpadding="0" cellspacing="0" width="600" style="max-width: 600px; width: 100%; background-color: #ffffff; border: 1px solid #e3e8ee; border-radius: 12px; border-collapse: separate; overflow: hidden;">
+    <!-- Header -->
+    <tr>
+        <td style="background-color: #0f5f5a; padding: 20px 28px; color: #ffffff;">
+            <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                <tr>
+                    <td style="font-size: 20px; font-weight: bold; color: #ffffff;" t-out="object.company_id.name or ''"/>
+                    <td align="right" style="font-size: 30px; font-family: Georgia, 'Times New Roman', serif; font-weight: bold; color: #ffffff;">&#8478;</td>
+                </tr>
+                <tr>
+                    <td colspan="2" style="font-size: 13px; color: #cde7e3; padding-top: 2px;">Prescription <t t-out="object.name or ''"/></td>
+                </tr>
+            </table>
+        </td>
+    </tr>
+    <!-- Greeting -->
+    <tr>
+        <td style="padding: 24px 28px 8px 28px; font-size: 14px; line-height: 1.6;">
+            <p style="margin: 0 0 12px 0;">Dear <t t-out="object.patient_id.name or 'Patient'"/>,</p>
+            <p style="margin: 0;">
+                Thank you for visiting us. Your prescription from
+                <strong>Dr. <t t-out="object.dentist_id.name or ''"/></strong>
+                dated <t t-out="format_date(object.prescription_date)"/> is attached to this email as a PDF.
+            </p>
+        </td>
+    </tr>
+    <!-- Summary -->
+    <tr>
+        <td style="padding: 12px 28px;">
+            <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f1f8f7; border-radius: 8px;">
+                <tr>
+                    <td style="padding: 12px 16px; font-size: 13px; color: #64748b;">
+                        Prescription<br/><strong style="color: #0f172a; font-size: 14px;" t-out="object.name or ''"/>
+                    </td>
+                    <td style="padding: 12px 16px; font-size: 13px; color: #64748b;">
+                        Date<br/><strong style="color: #0f172a; font-size: 14px;" t-out="format_date(object.prescription_date)"/>
+                    </td>
+                    <td style="padding: 12px 16px; font-size: 13px; color: #64748b;" t-if="object.diagnosis">
+                        For<br/><strong style="color: #0f172a; font-size: 14px;" t-out="object.diagnosis"/>
+                    </td>
+                </tr>
+            </table>
+        </td>
+    </tr>
+    <!-- Medicines -->
+    <tr>
+        <td style="padding: 8px 28px;">
+            <div style="font-size: 12px; font-weight: bold; letter-spacing: 0.06em; text-transform: uppercase; color: #64748b; margin-bottom: 6px;">Your medicines</div>
+            <table border="0" cellpadding="0" cellspacing="0" width="100%" style="border-collapse: collapse; font-size: 13px;">
+                <t t-foreach="object.line_ids" t-as="line">
+                    <tr>
+                        <td style="padding: 10px 0; border-bottom: 1px solid #eef2f5; vertical-align: top;">
+                            <div style="font-weight: bold; color: #0f172a;">
+                                <t t-out="line.medicine_id.name or ''"/>
+                                <span t-if="line.strength and line.strength not in (line.medicine_id.name or '')" style="font-weight: normal; color: #64748b;"> <t t-out="line.strength"/></span>
+                            </div>
+                            <div style="color: #334155; padding-top: 2px;">
+                                <t t-out="line.dose or ''"/> · <t t-out="line.frequency_label or ''"/> · <t t-out="line.duration or 0"/> day(s)
+                            </div>
+                            <div t-if="line.instructions" style="color: #0f5f5a; padding-top: 2px; font-style: italic;" t-out="line.instructions"/>
+                        </td>
+                        <td align="right" style="padding: 10px 0; border-bottom: 1px solid #eef2f5; vertical-align: top; color: #64748b; white-space: nowrap;">
+                            Qty <t t-out="'%g' % line.quantity"/>
+                        </td>
+                    </tr>
+                </t>
+            </table>
+        </td>
+    </tr>
+    <!-- Advice -->
+    <tr t-if="object.clinical_notes">
+        <td style="padding: 12px 28px;">
+            <div style="background-color: #fffbeb; border-left: 4px solid #f59e0b; border-radius: 6px; padding: 10px 14px; font-size: 13px; line-height: 1.5;">
+                <strong>Doctor's advice</strong><br/>
+                <span style="white-space: pre-line;" t-out="object.clinical_notes"/>
+            </div>
+        </td>
+    </tr>
+    <!-- Where to get the medicines -->
+    <tr>
+        <td style="padding: 12px 28px 4px 28px; font-size: 13px; line-height: 1.6; color: #334155;">
+            <p t-if="object.fulfillment == 'pharmacy'" style="margin: 0 0 8px 0;">
+                Your medicines are being prepared at our pharmacy. Please collect them at the pharmacy counter.
+            </p>
+            <p t-else="" style="margin: 0 0 8px 0;">
+                You can buy these medicines at any pharmacy: show the attached prescription to the pharmacist.
+            </p>
+            <p style="margin: 0;">
+                Take the medicines exactly as prescribed. If you notice swelling, a rash or any unexpected reaction, stop the medicine and contact us straight away.
+            </p>
+        </td>
+    </tr>
+    <!-- Footer -->
+    <tr>
+        <td style="padding: 20px 28px 24px 28px; font-size: 13px; color: #334155;">
+            Kind regards,<br/>
+            <strong>Dr. <t t-out="object.dentist_id.name or ''"/></strong><br/>
+            <t t-out="object.company_id.name or ''"/>
+        </td>
+    </tr>
+    <tr>
+        <td style="background-color: #f8fafc; border-top: 1px solid #e3e8ee; padding: 12px 28px; font-size: 12px; color: #64748b;">
+            <t t-out="object.company_id.name or ''"/>
+            <t t-if="object.company_id.phone"> · <t t-out="object.company_id.phone"/></t>
+            <t t-if="object.company_id.email"> · <t t-out="object.company_id.email"/></t>
+            <t t-if="object.company_id.website"> · <t t-out="object.company_id.website"/></t>
+        </td>
+    </tr>
+</table>
+</td></tr>
+</table>
+            </field>
+        </record>
+    </data>
+</odoo>

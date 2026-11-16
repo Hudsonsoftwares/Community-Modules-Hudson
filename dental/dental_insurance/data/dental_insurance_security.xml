@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Roles that meet patients record their insurance cards -->
+    <record id="dental_base.group_dental_receptionist" model="res.groups">
+        <field name="implied_ids" eval="[(4, ref('insurance_base.group_insurance_user'))]"/>
+    </record>
+    <record id="dental_base.group_dental_assistant" model="res.groups">
+        <field name="implied_ids" eval="[(4, ref('insurance_base.group_insurance_user'))]"/>
+    </record>
+    <record id="dental_base.group_dental_dentist" model="res.groups">
+        <field name="implied_ids" eval="[(4, ref('insurance_base.group_insurance_user'))]"/>
+    </record>
+    <!-- Managers (and admins, who imply manager) set up insurers and plans -->
+    <record id="dental_base.group_dental_manager" model="res.groups">
+        <field name="implied_ids" eval="[(4, ref('insurance_base.group_insurance_manager'))]"/>
+    </record>
+</odoo>

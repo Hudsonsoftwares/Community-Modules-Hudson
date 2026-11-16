@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-name="dental_second_opinion.SecondOpinionDashboard">
+        <div class="o_so_dashboard h-100 overflow-auto">
+            <div class="o_so_header">
+                <div>
+                    <h1 class="o_so_title"><i class="fa fa-user-md me-2"/>Second Opinions</h1>
+                    <p class="o_so_subtitle">Specialist reviews of complex dental cases</p>
+                </div>
+                <button type="button" class="btn btn-light" t-on-click="() => this.loadData()" title="Refresh">
+                    <i class="fa fa-refresh"/>
+                </button>
+            </div>
+
+            <div t-if="this.state.loading and !this.state.data" class="o_so_empty">Loading...</div>
+            <t t-if="this.state.data">
+                <t t-set="d" t-value="this.state.data"/>
+                <section t-if="d.is_specialist" class="o_so_section">
+                    <h2 class="o_so_section_title">My review queue</h2>
+                    <div class="o_so_tiles">
+                        <button type="button" class="o_so_tile o_so_tile_info" t-on-click="() => this.openTile('sp_new')">
+                            <span class="o_so_tile_value" t-esc="d.specialist.new"/>
+                            <span class="o_so_tile_label">New requests</span>
+                        </button>
+                        <button type="button" class="o_so_tile o_so_tile_primary" t-on-click="() => this.openTile('sp_review')">
+                            <span class="o_so_tile_value" t-esc="d.specialist.in_review"/>
+                            <span class="o_so_tile_label">Under review</span>
+                        </button>
+                        <button type="button" class="o_so_tile o_so_tile_warning" t-on-click="() => this.openTile('sp_clarification')">
+                            <span class="o_so_tile_value" t-esc="d.specialist.clarification"/>
+                            <span class="o_so_tile_label">Clarification requested</span>
+                        </button>
+                        <button type="button" class="o_so_tile" t-on-click="() => this.openTile('sp_waiting')">
+                            <span class="o_so_tile_value" t-esc="d.specialist.waiting_dentist"/>
+                            <span class="o_so_tile_label">Waiting on dentist</span>
+                        </button>
+                        <button type="button" class="o_so_tile o_so_tile_danger" t-on-click="() => this.openTile('sp_overdue')">
+                            <span class="o_so_tile_value" t-esc="d.specialist.overdue"/>
+                            <span class="o_so_tile_label">Overdue</span>
+                        </button>
+                        <div class="o_so_tile o_so_tile_static">
+                            <span class="o_so_tile_value"><t t-esc="d.specialist.done_30d"/></span>
+                            <span class="o_so_tile_label">Opinions, last 30 days</span>
+                            <span class="o_so_tile_hint">Avg. turnaround <t t-esc="d.specialist.avg_turnaround"/> h</span>
+                        </div>
+                    </div>
+                    <div class="o_so_panel">
+                        <h3 class="o_so_panel_title">Cases waiting for my opinion</h3>
+                        <div t-if="!d.specialist.queue || !d.specialist.queue.length" class="o_so_empty">No cases are waiting for your opinion.</div>
+                        <table t-else="" class="table table-sm table-hover mb-0 o_so_table">
+                            <thead>
+                                <tr>
+                                    <th>Reference</th>
+                                    <th>Patient</th>
+                                    <th>Requested by</th>
+                                    <th>Due</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr t-foreach="d.specialist.queue" t-as="row" t-key="row.id" t-on-click="() => this.openRecord(row.id)" class="o_so_row">
+                                    <td>
+                                        <span class="fw-bold" t-esc="row.name"/>
+                                        <span t-if="row.priority !== '0'" class="badge ms-1"
+                                              t-att-class="row.priority === '2' ? 'text-bg-danger' : 'text-bg-warning'"
+                                              t-esc="this.priorityLabel(row.priority)"/>
+                                    </td>
+                                    <td><t t-esc="row.patient"/><div class="text-muted small" t-esc="row.case"/></td>
+                                    <td t-esc="row.counterpart"/>
+                                    <td t-att-class="row.is_overdue ? 'text-danger fw-bold' : ''" t-esc="row.due_date || '-'"/>
+                                    <td><span class="badge text-bg-light border" t-esc="row.state_label"/></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <section class="o_so_section">
+                    <h2 class="o_so_section_title">My requests</h2>
+                    <div class="o_so_tiles">
+                        <button type="button" class="o_so_tile o_so_tile_success" t-on-click="() => this.openTile('rq_decide')">
+                            <span class="o_so_tile_value" t-esc="d.requester.to_decide"/>
+                            <span class="o_so_tile_label">Opinions to act on</span>
+                        </button>
+                        <button type="button" class="o_so_tile o_so_tile_warning" t-on-click="() => this.openTile('rq_info')">
+                            <span class="o_so_tile_value" t-esc="d.requester.info_requested"/>
+                            <span class="o_so_tile_label">Information requested</span>
+                        </button>
+                        <button type="button" class="o_so_tile o_so_tile_danger" t-on-click="() => this.openTile('rq_declined')">
+                            <span class="o_so_tile_value" t-esc="d.requester.declined"/>
+                            <span class="o_so_tile_label">Declined, to reassign</span>
+                        </button>
+                        <button type="button" class="o_so_tile" t-on-click="() => this.openTile('rq_open')">
+                            <span class="o_so_tile_value" t-esc="d.requester.open"/>
+                            <span class="o_so_tile_label">All open requests</span>
+                        </button>
+                    </div>
+                    <div class="o_so_panel">
+                        <h3 class="o_so_panel_title">Needs my action</h3>
+                        <div t-if="!d.requester.queue || !d.requester.queue.length" class="o_so_empty">Nothing needs your action.</div>
+                        <table t-else="" class="table table-sm table-hover mb-0 o_so_table">
+                            <thead>
+                                <tr>
+                                    <th>Reference</th>
+                                    <th>Patient</th>
+                                    <th>Specialist</th>
+                                    <th>Due</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr t-foreach="d.requester.queue" t-as="row" t-key="row.id" t-on-click="() => this.openRecord(row.id)" class="o_so_row">
+                                    <td>
+                                        <span class="fw-bold" t-esc="row.name"/>
+                                        <span t-if="row.priority !== '0'" class="badge ms-1"
+                                              t-att-class="row.priority === '2' ? 'text-bg-danger' : 'text-bg-warning'"
+                                              t-esc="this.priorityLabel(row.priority)"/>
+                                    </td>
+                                    <td><t t-esc="row.patient"/><div class="text-muted small" t-esc="row.case"/></td>
+                                    <td t-esc="row.counterpart"/>
+                                    <td t-att-class="row.is_overdue ? 'text-danger fw-bold' : ''" t-esc="row.due_date || '-'"/>
+                                    <td><span class="badge text-bg-light border" t-esc="row.state_label"/></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <section t-if="d.is_manager" class="o_so_section">
+                    <h2 class="o_so_section_title">Clinic overview (selected branches)</h2>
+                    <div class="o_so_tiles">
+                        <button type="button" class="o_so_tile o_so_tile_primary" t-on-click="() => this.openTile('cl_open')">
+                            <span class="o_so_tile_value" t-esc="d.clinic.open"/>
+                            <span class="o_so_tile_label">Open requests</span>
+                        </button>
+                        <button type="button" class="o_so_tile o_so_tile_danger" t-on-click="() => this.openTile('cl_overdue')">
+                            <span class="o_so_tile_value" t-esc="d.clinic.overdue"/>
+                            <span class="o_so_tile_label">Overdue</span>
+                        </button>
+                        <button type="button" class="o_so_tile o_so_tile_warning" t-on-click="() => this.openTile('cl_emergency')">
+                            <span class="o_so_tile_value" t-esc="d.clinic.emergency"/>
+                            <span class="o_so_tile_label">Emergency, open</span>
+                        </button>
+                    </div>
+                </section>
+            </t>
+        </div>
+    </t>
+</templates>

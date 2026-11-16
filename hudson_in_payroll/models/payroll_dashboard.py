@@ -1,7 +1,15 @@
 # -*- coding: utf-8 -*-
 import calendar
-from datetime import datetime, date
+import logging
+from datetime import datetime, date, timedelta
+# pyrefly: ignore [missing-import]
+from markupsafe import escape
+# pyrefly: ignore [missing-import]
 from odoo import api, fields, models, _
+# pyrefly: ignore [missing-import]
+from odoo.exceptions import AccessError
+
+_logger = logging.getLogger(__name__)
 
 
 class HdsPayrollDashboard(models.Model):
@@ -19,7 +27,7 @@ class HdsPayrollDashboard(models.Model):
         ('1', 'January'), ('2', 'February'), ('3', 'March'), ('4', 'April'),
         ('5', 'May'), ('6', 'June'), ('7', 'July'), ('8', 'August'),
         ('9', 'September'), ('10', 'October'), ('11', 'November'), ('12', 'December')
-    ], string="Payroll Month", default=lambda self: str(fields.Date.today().month))
+    ], string="Payroll Month", default=lambda self: str(fields.Date.context_today(self).month))
 
     currency_id = fields.Many2one('res.currency', string="Currency", default=lambda self: self.env.company.currency_id)
 
@@ -96,13 +104,50 @@ class HdsPayrollDashboard(models.Model):
     final_settlement_review_count = fields.Integer(string="Under Review Settlements", compute='_compute_dashboard_metrics')
     final_settlement_approved_count = fields.Integer(string="Approved Settlements", compute='_compute_dashboard_metrics')
     final_settlement_paid_count = fields.Integer(string="Paid Settlements", compute='_compute_dashboard_metrics')
+    final_settlement_amount = fields.Monetary(string="Net Settlement Amount", currency_field='currency_id', compute='_compute_dashboard_metrics')
+    no_contract_count = fields.Integer(string="Employees Without Running Contract", compute='_compute_dashboard_metrics')
 
     # 9. Rich HTML Dashboard Canvas
     dashboard_html = fields.Html(string="Dashboard Canvas", compute='_compute_dashboard_html', store=False, sanitize=False)
 
     @api.model
+    def get_period_search_data(self):
+        """Data for the dashboard's control-panel period search (months, tax years, current
+        selection and the defaults used when a facet is removed). Read-only."""
+        dash = self.env.ref('hudson_in_payroll.hds_payroll_dashboard_singleton', raise_if_not_found=False)             or self.search([], limit=1)
+        Fy = self.env['tds.financial.year']
+        today = fields.Date.context_today(self)
+        fys = Fy.search([], order='start_date desc', limit=10)
+        default_fy = Fy.search([('start_date', '<=', today), ('end_date', '>=', today)], limit=1) or fys[:1]
+        current_fy = (dash.financial_year_id if dash else Fy) or default_fy
+
+        def _fy_vals(fy):
+            name = fy.name or ''
+            return {
+                'id': fy.id,
+                'name': name,
+                'short': name.replace('Tax Year:', '').strip() or name,
+                'start_year': fy.start_date.year if fy.start_date else today.year,
+                'end_year': fy.end_date.year if fy.end_date else today.year,
+            }
+
+        fy_list = [_fy_vals(fy) for fy in fys]
+        if current_fy and current_fy.id not in [f['id'] for f in fy_list]:
+            fy_list.append(_fy_vals(current_fy))
+        return {
+            'months': [{'value': value, 'name': label} for value, label in self._fields['payroll_month_num'].selection],
+            'fys': fy_list,
+            'month': (dash.payroll_month_num if dash else False) or str(today.month),
+            'fy_id': current_fy.id if current_fy else False,
+            'default_month': str(today.month),
+            'default_fy_id': default_fy.id if default_fy else False,
+            'today_month': today.month,
+            'today_year': today.year,
+        }
+
+    @api.model
     def _default_financial_year(self):
-        today = fields.Date.today()
+        today = fields.Date.context_today(self)
         fy = self.env['tds.financial.year'].search([
             ('start_date', '<=', today), ('end_date', '>=', today)
         ], limit=1)
@@ -137,6 +182,39 @@ class HdsPayrollDashboard(models.Model):
             return True
         return False
 
+    def _hds_employee_movements(self, kind, month_start, month_end):
+        """Employees who joined ('joiners', active employees) or left ('exits') in the period. Exits include
+        archived employees (a departed employee is normally archived, with its contract versions)."""
+        Employee = self.env['hr.employee']
+        if kind == 'joiners':
+            date_field = next((f for f in ('first_contract_date', 'hds_in_doj', 'joining_date') if f in Employee._fields), None)
+        else:
+            date_field = next((f for f in ('departure_date', 'hds_in_dol', 'resign_date') if f in Employee._fields), None)
+            Employee = Employee.with_context(active_test=False)
+        if not date_field:
+            return self.env['hr.employee']
+        return Employee.search([(date_field, '>=', month_start), (date_field, '<=', month_end)])
+
+    def _hds_month_payslips(self, month_start, month_end):
+        """Payslips counted by the dashboard for a period: validated or paid, of the active companies.
+        Split non-overlapping payslips (e.g. 1-15 and 16-30) are all counted, while duplicate payslips
+        (same employee and period) are counted once, to avoid double-counting payroll costs."""
+        all_slips = self.env['hr.payslip'].search([
+            ('date_from', '<=', month_end),
+            ('date_to', '>=', month_start),
+            ('state', 'in', ('done', 'paid')),
+            ('company_id', 'in', self.env.companies.ids),
+        ])
+        state_priority = {'paid': 2, 'done': 1}
+        unique_slips = {}
+        for slip in all_slips.sorted(key=lambda s: (state_priority.get(s.state, 0), -(s.id or 0)), reverse=True):
+            if getattr(slip, 'has_duplicate_payslip', False):
+                continue
+            key = (slip.employee_id.id, slip.date_from, slip.date_to)
+            if key not in unique_slips:
+                unique_slips[key] = slip
+        return self.env['hr.payslip'].browse([s.id for s in unique_slips.values()])
+
     @staticmethod
     def _has_aadhaar(emp):
         for f in ('hds_in_aadhaar', 'aadhaar_no', 'identification_id'):
@@ -158,7 +236,7 @@ class HdsPayrollDashboard(models.Model):
         for rec in self:
             if not rec.financial_year_id:
                 rec.financial_year_id = rec._default_financial_year()
-            today = fields.Date.today()
+            today = fields.Date.context_today(self)
             m_num = int(rec.payroll_month_num or today.month)
             year = today.year
             try:
@@ -245,64 +323,34 @@ class HdsPayrollDashboard(models.Model):
             # Contract & Salary info missing count (safely guarded)
             rec.missing_salary_count = len(active_emps.filtered(lambda e: not getattr(e, 'contract_id', False) or float(getattr(getattr(e, 'contract_id', None), 'wage', 0.0) or 0.0) <= 0.0))
 
-            # New Joiners & Exits for period (safely checking field existence)
-            emp_fields = emp_model._fields
-            join_field = next((f for f in ('first_contract_date', 'hds_in_doj', 'joining_date') if f in emp_fields), None)
-            if join_field:
-                rec.new_joiners_count = emp_model.search_count([
-                    (join_field, '>=', month_start),
-                    (join_field, '<=', month_end),
-                ])
-            else:
-                rec.new_joiners_count = 0
+            # New Joiners & Exits for period
+            rec.new_joiners_count = len(self._hds_employee_movements('joiners', month_start, month_end))
+            rec.exits_count = len(self._hds_employee_movements('exits', month_start, month_end))
 
-            exit_field = next((f for f in ('departure_date', 'hds_in_dol', 'resign_date') if f in emp_fields), None)
-            if exit_field:
-                rec.exits_count = emp_model.search_count([
-                    (exit_field, '>=', month_start),
-                    (exit_field, '<=', month_end),
-                ])
-            else:
-                rec.exits_count = 0
+            rec.no_contract_count = len(self._employees_without_contract(month_start, month_end)[0])
 
-            # Final Settlements Due for period (dynamically calculated if final.settlement model present)
-            if 'final.settlement' in self.env:
-                settlement_model = self.env['final.settlement']
-                settlement_domain = [
-                    ('state', '!=', 'cancel'),
-                    ('last_working_day', '>=', month_start),
-                    ('last_working_day', '<=', month_end),
-                ]
-                rec.final_settlements_due_count = settlement_model.search_count(settlement_domain)
-                rec.final_settlement_draft_count = settlement_model.search_count(settlement_domain + [('state', '=', 'draft')])
-                rec.final_settlement_review_count = settlement_model.search_count(settlement_domain + [('state', '=', 'under_review')])
-                rec.final_settlement_approved_count = settlement_model.search_count(settlement_domain + [('state', '=', 'approved')])
-                rec.final_settlement_paid_count = settlement_model.search_count(settlement_domain + [('state', '=', 'paid')])
+            # Final Settlements Due for period (hudson_in_final_settlement: Draft -> Approved, paid via its payslip)
+            settlement_domain = self._final_settlement_domain(month_start, month_end)
+            if settlement_domain is not None:
+                settlements = self.env['final.settlement'].search(settlement_domain)
+                paid = settlements.filtered(lambda s: s.state == 'approved' and s.payslip_id.state in ('done', 'paid'))
+                rec.final_settlements_due_count = len(settlements)
+                rec.final_settlement_draft_count = len(settlements.filtered(lambda s: s.state == 'draft'))
+                rec.final_settlement_review_count = 0  # no review stage in the settlement lifecycle
+                rec.final_settlement_approved_count = len(settlements.filtered(lambda s: s.state == 'approved') - paid)
+                rec.final_settlement_paid_count = len(paid)
+                rec.final_settlement_amount = sum(settlements.mapped('net_settlement_amount'))
             else:
                 rec.final_settlements_due_count = 0
                 rec.final_settlement_draft_count = 0
                 rec.final_settlement_review_count = 0
                 rec.final_settlement_approved_count = 0
                 rec.final_settlement_paid_count = 0
+                rec.final_settlement_amount = 0.0
 
             # Payslips and Payroll Financial Metrics for period (Company-aware, Confirmed/Paid Slips only)
             company_domain = [('company_id', 'in', self.env.companies.ids)]
-            period_domain = [
-                ('date_from', '<=', month_end),
-                ('date_to', '>=', month_start),
-                ('state', 'in', ('done', 'paid')),
-            ] + company_domain
-            all_slips = self.env['hr.payslip'].search(period_domain)
-
-            # Deduplicate only if identical employee AND identical pay period (date_from, date_to)
-            # This ensures split payslips (e.g. 1-15 and 16-30) are both fully accounted for
-            state_priority = {'paid': 2, 'done': 1}
-            unique_slips = {}
-            for slip in all_slips.sorted(key=lambda s: (state_priority.get(s.state, 0), s.id), reverse=True):
-                key = (slip.employee_id.id, slip.date_from, slip.date_to)
-                if key not in unique_slips:
-                    unique_slips[key] = slip
-            slips = self.env['hr.payslip'].browse([s.id for s in unique_slips.values()])
+            slips = self._hds_month_payslips(month_start, month_end)
 
             # Unconfirmed slips (Draft & To Validate) - count actual payslips requiring validation for selected month
             unconfirmed_domain = [
@@ -491,7 +539,10 @@ class HdsPayrollDashboard(models.Model):
                 ('state', 'in', ('done', 'paid')),
             ] + company_domain)
             ytd_slips_by_emp_period = {}
-            for ys in ytd_slips.sorted(key=lambda s: (state_priority.get(s.state, 0), s.id), reverse=True):
+            state_priority = {'paid': 2, 'done': 1}
+            for ys in ytd_slips.sorted(key=lambda s: (state_priority.get(s.state, 0), -(s.id or 0)), reverse=True):
+                if getattr(ys, 'has_duplicate_payslip', False):
+                    continue
                 key = (ys.employee_id.id, ys.date_from)
                 if key not in ytd_slips_by_emp_period:
                     ytd_slips_by_emp_period[key] = ys
@@ -504,9 +555,9 @@ class HdsPayrollDashboard(models.Model):
 
             # Tax Declarations & Regime Distribution
             decl_model = self.env['tds.employee.declaration']
-            rec.pending_declarations_count = decl_model.search_count([
-                ('state', 'in', ('submitted', 'proof_submitted', 'proof_under_review'))
-            ])
+            rec.pending_declarations_count = decl_model.search_count(
+                self._pending_declaration_domain(rec.financial_year_id)
+            )
             rec.old_regime_count = self.env['hr.employee'].search_count([
                 ('active', '=', True),
                 ('hds_in_tax_regime', '=', 'old')
@@ -524,16 +575,247 @@ class HdsPayrollDashboard(models.Model):
         self._compute_dashboard_metrics()
         self._compute_dashboard_html()
 
+    @api.model
+    def _employees_without_contract(self, month_start, month_end):
+        """Active employees with no contract running on any day of the payroll month.
+
+        A contract runs in the month when one of the employee's versions has
+        contract_date_start <= month_end and (no contract_date_end or contract_date_end >= month_start).
+        Returns (employees, info) where info maps employee id -> (reason, date):
+        'none' (never had a contract), 'ended' (last contract ended before the month)
+        or 'future' (next contract starts after the month).
+        """
+        employees = self.env['hr.employee'].search([('active', '=', True)])
+        if not employees:
+            return employees, {}
+        Version = self.env['hr.version'].sudo()
+        running = Version.search([
+            ('employee_id', 'in', employees.ids),
+            ('contract_date_start', '!=', False),
+            ('contract_date_start', '<=', month_end),
+            '|', ('contract_date_end', '=', False), ('contract_date_end', '>=', month_start),
+        ])
+        missing = employees - running.employee_id
+        info = {}
+        if missing:
+            contracts = Version.search([
+                ('employee_id', 'in', missing.ids),
+                ('contract_date_start', '!=', False),
+            ])
+            for emp in missing:
+                emp_contracts = contracts.filtered(lambda v, emp=emp: v.employee_id == emp)
+                future = [v.contract_date_start for v in emp_contracts if v.contract_date_start > month_end]
+                ended = [v.contract_date_end for v in emp_contracts if v.contract_date_end and v.contract_date_end < month_start]
+                if future:
+                    info[emp.id] = ('future', min(future))
+                elif ended:
+                    info[emp.id] = ('ended', max(ended))
+                else:
+                    info[emp.id] = ('none', False)
+        return missing, info
+
+    @api.model
+    def _leave_encashment_model(self):
+        """Leave encashment requests model, or None when the current user cannot read it
+        (the dashboard section is then hidden instead of raising an access error)."""
+        if 'hds.leave.encashment.request' not in self.env:
+            return None
+        model = self.env['hds.leave.encashment.request']
+        try:
+            model.check_access('read')
+        except AccessError:
+            return None
+        return model
+
+    @api.model
+    def _leave_encashment_domain(self, states=None, date_from=None, date_to=None):
+        """Leave encashment requests of the selected companies raised in the payroll month
+        (request date between date_from and date_to), optionally limited to some statuses.
+        Shared by the dashboard section and its click-through lists so both always agree."""
+        domain = [('company_id', 'in', self.env.companies.ids)]
+        if states:
+            domain.append(('state', 'in', list(states)))
+        if date_from:
+            domain.append(('request_date', '>=', date_from))
+        if date_to:
+            domain.append(('request_date', '<=', date_to))
+        return domain
+
+    @api.model
+    def _relieving_employees(self, month_start, month_end):
+        """Employees relieving in the payroll month, for the Final Settlement Planner.
+
+        Relieving date (first available, in this priority):
+          1. resignation approved last working day, 2. resignation requested last working day,
+          3. employee departure date, 4. notice period end date,
+          5. contract end date (only when no later contract follows it, i.e. not renewed).
+        Archived employees are included (they may already be archived but still need settling).
+
+        Returns a list of dicts sorted by relieving date:
+          employee, lwd, lwd_source, sources [(label, date)], resignation, settlement,
+          status ('not_started' | 'draft' | 'approved' | 'paid').
+        """
+        Employee = self.env['hr.employee'].with_context(active_test=False)
+        company_ids = self.env.companies.ids
+        in_month = lambda d: bool(d) and month_start <= d <= month_end
+        candidates = {}  # employee id -> {label: date}
+
+        def _add(emp, label, value):
+            if emp and in_month(value) and (not emp.company_id or emp.company_id.id in company_ids):
+                candidates.setdefault(emp.id, {})[label] = value
+
+        # 1-2. Resignations (not cancelled)
+        resignations = {}
+        if 'hr.resignation' in self.env:
+            Resignation = self.env['hr.resignation']
+            try:
+                Resignation.check_access('read')
+                res_records = Resignation.search([
+                    ('state', '!=', 'cancel'),
+                    ('company_id', 'in', company_ids),
+                    '|',
+                    '&', ('approved_revealing_date', '>=', month_start), ('approved_revealing_date', '<=', month_end),
+                    '&', ('approved_revealing_date', '=', False),
+                    '&', ('expected_revealing_date', '>=', month_start), ('expected_revealing_date', '<=', month_end),
+                ], order='id desc')
+            except AccessError:
+                res_records = Resignation
+            for res in res_records:
+                emp = res.employee_id.with_context(active_test=False)
+                if emp.id in resignations:
+                    continue
+                resignations[emp.id] = res
+                if res.approved_revealing_date:
+                    _add(emp, 'Resignation (approved LWD)', res.approved_revealing_date)
+                else:
+                    _add(emp, 'Resignation (requested LWD)', res.expected_revealing_date)
+
+        # 3-4. Departure date / notice period end on the employee
+        emp_domain = [('company_id', 'in', company_ids)]
+        dep_domain = [('departure_date', '>=', month_start), ('departure_date', '<=', month_end)]
+        for emp in Employee.search(emp_domain + dep_domain):
+            _add(emp, 'Departure date', emp.departure_date)
+        if 'notice_period_end_date' in Employee._fields:
+            for emp in Employee.search(emp_domain + [('notice_period_end_date', '>=', month_start), ('notice_period_end_date', '<=', month_end)]):
+                _add(emp, 'Notice period ends', emp.notice_period_end_date)
+
+        # 5. Contract end (skip renewed contracts)
+        Version = self.env['hr.version'].sudo()
+        company_employee_ids = Employee.search(emp_domain).ids  # includes archived employees
+        ending = Version.search([
+            ('contract_date_end', '>=', month_start),
+            ('contract_date_end', '<=', month_end),
+            ('employee_id', 'in', company_employee_ids),
+        ])
+        for version in ending:
+            renewed = Version.search_count([
+                ('employee_id', '=', version.employee_id.id),
+                ('contract_date_start', '>', version.contract_date_end),
+            ])
+            if not renewed:
+                _add(version.employee_id.with_context(active_test=False), 'Contract ends', version.contract_date_end)
+
+        if not candidates:
+            return []
+
+        priority = ['Resignation (approved LWD)', 'Resignation (requested LWD)', 'Departure date', 'Notice period ends', 'Contract ends']
+        settlements = self.env['final.settlement']
+        if 'final.settlement' in self.env:
+            try:
+                settlements.check_access('read')
+                settlements = settlements.search([
+                    ('employee_id', 'in', list(candidates)),
+                    ('state', '!=', 'cancel'),
+                ], order='last_working_day desc, id desc')
+            except AccessError:
+                settlements = self.env['final.settlement']
+
+        result = []
+        employees = Employee.browse(list(candidates))
+        for emp in employees:
+            dates = candidates[emp.id]
+            lwd_source = next(label for label in priority if label in dates)
+            lwd = dates[lwd_source]
+            emp_settlements = settlements.filtered(lambda s, emp=emp: s.employee_id.id == emp.id)
+            # The settlement for this exit: same LWD if any, else the latest one on or after the month start
+            settlement = emp_settlements.filtered(lambda s, lwd=lwd: s.last_working_day == lwd)[:1] or \
+                emp_settlements.filtered(lambda s: s.last_working_day and s.last_working_day >= month_start)[:1]
+            if not settlement:
+                status = 'not_started'
+            elif settlement.state == 'approved' and settlement.payslip_id.state in ('done', 'paid'):
+                status = 'paid'
+            elif settlement.state == 'approved':
+                status = 'approved'
+            else:
+                status = 'draft'
+            result.append({
+                'employee': emp,
+                'lwd': lwd,
+                'lwd_source': lwd_source,
+                'sources': [(label, dates[label]) for label in priority if label in dates],
+                'resignation': resignations.get(emp.id),
+                'settlement': settlement,
+                'status': status,
+            })
+        result.sort(key=lambda r: (r['lwd'], (r['employee'].name or '').lower()))
+        return result
+
+    @api.model
+    def _pending_declaration_domain(self, financial_year=None):
+        """Tax declarations awaiting verification for the selected tax year and companies.
+        Shared by the Action Center count, its card click and the header button."""
+        domain = [
+            ('state', 'in', ('submitted', 'proof_submitted', 'proof_under_review')),
+            ('company_id', 'in', self.env.companies.ids),
+        ]
+        if financial_year:
+            domain.append(('financial_year_id', '=', financial_year.id))
+        return domain
+
+    def _month_declaration_domain(self, kind, financial_year, month_start, month_end):
+        """Tax declarations of the selected tax year at a stage of the month (Tax Declarations card):
+        'pending' - proofs submitted in the month, awaiting HR verification;
+        'declared' - plan submitted in the month, awaiting the employee's proofs;
+        'draft' - created in the month, not submitted yet."""
+        domain = [('company_id', 'in', self.env.companies.ids)]
+        if financial_year:
+            domain.append(('financial_year_id', '=', financial_year.id))
+        in_month = lambda field: [(field, '>=', month_start), (field, '<=', month_end)]
+        if kind == 'pending':
+            # Proofs submitted before the proof date was recorded: the declaration's submission date
+            return domain + [('state', 'in', ('submitted', 'proof_submitted', 'proof_under_review')),
+                             '|', '&'] + in_month('proof_submission_date') + [
+                             '&', ('proof_submission_date', '=', False)] + in_month('submission_date')
+        if kind == 'declared':
+            return domain + [('state', '=', 'declared')] + in_month('submission_date')
+        next_month = month_end + timedelta(days=1)
+        return domain + [('state', '=', 'draft'), ('create_date', '>=', fields.Datetime.to_datetime(month_start)),
+                         ('create_date', '<', fields.Datetime.to_datetime(next_month))]
+
+    @api.model
+    def _final_settlement_domain(self, month_start, month_end):
+        """Final settlements due in the period: not cancelled, last working day in the month,
+        within the selected companies. Shared by the KPI counts, the card click and the header
+        button so they always agree. None when hudson_in_final_settlement is not installed."""
+        if 'final.settlement' not in self.env:
+            return None
+        return [
+            ('state', '!=', 'cancel'),
+            ('last_working_day', '>=', month_start),
+            ('last_working_day', '<=', month_end),
+            ('company_id', 'in', self.env.companies.ids),
+        ]
+
     @api.depends('payroll_month_num', 'financial_year_id')
     def _compute_dashboard_html(self):
         for rec in self:
             rec._compute_dashboard_metrics()
             currency_symbol = rec.currency_id.symbol or '₹'
-            month_name = dict(rec._fields['payroll_month_num'].selection).get(rec.payroll_month_num, 'August')
-            fy_name = rec.financial_year_id.name if rec.financial_year_id else 'Tax Year: 2026-27'
+            month_name = dict(rec._fields['payroll_month_num'].selection).get(rec.payroll_month_num)                 or calendar.month_name[fields.Date.context_today(self).month]
+            fy_name = rec.financial_year_id.name if rec.financial_year_id else 'Not set'
 
             # Fetch New Joiners for selected month
-            today = fields.Date.today()
+            today = fields.Date.context_today(self)
             m_num = int(rec.payroll_month_num or today.month)
             year = today.year
             if rec.financial_year_id and rec.financial_year_id.start_date:
@@ -543,53 +825,6 @@ class HdsPayrollDashboard(models.Model):
 
             month_start = date(year, m_num, 1)
             month_end = date(year, m_num, calendar.monthrange(year, m_num)[1])
-
-            emp_fields = self.env['hr.employee']._fields
-            join_field = next((f for f in ('joining_date', 'date_of_joining', 'hds_in_doj', 'first_contract_date', 'contract_date_start', 'create_date') if f in emp_fields), None)
-
-            joiners = self.env['hr.employee']
-            if join_field:
-                joiners = self.env['hr.employee'].search([
-                    (join_field, '>=', month_start),
-                    (join_field, '<=', month_end),
-                ], limit=5, order=f'{join_field} desc')
-
-            joiner_rows_html = ""
-            if joiners:
-                for j in joiners:
-                    j_date_val = getattr(j, join_field, False) if join_field else False
-                    j_date = j_date_val.strftime('%d %b') if (j_date_val and hasattr(j_date_val, 'strftime')) else 'N/A'
-                    dept = j.department_id.name if j.department_id else 'General'
-                    has_pan = self._has_pan(j)
-                    has_bank = self._has_bank_account(j)
-
-                    if not has_pan:
-                        status_chip = f'<span role="button" tabindex="0" onclick="window.hdsRecordClick &amp;&amp; window.hdsRecordClick(this, \'{j.id}\', \'hr.employee\')" data-card-type="hr_employee_record" data-record-id="{j.id}" data-record-model="hr.employee" class="o_hds_dashboard_card_clickable" style="background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); padding: 3px 8px; border-radius: 12px; font-size: 10px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px; cursor: pointer;">🔴 PAN Missing &rarr; Fix</span>'
-                    elif not has_bank:
-                        status_chip = f'<span role="button" tabindex="0" onclick="window.hdsRecordClick &amp;&amp; window.hdsRecordClick(this, \'{j.id}\', \'hr.employee\')" data-card-type="hr_employee_record" data-record-id="{j.id}" data-record-model="hr.employee" class="o_hds_dashboard_card_clickable" style="background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); padding: 3px 8px; border-radius: 12px; font-size: 10px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px; cursor: pointer;">🟠 Bank Missing &rarr; Fix</span>'
-                    else:
-                        status_chip = f'<span role="button" tabindex="0" onclick="window.hdsRecordClick &amp;&amp; window.hdsRecordClick(this, \'{j.id}\', \'hr.employee\')" data-card-type="hr_employee_record" data-record-id="{j.id}" data-record-model="hr.employee" class="o_hds_dashboard_card_clickable" style="background: rgba(34, 197, 94, 0.15); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.3); padding: 3px 8px; border-radius: 12px; font-size: 10px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px; cursor: pointer;">🟢 Payroll Ready</span>'
-
-                    joiner_rows_html += f"""
-                    <tr style="border-bottom: 1px solid var(--hds-row-border); transition: background-color 0.15s ease;">
-                        <td style="padding: 10px 8px; font-weight: 600;">
-                            <span role="button" tabindex="0" onclick="window.hdsRecordClick &amp;&amp; window.hdsRecordClick(this, '{j.id}', 'hr.employee')" data-card-type="hr_employee_record" data-record-id="{j.id}" data-record-model="hr.employee" class="o_hds_dashboard_card_clickable" style="color: #818cf8; font-weight: 700; cursor: pointer;">
-                                {j.name}
-                            </span>
-                        </td>
-                        <td class="hds-text-secondary" style="padding: 10px 8px;">{j_date}</td>
-                        <td class="hds-text-secondary" style="padding: 10px 8px;">{dept}</td>
-                        <td style="padding: 10px 8px;">{status_chip}</td>
-                    </tr>
-                    """
-            else:
-                joiner_rows_html = """
-                <tr>
-                    <td colspan="4" class="hds-text-muted" style="padding: 18px; text-align: center; font-style: italic;">
-                        No new joiners recorded for this payroll period.
-                    </td>
-                </tr>
-                """
 
             # 6-Month Payroll Trend Visualizer Data (Payrun Styled)
             state_priority = {'paid': 4, 'done': 3, 'verify': 2, 'draft': 1}
@@ -609,7 +844,9 @@ class HdsPayrollDashboard(models.Model):
                 ] + company_domain
                 t_all_slips = self.env['hr.payslip'].search(t_domain)
                 t_unique = {}
-                for s in t_all_slips.sorted(key=lambda s: (state_priority.get(s.state, 0), s.id), reverse=True):
+                for s in t_all_slips.sorted(key=lambda s: (state_priority.get(s.state, 0), -(s.id or 0)), reverse=True):
+                    if getattr(s, 'has_duplicate_payslip', False):
+                        continue
                     key = (s.employee_id.id, s.date_from, s.date_to)
                     if key not in t_unique:
                         t_unique[key] = s
@@ -673,6 +910,9 @@ class HdsPayrollDashboard(models.Model):
                     'admin': t_admin,
                     'er_lwf': t_er_lwf,
                     'emp_count': len(set(s.employee_id.id for s in t_unique.values())),
+                    # Processed payslips (one per employee and period) by state
+                    'paid_slip_count': sum(1 for s in t_unique.values() if s.state == 'paid'),
+                    'validated_slip_count': sum(1 for s in t_unique.values() if s.state == 'done'),
                     'worked_days': t_worked_days,
                     'avg_days': round(t_worked_days / max(len(set(s.employee_id.id for s in t_unique.values())), 1), 1) if t_unique else 0.0,
                     'cost': t_cost,
@@ -681,648 +921,555 @@ class HdsPayrollDashboard(models.Model):
                     'date_to': str(t_end),
                 })
 
-            max_trend_cost = max([d['cost'] for d in trend_data] or [0.0])
-            trend_bars_html = ""
-            for d in trend_data:
-                t_cost = d['cost']
-                t_m_name = d['month_name']
-                is_curr = d['is_current']
-                t_gross = d['gross']
-                t_er_epf = d['er_epf']
-                t_er_esic = d['er_esic']
-                t_admin = d['admin']
-                t_wd = d['worked_days']
-                t_avg_d = d['avg_days']
+            # Current month of the six (header payslip counts)
+            trend_current = next((d for d in trend_data if d['is_current']), trend_data[-1] if trend_data else None)
 
-                if max_trend_cost > 0 and t_cost > 0:
-                    bar_height = max(18, min(85, int((t_cost / max_trend_cost) * 85)))
-                    pct_g = (t_gross / t_cost) * 100.0
-                    pct_p = (t_er_epf / t_cost) * 100.0
-                    pct_e = (t_er_esic / t_cost) * 100.0
-                    pct_a = (t_admin / t_cost) * 100.0
+            # ---------- Display helpers (presentation only; every value comes from the computed fields) ----------
+            def _pct(part, whole):
+                return max(0.0, min(100.0, (part or 0.0) * 100.0 / whole)) if whole else 0.0
 
-                    bar_inner = f"""
-                    <div style="height: {pct_g:.1f}%; width: 100%; background: #7c3aed;"></div>
-                    """
-                    if t_er_epf > 0:
-                        bar_inner += f"""<div style="height: {pct_p:.1f}%; width: 100%; background: #38bdf8;"></div>"""
-                    if t_er_esic > 0:
-                        bar_inner += f"""<div style="height: {pct_e:.1f}%; width: 100%; background: #34d399;"></div>"""
-                    if t_admin > 0:
-                        bar_inner += f"""<div style="height: {pct_a:.1f}%; width: 100%; background: #fbbf24;"></div>"""
+            def _money(value):
+                return f"{currency_symbol} {(value or 0.0):,.2f}"
 
-                    bar_container_style = f"width: 100%; max-width: 38px; height: {bar_height}px; border-radius: 6px 6px 0 0; overflow: hidden; display: flex; flex-direction: column-reverse; box-shadow: 0 2px 8px rgba(124, 58, 237, 0.25); transition: height 0.3s ease;"
-                else:
-                    bar_height = 6
-                    bar_inner = ""
-                    bar_container_style = "width: 100%; max-width: 38px; background: var(--hds-track-bg, #374151); height: 6px; border-radius: 4px;"
+            card_click = 'role="button" tabindex="0" onclick="window.hdsCardClick &amp;&amp; window.hdsCardClick(this, \'{0}\')" data-card-type="{0}"'
 
-                cost_lbl = f"{currency_symbol} {t_cost/100000:.1f}L" if t_cost >= 100000 else f"{currency_symbol} {t_cost:,.0f}"
-                curr_style = 'color: #c084fc; font-weight: 800;' if is_curr else 'color: var(--hds-text-secondary, #94a3b8); font-weight: 600;'
-                badge_curr = ' <span style="font-size: 8px; background: rgba(192, 132, 252, 0.2); color: #c084fc; padding: 1px 4px; border-radius: 4px; margin-left: 2px;">Active</span>' if is_curr else ''
-                days_lbl = f'<div style="font-size: 9px; color: #38bdf8; font-weight: 600; margin-top: 1px;">{t_wd:.0f}d worked</div>' if t_wd > 0 else ''
+            # ---------- Odoo list-view building blocks for the dashboard sections ----------
+            def _badge(tone, label):
+                return f'<span class="hds-o-badge hds-tone-{tone}">{label}</span>'
 
-                tooltip = f"{t_m_name} {d['year']} Cost Breakdown:&#10;&bull; Attendance: {t_wd:.0f} Worked Days (Avg {t_avg_d} Days/Emp)&#10;&bull; Gross Salary ({d['emp_count']} Emps): {currency_symbol} {t_gross:,.2f}&#10;&bull; Employer EPF: {currency_symbol} {t_er_epf:,.2f}&#10;&bull; Employer ESIC: {currency_symbol} {t_er_esic:,.2f}&#10;&bull; EDLI &amp; Admin: {currency_symbol} {t_admin:,.2f}&#10;━━━━━━━━━━━━━━━━━━━━&#10;Total Cost to Company (CTC): {currency_symbol} {t_cost:,.2f}&#10;(Click to view payslips)"
+            def _record_attrs(record_id, model):
+                return (f'role="button" tabindex="0" onclick="window.hdsRecordClick &amp;&amp; '
+                        f'window.hdsRecordClick(this, \'{record_id}\', \'{model}\')" data-card-type="hr_employee_record" '
+                        f'data-record-id="{record_id}" data-record-model="{model}"')
 
-                trend_bars_html += f"""
-                <div role="button" tabindex="0" onclick="window.hdsCardClick &amp;&amp; window.hdsCardClick(this, 'total_payroll_cost')" data-card-type="total_payroll_cost" data-date-from="{d['date_from']}" data-date-to="{d['date_to']}" class="o_hds_dashboard_card_clickable" title="{tooltip}" style="display: flex; flex-direction: column; align-items: center; gap: 4px; flex: 1; cursor: pointer; padding: 4px; border-radius: 6px; transition: transform 0.15s ease;">
-                    <div class="hds-text-primary" style="font-size: 11px; font-weight: 700;">{cost_lbl}</div>
-                    <div style="{bar_container_style}">
-                        {bar_inner}
+            def _btn(ctype, label, primary=False, title=''):
+                title_attr = f' title="{title}"' if title else ''
+                return (f'<button type="button" {card_click.format(ctype)}{title_attr} '
+                        f'class="btn btn-sm {"btn-primary" if primary else "btn-secondary"} o_hds_dashboard_card_clickable">{label}</button>')
+
+            def _empty(icon, title, hint, tone='green'):
+                return (f'<div class="hds-o-empty hds-tone-{tone}"><i class="oi" data-icon="{icon}"></i>'
+                        f'<div><b>{title}</b><span>{hint}</span></div></div>')
+
+            def _section(title, sub, actions_html, body_html):
+                return f"""<div class="hds-o-sheet hds-o-list-card hds-o-section">
+                    <div class="hds-o-section-head">
+                        <div>
+                            <div class="hds-o-section-title">{title}</div>
+                            <div class="hds-o-list-hint">{sub}</div>
+                        </div>
+                        <div class="hds-o-section-actions">{actions_html}</div>
                     </div>
-                    <div style="font-size: 10px; {curr_style} display: flex; align-items: center;">{t_m_name}{badge_curr}</div>
-                    {days_lbl}
-                </div>
-                """
+                    {body_html}
+                </div>"""
 
-            # Detailed Cost Component Breakdown for Active Month
-            active_item = next((d for d in trend_data if d['is_current'] and d['cost'] > 0), None)
-            if not active_item:
-                active_item = next((d for d in reversed(trend_data) if d['cost'] > 0), None)
+            ctc = rec.total_payroll_cost
+            gross_pct = _pct(rec.total_gross_pay, ctc)
+            paid_pct = _pct(rec.total_net_paid, rec.total_net_pay)
+            tds_share_pct = _pct(rec.tds_this_month, rec.tds_ytd_total)
+            # Government remittance = employer AND employee statutory shares + TDS + PT
+            # (EPF EE+ER incl. EDLI/Admin, ESIC EE+ER, LWF EE+ER), i.e. total_statutory_liability.
+            statutory_total = rec.total_statutory_liability
+            # Areas of the Employee Data Health section
+            health_values = [rec.pan_health_pct, rec.bank_health_pct, rec.contact_health_pct]
+            health_avg = round(sum(health_values) / len(health_values), 1)
 
-            if active_item and active_item['cost'] > 0:
-                act_cost = active_item['cost']
-                act_gross = active_item['gross']
-                act_epf = active_item['er_epf']
-                act_esic = active_item['er_esic']
-                act_admin = active_item['admin']
-                act_m_name = active_item['month_name']
-                act_year = active_item['year']
-                act_emp_count = active_item['emp_count']
-                act_worked_days = active_item['worked_days']
-                act_avg_days = active_item['avg_days']
+            def _money_html(value):
+                """Currency with a muted symbol and smaller paise: <small>₹</small> 183,250<small>.00</small>."""
+                whole, _sep, paise = f"{(value or 0.0):,.2f}".partition('.')
+                return f'<span class="hds-cur">{currency_symbol}</span>{whole}<span class="hds-dec">.{paise}</span>'
 
-                pct_gross = (act_gross / act_cost) * 100.0
-                pct_epf = (act_epf / act_cost) * 100.0
-                pct_esic = (act_esic / act_cost) * 100.0
-                pct_admin = (act_admin / act_cost) * 100.0
-            trend_breakdown_html = ""
+            # Employees without a running contract in the payroll month
+            no_contract_emps, no_contract_info = self._employees_without_contract(month_start, month_end)
+            nc_reason_meta = {
+                'none': ('rose', 'block', 'No contract'),
+                'ended': ('orange', 'event_busy', 'Contract ended'),
+                'future': ('sky', 'event_upcoming', 'Starts later'),
+            }
+            nc_total = len(no_contract_emps)
+            # Cards (one per reason) are built with the other Odoo cards below
 
-            # Live Period Selector Options
-            months_list = [
-                ('1', 'January'), ('2', 'February'), ('3', 'March'), ('4', 'April'),
-                ('5', 'May'), ('6', 'June'), ('7', 'July'), ('8', 'August'),
-                ('9', 'September'), ('10', 'October'), ('11', 'November'), ('12', 'December')
+            # Leave encashment requests (Time Off -> Leave Encashment Management)
+            encash_model = self._leave_encashment_model()
+            leave_encash_html = ''
+            if encash_model is not None:
+                le_today = fields.Date.context_today(self)
+                le_new_since = le_today - timedelta(days=7)
+
+                def _le_stats(states):
+                    # Requests raised in the selected payroll month
+                    reqs = encash_model.search(self._leave_encashment_domain(states, month_start, month_end))
+                    return reqs, sum(reqs.mapped('requested_days')), sum(reqs.mapped('projected_amount'))
+
+                le_pending, le_pending_days, le_pending_amt = _le_stats(('submitted',))
+                le_approved, le_approved_days, le_approved_amt = _le_stats(('approved',))
+                le_draft, le_draft_days, le_draft_amt = _le_stats(('draft',))
+                le_paid, le_paid_days, le_paid_amt = _le_stats(('paid',))
+                le_new_count = len(le_pending.filtered(lambda r: r.request_date and r.request_date >= le_new_since))
+
+                # In workflow order: draft, pending approval, approved, paid
+                le_tiles = [
+                    ('leave_encashment_draft', 'slate', 'edit', 'Draft (not submitted)', le_draft, le_draft_days, le_draft_amt),
+                    ('leave_encashment_submitted', 'amber', 'schedule', 'Pending approval', le_pending, le_pending_days, le_pending_amt),
+                    ('leave_encashment_approved', 'sky', 'check_circle', 'Approved – awaiting payroll', le_approved, le_approved_days, le_approved_amt),
+                    ('leave_encashment_paid', 'green', 'payments', 'Paid / processed', le_paid, le_paid_days, le_paid_amt),
+                ]
+                le_sub = f"{len(le_pending)} to approve &middot; {len(le_approved)} to process in payroll"
+                if le_new_count:
+                    le_sub += f" &middot; {le_new_count} new"
+                # Section cards (one per request state) are built with the other Odoo cards below
+
+            # Final settlement planner: employees relieving in the payroll month
+            relieving_rows = self._relieving_employees(month_start, month_end)
+            rel_status_meta = {
+                'not_started': ('rose', 'block', 'Settlement not started'),
+                'draft': ('amber', 'edit', 'Settlement in draft'),
+                'approved': ('sky', 'check_circle', 'Approved – awaiting payment'),
+                'paid': ('green', 'payments', 'Settled & paid'),
+            }
+            rel_counts = {key: 0 for key in rel_status_meta}
+            for row in relieving_rows:
+                rel_counts[row['status']] += 1
+
+            # Planner cards (one per settlement status) are built with the other Odoo cards below
+
+            # Data completeness grading (also used by the statutory compliance rows)
+            def _health_level(value):
+                """Display grading of a completeness % -> (tone, label)."""
+                if value >= 75:
+                    return 'green', 'Healthy'
+                if value >= 40:
+                    return 'amber', 'Needs work'
+                return 'rose', 'Critical'
+
+            # Statutory identifier compliance rings
+            # (card type, scheme, identifier, badge tone, complete, missing)
+            identifiers = [
+                ('epf_status', 'EPF', 'UAN / PF No', 'indigo', rec.epf_complete_count, rec.epf_missing_count),
+                ('esic_status', 'ESIC', 'IP Number', 'sky', rec.esic_complete_count, rec.esic_missing_count),
+                ('lwf_status', 'LWF', 'Registration', 'purple', rec.lwf_complete_count, rec.lwf_missing_count),
             ]
-            month_options_html = "".join([
-                f'<option value="{m_val}" {"selected" if str(m_num) == str(m_val) else ""}>{m_lbl}</option>'
-                for m_val, m_lbl in months_list
-            ])
 
-            fy_records = self.env['tds.financial.year'].search([], order='start_date desc', limit=10)
-            fy_options_html = "".join([
-                f'<option value="{fy.id}" {"selected" if rec.financial_year_id and rec.financial_year_id.id == fy.id else ""}>{fy.name}</option>'
-                for fy in fy_records
-            ])
+            # Compliance cards are built with the other Odoo cards below
+            ids_done = sum(i[4] for i in identifiers)
+            ids_missing = sum(i[5] for i in identifiers)
+            ids_pct = _pct(ids_done, ids_done + ids_missing)
+            ids_tone, ids_level = _health_level(ids_pct)
+            weakest_id = min(identifiers, key=lambda i: _pct(i[4], i[4] + i[5]))
 
-            if rec.total_net_paid > 0 and rec.total_net_payable > 0:
-                net_status_label = f"Disbursed: {currency_symbol} {rec.total_net_paid:,.2f} &bull; Due: {currency_symbol} {rec.total_net_payable:,.2f}"
-            elif rec.total_net_paid > 0:
-                net_status_label = f"🟢 100% Disbursed ({currency_symbol} {rec.total_net_paid:,.2f})"
+            # ---------- Odoo-style top of the dashboard (header sheet, KPI cards, issue cards, data health list) ----------
+            fy_short = (fy_name or '').replace('Tax Year:', '').strip() or fy_name
+            processed_emps = trend_current['emp_count'] if trend_current else 0
+            paid_slips = trend_current['paid_slip_count'] if trend_current else 0
+            validated_slips = trend_current['validated_slip_count'] if trend_current else 0
+            # Header "Payslips" field: the month's payslips by stage, as labelled status chips
+            slip_chips = [
+                ('attendance_exceptions', 'slate', rec.draft_slips_count, 'Draft', 'Payslips still in draft'),
+                ('attendance_exceptions', 'amber', rec.verify_slips_count, 'To validate', 'Payslips waiting for validation'),
+                ('total_net_pay', 'sky', validated_slips, 'Validated', 'Validated payslips, salary not yet paid'),
+                ('total_net_pay', 'green', paid_slips, 'Paid', 'Payslips with salary paid'),
+            ]
+            slip_chips_html = "".join(
+                f'<span {card_click.format(ctype)} class="hds-o-chip hds-tone-{tone}{" is-zero" if not count else ""} o_hds_dashboard_card_clickable" '
+                f'title="{tip} &middot; {month_name} {year}"><b>{count}</b>{label}</span>'
+                for ctype, tone, count, label, tip in slip_chips
+            )
+
+            # Header month navigator: previous / next month (crossing into the adjacent tax year when
+            # it exists), a month picker for the selected tax year, and "This Month".
+            Fy = self.env['tds.financial.year']
+            cur_fy = rec.financial_year_id
+
+            def _fy_of(day):
+                if cur_fy and cur_fy.start_date and cur_fy.end_date and cur_fy.start_date <= day <= cur_fy.end_date:
+                    return cur_fy
+                return Fy.search([('start_date', '<=', day), ('end_date', '>=', day)], limit=1)
+
+            def _nav_call(month, fy):
+                return f"window.hdsUpdatePeriod &amp;&amp; window.hdsUpdatePeriod('{month}', {fy.id if fy else 'null'})"
+
+            prev_day = month_start - timedelta(days=1)
+            next_day = month_end + timedelta(days=1)
+            prev_fy, next_fy = _fy_of(prev_day), _fy_of(next_day)
+            nav_today = fields.Date.context_today(self)
+            today_fy = Fy.search([('start_date', '<=', nav_today), ('end_date', '>=', nav_today)], limit=1)
+            is_current_period = m_num == nav_today.month and year == nav_today.year
+            month_labels = dict(rec._fields['payroll_month_num'].selection)
+            month_options_html = "".join(
+                f'<option value="{num}"{" selected" if num == m_num else ""}>'
+                f'{month_labels.get(str(num), num)} {(fy_s_year if num >= 4 else fy_e_year) if cur_fy and cur_fy.start_date else year}</option>'
+                for num in (4, 5, 6, 7, 8, 9, 10, 11, 12, 1, 2, 3)
+            )
+            prev_title = f"Previous month ({prev_day.strftime('%B %Y')})" if prev_fy else 'No tax year configured for the previous month'
+            next_title = f"Next month ({next_day.strftime('%B %Y')})" if next_fy else 'No tax year configured for the next month'
+            period_nav_html = f"""<div class="hds-o-period-nav" role="group" aria-label="Payroll month">
+                        <button type="button" class="btn btn-secondary" title="Go to the current payroll month"
+                                {'disabled="disabled"' if is_current_period or not today_fy else f'onclick="{_nav_call(nav_today.month, today_fy)}"'}>This Month</button>
+                        <div class="btn-group" role="group">
+                            <button type="button" class="btn btn-secondary hds-o-nav-arrow" title="{prev_title}" aria-label="Previous month"
+                                    {f'onclick="{_nav_call(prev_day.month, prev_fy)}"' if prev_fy else 'disabled="disabled"'}><i class="oi oi-fw" data-icon="arrow_back_ios_new"></i></button>
+                            <select class="form-select hds-o-month-select" aria-label="Payroll month" title="Choose the payroll month"
+                                    onchange="window.hdsUpdatePeriod &amp;&amp; window.hdsUpdatePeriod(this.value, null)">{month_options_html}</select>
+                            <button type="button" class="btn btn-secondary hds-o-nav-arrow" title="{next_title}" aria-label="Next month"
+                                    {f'onclick="{_nav_call(next_day.month, next_fy)}"' if next_fy else 'disabled="disabled"'}><i class="oi oi-fw" data-icon="arrow_forward_ios"></i></button>
+                        </div>
+                    </div>"""
+
+            def _kpi(ctype, label, badge_html, value_html, bar_pct, bar_tone, foot, extra_attrs=''):
+                return f"""<div {card_click.format(ctype)} {extra_attrs} class="hds-o-kpi o_hds_dashboard_card_clickable">
+                        <div class="hds-o-kpi-head"><span>{label}</span>{badge_html}</div>
+                        <div class="hds-o-kpi-value">{value_html}</div>
+                        <div class="hds-o-bar hds-tone-{bar_tone}"><div style="width: {max(0.0, min(100.0, bar_pct)):.1f}%;"></div></div>
+                        <div class="hds-o-kpi-foot">{foot}</div>
+                    </div>"""
+
+            period_attrs = f'data-month-num="{m_num}" data-year="{year}" data-date-from="{month_start}" data-date-to="{month_end}"'
+            # Final settlements due = employees relieving in the month (same rows as the planner), so an
+            # employee whose settlement has not been created yet is counted too
+            fs_due = len(relieving_rows)
+            fs_open = fs_due - rel_counts['paid']
+            if rel_counts['not_started']:
+                fs_badge = _badge('rose', f"{rel_counts['not_started']} not started")
+            elif fs_open:
+                fs_badge = _badge('amber', f'{fs_open} pending')
             else:
-                net_status_label = f"Payable: {currency_symbol} {rec.total_net_payable:,.2f}"
+                fs_badge = _badge('green', 'Clear')
+            fs_paid_pct = _pct(rel_counts['paid'], fs_due) if fs_due else 100.0
+            kpi_cards_html = (
+                _kpi('ctc_breakdown', 'Total Payroll Cost (CTC)', _badge('cyan', 'CTC'), _money_html(ctc),
+                     gross_pct, 'purple',
+                     f"Gross {_money(rec.total_gross_pay)} + Statutory {_money(rec.total_employer_statutory_liability)}",
+                     period_attrs)
+                + _kpi('net_breakdown', 'Net Salary',_badge('green' if paid_pct >= 100 else 'amber', f'{paid_pct:.0f}% paid'),
+                       _money_html(rec.total_net_pay), paid_pct, 'green',
+                       f"Paid {_money(rec.total_net_paid)} &middot; Due {_money(rec.total_net_payable)}", period_attrs)
+                + _kpi('govt_deposit', 'Govt Deposit', _badge('indigo', 'Statutory'), _money_html(statutory_total),
+                       tds_share_pct, 'indigo',
+                       f"TDS this month {_money(rec.tds_this_month)} &middot; YTD TDS {_money(rec.tds_ytd_total)}")
+                + _kpi('relieving_employees', 'Final Settlements', fs_badge,
+                       f'{fs_due}<span class="hds-dec"> due</span>', fs_paid_pct, 'green',
+                       f"Not started {rel_counts['not_started']} &middot; Draft {rel_counts['draft']} &middot; "
+                       f"Approved {rel_counts['approved']} &middot; Paid {rel_counts['paid']}")
+            )
+
+            def _issue(title, badge_html, btn_ctype, btn_label, btn_primary, note, rows, link, bar_pct, bar_tone, foot):
+                rows_html = "".join(f'<div class="hds-o-kv"><span>{k}</span><b>{v}</b></div>' for k, v in rows)
+                link_html = f'<span {card_click.format(link[0])} class="hds-o-link o_hds_dashboard_card_clickable">{link[1]}</span>' if link else ''
+                return f"""<div class="hds-o-issue">
+                        <div class="hds-o-issue-head"><span class="hds-o-issue-title">{title}</span>{badge_html}</div>
+                        <div class="hds-o-issue-body">
+                            <div class="hds-o-issue-main">
+                                <button type="button" {card_click.format(btn_ctype)} class="btn {'btn-primary' if btn_primary else 'btn-secondary'} hds-o-issue-btn o_hds_dashboard_card_clickable">{btn_label}</button>
+                                {f'<div class="hds-o-issue-note">{note}</div>' if note else ''}
+                            </div>
+                            <div class="hds-o-issue-side">{rows_html}{link_html}</div>
+                        </div>
+                        <div class="hds-o-issue-foot">
+                            <div class="hds-o-bar hds-tone-{bar_tone}"><div style="width: {max(0.0, min(100.0, bar_pct)):.1f}%;"></div></div>
+                            <span>{foot}</span>
+                        </div>
+                    </div>"""
+
+            def _plural(count, word):
+                return f"{count} {word}{'' if count == 1 else 's'}"
+
+            # PAN and bank details are shown once, in the Employee Data Health section
+            active_count = rec.active_employee_count
+            # Tax declarations of the selected month, by stage (each count opens its declarations)
+            Declaration = self.env['tds.employee.declaration']
+            decl_count, decl_declared, decl_draft = (
+                Declaration.search_count(self._month_declaration_domain(kind, rec.financial_year_id, month_start, month_end))
+                for kind in ('pending', 'declared', 'draft'))
+
+            def _count_link(ctype, count):
+                return f'<span {card_click.format(ctype)} class="hds-o-link o_hds_dashboard_card_clickable">{count}</span>'
+            # Tax regime of the active employees (same counts as the Statutory Compliance regime card)
+            if rec.new_regime_count and rec.old_regime_count:
+                tds_regime_badge = _badge('indigo', f'New {rec.new_regime_count} &middot; Old {rec.old_regime_count}')
+            elif rec.old_regime_count:
+                tds_regime_badge = _badge('indigo', 'Old Regime')
+            elif rec.new_regime_count:
+                tds_regime_badge = _badge('indigo', 'New Regime')
+            else:
+                tds_regime_badge = ''
+            issues_html = (
+                _issue('TDS This Month', tds_regime_badge, 'tds_breakdown',
+                         'TDS Slips', False, '',
+                         [('TDS this month', _money(rec.tds_this_month)), ('Year to date', _money(rec.tds_ytd_total))],
+                         None, tds_share_pct, 'indigo', f'{tds_share_pct:.0f}% of YTD')
+                + _issue('Joiners This Month', _badge('sky', 'Joiners'), 'new_joiners',
+                         _plural(rec.new_joiners_count, 'Employee'), bool(rec.new_joiners_count), '',
+                         [('Joined this month', rec.new_joiners_count), ('Active employees', rec.active_employee_count)],
+                         ('new_joiners', 'View joiners'),
+                         _pct(rec.new_joiners_count, rec.active_employee_count), 'sky',
+                         f'{_pct(rec.new_joiners_count, rec.active_employee_count):.0f}% of active')
+                + _issue('Exits This Month', _badge('rose', 'Exits') if rec.exits_count else _badge('green', 'None'), 'exits',
+                         _plural(rec.exits_count, 'Employee'), bool(rec.exits_count), '',
+                         [('Exits this month', rec.exits_count), ('Final settlements due', fs_due)],
+                         ('final_settlements_due', 'Final settlements'),
+                         fs_paid_pct, 'purple', f'{fs_due} due')
+                + _issue('Tax Declarations', _badge('amber', 'Pending') if decl_count else _badge('green', 'Clear'),
+                         'decl_pending', _plural(decl_count, 'Declaration'), bool(decl_count),
+                         f'{month_name} {year} &middot; Tax year {escape(fy_short)}',
+                         [('Pending verification', _count_link('decl_pending', decl_count)),
+                          ('Awaiting proofs', _count_link('decl_declared', decl_declared)),
+                          ('Not submitted', _count_link('decl_draft', decl_draft))],
+                         None,
+                         0.0 if decl_count else 100.0, 'amber' if decl_count else 'green',
+                         f'{decl_count} to review' if decl_count else 'Nothing to review')
+            )
+
+            # Employee data health as Odoo cards (same layout as the issue cards)
+            active_emps_list = self.env['hr.employee'].search([('active', '=', True)])
+            # (card type, area, used for, completeness %, missing count, "with" label, "without" label)
+            health_rows = [
+                ('missing_pan', 'PAN', 'TDS rate, Form 16', rec.pan_health_pct, rec.missing_pan_count,
+                 'With PAN', 'Without PAN'),
+                ('missing_bank', 'Bank Details', 'Salary advice file', rec.bank_health_pct, rec.missing_bank_count,
+                 'With bank account', 'Without bank account'),
+                ('contact_health', 'Emergency Contact', 'HR records', rec.contact_health_pct,
+                 len(active_emps_list.filtered(lambda e: not self._has_emergency_contact(e))),
+                 'With contact', 'Without contact'),
+            ]
+            weakest = min(health_rows, key=lambda r: r[3])
+            healthy_areas = sum(1 for r in health_rows if r[3] >= 75)
+
+            def _health_status(row):
+                tone, level = _health_level(row[3])
+                if row is weakest and row[3] < 75:
+                    return 'rose', 'Weakest'
+                return tone, level
+
+            health_cards_html = "".join(
+                _issue(area, _badge(*_health_status(row)), ctype, _plural(missing, 'Employee'), bool(missing),
+                       '',
+                       [(with_label, len(active_emps_list) - missing), (without_label, missing)],
+                       (ctype, 'Open employees'), pct, _health_level(pct)[0], f'{pct:.1f}% complete')
+                for row in health_rows
+                for ctype, area, _used_for, pct, missing, with_label, without_label in [row]
+            )
+            health_tone = _health_level(health_avg)[0]
+            data_health_html = _section(
+                'Employee Data Health',
+                f'Data completeness <b class="hds-tone-{health_tone}">{health_avg:.0f}%</b> &middot; '
+                f'{healthy_areas} of {len(health_rows)} areas healthy &middot; {len(active_emps_list)} active employees',
+                '',
+                f'<div class="hds-o-issues hds-o-section-cards">{health_cards_html}</div>',
+            )
+
+            # Odoo card listing records (employee avatar, name, a detail line under the name), up to 3 then
+            # "+N more". Records are employees by default; for other models emp_of gives the employee shown,
+            # and link_of(item) -> (record id, model, tooltip) when each item opens a different record.
+            def _people_card(title, badge_html, items, date_of, ctype, note, empty_label, bar_tone, total, total_label,
+                             noun='Employee', model='hr.employee', emp_of=None, open_title='Open employee', link_of=None):
+                shown = items[:3]
+                rows = []
+                for item in shown:
+                    emp = emp_of(item) if emp_of else item
+                    rec_id, rec_model, rec_title = link_of(item) if link_of else (item.id, model, open_title)
+                    rows.append((f'<span {_record_attrs(rec_id, rec_model)} class="hds-o-kv-emp o_hds_dashboard_card_clickable" title="{rec_title}">'
+                                 f'<img src="/web/image/hr.employee/{emp.id}/avatar_128" alt="" loading="lazy"/>'
+                                 f'<span class="hds-o-kv-emp-text"><span class="hds-o-link">{escape(emp.name or "")}</span>'
+                                 f'<small>{date_of(item)}</small></span></span>', ''))
+                if len(items) > len(shown):
+                    rows.append((f'<span class="hds-o-muted">+{len(items) - len(shown)} more</span>', ''))
+                if not items:
+                    rows.append((f'<span class="hds-o-muted">{empty_label}</span>', ''))
+                count = len(items)
+                return _issue(title, badge_html, ctype, _plural(count, noun), bool(count), note, rows,
+                              (ctype, 'View all') if len(items) > len(shown) else None,
+                              _pct(count, total), bar_tone, f'{count} of {total} {total_label}')
+
+            # Employees without a running contract: one card per reason (counts only; the button opens
+            # the employees of that reason with their contract dates)
+            def _nc_card(reason, title, note, empty_label):
+                tone = nc_reason_meta[reason][0]
+                count = sum(1 for info in no_contract_info.values() if info[0] == reason)
+                return _issue(title, _badge(tone, 'Action needed') if count else _badge('green', 'Clear'),
+                              f'no_running_contract_{reason}', _plural(count, 'Employee'), bool(count),
+                              note if count else empty_label, [], None,
+                              _pct(count, active_count), tone if count else 'green', f'{count} of {active_count} active')
+
+            if nc_total:
+                nc_body_html = '<div class="hds-o-issues hds-o-section-cards">' + (
+                    _nc_card('none', 'No Contract', f'No contract on record, so no payslip for {month_name} {year}',
+                             'Every employee has a contract')
+                    + _nc_card('ended', 'Contract Ended', f'Last contract ended before {month_name} {year}',
+                               'No ended contracts')
+                    + _nc_card('future', 'Starts Later', f'First contract starts after {month_name} {year}',
+                               'No contracts starting later')
+                ) + '</div>'
+            else:
+                nc_body_html = _empty('check_circle', 'Every active employee has a running contract',
+                                      f'All {rec.active_employee_count} active employees are covered for {month_name} {year}.')
+
+            # Final settlement planner: one card per settlement status of the employees relieving this month
+            # status -> (card type, title, badge when it has employees, badge when empty, note prefix, empty text)
+            rel_cards = [
+                ('draft', 'relieving_settlement_draft', 'Settlement In Draft', ('amber', 'To approve'), ('green', 'Clear'),
+                 'to review and approve', 'No settlement in draft'),
+                ('approved', 'relieving_settlement_approved', 'Approved – To Pay', ('sky', 'To pay'), ('green', 'Clear'),
+                 'approved, waiting for payment', 'Nothing waiting for payment'),
+                ('paid', 'relieving_settlement_paid', 'Settled &amp; Paid', ('green', 'Done'), ('slate', 'None'),
+                 'settled and paid', 'No settlement paid yet'),
+            ]
+            # Counts only: the button opens the settlements with their amount breakdown
+            rel_cards_html = ""
+            for status, ctype, title, full_badge, empty_badge, note, empty_label in rel_cards:
+                count = sum(1 for r in relieving_rows if r['status'] == status)
+                rel_cards_html += _issue(
+                    title, _badge(*(full_badge if count else empty_badge)), ctype, _plural(count, 'Employee'), bool(count),
+                    note[:1].upper() + note[1:] if count else empty_label, [], None,
+                    _pct(count, len(relieving_rows)), rel_status_meta[status][0] if count else empty_badge[0],
+                    f'{count} of {len(relieving_rows)} relieving')
+            if relieving_rows:
+                rel_body_html = f'<div class="hds-o-issues hds-o-section-cards">{rel_cards_html}</div>'
+            else:
+                rel_body_html = _empty('check_circle', f'No employees relieving in {month_name} {year}',
+                                       'Employees whose resignation, notice period, departure or contract ends this month will appear here with their settlement dates.')
+            relieving_html = _section(
+                'Relieving This Month &bull; Final Settlement Planner',
+                f"{len(relieving_rows)} relieving in {month_name} {year} &middot; {rel_counts['draft']} in draft &middot; "
+                f"{rel_counts['approved']} to pay &middot; {rel_counts['paid']} paid",
+                _btn('relieving_employees', 'View all'),
+                rel_body_html,
+            )
+
+            # Leave encashment requests of the month: one card per state
+            if encash_model is not None:
+                le_total = sum(len(tile[4]) for tile in le_tiles)
+
+                # state card type -> (badge when it has requests, badge when empty, note, empty text)
+                le_badges = {
+                    'leave_encashment_draft': (('slate', 'Not submitted'), ('slate', 'None'),
+                                               'Not submitted by the employee yet', 'No draft requests'),
+                    'leave_encashment_submitted': (('amber', 'Action needed'), ('green', 'Clear'),
+                                                   'Waiting for approval', 'Nothing waiting for approval'),
+                    'leave_encashment_approved': (('sky', 'To process'), ('green', 'Clear'),
+                                                  'Paid with the next payslip', 'Nothing waiting for payroll'),
+                    'leave_encashment_paid': (('green', 'Done'), ('slate', 'None'),
+                                              'Paid through the payslip', 'Nothing paid yet'),
+                }
+
+                # Counts only: the button opens the requests with their days and amounts
+                def _le_card(ctype, tone, _icon, label, reqs, _days, _amount):
+                    full_badge, empty_badge, note, empty_label = le_badges[ctype]
+                    return _issue(
+                        label, _badge(*(full_badge if reqs else empty_badge)), ctype, _plural(len(reqs), 'Request'),
+                        bool(reqs), note if reqs else empty_label, [], None,
+                        _pct(len(reqs), le_total), tone if reqs else 'slate', f'{len(reqs)} of {le_total} requests')
+
+                if le_total:
+                    le_body_html = ('<div class="hds-o-issues hds-o-section-cards hds-o-cards-4">'
+                                    + "".join(_le_card(*tile) for tile in le_tiles) + '</div>')
+                else:
+                    le_body_html = _empty('check_circle', f'No leave encashment requests in {month_name} {year}',
+                                          'Requests submitted by employees for this payroll month will appear here for approval.')
+                leave_encash_html = _section(
+                    f'Leave Encashment Requests &bull; {month_name} {year}',
+                    le_sub,
+                    _btn('leave_encashment', 'Open Leave Encashment Management',
+                         title='Time Off &gt; Management &gt; Leave Encashment Management'),
+                    le_body_html,
+                )
+
+            no_contract_html = _section(
+                'Employees Without Running Contract',
+                (f"{nc_total} active employee{'' if nc_total == 1 else 's'} not covered &middot; no payslip can be generated for "
+                 f"{'this employee' if nc_total == 1 else 'them'} in {month_name} {year} until a contract covering the month is added")
+                if nc_total else f"All active employees are covered for {month_name} {year}",
+                _btn('no_running_contract', 'View all'),
+                nc_body_html,
+            )
+
+            # Statutory compliance: one card per statutory identifier
+            weakest_id_pct = _pct(weakest_id[4], weakest_id[4] + weakest_id[5])
+            compliance_cards_html = ""
+            for ctype, scheme, identifier, _badge_tone, done, missing in identifiers:
+                applicable = done + missing
+                pct = _pct(done, applicable)
+                tone, level = _health_level(pct)
+                if not applicable:
+                    badge_html = _badge('slate', 'Not applicable')
+                elif ctype == weakest_id[0] and pct < 75:
+                    badge_html = _badge('rose', 'Weakest')
+                else:
+                    badge_html = _badge(tone, level)
+                compliance_cards_html += _issue(
+                    f'{scheme} <span class="hds-o-tag">{identifier}</span>', badge_html, ctype,
+                    _plural(missing, 'Employee'), bool(missing),
+                    f'{done} of {applicable} applicable employee{"" if applicable == 1 else "s"} complete'
+                    if applicable else f'No employee is {scheme}-applicable',
+                    [(f'With {identifier}', done), (f'Without {identifier}', missing)],
+                    None, pct, tone if applicable else 'slate', f'{pct:.1f}% complete')
+            compliance_section_html = _section(
+                'Statutory Compliance',
+                f'Identifier compliance <b class="hds-tone-{ids_tone}">{ids_pct:.0f}%</b> ({ids_level}) &middot; '
+                f'{ids_done} complete &middot; {ids_missing} missing &middot; {rec.active_employee_count} active employees &middot; '
+                f'<span {card_click.format(weakest_id[0])} class="hds-o-link o_hds_dashboard_card_clickable">Lowest: {weakest_id[1]} ({weakest_id_pct:.0f}%)</span>',
+                '',
+                f'<div class="hds-o-issues hds-o-section-cards">{compliance_cards_html}</div>',
+            )
 
             rec.dashboard_html = f"""
-            <div class="o_hds_dashboard_root" data-hds-dashboard-root="true" data-month-num="{m_num}" data-year="{year}" data-date-from="{month_start}" data-date-to="{month_end}" style="font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; width: 100%; box-sizing: border-box;">
+            <div class="o_hds_dashboard_root hds-dash hds-odoo" data-hds-dashboard-root="true" data-month-num="{m_num}" data-year="{year}" data-date-from="{month_start}" data-date-to="{month_end}">
 
-                <style>
-                    .o_hds_dashboard_root {{
-                        --hds-dash-bg: #0f172a;
-                        --hds-card-bg: #1e293b;
-                        --hds-card-border: rgba(255, 255, 255, 0.12);
-                        --hds-text-primary: #f8fafc;
-                        --hds-text-secondary: #cbd5e1;
-                        --hds-text-muted: #94a3b8;
-                        --hds-row-border: rgba(255, 255, 255, 0.08);
-                        --hds-subcard-bg: rgba(15, 23, 42, 0.6);
-                        --hds-subcard-border: rgba(255, 255, 255, 0.08);
-                        --hds-table-head: rgba(15, 23, 42, 0.85);
-                        --hds-table-row-even: rgba(255, 255, 255, 0.02);
-                        --hds-row-hover: rgba(255, 255, 255, 0.05);
-                        box-sizing: border-box !important;
-                    }}
-                    .o_hds_dashboard_root * {{
-                        box-sizing: border-box;
-                    }}
-                    .o_hds_dashboard_root .hds-dash-card {{
-                        background-color: #1e293b !important;
-                        border: 1px solid rgba(255, 255, 255, 0.12) !important;
-                        border-radius: 12px !important;
-                        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2) !important;
-                        color: #f8fafc !important;
-                    }}
-                    .o_hds_dashboard_root .hds-subcard {{
-                        background-color: rgba(15, 23, 42, 0.6) !important;
-                        border: 1px solid rgba(255, 255, 255, 0.08) !important;
-                        border-radius: 8px !important;
-                        color: #f8fafc !important;
-                    }}
-                    .o_hds_dashboard_root .hds-text-primary {{
-                        color: #f8fafc !important;
-                    }}
-                    .o_hds_dashboard_root .hds-text-secondary {{
-                        color: #cbd5e1 !important;
-                    }}
-                    .o_hds_dashboard_root .hds-text-muted {{
-                        color: #94a3b8 !important;
-                    }}
-                </style>
-
-                <!-- 0. UNIFIED EXECUTIVE PAYROLL CONTROL BANNER (LIVE PERIOD SYNC) -->
-                <div class="hds-dash-card" style="padding: 16px 22px; margin-bottom: 22px; background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); border: 1px solid rgba(255,255,255,0.14); border-radius: 14px; box-shadow: 0 4px 16px rgba(0,0,0,0.25); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
-                    <!-- Left: Title & Subtitle -->
-                    <div style="display: flex; align-items: center; gap: 14px; min-width: 260px;">
-                        <div style="width: 44px; height: 44px; border-radius: 10px; background: rgba(56, 189, 248, 0.15); border: 1px solid rgba(56, 189, 248, 0.3); display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0;">
-                            🇮🇳
+                <!-- HEADER SHEET -->
+                <div class="hds-o-sheet hds-o-header">
+                    <div class="hds-o-header-main">
+                        <div class="hds-o-header-title">
+                            <small>Payslip Batch</small>
+                            <h1>{month_name} {year} Payroll</h1>
                         </div>
-                        <div>
-                            <div style="display: flex; align-items: center; gap: 8px;">
-                                <h2 style="margin: 0; font-size: 18px; font-weight: 800; color: #ffffff; letter-spacing: -0.3px;">Indian Payroll Dashboard</h2>
-                                <span style="font-size: 11px; background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); padding: 2px 8px; border-radius: 10px; font-weight: 700;">{month_name} {year}</span>
-                            </div>
-                            <div style="font-size: 11px; color: #94a3b8; margin-top: 3px; font-weight: 500;">
-                                Executive statutory compliance, salary disbursement &amp; data health
-                            </div>
-                        </div>
+                        {period_nav_html}
                     </div>
-
-                    <!-- Right: Controls & Counters -->
-                    <div style="display: flex; align-items: center; gap: 14px; flex-wrap: wrap;">
-                        <!-- Month Selector -->
-                        <div style="display: flex; flex-direction: column; gap: 4px;">
-                            <span style="font-size: 10px; font-weight: 700; color: #cbd5e1; text-transform: uppercase; letter-spacing: 0.5px;">
-                                <i class="fa fa-calendar me-1"></i> Payroll Month
-                            </span>
-                            <select id="hds_dashboard_month_picker" onchange="window.hdsUpdatePeriod &amp;&amp; window.hdsUpdatePeriod(this.value, null)" style="background: #0f172a; color: #38bdf8; border: 1px solid #3b82f6; border-radius: 8px; padding: 7px 14px; font-size: 12px; font-weight: 700; cursor: pointer; outline: none; box-shadow: 0 2px 6px rgba(0,0,0,0.2);">
-                                {month_options_html}
-                            </select>
+                    <div class="hds-o-header-fields">
+                        <div class="hds-o-field" title="{month_start.strftime('%d/%m/%Y')} &rarr; {month_end.strftime('%d/%m/%Y')}">
+                            <span class="hds-o-field-icon"><i class="oi" data-icon="today"></i></span>
+                            <div><label>Period</label><span>{month_start.strftime('%d %b')} &rarr; {month_end.strftime('%d %b %Y')}</span></div>
                         </div>
-
-                        <!-- Tax Year Selector -->
-                        <div style="display: flex; flex-direction: column; gap: 4px;">
-                            <span style="font-size: 10px; font-weight: 700; color: #cbd5e1; text-transform: uppercase; letter-spacing: 0.5px;">
-                                <i class="fa fa-university me-1"></i> Tax Year
-                            </span>
-                            <select id="hds_dashboard_fy_picker" onchange="window.hdsUpdatePeriod &amp;&amp; window.hdsUpdatePeriod(null, this.value)" style="background: #0f172a; color: #c084fc; border: 1px solid #8b5cf6; border-radius: 8px; padding: 7px 14px; font-size: 12px; font-weight: 700; cursor: pointer; outline: none; box-shadow: 0 2px 6px rgba(0,0,0,0.2);">
-                                {fy_options_html}
-                            </select>
+                        <div class="hds-o-field">
+                            <span class="hds-o-field-icon"><i class="oi" data-icon="calendar_today"></i></span>
+                            <div><label>Tax Year</label><span>{escape(fy_short)}</span></div>
                         </div>
-
-                        <!-- Workforce Counter Badge -->
-                        <div role="button" tabindex="0" onclick="window.hdsCardClick &amp;&amp; window.hdsCardClick(this, 'active_employee_count')" data-card-type="active_employee_count" class="o_hds_dashboard_card_clickable" style="cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 6px 14px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.14); border-radius: 8px; min-width: 70px;">
-                            <span style="font-size: 10px; font-weight: 700; color: #38bdf8; text-transform: uppercase; letter-spacing: 0.5px;">
-                                <i class="fa fa-users me-1"></i> Workforce
-                            </span>
-                            <span style="font-size: 15px; font-weight: 800; color: #ffffff; margin-top: 1px;">
-                                {rec.active_employee_count}
-                            </span>
+                        <div {card_click.format('active_employee_count')} class="hds-o-field o_hds_dashboard_card_clickable" title="Active employees as of today">
+                            <span class="hds-o-field-icon"><i class="oi" data-icon="group"></i></span>
+                            <div><label>Employees</label><span class="hds-o-field-link">{rec.active_employee_count} active</span></div>
                         </div>
-
-                        <!-- Live Sync Indicator Badge -->
-                        <div style="display: flex; align-items: center; gap: 6px; padding: 7px 14px; background: rgba(34, 197, 94, 0.12); border: 1px solid rgba(34, 197, 94, 0.3); border-radius: 20px; font-size: 11px; font-weight: 700; color: #4ade80;">
-                            <span style="width: 7px; height: 7px; border-radius: 50%; background: #4ade80; display: inline-block; box-shadow: 0 0 6px #4ade80;"></span> Live Sync
+                        <div class="hds-o-field">
+                            <span class="hds-o-field-icon"><i class="oi" data-icon="description"></i></span>
+                            <div><label>Payslips</label><div class="hds-o-chips">{slip_chips_html}</div></div>
                         </div>
                     </div>
                 </div>
 
-                <!-- 1. PRIMARY KPI CARDS GRID (PAYRUN PALETTE) -->
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; margin-bottom: 22px;">
-
-                    <!-- Card 1: Total Payroll Cost (Payrun Employer Cost - Purple) -->
-                    <div role="button" tabindex="0" onclick="window.hdsCardClick &amp;&amp; window.hdsCardClick(this, 'total_payroll_cost')" data-card-type="total_payroll_cost" data-month-num="{m_num}" data-year="{year}" data-date-from="{month_start}" data-date-to="{month_end}" class="hds-dash-card o_hds_dashboard_card_clickable" style="text-decoration: none; display: block; padding: 18px; border-top: 4px solid #c084fc !important; cursor: pointer;">
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <span class="small fw-semibold text-uppercase" style="color: #c084fc !important; font-size: 11px; letter-spacing: 0.5px;">
-                                <i class="fa fa-briefcase me-1"></i> Total Payroll Cost
-                            </span>
-                            <span style="font-size: 11px; color: #c084fc; font-weight: 600;">View Details &darr;</span>
-                        </div>
-                        <div class="hds-text-primary" style="font-size: 24px; font-weight: 800; margin: 8px 0; letter-spacing: -0.5px;">
-                            {currency_symbol} {rec.total_payroll_cost:,.2f}
-                        </div>
-                        <div class="hds-text-muted" style="font-size: 11px; font-weight: 500;">
-                            Period: {month_name} ({fy_name})
-                        </div>
-                    </div>
-
-                    <!-- Card 2: Total Net Salary (Payrun Net - Emerald Green) -->
-                    <div role="button" tabindex="0" onclick="window.hdsCardClick &amp;&amp; window.hdsCardClick(this, 'total_net_pay')" data-card-type="total_net_pay" data-month-num="{m_num}" data-year="{year}" data-date-from="{month_start}" data-date-to="{month_end}" class="hds-dash-card o_hds_dashboard_card_clickable" style="text-decoration: none; display: block; padding: 18px; border-top: 4px solid #4ade80 !important; cursor: pointer;">
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <span class="small fw-semibold text-uppercase" style="color: #4ade80 !important; font-size: 11px; letter-spacing: 0.5px;">
-                                <i class="fa fa-credit-card me-1"></i> Total Net Salary
-                            </span>
-                            <span style="font-size: 11px; color: #4ade80; font-weight: 600;">Disbursement &darr;</span>
-                        </div>
-                        <div class="hds-text-primary" style="font-size: 24px; font-weight: 800; margin: 8px 0; letter-spacing: -0.5px;">
-                            {currency_symbol} {rec.total_net_pay:,.2f}
-                        </div>
-                        <div style="font-size: 11px; color: #4ade80; font-weight: 600;">
-                            {net_status_label}
-                        </div>
-                    </div>
-
-                    <!-- Card 3: Active Employees (Payrun Gross / Workforce - Sky Blue) -->
-                    <div role="button" tabindex="0" onclick="window.hdsCardClick &amp;&amp; window.hdsCardClick(this, 'active_employee_count')" data-card-type="active_employee_count" class="hds-dash-card o_hds_dashboard_card_clickable" style="text-decoration: none; display: block; padding: 18px; border-top: 4px solid #38bdf8 !important; cursor: pointer;">
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <span class="small fw-semibold text-uppercase" style="color: #38bdf8 !important; font-size: 11px; letter-spacing: 0.5px;">
-                                <i class="fa fa-users me-1"></i> Active Employees
-                            </span>
-                            <span style="font-size: 11px; color: #38bdf8; font-weight: 600;">Workforce &darr;</span>
-                        </div>
-                        <div class="hds-text-primary" style="font-size: 24px; font-weight: 800; margin: 8px 0; letter-spacing: -0.5px;">
-                            {rec.active_employee_count}
-                        </div>
-                        <div style="font-size: 11px; color: #38bdf8; font-weight: 600;">
-                            Active Workforce
-                        </div>
-                    </div>
-
-                    <!-- Card 4: TDS This Month (Payrun TDS - Indigo) -->
-                    <div role="button" tabindex="0" onclick="window.hdsCardClick &amp;&amp; window.hdsCardClick(this, 'tds_this_month')" data-card-type="tds_this_month" class="hds-dash-card o_hds_dashboard_card_clickable" style="text-decoration: none; display: block; padding: 18px; border-top: 4px solid #818cf8 !important; cursor: pointer;">
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <span class="small fw-semibold text-uppercase" style="color: #818cf8 !important; font-size: 11px; letter-spacing: 0.5px;">
-                                <i class="fa fa-shield me-1"></i> TDS This Month
-                            </span>
-                            <span style="font-size: 11px; color: #818cf8; font-weight: 600;">TDS Details &darr;</span>
-                        </div>
-                        <div class="hds-text-primary" style="font-size: 24px; font-weight: 800; margin: 8px 0; letter-spacing: -0.5px;">
-                            {currency_symbol} {rec.tds_this_month:,.2f}
-                        </div>
-                        <div style="font-size: 11px; color: #818cf8; font-weight: 600;">
-                            YTD: {currency_symbol} {rec.tds_ytd_total:,.2f}
-                        </div>
-                    </div>
-
-                    <!-- Card 5: Final Settlements Due (Payrun Danger / Settlements - Rose) -->
-                    <div role="button" tabindex="0" onclick="window.hdsCardClick &amp;&amp; window.hdsCardClick(this, 'final_settlements_due')" data-card-type="final_settlements_due" class="hds-dash-card o_hds_dashboard_card_clickable" style="text-decoration: none; display: block; padding: 18px; border-top: 4px solid #f87171 !important; cursor: pointer;">
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <span class="small fw-semibold text-uppercase" style="color: #f87171 !important; font-size: 11px; letter-spacing: 0.5px;">
-                                <i class="fa fa-user-times me-1"></i> Final Settlements Due
-                            </span>
-                            <span style="font-size: 11px; color: #f87171; font-weight: 600;">View Due &darr;</span>
-                        </div>
-                        <div style="font-size: 24px; font-weight: 800; margin: 8px 0; color: #f87171; letter-spacing: -0.5px;">
-                            {rec.final_settlements_due_count}
-                        </div>
-                        <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; font-size: 10px;">
-                            <span style="background: rgba(148, 163, 184, 0.15); color: var(--hds-text-secondary); border: 1px solid rgba(148, 163, 184, 0.3); padding: 2px 7px; border-radius: 10px; font-weight: 600;">📝 Draft: {rec.final_settlement_draft_count}</span>
-                            <span style="background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); padding: 2px 7px; border-radius: 10px; font-weight: 600;">🔍 Review: {rec.final_settlement_review_count}</span>
-                            <span style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); padding: 2px 7px; border-radius: 10px; font-weight: 600;">✅ Appr: {rec.final_settlement_approved_count}</span>
-                            <span style="background: rgba(74, 222, 128, 0.15); color: #4ade80; border: 1px solid rgba(74, 222, 128, 0.3); padding: 2px 7px; border-radius: 10px; font-weight: 600;">💰 Paid: {rec.final_settlement_paid_count}</span>
-                        </div>
-                    </div>
+                <!-- KPI CARDS -->
+                <div class="hds-o-kpis">
+                    {kpi_cards_html}
                 </div>
 
-                <!-- 2. ACTION REQUIRED SECTION (HIGH VISIBILITY ALERTS) -->
-                <div class="hds-dash-card" style="padding: 18px; margin-bottom: 22px; background-color: var(--hds-alert-bg) !important; border: 1px solid var(--hds-alert-border) !important;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
-                        <div style="font-size: 15px; font-weight: 700; color: var(--hds-alert-header); display: flex; align-items: center; gap: 8px;">
-                            <i class="fa fa-exclamation-triangle" style="color: #f87171;"></i> Action Required
-                        </div>
-                        <div class="hds-text-muted" style="font-size: 11px; font-weight: 600;">Immediate HR Verification Required (Click card to view records below)</div>
-                    </div>
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px;">
-                        <!-- Missing PAN -->
-                        <div role="button" tabindex="0" onclick="window.hdsCardClick &amp;&amp; window.hdsCardClick(this, 'missing_pan')" data-card-type="missing_pan" class="hds-subcard o_hds_dashboard_card_clickable" style="text-decoration: none; display: block; padding: 12px 14px; border-left: 4px solid #ef4444 !important; cursor: pointer;">
-                            <div style="display: flex; justify-content: space-between; align-items: center;">
-                                <div style="font-size: 12px; font-weight: 700; color: #f87171;">
-                                    <i class="fa fa-id-card me-1"></i> {rec.missing_pan_count} Employees Missing PAN
-                                </div>
-                                <span style="font-size: 12px; color: #ef4444; font-weight: 700;">&darr;</span>
-                            </div>
-                            <div class="hds-text-muted" style="font-size: 11px; margin-top: 4px;">Impacts 20% flat TDS rate u/s 206AA &bull; <u style="color: #f87171;">Click to view</u></div>
-                        </div>
-
-                        <!-- Missing Bank -->
-                        <div role="button" tabindex="0" onclick="window.hdsCardClick &amp;&amp; window.hdsCardClick(this, 'missing_bank')" data-card-type="missing_bank" class="hds-subcard o_hds_dashboard_card_clickable" style="text-decoration: none; display: block; padding: 12px 14px; border-left: 4px solid #f97316 !important; cursor: pointer;">
-                            <div style="display: flex; justify-content: space-between; align-items: center;">
-                                <div style="font-size: 12px; font-weight: 700; color: #fb923c;">
-                                    <i class="fa fa-university me-1"></i> {rec.missing_bank_count} Employees Missing Bank
-                                </div>
-                                <span style="font-size: 12px; color: #f97316; font-weight: 700;">&darr;</span>
-                            </div>
-                            <div class="hds-text-muted" style="font-size: 11px; margin-top: 4px;">Blocks automated salary advice file &bull; <u style="color: #fb923c;">Click to view</u></div>
-                        </div>
-
-                        <!-- Pending Declarations -->
-                        <div role="button" tabindex="0" onclick="window.hdsCardClick &amp;&amp; window.hdsCardClick(this, 'pending_declarations')" data-card-type="pending_declarations" class="hds-subcard o_hds_dashboard_card_clickable" style="text-decoration: none; display: block; padding: 12px 14px; border-left: 4px solid #f59e0b !important; cursor: pointer;">
-                            <div style="display: flex; justify-content: space-between; align-items: center;">
-                                <div style="font-size: 12px; font-weight: 700; color: #fbbf24;">
-                                    <i class="fa fa-file-text-o me-1"></i> {rec.pending_declarations_count} Declarations Pending
-                                </div>
-                                <span style="font-size: 12px; color: #f59e0b; font-weight: 700;">&darr;</span>
-                            </div>
-                            <div class="hds-text-muted" style="font-size: 11px; margin-top: 4px;">Pending Tax Firm / HR verification &bull; <u style="color: #fbbf24;">Click to view</u></div>
-                        </div>
-
-                        <!-- Payslips Pending Validation (Draft & To Validate) -->
-                        <div role="button" tabindex="0" onclick="window.hdsCardClick &amp;&amp; window.hdsCardClick(this, 'attendance_exceptions')" data-card-type="attendance_exceptions" class="hds-subcard o_hds_dashboard_card_clickable" style="text-decoration: none; display: block; padding: 12px 14px; border-left: 4px solid #8b5cf6 !important; cursor: pointer;">
-                            <div style="display: flex; justify-content: space-between; align-items: center;">
-                                <div style="font-size: 12px; font-weight: 700; color: #c084fc;">
-                                    <i class="fa fa-file-text-o me-1"></i> {rec.unconfirmed_slips_count} Payslips to Validate
-                                </div>
-                                <span style="font-size: 12px; color: #8b5cf6; font-weight: 700;">&darr;</span>
-                            </div>
-                            <div style="margin-top: 6px; display: flex; align-items: center; gap: 8px;">
-                                <span style="background: rgba(148, 163, 184, 0.2); color: var(--hds-text-primary); border: 1px solid rgba(148, 163, 184, 0.35); padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: 600;">Draft: <b style="color: #38bdf8;">{rec.draft_slips_count}</b></span>
-                                <span style="background: rgba(192, 132, 252, 0.2); color: var(--hds-text-primary); border: 1px solid rgba(192, 132, 252, 0.35); padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: 600;">To Validate: <b style="color: #c084fc;">{rec.verify_slips_count}</b></span>
-                            </div>
-                            <div class="hds-text-muted" style="font-size: 10.5px; margin-top: 4px;">Pending verification / confirmation &bull; <u style="color: #c084fc;">Click to view</u></div>
-                        </div>
-                    </div>
+                <!-- ISSUE CARDS -->
+                <div class="hds-o-issues hds-o-cards-4">
+                    {issues_html}
                 </div>
 
-                <!-- 3. MIDDLE ROW: NEW JOINERS & EMPLOYEE DATA HEALTH -->
-                <div style="display: grid; grid-template-columns: 3fr 2fr; gap: 18px; margin-bottom: 22px;">
+                <!-- EMPLOYEE DATA HEALTH -->
+                {data_health_html}
 
-                    <!-- New Joiners Card -->
-                    <div class="hds-dash-card" style="padding: 18px;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1px solid var(--hds-row-border); padding-bottom: 8px;">
-                            <div class="hds-text-primary" style="font-size: 14px; font-weight: 700; display: flex; align-items: center; gap: 8px;">
-                                <i class="fa fa-user-plus" style="color: #818cf8;"></i> New Joiners ({month_name})
-                            </div>
-                            <span role="button" tabindex="0" onclick="window.hdsCardClick &amp;&amp; window.hdsCardClick(this, 'new_joiners')" data-card-type="new_joiners" class="o_hds_dashboard_card_clickable" style="font-size: 11px; font-weight: 700; color: #818cf8; background: rgba(129, 140, 248, 0.15); border: 1px solid rgba(129, 140, 248, 0.3); padding: 4px 10px; border-radius: 12px; display: inline-flex; align-items: center; gap: 4px; cursor: pointer;">
-                                Count: {rec.new_joiners_count} &darr;
-                            </span>
-                        </div>
-                        <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
-                            <thead>
-                                <tr style="background: var(--hds-table-head); color: var(--hds-text-muted); text-align: left; font-size: 11px;">
-                                    <th style="padding: 8px 10px; border-radius: 6px 0 0 6px;">Employee Name</th>
-                                    <th style="padding: 8px 10px;">Joining Date</th>
-                                    <th style="padding: 8px 10px;">Department</th>
-                                    <th style="padding: 8px 10px; border-radius: 0 6px 6px 0;">Readiness</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {joiner_rows_html}
-                            </tbody>
-                        </table>
-                    </div>
+                <!-- RELIEVING THIS MONTH / FINAL SETTLEMENT PLANNER -->
+                {relieving_html}
 
-                    <!-- Employee Data Health Card -->
-                    <div class="hds-dash-card" style="padding: 18px;">
-                        <div class="hds-text-primary" style="font-size: 14px; font-weight: 700; margin-bottom: 15px; border-bottom: 1px solid var(--hds-row-border); padding-bottom: 8px; display: flex; align-items: center; gap: 8px;">
-                            <i class="fa fa-heartbeat" style="color: #4ade80;"></i> Employee Data Health
-                        </div>
-                        <div style="display: flex; flex-direction: column; gap: 14px;">
+                <!-- EMPLOYEES WITHOUT RUNNING CONTRACT -->
+                {no_contract_html}
 
-                            <!-- PAN Completeness (Indigo) -->
-                            <div role="button" tabindex="0" onclick="window.hdsCardClick &amp;&amp; window.hdsCardClick(this, 'missing_pan')" data-card-type="missing_pan" class="o_hds_dashboard_card_clickable" style="text-decoration: none; color: inherit; display: block; padding: 2px 4px; cursor: pointer;">
-                                <div style="display: flex; justify-content: space-between; font-size: 11px; font-weight: 600; margin-bottom: 5px;">
-                                    <span class="hds-text-secondary">PAN Completeness</span>
-                                    <span style="color: #818cf8;">{rec.pan_health_pct}% &bull; <u>View</u></span>
-                                </div>
-                                <div style="width: 100%; background: var(--hds-track-bg); height: 8px; border-radius: 4px; overflow: hidden;">
-                                    <div style="width: {rec.pan_health_pct}%; background: #818cf8; height: 100%; border-radius: 4px;"></div>
-                                </div>
-                            </div>
+                <!-- LEAVE ENCASHMENT REQUESTS -->
+                {leave_encash_html}
 
-                            <!-- Bank Details Completeness (Emerald) -->
-                            <div role="button" tabindex="0" onclick="window.hdsCardClick &amp;&amp; window.hdsCardClick(this, 'missing_bank')" data-card-type="missing_bank" class="o_hds_dashboard_card_clickable" style="text-decoration: none; color: inherit; display: block; padding: 2px 4px; cursor: pointer;">
-                                <div style="display: flex; justify-content: space-between; font-size: 11px; font-weight: 600; margin-bottom: 5px;">
-                                    <span class="hds-text-secondary">Bank Details Completeness</span>
-                                    <span style="color: #34d399;">{rec.bank_health_pct}% &bull; <u>View</u></span>
-                                </div>
-                                <div style="width: 100%; background: var(--hds-track-bg); height: 8px; border-radius: 4px; overflow: hidden;">
-                                    <div style="width: {rec.bank_health_pct}%; background: #34d399; height: 100%; border-radius: 4px;"></div>
-                                </div>
-                            </div>
+                <!-- STATUTORY COMPLIANCE -->
+                {compliance_section_html}
 
-                            <!-- Aadhaar Completeness (Sky Blue) -->
-                            <div role="button" tabindex="0" onclick="window.hdsCardClick &amp;&amp; window.hdsCardClick(this, 'aadhaar_health')" data-card-type="aadhaar_health" class="o_hds_dashboard_card_clickable" style="text-decoration: none; color: inherit; display: block; padding: 2px 4px; cursor: pointer;">
-                                <div style="display: flex; justify-content: space-between; font-size: 11px; font-weight: 600; margin-bottom: 5px;">
-                                    <span class="hds-text-secondary">Aadhaar / ID Completeness</span>
-                                    <span style="color: #38bdf8;">{rec.aadhaar_health_pct}% &bull; <u>View</u></span>
-                                </div>
-                                <div style="width: 100%; background: var(--hds-track-bg); height: 8px; border-radius: 4px; overflow: hidden;">
-                                    <div style="width: {rec.aadhaar_health_pct}%; background: #38bdf8; height: 100%; border-radius: 4px;"></div>
-                                </div>
-                            </div>
-
-                            <!-- Emergency Contact Completeness (Amber) -->
-                            <div role="button" tabindex="0" onclick="window.hdsCardClick &amp;&amp; window.hdsCardClick(this, 'contact_health')" data-card-type="contact_health" class="o_hds_dashboard_card_clickable" style="text-decoration: none; color: inherit; display: block; padding: 2px 4px; cursor: pointer;">
-                                <div style="display: flex; justify-content: space-between; font-size: 11px; font-weight: 600; margin-bottom: 5px;">
-                                    <span class="hds-text-secondary">Emergency Contact Completeness</span>
-                                    <span style="color: #fbbf24;">{rec.contact_health_pct}% &bull; <u>View</u></span>
-                                </div>
-                                <div style="width: 100%; background: var(--hds-track-bg); height: 8px; border-radius: 4px; overflow: hidden;">
-                                    <div style="width: {rec.contact_health_pct}%; background: #fbbf24; height: 100%; border-radius: 4px;"></div>
-                                </div>
-                            </div>
-
-                        </div>
-                    </div>
-                </div>
-
-                <!-- 4. STATUTORY NUMBER VALIDATION & COMPLIANCE SECTION -->
-                <div class="hds-dash-card" style="padding: 18px; margin-bottom: 22px;">
-                    <div style="font-size: 14px; font-weight: 700; margin-bottom: 12px; border-bottom: 1px solid var(--hds-row-border); padding-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
-                        <span class="hds-text-primary">
-                            <i class="fa fa-shield me-1" style="color: #38bdf8;"></i> Statutory Identifier Compliance
-                        </span>
-                        <span class="hds-text-muted" style="font-size: 12px; font-weight: 600;">Active Workforce: {rec.active_employee_count} Employees</span>
-                    </div>
-                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; font-size: 12px;">
-
-                        <!-- EPF Tile -->
-                        <div role="button" tabindex="0" onclick="window.hdsCardClick &amp;&amp; window.hdsCardClick(this, 'epf_status')" data-card-type="epf_status" class="hds-subcard o_hds_dashboard_card_clickable" style="text-decoration: none; display: block; padding: 12px; cursor: pointer;">
-                            <div class="hds-text-primary" style="font-size: 12px; font-weight: 700; border-bottom: 1px dashed var(--hds-row-border); padding-bottom: 4px; margin-bottom: 6px; display: flex; justify-content: space-between;">
-                                <span>EPF (UAN / PF No)</span>
-                                <span style="font-size: 10px; color: #818cf8;">&darr;</span>
-                            </div>
-                            <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-                                <span style="color: #4ade80; font-weight: 600;">Complete UAN:</span>
-                                <span style="font-weight: 700; color: #4ade80;">{rec.epf_complete_count}</span>
-                            </div>
-                            <div style="display: flex; justify-content: space-between;">
-                                <span style="color: #f87171; font-weight: 600;">Missing UAN:</span>
-                                <span style="font-weight: 700; color: #f87171;">{rec.epf_missing_count}</span>
-                            </div>
-                        </div>
-
-                        <!-- ESIC Tile -->
-                        <div role="button" tabindex="0" onclick="window.hdsCardClick &amp;&amp; window.hdsCardClick(this, 'esic_status')" data-card-type="esic_status" class="hds-subcard o_hds_dashboard_card_clickable" style="text-decoration: none; display: block; padding: 12px; cursor: pointer;">
-                            <div class="hds-text-primary" style="font-size: 12px; font-weight: 700; border-bottom: 1px dashed var(--hds-row-border); padding-bottom: 4px; margin-bottom: 6px; display: flex; justify-content: space-between;">
-                                <span>ESIC (IP Number)</span>
-                                <span style="font-size: 10px; color: #818cf8;">&darr;</span>
-                            </div>
-                            <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-                                <span style="color: #4ade80; font-weight: 600;">Complete IP:</span>
-                                <span style="font-weight: 700; color: #4ade80;">{rec.esic_complete_count}</span>
-                            </div>
-                            <div style="display: flex; justify-content: space-between;">
-                                <span style="color: #f87171; font-weight: 600;">Missing IP:</span>
-                                <span style="font-weight: 700; color: #f87171;">{rec.esic_missing_count}</span>
-                            </div>
-                        </div>
-
-                        <!-- LWF Tile -->
-                        <div role="button" tabindex="0" onclick="window.hdsCardClick &amp;&amp; window.hdsCardClick(this, 'lwf_status')" data-card-type="lwf_status" class="hds-subcard o_hds_dashboard_card_clickable" style="text-decoration: none; display: block; padding: 12px; cursor: pointer;">
-                            <div class="hds-text-primary" style="font-size: 12px; font-weight: 700; border-bottom: 1px dashed var(--hds-row-border); padding-bottom: 4px; margin-bottom: 6px; display: flex; justify-content: space-between;">
-                                <span>LWF Registration</span>
-                                <span style="font-size: 10px; color: #818cf8;">&darr;</span>
-                            </div>
-                            <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-                                <span style="color: #4ade80; font-weight: 600;">Complete Number:</span>
-                                <span style="font-weight: 700; color: #4ade80;">{rec.lwf_complete_count}</span>
-                            </div>
-                            <div style="display: flex; justify-content: space-between;">
-                                <span style="color: #f87171; font-weight: 600;">Missing Number:</span>
-                                <span style="font-weight: 700; color: #f87171;">{rec.lwf_missing_count}</span>
-                            </div>
-                        </div>
-
-                    </div>
-                </div>
-
-                <!-- 5. STATUTORY COMPLIANCE & EMPLOYER COST (CTC) UNIFIED BREAKDOWN -->
-                <div class="hds-dash-card" style="padding: 18px; margin-bottom: 22px;">
-                    <div class="hds-text-primary" style="font-size: 14px; font-weight: 700; margin-bottom: 14px; border-bottom: 1px solid var(--hds-row-border); padding-bottom: 10px; display: flex; align-items: center; justify-content: space-between;">
-                        <span style="display: flex; align-items: center; gap: 8px;">
-                            <i class="fa fa-shield" style="color: #4ade80;"></i> Statutory Compliance &amp; Employer Cost (CTC) Summary
-                        </span>
-                        <div style="display: flex; align-items: center; gap: 10px;">
-                            <span style="font-size: 11px; font-weight: 600; color: var(--hds-text-muted);">
-                                Month: {month_name} {year}
-                            </span>
-                            <span role="button" tabindex="0" onclick="window.hdsCardClick &amp;&amp; window.hdsCardClick(this, 'total_employer_statutory')" data-card-type="total_employer_statutory" class="o_hds_dashboard_card_clickable" style="cursor: pointer; font-size: 11px; padding: 3px 10px; border-radius: 12px; background: rgba(74, 222, 128, 0.15); color: #4ade80; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;" title="Open employee-wise Employer Cost List View">
-                                View Employee List &rarr;
-                            </span>
-                        </div>
-                    </div>
-
-                    <!-- Unified Grid of Statutory & CTC Cost Tiles (All in One Place) -->
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; font-size: 12px;">
-
-                        <!-- 1. Employer EPF (12%) -->
-                        <div role="button" tabindex="0" onclick="window.hdsCardClick &amp;&amp; window.hdsCardClick(this, 'epf_liability')" data-card-type="epf_liability" class="hds-subcard o_hds_dashboard_card_clickable" style="text-decoration: none; display: block; padding: 12px; cursor: pointer; border-left: 3px solid #4ade80 !important;">
-                            <div style="display: flex; justify-content: space-between; align-items: center;">
-                                <span class="hds-text-muted" style="font-size: 11px; font-weight: 600;">Employer EPF (12%)</span>
-                                <span style="font-size: 10px; color: #4ade80; font-weight: 700;">EPF+EPS</span>
-                            </div>
-                            <div class="hds-text-primary" style="font-weight: 700; font-size: 15px; margin-top: 3px; color: #4ade80;">{currency_symbol} {rec.epf_employer_liability:,.2f}</div>
-                            <div style="margin-top: 6px; padding-top: 6px; border-top: 1px dashed var(--hds-row-border); display: grid; grid-template-columns: 1fr 1fr; gap: 4px 6px; font-size: 10px;">
-                                <div><span style="color: var(--hds-text-muted);">EPF (3.67%):</span> <b style="color: #38bdf8;">{currency_symbol} {rec.epf_er_share_amount:,.2f}</b></div>
-                                <div><span style="color: var(--hds-text-muted);">EPS (8.33%):</span> <b style="color: #818cf8;">{currency_symbol} {rec.epf_er_eps_amount:,.2f}</b></div>
-                            </div>
-                            <div style="color: #4ade80; font-size: 10px; font-weight: 600; margin-top: 5px;">🟢 12% PF Contribution &bull; <u>View</u></div>
-                        </div>
-
-                        <!-- 2. EDLI & Admin Charges (1.0%) -->
-                        <div role="button" tabindex="0" onclick="window.hdsCardClick &amp;&amp; window.hdsCardClick(this, 'edli_admin_liability')" data-card-type="edli_admin_liability" class="hds-subcard o_hds_dashboard_card_clickable" style="text-decoration: none; display: block; padding: 12px; cursor: pointer; border-left: 3px solid #fbbf24 !important;">
-                            <div style="display: flex; justify-content: space-between; align-items: center;">
-                                <span class="hds-text-muted" style="font-size: 11px; font-weight: 600;">EDLI &amp; Admin (1.0%)</span>
-                                <span style="font-size: 10px; color: #fbbf24; font-weight: 700;">Charges</span>
-                            </div>
-                            <div class="hds-text-primary" style="font-weight: 700; font-size: 15px; margin-top: 3px; color: #fbbf24;">{currency_symbol} {(rec.epf_er_edli_amount + rec.epf_er_admin_amount):,.2f}</div>
-                            <div style="margin-top: 6px; padding-top: 6px; border-top: 1px dashed var(--hds-row-border); display: grid; grid-template-columns: 1fr 1fr; gap: 4px 6px; font-size: 10px;">
-                                <div><span style="color: var(--hds-text-muted);">EDLI (0.5%):</span> <b style="color: #fbbf24;">{currency_symbol} {rec.epf_er_edli_amount:,.2f}</b></div>
-                                <div><span style="color: var(--hds-text-muted);">Admin (0.5%):</span> <b style="color: #4ade80;">{currency_symbol} {rec.epf_er_admin_amount:,.2f}</b></div>
-                            </div>
-                            <div style="color: #fbbf24; font-size: 10px; font-weight: 600; margin-top: 5px;">🟡 Statutory Admin Fees &bull; <u>View</u></div>
-                        </div>
-
-                        <!-- 3. Employer ESIC Share (3.25%) -->
-                        <div role="button" tabindex="0" onclick="window.hdsCardClick &amp;&amp; window.hdsCardClick(this, 'esic_liability')" data-card-type="esic_liability" class="hds-subcard o_hds_dashboard_card_clickable" style="text-decoration: none; display: block; padding: 12px; cursor: pointer; border-left: 3px solid #38bdf8 !important;">
-                            <div style="display: flex; justify-content: space-between; align-items: center;">
-                                <span class="hds-text-muted" style="font-size: 11px; font-weight: 600;">Employer ESIC Share (3.25%)</span>
-                                <span style="font-size: 10px; color: #38bdf8; font-weight: 700;">ESIC</span>
-                            </div>
-                            <div class="hds-text-primary" style="font-weight: 700; font-size: 15px; margin-top: 3px; color: #38bdf8;">{currency_symbol} {rec.esic_employer_liability:,.2f}</div>
-                            <div style="margin-top: 6px; padding-top: 6px; border-top: 1px dashed var(--hds-row-border); font-size: 10px;">
-                                <span style="color: var(--hds-text-muted);">Eligible Gross Wages:</span> <b style="color: var(--hds-text-primary);">{currency_symbol} {rec.total_gross_pay:,.2f}</b>
-                            </div>
-                            <div style="color: #38bdf8; font-size: 10px; font-weight: 600; margin-top: 5px;">🟢 3.25% Contribution &bull; <u>View</u></div>
-                        </div>
-
-                        <!-- 4. Employer LWF Share -->
-                        <div role="button" tabindex="0" onclick="window.hdsCardClick &amp;&amp; window.hdsCardClick(this, 'lwf_liability')" data-card-type="lwf_liability" class="hds-subcard o_hds_dashboard_card_clickable" style="text-decoration: none; display: block; padding: 12px; cursor: pointer; border-left: 3px solid #a855f7 !important;">
-                            <div style="display: flex; justify-content: space-between; align-items: center;">
-                                <span class="hds-text-muted" style="font-size: 11px; font-weight: 600;">Employer LWF Share</span>
-                                <span style="font-size: 10px; color: #a855f7; font-weight: 700;">LWF</span>
-                            </div>
-                            <div class="hds-text-primary" style="font-weight: 700; font-size: 15px; margin-top: 3px; color: #c084fc;">{currency_symbol} {rec.lwf_employer_liability:,.2f}</div>
-                            <div style="margin-top: 6px; padding-top: 6px; border-top: 1px dashed var(--hds-row-border); font-size: 10px;">
-                                <span style="color: var(--hds-text-muted);">Total LWF (EE+ER):</span> <b style="color: var(--hds-text-primary);">{currency_symbol} {rec.lwf_total_liability:,.2f}</b>
-                            </div>
-                            <div style="color: #c084fc; font-size: 10px; font-weight: 600; margin-top: 5px;">🟢 State Welfare Fund &bull; <u>View</u></div>
-                        </div>
-
-                        <!-- 5. Professional Tax (PT) -->
-                        <div role="button" tabindex="0" onclick="window.hdsCardClick &amp;&amp; window.hdsCardClick(this, 'pt_liability')" data-card-type="pt_liability" class="hds-subcard o_hds_dashboard_card_clickable" style="text-decoration: none; display: block; padding: 12px; cursor: pointer; border-left: 3px solid #06b6d4 !important;">
-                            <div style="display: flex; justify-content: space-between; align-items: center;">
-                                <span class="hds-text-muted" style="font-size: 11px; font-weight: 600;">Professional Tax (PT)</span>
-                                <span style="font-size: 10px; color: #06b6d4; font-weight: 700;">PT</span>
-                            </div>
-                            <div class="hds-text-primary" style="font-weight: 700; font-size: 15px; margin-top: 3px; color: #06b6d4;">{currency_symbol} {rec.pt_total_liability:,.2f}</div>
-                            <div style="margin-top: 6px; padding-top: 6px; border-top: 1px dashed var(--hds-row-border); font-size: 10px;">
-                                <span style="color: var(--hds-text-muted);">Cycle:</span> <b style="color: var(--hds-text-primary);">State Slab Deductions</b>
-                            </div>
-                            <div style="color: #06b6d4; font-size: 10px; font-weight: 600; margin-top: 5px;">🔵 State PT Slab &bull; <u>View</u></div>
-                        </div>
-
-                        <!-- 6. Income Tax TDS (Sec 192) -->
-                        <div role="button" tabindex="0" onclick="window.hdsCardClick &amp;&amp; window.hdsCardClick(this, 'tds_this_month')" data-card-type="tds_this_month" class="hds-subcard o_hds_dashboard_card_clickable" style="text-decoration: none; display: block; padding: 12px; cursor: pointer; border-left: 3px solid #818cf8 !important;">
-                            <div style="display: flex; justify-content: space-between; align-items: center;">
-                                <span class="hds-text-muted" style="font-size: 11px; font-weight: 600;">Income Tax TDS (Sec 192)</span>
-                                <span style="font-size: 10px; color: #818cf8; font-weight: 700;">TDS</span>
-                            </div>
-                            <div class="hds-text-primary" style="font-weight: 700; font-size: 15px; margin-top: 3px; color: #818cf8;">{currency_symbol} {rec.tds_this_month:,.2f}</div>
-                            <div style="margin-top: 6px; padding-top: 6px; border-top: 1px dashed var(--hds-row-border); font-size: 10px;">
-                                <span style="color: var(--hds-text-muted);">FY YTD Total:</span> <b style="color: #818cf8;">{currency_symbol} {rec.tds_ytd_total:,.2f}</b>
-                            </div>
-                            <div style="color: #818cf8; font-size: 10px; font-weight: 600; margin-top: 5px;">🟣 Deposit by 7th &bull; <u>View</u></div>
-                        </div>
-
-                    </div>
-
-                    <!-- Sub-Row: Tax Regime Split & Totals Banner (Consolidated in One Place) -->
-                    <div style="margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--hds-row-border); display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; align-items: center;">
-
-                        <!-- Tax Regime Distribution Pill -->
-                        <div style="display: flex; align-items: center; gap: 12px; background: var(--hds-subcard-bg); padding: 10px 14px; border-radius: 8px; border: 1px solid var(--hds-subcard-border);">
-                            <span class="hds-text-muted" style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Tax Regimes:</span>
-                            <div role="button" tabindex="0" onclick="window.hdsCardClick &amp;&amp; window.hdsCardClick(this, 'new_regime')" data-card-type="new_regime" class="o_hds_dashboard_card_clickable" style="cursor: pointer; display: flex; align-items: center; gap: 6px;" title="Filter New Regime Employees">
-                                <span style="font-size: 12px; color: #38bdf8; font-weight: 700;">New (Sec 202(1)): {rec.new_regime_count}</span>
-                            </div>
-                            <span style="color: var(--hds-row-border);">&bull;</span>
-                            <div role="button" tabindex="0" onclick="window.hdsCardClick &amp;&amp; window.hdsCardClick(this, 'old_regime')" data-card-type="old_regime" class="o_hds_dashboard_card_clickable" style="cursor: pointer; display: flex; align-items: center; gap: 6px;" title="Filter Old Regime Employees">
-                                <span style="font-size: 12px; color: #818cf8; font-weight: 700;">Old Regime: {rec.old_regime_count}</span>
-                            </div>
-                        </div>
-
-                        <!-- Combined Grand Totals Banner -->
-                        <div role="button" tabindex="0" onclick="window.hdsCardClick &amp;&amp; window.hdsCardClick(this, 'total_employer_statutory')" data-card-type="total_employer_statutory" class="hds-subcard o_hds_dashboard_card_clickable" style="cursor: pointer; padding: 10px 16px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; border-left: 4px solid #c084fc !important;">
-                            <div>
-                                <div class="hds-text-muted" style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Total Employer Cost (CTC)</div>
-                                <div class="hds-text-primary" style="font-weight: 800; font-size: 16px; color: #c084fc; margin-top: 1px;">{currency_symbol} {rec.total_employer_statutory_liability:,.2f}</div>
-                            </div>
-                            <div style="text-align: right;">
-                                <div class="hds-text-muted" style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Total Statutory Liability (Govt Deposit)</div>
-                                <div class="hds-text-primary" style="font-weight: 800; font-size: 16px; color: #4ade80; margin-top: 1px;">{currency_symbol} {(rec.total_employer_statutory_liability + rec.tds_this_month + rec.pt_total_liability):,.2f}</div>
-                            </div>
-                        </div>
-
-                    </div>
-                </div>
-
-                <!-- 6. HISTORICAL PAYROLL COST TREND CHART (PAYRUN PALETTE) -->
-                <div class="hds-dash-card" style="padding: 18px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid var(--hds-row-border); padding-bottom: 8px;">
-                        <span class="hds-text-primary" style="font-size: 14px; font-weight: 700; display: flex; align-items: center; gap: 8px;">
-                            <i class="fa fa-line-chart" style="color: #c084fc;"></i> Historical Payroll Cost Trend (Last 6 Months)
-                        </span>
-                        <span class="hds-text-muted" style="font-size: 11px; font-weight: 600;">
-                            Stacked by Cost Component &bull; Hover for details &bull; Click to view slips
-                        </span>
-                    </div>
-                    <div style="display: flex; align-items: flex-end; justify-content: space-around; height: 115px; padding: 0 20px;">
-                        {trend_bars_html}
-                    </div>
-                </div>
-
-                <!-- 7. INLINE DETAILS CONTAINER (LOADS ON CURRENT PAGE) -->
-                <div id="hds_dashboard_inline_details" class="hds-inline-panel" style="display: none; margin-top: 24px;"></div>
+                <!-- INLINE DETAILS CONTAINER -->
+                <div id="hds_dashboard_inline_details" class="hds-inline-panel" style="display: none;"></div>
 
             </div>
             """
@@ -1421,14 +1568,17 @@ class HdsPayrollDashboard(models.Model):
         return super().read(fields=fields, load=load)
 
     @api.model
-    def get_card_action(self, dashboard_id=None, card_type=None, month_num=None, fy_id=None):
+    def get_card_action(self, dashboard_id=None, card_type=None, month_num=None, fy_id=None, date_from=None, date_to=None):
         """
         Returns an ir.actions.act_window action dict for Odoo web client
         to navigate to the corresponding list view in the current window.
         Odoo breadcrumbs will allow returning to the Payroll Dashboard smoothly.
+
+        date_from / date_to: period of the clicked element itself (e.g. a past month bar in the
+        trend chart). When both are valid they replace the dashboard's selected payroll month.
         """
         rec = self.browse(dashboard_id) if dashboard_id else self.search([], limit=1)
-        today = fields.Date.today()
+        today = fields.Date.context_today(self)
         m_num = int(month_num or (rec.payroll_month_num if rec else today.month) or today.month)
 
         fy = rec.financial_year_id if (rec and rec.financial_year_id) else (self.env['tds.financial.year'].browse(fy_id) if fy_id else None)
@@ -1443,6 +1593,17 @@ class HdsPayrollDashboard(models.Model):
 
         month_start = date(year, m_num, 1)
         month_end = date(year, m_num, calendar.monthrange(year, m_num)[1])
+
+        # Period of the clicked element (trend chart bar of another month)
+        try:
+            clicked_from = fields.Date.to_date(date_from) if date_from else None
+            clicked_to = fields.Date.to_date(date_to) if date_to else None
+        except (TypeError, ValueError):
+            clicked_from = clicked_to = None
+        if clicked_from and clicked_to and clicked_from <= clicked_to:
+            month_start, month_end = clicked_from, clicked_to
+            m_num, year = clicked_from.month, clicked_from.year
+
         month_name = calendar.month_name[m_num]
         active_emps = self.env['hr.employee'].search([('active', '=', True)])
 
@@ -1475,6 +1636,26 @@ class HdsPayrollDashboard(models.Model):
                 'target': 'current',
             }
 
+        # Govt Deposit / CTC / TDS: the payslips of the dashboard total, with its breakdown
+        breakdown_lists = {
+            'govt_deposit': ('hudson_in_payroll.view_hr_payslip_list_govt_deposit', 'Govt Deposit'),
+            'ctc_breakdown': ('hudson_in_payroll.view_hr_payslip_list_ctc', 'Total Payroll Cost (CTC)'),
+            'tds_breakdown': ('hudson_in_payroll.view_hr_payslip_list_tds', 'TDS This Month'),
+            'net_breakdown': ('hudson_in_payroll.view_hr_payslip_list_net', 'Net Salary'),
+        }
+        if card_type in breakdown_lists:
+            view_xmlid, title = breakdown_lists[card_type]
+            list_view = self.env.ref(view_xmlid)
+            return {
+                'type': 'ir.actions.act_window',
+                'name': f"{title} — {month_name} {year}",
+                'res_model': 'hr.payslip',
+                'view_mode': 'list,form',
+                'views': [[list_view.id, 'list'], [False, 'form']],
+                'domain': [('id', 'in', self._hds_month_payslips(month_start, month_end).ids)],
+                'target': 'current',
+            }
+
         # 2. Payslips / Total Payroll Cost / Net Salary / TDS This Month / Liabilities
         if card_type in ('total_payroll_cost', 'total_net_pay', 'tds_this_month', 'tds_withholding', 'pt_liability'):
             title_map = {
@@ -1503,9 +1684,10 @@ class HdsPayrollDashboard(models.Model):
 
         # 2. Draft / Attendance Exceptions -> Payslips to Validate
         if card_type == 'attendance_exceptions':
+            # Always the selected payroll month (same domain as draft_slips_count / verify_slips_count),
+            # so an empty month opens an empty list instead of every draft payslip of other months.
             company_filter = [('company_id', 'in', self.env.companies.ids)] if 'company_id' in self.env['hr.payslip']._fields else []
-            slips = self.env['hr.payslip'].search([('date_from', '<=', month_end), ('date_to', '>=', month_start), ('state', 'in', ('draft', 'verify'))] + company_filter)
-            domain = [('date_from', '<=', month_end), ('date_to', '>=', month_start), ('state', 'in', ('draft', 'verify'))] if slips else [('state', 'in', ('draft', 'verify'))]
+            domain = [('date_from', '<=', month_end), ('date_to', '>=', month_start), ('state', 'in', ('draft', 'verify'))] + company_filter
             return {
                 'type': 'ir.actions.act_window',
                 'name': f"Payslips to Validate — {month_name} {year}",
@@ -1550,37 +1732,131 @@ class HdsPayrollDashboard(models.Model):
                 'res_model': 'tds.employee.declaration',
                 'view_mode': 'list,form',
                 'views': [[False, 'list'], [False, 'form']],
-                'domain': [('state', 'in', ('submitted', 'proof_submitted', 'proof_under_review'))],
+                'domain': self._pending_declaration_domain(fy),
                 'target': 'current',
             }
 
-        # 6. New Joiners
-        if card_type == 'new_joiners':
-            emp_fields = self.env['hr.employee']._fields
-            join_field = next((f for f in ('joining_date', 'date_of_joining', 'hds_in_doj', 'first_contract_date', 'contract_date_start', 'create_date') if f in emp_fields), None)
-            joiner_domain = [('active', '=', True)]
-            if join_field:
-                joiner_domain.extend([(join_field, '>=', month_start), (join_field, '<=', month_end)])
+        # Tax Declarations card: the declarations of the month at each stage (same as its counts)
+        declaration_lists = {
+            'decl_pending': ('pending', 'Declarations Pending Verification'),
+            'decl_declared': ('declared', 'Declarations Awaiting Proofs'),
+            'decl_draft': ('draft', 'Declarations Not Submitted'),
+        }
+        if card_type in declaration_lists:
+            kind, title = declaration_lists[card_type]
             return {
                 'type': 'ir.actions.act_window',
-                'name': f"New Joiners — {month_name} {year}",
+                'name': f"{title} — {month_name} {year}",
+                'res_model': 'tds.employee.declaration',
+                'view_mode': 'list,form',
+                'views': [[False, 'list'], [False, 'form']],
+                'domain': self._month_declaration_domain(kind, fy, month_start, month_end),
+                'target': 'current',
+            }
+
+        # 6. New Joiners / Exits of the month (same employees as the dashboard counts)
+        if card_type in ('new_joiners', 'exits'):
+            kind = 'joiners' if card_type == 'new_joiners' else 'exits'
+            employees = self._hds_employee_movements(kind, month_start, month_end)
+            # By ids, archived leavers included (the web client opens the action without its context)
+            domain = [('id', 'in', employees.ids), ('active', 'in', (True, False))]
+            return {
+                'type': 'ir.actions.act_window',
+                'name': f"{'New Joiners' if kind == 'joiners' else 'Exits'} — {month_name} {year}",
                 'res_model': 'hr.employee',
                 'view_mode': 'list,form',
                 'views': [[False, 'list'], [False, 'form']],
-                'domain': joiner_domain,
+                'domain': domain,
                 'target': 'current',
             }
 
         # 7. Final Settlements
+        if card_type and card_type.startswith('leave_encashment'):
+            encash_model = self._leave_encashment_model()
+            if encash_model is not None:
+                state_map = {
+                    'leave_encashment_submitted': (('submitted',), 'Pending Approval'),
+                    'leave_encashment_approved': (('approved',), 'Approved — Awaiting Payroll'),
+                    'leave_encashment_draft': (('draft',), 'Draft'),
+                    'leave_encashment_paid': (('paid',), 'Paid'),
+                }
+                states, label = state_map.get(card_type, (None, None))
+                period = f"{month_name} {year}"
+                return {
+                    'type': 'ir.actions.act_window',
+                    'name': f"Leave Encashment Requests — {label} ({period})" if label else f"Leave Encashment Requests — {period}",
+                    'res_model': 'hds.leave.encashment.request',
+                    'view_mode': 'list,form',
+                    'views': [[self.env.ref('hudson_in_payroll.view_hds_leave_encashment_request_list_breakdown').id, 'list'],
+                              [False, 'form']],
+                    'domain': self._leave_encashment_domain(states, month_start, month_end),
+                    'target': 'current',
+                }
+
+        if card_type and card_type.startswith('relieving'):
+            rows = self._relieving_employees(month_start, month_end)
+            period = f"{month_name} {year}"
+            if card_type in ('relieving_settlement_draft', 'relieving_settlement_approved', 'relieving_settlement_paid'):
+                status = card_type.rsplit('_', 1)[-1]
+                settlement_ids = [r['settlement'].id for r in rows if r['status'] == status and r['settlement']]
+                labels = {'draft': 'Draft', 'approved': 'Approved — Awaiting Payment', 'paid': 'Paid'}
+                # Amount breakdown list (Final Settlement module)
+                breakdown_view = self.env.ref('hudson_in_final_settlement.view_final_settlement_list_breakdown',
+                                              raise_if_not_found=False)
+                return {
+                    'type': 'ir.actions.act_window',
+                    'name': f"Final Settlements {labels[status]} — Relieving {period}",
+                    'res_model': 'final.settlement',
+                    'view_mode': 'list,form',
+                    'views': [[breakdown_view.id if breakdown_view else False, 'list'], [False, 'form']],
+                    'domain': [('id', 'in', settlement_ids)],
+                    'target': 'current',
+                }
+            if card_type == 'relieving_not_started':
+                emp_ids = [r['employee'].id for r in rows if r['status'] == 'not_started']
+                name = f"Relieving {period} — Settlement Not Started"
+            else:
+                emp_ids = [r['employee'].id for r in rows]
+                name = f"Employees Relieving — {period}"
+            return {
+                'type': 'ir.actions.act_window',
+                'name': name,
+                'res_model': 'hr.employee',
+                'view_mode': 'list,form',
+                'views': [[False, 'list'], [False, 'form']],
+                # archived (already relieved) employees are included
+                'domain': [('id', 'in', emp_ids), ('active', 'in', [True, False])],
+                'target': 'current',
+            }
+
+        if card_type and card_type.startswith('no_running_contract'):
+            no_contract, no_contract_info = self._employees_without_contract(month_start, month_end)
+            reason = card_type.removeprefix('no_running_contract').lstrip('_')
+            titles = {'none': 'No Contract', 'ended': 'Contract Ended', 'future': 'Contract Starts Later'}
+            if reason in titles:
+                no_contract = no_contract.filtered(lambda emp: no_contract_info[emp.id][0] == reason)
+            list_view = self.env.ref('hudson_in_payroll.view_hr_employee_list_contract_status')
+            return {
+                'type': 'ir.actions.act_window',
+                'name': (f"{titles[reason]} — {month_name} {year}" if reason in titles
+                         else f"Employees Without Running Contract — {month_name} {year}"),
+                'res_model': 'hr.employee',
+                'view_mode': 'list,form',
+                'views': [[list_view.id, 'list'], [False, 'form']],
+                'domain': [('id', 'in', no_contract.ids)],
+                'target': 'current',
+            }
+
         if card_type == 'final_settlements_due':
-            if 'hds.final.settlement' in self.env:
+            settlement_domain = self._final_settlement_domain(month_start, month_end)
+            if settlement_domain is not None:
                 return {
                     'type': 'ir.actions.act_window',
                     'name': f"Final Settlements Due — {month_name} {year}",
-                    'res_model': 'hds.final.settlement',
+                    'res_model': 'final.settlement',
                     'view_mode': 'list,form',
                     'views': [[False, 'list'], [False, 'form']],
-                    'domain': [('state', 'in', ('draft', 'review', 'approved'))],
+                    'domain': settlement_domain,
                     'target': 'current',
                 }
             return {
@@ -1714,7 +1990,7 @@ class HdsPayrollDashboard(models.Model):
             card_type = dashboard_id
             dashboard_id = self.id if self else None
         rec = self.browse(dashboard_id) if (isinstance(dashboard_id, int) and dashboard_id) else (self if self and len(self) == 1 else self.search([], limit=1))
-        today = fields.Date.today()
+        today = fields.Date.context_today(self)
         m_num = int(month_num or (rec.payroll_month_num if rec else today.month) or today.month)
 
         fy = rec.financial_year_id if (rec and rec.financial_year_id) else (self.env['tds.financial.year'].browse(fy_id) if fy_id else None)
@@ -1900,8 +2176,6 @@ class HdsPayrollDashboard(models.Model):
                 ('date_to', '>=', month_start),
                 ('state', 'in', ('draft', 'verify')),
             ] + company_filter)
-            if not slips:
-                slips = self.env['hr.payslip'].search([('state', 'in', ('draft', 'verify'))] + company_filter)
 
             draft_count = len(slips.filtered(lambda s: s.state == 'draft'))
             verify_count = len(slips.filtered(lambda s: s.state == 'verify'))
@@ -2627,13 +2901,13 @@ class HdsPayrollDashboard(models.Model):
             'type': 'ir.actions.act_window',
             'res_model': 'tds.employee.declaration',
             'view_mode': 'list,form',
-            'domain': [('state', 'in', ('submitted', 'proof_submitted', 'proof_under_review'))],
+            'domain': self._pending_declaration_domain(self.financial_year_id),
             'target': 'current',
         }
 
     def action_view_new_joiners(self):
         self.ensure_one()
-        today = fields.Date.today()
+        today = fields.Date.context_today(self)
         m_num = int(self.payroll_month_num or today.month)
         year = today.year
         if self.financial_year_id and self.financial_year_id.start_date:
@@ -2659,7 +2933,7 @@ class HdsPayrollDashboard(models.Model):
 
     def action_view_final_settlements_due(self):
         self.ensure_one()
-        today = fields.Date.today()
+        today = fields.Date.context_today(self)
         m_num = int(self.payroll_month_num or today.month)
         year = today.year
         if self.financial_year_id and self.financial_year_id.start_date:
@@ -2675,10 +2949,6 @@ class HdsPayrollDashboard(models.Model):
             'type': 'ir.actions.act_window',
             'res_model': 'final.settlement',
             'view_mode': 'list,form',
-            'domain': [
-                ('state', '!=', 'cancel'),
-                ('last_working_day', '>=', month_start),
-                ('last_working_day', '<=', month_end)
-            ],
+            'domain': self._final_settlement_domain(month_start, month_end) or [],
             'target': 'current',
         }

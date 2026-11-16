@@ -16,8 +16,8 @@
                     </div>
                     <group>
                         <group string="Year &amp; Scope">
-                            <field name="year" required="1"/>
-                            <field name="company_id" groups="base.group_multi_company" required="1"/>
+                            <field name="year" required="1" options="{'enable_formatting': False, 'format': False}"/>
+                            <field name="company_id" groups="base.group_multi_company" required="1" readonly="state != 'draft'"/>
                         </group>
                     </group>
                     <group string="Generated Report File" invisible="state == 'draft'">
@@ -53,8 +53,8 @@
                         <group string="Period &amp; Type">
                             <field name="report_type" required="1"/>
                             <field name="month" required="1"/>
-                            <field name="year" required="1"/>
-                            <field name="company_id" groups="base.group_multi_company" required="1"/>
+                            <field name="year" required="1" options="{'enable_formatting': False, 'format': False}"/>
+                            <field name="company_id" groups="base.group_multi_company" required="1" readonly="state != 'draft'"/>
                         </group>
                     </group>
                     <group string="Generated Report File" invisible="state == 'draft'">
@@ -97,9 +97,9 @@
                     <group>
                         <group string="Employee &amp; Year Range">
                             <field name="employee_id" required="1"/>
-                            <field name="year_from" required="1"/>
-                            <field name="year_to" required="1"/>
-                            <field name="company_id" groups="base.group_multi_company" required="1"/>
+                            <field name="year_from" required="1" options="{'enable_formatting': False, 'format': False}"/>
+                            <field name="year_to" required="1" options="{'enable_formatting': False, 'format': False}"/>
+                            <field name="company_id" groups="base.group_multi_company" required="1" readonly="state != 'draft'"/>
                         </group>
                     </group>
                     <group string="Generated Ledger File" invisible="state == 'draft'">
@@ -134,8 +134,8 @@
                     <group>
                         <group string="Period &amp; Scope">
                             <field name="month" required="1"/>
-                            <field name="year" required="1"/>
-                            <field name="company_id" groups="base.group_multi_company" required="1"/>
+                            <field name="year" required="1" options="{'enable_formatting': False, 'format': False}"/>
+                            <field name="company_id" groups="base.group_multi_company" required="1" readonly="state != 'draft'"/>
                         </group>
                     </group>
                     <group string="Generated Report File" invisible="state == 'draft'">
@@ -170,8 +170,8 @@
                     <group>
                         <group string="Period &amp; Scope">
                             <field name="month" required="1"/>
-                            <field name="year" required="1"/>
-                            <field name="company_id" groups="base.group_multi_company" required="1"/>
+                            <field name="year" required="1" options="{'enable_formatting': False, 'format': False}"/>
+                            <field name="company_id" groups="base.group_multi_company" required="1" readonly="state != 'draft'"/>
                         </group>
                         <group string="Results" invisible="state == 'draft'">
                             <field name="exception_count" readonly="1"/>
@@ -209,12 +209,12 @@
                     <group>
                         <group string="Baseline Period 1">
                             <field name="from_month" required="1"/>
-                            <field name="from_year" required="1"/>
+                            <field name="from_year" required="1" options="{'enable_formatting': False, 'format': False}"/>
                         </group>
                         <group string="Comparison Period 2">
                             <field name="to_month" required="1"/>
-                            <field name="to_year" required="1"/>
-                            <field name="company_id" groups="base.group_multi_company" required="1"/>
+                            <field name="to_year" required="1" options="{'enable_formatting': False, 'format': False}"/>
+                            <field name="company_id" groups="base.group_multi_company" required="1" readonly="state != 'draft'"/>
                         </group>
                     </group>
                     <group string="Generated Variance File" invisible="state == 'draft'">
@@ -250,8 +250,8 @@
                         <group string="Report Type &amp; Scope">
                             <field name="report_type" required="1"/>
                             <field name="month" required="1"/>
-                            <field name="year" required="1"/>
-                            <field name="company_id" groups="base.group_multi_company" required="1"/>
+                            <field name="year" required="1" options="{'enable_formatting': False, 'format': False}"/>
+                            <field name="company_id" groups="base.group_multi_company" required="1" readonly="state != 'draft'"/>
                         </group>
                     </group>
                     <group string="Generated Report File" invisible="state == 'draft'">
@@ -290,7 +290,7 @@
                 <field name="snapshot_employee_epf" optional="show"/>
                 <field name="snapshot_employer_epf" optional="show"/>
                 <field name="snapshot_employer_eps" optional="show"/>
-                <field name="company_id" groups="base.group_multi_company" optional="hide"/>
+                <field name="company_id" groups="base.group_multi_company" optional="show"/>
             </list>
         </field>
     </record>
@@ -321,8 +321,8 @@
                     <group>
                         <group string="Period &amp; Scope">
                             <field name="month" required="1"/>
-                            <field name="year" required="1"/>
-                            <field name="company_id" groups="base.group_multi_company" required="1"/>
+                            <field name="year" required="1" options="{'enable_formatting': False, 'format': False}"/>
+                            <field name="company_id" groups="base.group_multi_company" required="1" readonly="state != 'draft'"/>
                         </group>
                     </group>
                     <group string="Generated Report File" invisible="state == 'draft'">
@@ -356,8 +356,8 @@
                     </div>
                     <group>
                         <group string="Year &amp; Scope">
-                            <field name="year" required="1"/>
-                            <field name="company_id" groups="base.group_multi_company" required="1"/>
+                            <field name="year" required="1" options="{'enable_formatting': False, 'format': False}"/>
+                            <field name="company_id" groups="base.group_multi_company" required="1" readonly="state != 'draft'"/>
                         </group>
                     </group>
                     <group string="Generated Report File" invisible="state == 'draft'">
@@ -391,7 +391,7 @@
                     </div>
                     <group>
                         <group string="Company Scope">
-                            <field name="company_id" groups="base.group_multi_company" required="1"/>
+                            <field name="company_id" groups="base.group_multi_company" required="1" readonly="state != 'draft'"/>
                         </group>
                     </group>
                     <group string="Generated Register File" invisible="state == 'draft'">

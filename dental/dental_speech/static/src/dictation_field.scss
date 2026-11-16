@@ -1,0 +1,20 @@
+.o_dental_dictation {
+    .o_dental_dictation_dot {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #fff;
+        animation: o_dental_dictation_pulse 1s ease-in-out infinite;
+    }
+
+    .o_dental_dictation_review {
+        background: var(--bs-light, #f8f9fa);
+    }
+}
+
+@keyframes o_dental_dictation_pulse {
+    50% {
+        opacity: 0.2;
+    }
+}

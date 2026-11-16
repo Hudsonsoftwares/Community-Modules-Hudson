@@ -7,31 +7,31 @@
                     <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
                         <div class="input-group flex-grow-1 position-relative">
                             <span class="input-group-text bg-white border-end-0">
-                                <i class="fa fa-search text-muted"/>
+                                <i class="oi text-muted" data-icon="search"/>
                             </span>
                             <input type="text"
                                    class="form-control border-start-0"
                                    placeholder="Search address, landmark, or city..."
-                                   t-model="state.searchQuery"
-                                   t-on-keydown="onSearchKeyDown"/>
+                                   t-model.proxy="this.state.searchQuery"
+                                   t-on-keydown="this.onSearchKeyDown"/>
                             <button class="btn btn-primary"
                                     type="button"
-                                    t-on-click="onSearchClick"
-                                    t-att-disabled="state.isSearching">
-                                <span t-if="state.isSearching" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"/>
-                                <span t-else="" class="fa fa-map-marker me-1"/>
+                                    t-on-click="this.onSearchClick"
+                                    t-att-disabled="this.state.isSearching">
+                                <span t-if="this.state.isSearching" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"/>
+                                <span t-else="" class="oi me-1" data-icon="location_on"/>
                                 Search
                             </button>
                             
                             <!-- Search Results Dropdown -->
-                            <div t-if="state.searchResults.length > 0" 
+                            <div t-if="this.state.searchResults.length &gt; 0" 
                                  class="hudson-search-dropdown position-absolute w-100 bg-white border rounded shadow-lg">
                                 <div class="list-group list-group-flush">
-                                    <t t-foreach="state.searchResults" t-as="result" t-key="result_index">
+                                    <t t-foreach="this.state.searchResults" t-as="result" t-key="result_index">
                                         <button type="button" 
                                                 class="list-group-item list-group-item-action py-2 text-start"
                                                 t-on-click="() => this.selectSearchResult(result)">
-                                            <i class="fa fa-map-pin text-danger me-2"/>
+                                            <i class="oi text-danger me-2" data-icon="location_on"/>
                                             <span class="fw-semibold text-truncate" t-out="result.display_name"/>
                                         </button>
                                     </t>
@@ -42,19 +42,19 @@
                         <button class="btn btn-outline-secondary d-flex align-items-center"
                                 type="button"
                                 title="Locate my current position"
-                                t-on-click="onUseCurrentLocation"
-                                t-att-disabled="state.isLocating">
-                            <i t-if="state.isLocating" class="spinner-border spinner-border-sm me-1" role="status"/>
-                            <i t-else="" class="fa fa-crosshairs text-primary me-1"/>
+                                t-on-click="this.onUseCurrentLocation"
+                                t-att-disabled="this.state.isLocating">
+                            <i t-if="this.state.isLocating" class="spinner-border spinner-border-sm me-1" role="status"/>
+                            <i t-else="" class="oi text-primary me-1" data-icon="my_location"/>
                             <span>My Location</span>
                         </button>
                     </div>
 
                     <!-- Map container -->
                     <div class="position-relative">
-                        <div class="hudson-leaflet-map rounded border" t-ref="mapContainer"/>
+                        <div class="hudson-leaflet-map rounded border" t-ref="this.mapContainerRef"/>
                         <div class="position-absolute bottom-0 start-0 m-2 bg-white bg-opacity-75 p-2 rounded shadow-sm fs-7 text-muted" style="z-index: 1000;">
-                            <span><i class="fa fa-info-circle text-primary me-1"/>Click or drag the marker to adjust location.</span>
+                            <span><i class="oi text-primary me-1" data-icon="info"/>Click or drag the marker to adjust location.</span>
                         </div>
                     </div>
 
@@ -63,13 +63,13 @@
                         <div>
                             <strong>Selected Coordinates: </strong>
                             <span class="badge bg-secondary-subtle text-secondary me-2">
-                                Lat: <t t-out="currentLat.toFixed(6)"/>
+                                Lat: <t t-out="this.currentLat.toFixed(6)"/>
                             </span>
                             <span class="badge bg-secondary-subtle text-secondary me-2">
-                                Lon: <t t-out="currentLon.toFixed(6)"/>
+                                Lon: <t t-out="this.currentLon.toFixed(6)"/>
                             </span>
                             <span class="badge bg-primary-subtle text-primary">
-                                Radius: <t t-out="currentRadius"/> m
+                                Radius: <t t-out="this.currentRadius"/> m
                             </span>
                         </div>
                         <div class="fst-italic">

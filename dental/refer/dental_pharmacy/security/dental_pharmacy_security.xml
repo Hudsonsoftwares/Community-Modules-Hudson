@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        Creates a separate "Dental Pharmacy" dropdown row in Settings > Users.
+
+        FULLY INDEPENDENT DESIGN: Each row must be assigned independently.
+        Setting 'Dental Clinic = Dental Administrator' does NOT auto-grant Pharmacy
+        access. An admin who also manages the pharmacy must be assigned:
+          Dental Clinic    = Dental Administrator
+          Dental Pharmacy  = Pharmacy Manager   (← set separately)
+
+        Result in the user form (under "Dental Clinic" section heading):
+          Dental Clinic   → [Clinic Manager  ▼]   (set by dental_base)
+          Dental Lab      → [(none)           ▼]   (set by dental_lab)
+          Dental Pharmacy → [Pharmacist       ▼]   ← this file
+
+        NOTE: stock.group_stock_user is included in the Pharmacist implied_ids
+        (required for batch/lot and expiry management in Odoo Inventory).
+        This replaces the incorrect inline implication that was in dental_pharmacy_menus.xml.
+    -->
+
+    <!-- ===== Privilege: creates the "Dental Pharmacy" dropdown row ===== -->
+    <record model="res.groups.privilege" id="res_groups_privilege_dental_pharmacy">
+        <field name="name">Dental Pharmacy</field>
+        <field name="sequence">30</field>
+        <field name="category_id" ref="dental_base.module_category_dental_clinic"/>
+    </record>
+
+    <!-- ===== Options inside the "Dental Pharmacy" dropdown ===== -->
+
+    <record id="group_dental_pharmacist" model="res.groups">
+        <field name="name">Pharmacist</field>
+        <field name="privilege_id" ref="dental_pharmacy.res_groups_privilege_dental_pharmacy"/>
+        <!-- stock.group_stock_user: can create/confirm stock pickings, manage lots/batches,
+             view inventory on-hand. Cannot edit product master records. -->
+        <field name="implied_ids" eval="[(4, ref('base.group_user')), (4, ref('stock.group_stock_user'))]"/>
+        <field name="comment">Manages medicine dispensing, FEFO batch selection, stock expiry tracking, and pharmacy inventory.</field>
+    </record>
+
+    <record id="group_dental_pharmacy_manager" model="res.groups">
+        <field name="name">Pharmacy Manager</field>
+        <field name="privilege_id" ref="dental_pharmacy.res_groups_privilege_dental_pharmacy"/>
+        <!-- stock.group_stock_manager: inherits stock User rights PLUS can edit product
+             master records, configure inventory settings, and manage all stock operations.
+             This is required for editing medicine products in the Inventory app. -->
+        <field name="implied_ids" eval="[
+            (4, ref('dental_pharmacy.group_dental_pharmacist')),
+            (4, ref('dental_base.group_dental_manager')),
+            (4, ref('stock.group_stock_manager')),
+        ]"/>
+        <field name="user_ids" eval="[(4, ref('base.user_root')), (4, ref('base.user_admin'))]"/>
+        <field name="comment">Full pharmacy management: edit products, manage inventory, dispensing, purchasing, billing, and authorized returns.</field>
+    </record>
+
+
+</odoo>

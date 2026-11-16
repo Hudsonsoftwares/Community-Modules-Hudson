@@ -1,720 +1,970 @@
-// Waiting Queue Board & TV Display Screen Stylesheet (Premium Medical Light Theme)
+// =============================================================================
+// Waiting Queue Board (Reception live view + TV display)
+// Dental teal theme. Fills the action area; each doctor card scrolls its own
+// queue so the page never scrolls on desktop. TV mode = larger, high-contrast,
+// read-only and privacy-safe (names masked in the template).
+// =============================================================================
 
-.dental-queue-display-container {
+$dq-primary: #0e7c86;
+$dq-primary-dark: #0b636b;
+$dq-primary-soft: #e6f6f7;
+$dq-aqua: #22b5c2;
+$dq-success: #15803d;
+$dq-success-soft: #ecfdf3;
+$dq-warning: #b45309;
+$dq-warning-soft: #fff7e6;
+$dq-danger: #dc2626;
+$dq-danger-soft: #fef2f2;
+$dq-violet: #6d28d9;
+$dq-violet-soft: #f3efff;
+$dq-text: #0f2b33;
+$dq-text-2: #4b636b;
+$dq-text-3: #8aa0a6;
+$dq-border: #dcebee;
+$dq-divider: #edf5f6;
+$dq-canvas: #f1f8f9;
+$dq-radius: 16px;
+$dq-shadow: 0 1px 2px rgba(14, 124, 134, 0.05), 0 4px 14px -6px rgba(15, 43, 51, 0.12);
+$dq-img: "/dental_core/static/src/img";
+
+.dq-board {
+    --accent: #{$dq-primary};
+    --accent-tint: #{$dq-primary-soft};
+    --accent-border: #{$dq-border};
+
+    height: 100%;
     display: flex;
     flex-direction: column;
-    min-height: 100%;
-    background-color: #f8fafc;
-    background-image: radial-gradient(at 0% 0%, rgba(2, 132, 199, 0.04) 0px, transparent 50%),
-                      radial-gradient(at 100% 0%, rgba(5, 150, 105, 0.04) 0px, transparent 50%),
-                      radial-gradient(at 50% 100%, rgba(217, 119, 6, 0.03) 0px, transparent 50%);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-    color: #1e293b;
-    position: relative;
-    padding-bottom: 2rem;
+    overflow: hidden;
+    background: $dq-canvas radial-gradient(circle at 100% 0, rgba(34, 181, 194, 0.1), transparent 45%);
+    color: $dq-text;
+    font-size: 0.875rem;
 
-    // 1. Top Header
-    .queue-tv-header {
+    .dq-ellipsis {
+        min-width: 0;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+    }
+
+    .dq-tooth {
+        display: inline-block;
+        width: 1em;
+        height: 1em;
+        background-color: currentColor;
+        -webkit-mask: url("#{$dq-img}/tooth_mark.svg") center / contain no-repeat;
+        mask: url("#{$dq-img}/tooth_mark.svg") center / contain no-repeat;
+    }
+
+    .tone-teal { color: $dq-primary; background: $dq-primary-soft; }
+    .tone-violet { color: $dq-violet; background: $dq-violet-soft; }
+    .tone-amber { color: $dq-warning; background: $dq-warning-soft; }
+    .tone-green { color: $dq-success; background: $dq-success-soft; }
+
+    // ---------------------------------------------------------------- Header
+    .dq-header {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+        align-items: center;
+        gap: 16px 24px;
+        padding: 12px 24px;
+        background: #fff;
+        border-bottom: 1px solid $dq-border;
+        flex-shrink: 0;
+    }
+
+    .dq-brand {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        min-width: 0;
+    }
+
+    .dq-brand-mark {
+        width: 48px;
+        height: 48px;
+        border-radius: 14px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: #fff;
+        font-size: 26px;
+        flex-shrink: 0;
+        background: linear-gradient(135deg, $dq-primary-dark, $dq-aqua);
+        box-shadow: 0 6px 14px -6px rgba(14, 124, 134, 0.7);
+    }
+
+    .dq-brand-text { min-width: 0; }
+
+    .dq-brand-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-width: 0;
+    }
+
+    .dq-clinic {
+        font-size: 1.2rem;
+        font-weight: 700;
+        margin: 0;
+        letter-spacing: -0.01em;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .dq-live {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 2px 10px;
+        border-radius: 999px;
+        background: $dq-success-soft;
+        color: $dq-success;
+        font-size: 0.7rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        flex-shrink: 0;
+
+        .dq-live-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: currentColor;
+            animation: dq-pulse 1.8s infinite;
+        }
+
+        &.is-paused {
+            background: $dq-warning-soft;
+            color: $dq-warning;
+            .dq-live-dot { animation: none; }
+        }
+    }
+
+    .dq-address {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        color: $dq-text-2;
+        font-size: 0.8rem;
+        margin-top: 2px;
+        .oi { color: $dq-primary; }
+    }
+
+    .dq-stats {
+        display: flex;
+        gap: 8px;
+        padding: 6px;
+        border-radius: 14px;
+        background: $dq-canvas;
+        border: 1px solid $dq-divider;
+    }
+
+    .dq-stat {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 6px 14px 6px 8px;
+        border-radius: 10px;
+        background: #fff;
+        box-shadow: 0 1px 2px rgba(15, 43, 51, 0.06);
+
+        > span:last-child { display: flex; flex-direction: column; line-height: 1.1; }
+    }
+
+    .dq-stat-icon {
+        width: 32px;
+        height: 32px;
+        border-radius: 9px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 18px;
+    }
+
+    .dq-stat-value {
+        font-size: 1.15rem;
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .dq-stat-label {
+        font-size: 0.7rem;
+        color: $dq-text-2;
+        font-weight: 600;
+        white-space: nowrap;
+    }
+
+    .dq-header-end {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 18px;
+        min-width: 0;
+    }
+
+    .dq-clock {
+        text-align: right;
+        padding-right: 18px;
+        border-right: 1px solid $dq-divider;
+        white-space: nowrap;
+    }
+
+    .dq-clock-time {
+        font-size: 1.45rem;
+        font-weight: 700;
+        line-height: 1.1;
+        font-variant-numeric: tabular-nums;
+        color: $dq-primary-dark;
+    }
+
+    .dq-clock-date {
+        font-size: 0.72rem;
+        color: $dq-text-2;
+    }
+
+    .dq-controls {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    // ---------------------------------------------------------------- Buttons
+    %dq-focus {
+        &:focus-visible { outline: 2px solid $dq-aqua; outline-offset: 2px; }
+        &:disabled { opacity: 0.45; cursor: not-allowed; }
+    }
+
+    .dq-icon-btn {
+        @extend %dq-focus;
+        width: 38px;
+        height: 38px;
+        border-radius: 10px;
+        border: 1px solid $dq-border;
+        background: #fff;
+        color: $dq-text-3;
+        font-size: 20px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+
+        &:hover { background: $dq-primary-soft; color: $dq-primary; }
+        &.is-on { color: $dq-primary; background: $dq-primary-soft; border-color: #b9e4e8; }
+    }
+
+    .dq-btn {
+        @extend %dq-focus;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        height: 38px;
+        padding: 0 16px;
+        border-radius: 10px;
+        border: 1px solid transparent;
+        font-weight: 600;
+        font-size: 0.85rem;
+        white-space: nowrap;
+        transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+
+        .oi { font-size: 18px; }
+
+        &.dq-btn-sm { height: 30px; padding: 0 12px; font-size: 0.78rem; border-radius: 8px; .oi { font-size: 16px; } }
+    }
+
+    .dq-btn-primary {
+        background: $dq-primary;
+        color: #fff;
+        &:hover:not(:disabled) { background: $dq-primary-dark; }
+    }
+
+    .dq-btn-outline {
+        background: #fff;
+        border-color: $dq-border;
+        color: $dq-primary-dark;
+        &:hover:not(:disabled) { background: $dq-primary-soft; }
+    }
+
+    .dq-btn-success {
+        background: $dq-success-soft;
+        border-color: #b7ebc9;
+        color: $dq-success;
+        &:hover:not(:disabled) { background: $dq-success; color: #fff; }
+    }
+
+    .dq-btn-accent {
+        background: var(--accent);
+        color: #fff;
+        box-shadow: 0 6px 14px -8px var(--accent);
+        &:hover:not(:disabled) { filter: brightness(0.92); }
+    }
+
+    .dq-btn-outline-accent {
+        background: #fff;
+        border-color: var(--accent-border);
+        color: var(--accent);
+        &:hover:not(:disabled) { background: var(--accent); border-color: var(--accent); color: #fff; }
+    }
+
+    .dq-link {
+        background: none;
+        border: none;
+        padding: 0;
+        color: inherit;
+        font: inherit;
+        text-align: left;
+        &:hover:not(:disabled) { color: var(--accent); text-decoration: underline; }
+        &:disabled { cursor: default; }
+    }
+
+    // ---------------------------------------------------------------- Now calling banner
+    .dq-announce {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        margin: 12px 24px 0;
+        padding: 10px 16px;
+        border-radius: 14px;
+        color: #fff;
+        background: linear-gradient(110deg, var(--accent), $dq-aqua);
+        box-shadow: 0 10px 24px -12px var(--accent);
+        animation: dq-slide-in 0.35s ease-out, dq-glow 1.6s ease-in-out 3;
+        flex-shrink: 0;
+    }
+
+    .dq-announce-icon {
+        width: 38px;
+        height: 38px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.2);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 22px;
+        flex-shrink: 0;
+    }
+
+    .dq-announce-label {
+        font-size: 0.72rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        opacity: 0.9;
+    }
+
+    .dq-announce-token {
+        font-size: 1.6rem;
+        font-weight: 800;
+        letter-spacing: 0.02em;
+        padding: 0 14px;
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.18);
+        font-variant-numeric: tabular-nums;
+    }
+
+    .dq-announce-text { flex: 1; min-width: 0; font-size: 0.95rem; }
+
+    .dq-announce-close {
+        border: none;
+        background: rgba(255, 255, 255, 0.18);
+        color: #fff;
+        width: 30px;
+        height: 30px;
+        border-radius: 8px;
+        font-size: 18px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        &:hover { background: rgba(255, 255, 255, 0.3); }
+    }
+
+    // ---------------------------------------------------------------- Main area
+    .dq-main {
+        flex: 1;
+        min-height: 0;
+        padding: 16px 24px 20px;
+        overflow: auto;
+    }
+
+    .dq-state {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        gap: 10px;
+        color: $dq-text-2;
+
+        p { max-width: 460px; margin: 0; }
+    }
+
+    .dq-state-icon {
+        width: 72px;
+        height: 72px;
+        border-radius: 50%;
+        background: $dq-primary-soft;
+        color: $dq-primary;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 36px;
+    }
+
+    .dq-state-title { font-size: 1.1rem; font-weight: 700; color: $dq-text; }
+    .dq-spinner { color: $dq-primary; width: 2.5rem; height: 2.5rem; }
+
+    .dq-grid {
+        display: grid;
+        gap: 16px;
+        height: 100%;
+
+        &.layout-single { grid-template-columns: minmax(0, 1fr); }
+        &.layout-double { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        &.layout-multi {
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            grid-auto-rows: minmax(420px, 1fr);
+        }
+    }
+
+    // ---------------------------------------------------------------- Doctor card
+    .dq-card {
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+        background: #fff;
+        border: 1px solid $dq-border;
+        border-top: 4px solid var(--accent);
+        border-radius: $dq-radius;
+        box-shadow: $dq-shadow;
+        overflow: hidden;
+    }
+
+    .dq-card-head {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 0.85rem 1.75rem;
-        background: rgba(255, 255, 255, 0.95);
-        backdrop-filter: blur(16px);
-        -webkit-backdrop-filter: blur(16px);
-        border-bottom: 1px solid #e2e8f0;
-        box-shadow: 0 4px 15px -3px rgba(0, 0, 0, 0.03);
-        position: sticky;
-        top: 0;
-        z-index: 100;
-        gap: 1.5rem;
-
-        .header-left {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-
-            .clinic-brand-mark {
-                width: 44px;
-                height: 44px;
-                border-radius: 12px;
-                background: linear-gradient(135deg, #0284c7, #0369a1);
-                color: #ffffff;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                font-size: 1.35rem;
-                box-shadow: 0 4px 12px rgba(2, 132, 199, 0.25);
-            }
-
-            .clinic-info {
-                .clinic-title-row {
-                    display: flex;
-                    align-items: center;
-                    gap: 0.75rem;
-
-                    .clinic-name {
-                        margin: 0;
-                        font-size: 1.25rem;
-                        font-weight: 800;
-                        color: #0f172a;
-                        letter-spacing: -0.3px;
-                    }
-
-                    .live-status-pill {
-                        display: inline-flex;
-                        align-items: center;
-                        gap: 0.4rem;
-                        padding: 0.15rem 0.65rem;
-                        border-radius: 9999px;
-                        background: #ecfdf5;
-                        border: 1px solid #a7f3d0;
-                        color: #065f46;
-                        font-size: 0.75rem;
-                        font-weight: 800;
-                        letter-spacing: 0.5px;
-
-                        .pulse-dot {
-                            width: 8px;
-                            height: 8px;
-                            border-radius: 50%;
-                            background: #10b981;
-                            box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
-                            animation: queueLivePulse 1.8s infinite;
-                        }
-                    }
-                }
-
-                .clinic-address-row {
-                    font-size: 0.8rem;
-                    color: #64748b;
-                    font-weight: 500;
-                    margin-top: 0.15rem;
-                }
-            }
-        }
-
-        .header-center {
-            display: flex;
-            align-items: center;
-
-            .tv-stats-bar {
-                display: flex;
-                align-items: center;
-                gap: 0.75rem;
-                background: #f1f5f9;
-                padding: 0.35rem 0.5rem;
-                border-radius: 9999px;
-                border: 1px solid #e2e8f0;
-
-                .stat-pill {
-                    display: flex;
-                    align-items: center;
-                    gap: 0.4rem;
-                    padding: 0.3rem 0.85rem;
-                    background: #ffffff;
-                    border-radius: 9999px;
-                    border: 1px solid #e2e8f0;
-                    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
-
-                    .stat-val {
-                        font-weight: 800;
-                        font-size: 0.95rem;
-                        color: #0f172a;
-                    }
-
-                    .stat-lbl {
-                        font-size: 0.75rem;
-                        color: #64748b;
-                        font-weight: 600;
-                    }
-                }
-            }
-        }
-
-        .header-right {
-            display: flex;
-            align-items: center;
-            gap: 1.25rem;
-
-            .tv-clock-widget {
-                text-align: right;
-                padding-right: 0.5rem;
-                border-right: 1px solid #e2e8f0;
-
-                .clock-time {
-                    font-size: 1.3rem;
-                    font-weight: 800;
-                    color: #0f172a;
-                    letter-spacing: -0.5px;
-                    font-variant-numeric: tabular-nums;
-                }
-
-                .clock-date {
-                    font-size: 0.75rem;
-                    font-weight: 600;
-                    color: #64748b;
-                }
-            }
-
-            .header-action-btns {
-                display: flex;
-                align-items: center;
-                gap: 0.5rem;
-
-                .btn-tv-control {
-                    display: inline-flex;
-                    align-items: center;
-                    justify-content: center;
-                    height: 38px;
-                    padding: 0 0.85rem;
-                    border-radius: 10px;
-                    background: #ffffff;
-                    border: 1px solid #cbd5e1;
-                    color: #334155;
-                    font-size: 0.85rem;
-                    font-weight: 600;
-                    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-                    cursor: pointer;
-
-                    &:hover {
-                        background: #f8fafc;
-                        border-color: #94a3b8;
-                        transform: translateY(-1px);
-                        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-                    }
-
-                    &.btn-fullscreen-toggle {
-                        background: linear-gradient(135deg, #0284c7, #0369a1);
-                        border-color: #0284c7;
-                        color: #ffffff;
-                        box-shadow: 0 4px 10px rgba(2, 132, 199, 0.25);
-
-                        &:hover {
-                            background: linear-gradient(135deg, #0369a1, #075985);
-                        }
-                    }
-
-                    &.btn-switch-list {
-                        background: #ffffff;
-                        color: #475569;
-                    }
-                }
-            }
-        }
+        gap: 12px;
+        padding: 14px 18px;
+        border-bottom: 1px solid $dq-divider;
+        flex-shrink: 0;
     }
 
-    // 2. Main Board Content
-    .queue-operatory-board {
-        padding: 1.5rem 1.75rem;
-        flex: 1;
+    // Per-doctor "call token" speaker, pushed next to the counts
+    .dq-card-call {
+        margin-left: auto;
+        flex-shrink: 0;
+        &.is-on { color: var(--accent); background: var(--accent-tint); border-color: var(--accent-border); }
+    }
 
-        .queue-loading-state,
-        .queue-empty-board {
+    .dq-doctor {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-width: 0;
+    }
+
+    .dq-avatar {
+        position: relative;
+        width: 46px;
+        height: 46px;
+        border-radius: 50%;
+        flex-shrink: 0;
+        background: var(--accent-tint);
+        color: var(--accent);
+        box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--accent-border);
+        overflow: hidden;
+
+        .dq-avatar-initials {
+            position: absolute;
+            inset: 0;
             display: flex;
-            flex-direction: column;
             align-items: center;
             justify-content: center;
-            padding: 5rem 1rem;
-            text-align: center;
-
-            .empty-icon-box {
-                width: 90px;
-                height: 90px;
-                border-radius: 50%;
-                background: #f1f5f9;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-            }
-
-            .max-w-500 {
-                max-width: 500px;
-            }
+            font-weight: 700;
         }
 
-        .operatory-columns-grid {
-            display: grid;
-            gap: 1.5rem;
+        img {
+            position: absolute;
+            inset: 0;
             width: 100%;
-            align-items: start;
+            height: 100%;
+            object-fit: cover;
         }
+    }
 
-        // Operatory Card
-        .operatory-column-card {
-            background: #ffffff;
-            border-radius: 18px;
-            border: 1px solid #e2e8f0;
-            border-top: 5px solid var(--accent-color);
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.04), 0 8px 10px -6px rgba(0, 0, 0, 0.02);
-            overflow: hidden;
+    .dq-doctor-text { min-width: 0; }
+
+    .dq-doctor-name {
+        font-size: 1.02rem;
+        font-weight: 700;
+        margin: 0;
+        color: $dq-text;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .dq-doctor-sub {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: $dq-text-2;
+        font-size: 0.78rem;
+        min-width: 0;
+    }
+
+    .dq-operatory {
+        padding: 1px 8px;
+        border-radius: 999px;
+        background: var(--accent-tint);
+        color: var(--accent);
+        font-weight: 600;
+        white-space: nowrap;
+    }
+
+    .dq-doc-counts {
+        display: flex;
+        gap: 4px;
+        flex-shrink: 0;
+
+        > div {
             display: flex;
             flex-direction: column;
-            transition: all 0.25s ease;
-
-            &:hover {
-                box-shadow: 0 14px 30px -5px rgba(0, 0, 0, 0.07);
-            }
-
-            // Operatory Header
-            .operatory-card-header {
-                display: flex;
-                align-items: center;
-                justify-content: space-between;
-                padding: 1.15rem 1.25rem;
-                background: #ffffff;
-                border-bottom: 1px solid #f1f5f9;
-
-                .doctor-badge-info {
-                    display: flex;
-                    align-items: center;
-                    gap: 0.85rem;
-
-                    .doctor-avatar-circle {
-                        width: 46px;
-                        height: 46px;
-                        border-radius: 50%;
-                        overflow: hidden;
-                        border: 2px solid var(--border-color);
-                        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
-
-                        img {
-                            width: 100%;
-                            height: 100%;
-                            object-fit: cover;
-                        }
-                    }
-
-                    .doctor-meta {
-                        .doctor-heading-name {
-                            margin: 0;
-                            font-size: 1.15rem;
-                            font-weight: 800;
-                            letter-spacing: 0.3px;
-                            line-height: 1.2;
-                        }
-
-                        .operatory-sub-tag {
-                            font-size: 0.8rem;
-                            font-weight: 600;
-                            color: #64748b;
-                            margin-top: 0.15rem;
-                        }
-                    }
-                }
-
-                .queue-count-pill {
-                    display: flex;
-                    flex-direction: column;
-                    align-items: center;
-                    padding: 0.3rem 0.75rem;
-                    border-radius: 10px;
-                    border: 1px solid;
-                    font-weight: 800;
-
-                    .count-num {
-                        font-size: 1.1rem;
-                        line-height: 1;
-                    }
-
-                    .count-txt {
-                        font-size: 0.65rem;
-                        letter-spacing: 0.5px;
-                        margin-top: 0.1rem;
-                    }
-                }
-            }
-
-            // NOW SERVING HERO AREA
-            .now-serving-container {
-                padding: 1.15rem 1.25rem 0.75rem 1.25rem;
-
-                .serving-header-label {
-                    display: flex;
-                    align-items: center;
-                    gap: 0.4rem;
-                    font-size: 0.75rem;
-                    font-weight: 800;
-                    letter-spacing: 1.5px;
-                    color: #64748b;
-                    margin-bottom: 0.65rem;
-
-                    .serving-dot {
-                        width: 7px;
-                        height: 7px;
-                        border-radius: 50%;
-                        background: var(--accent-color);
-                        display: inline-block;
-                    }
-                }
-
-                .hero-token-card {
-                    background: var(--bg-tint);
-                    border: 1.5px solid var(--border-color);
-                    border-radius: 14px;
-                    padding: 1.25rem 1rem;
-                    text-align: center;
-                    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.02);
-
-                    .hero-token-number {
-                        font-size: 3.75rem;
-                        font-weight: 900;
-                        line-height: 1;
-                        letter-spacing: 2px;
-                        margin-bottom: 0.4rem;
-                        font-variant-numeric: tabular-nums;
-                    }
-
-                    .hero-patient-name {
-                        .p-name {
-                            font-size: 1.3rem;
-                            font-weight: 800;
-                            color: #0f172a;
-                        }
-
-                        .p-demo {
-                            font-size: 1rem;
-                            font-weight: 700;
-                            color: #475569;
-                        }
-                    }
-
-                    .hero-treatment-badge {
-                        display: inline-flex;
-                        align-items: center;
-                        margin-top: 0.5rem;
-                        padding: 0.25rem 0.75rem;
-                        background: #ffffff;
-                        border-radius: 9999px;
-                        border: 1px solid var(--border-color);
-                        font-size: 0.8rem;
-                        font-weight: 600;
-                        color: #334155;
-
-                        .elapsed-time {
-                            color: #059669;
-                            font-weight: 700;
-                        }
-                    }
-
-                    .hero-action-row {
-                        margin-top: 0.85rem;
-                    }
-
-                    &.hero-token-idle {
-                        padding: 2.5rem 1rem;
-
-                        .idle-token-placeholder {
-                            font-size: 2rem;
-                            font-weight: 800;
-                            color: #94a3b8;
-                            letter-spacing: 4px;
-                        }
-
-                        .idle-message {
-                            font-size: 0.95rem;
-                            font-weight: 600;
-                            color: #64748b;
-                            margin-top: 0.4rem;
-                        }
-
-                        .idle-action-box {
-                            margin-top: 0.85rem;
-                        }
-                    }
-                }
-            }
-
-            // WAITING QUEUE LIST
-            .waiting-queue-section {
-                padding: 0.75rem 1.25rem 1.15rem 1.25rem;
-                flex: 1;
-
-                .section-title-bar {
-                    display: flex;
-                    align-items: center;
-                    justify-content: space-between;
-                    margin-bottom: 0.65rem;
-
-                    .section-title {
-                        font-size: 0.75rem;
-                        font-weight: 800;
-                        letter-spacing: 1.2px;
-                        color: #64748b;
-                    }
-                }
-
-                .waiting-queue-scroll-area {
-                    max-height: 380px;
-                    overflow-y: auto;
-
-                    .waiting-patients-list {
-                        display: flex;
-                        flex-direction: column;
-                        gap: 0.5rem;
-
-                        .queue-row-item {
-                            display: flex;
-                            align-items: center;
-                            justify-content: space-between;
-                            padding: 0.65rem 0.85rem;
-                            background: #ffffff;
-                            border: 1px solid #f1f5f9;
-                            border-radius: 12px;
-                            transition: all 0.2s ease;
-
-                            &:hover {
-                                background: #f8fafc;
-                                border-color: #e2e8f0;
-                            }
-
-                            &.is-next-item {
-                                background: #f8fafc;
-                                border-color: var(--border-color);
-                                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
-                            }
-
-                            &.is-emergency-item {
-                                background: #fef2f2;
-                                border-color: #fecaca;
-                            }
-
-                            .queue-token-cell {
-                                display: flex;
-                                align-items: center;
-                                gap: 0.4rem;
-
-                                .token-code-pill {
-                                    font-size: 1rem;
-                                    font-weight: 800;
-                                    color: #1e293b;
-                                    padding: 0.2rem 0.5rem;
-                                    border-radius: 6px;
-                                    background: #f1f5f9;
-                                    border: 1px solid #e2e8f0;
-                                    font-variant-numeric: tabular-nums;
-
-                                    &.token-next-pill {
-                                        background: #ffffff;
-                                        border-width: 1.5px;
-                                        font-weight: 900;
-                                    }
-                                }
-
-                                .next-badge-chip {
-                                    color: #ffffff;
-                                    font-size: 0.65rem;
-                                    font-weight: 800;
-                                    padding: 0.15rem 0.45rem;
-                                    border-radius: 4px;
-                                    letter-spacing: 0.5px;
-                                }
-
-                                .emergency-badge-chip {
-                                    font-size: 0.65rem;
-                                    letter-spacing: 0.5px;
-                                }
-                            }
-
-                            .queue-patient-cell {
-                                flex: 1;
-                                margin: 0 0.75rem;
-
-                                .queue-patient-name-row {
-                                    .q-patient-name {
-                                        font-weight: 700;
-                                        font-size: 0.95rem;
-                                        color: #0f172a;
-                                    }
-
-                                    .q-patient-demo {
-                                        font-weight: 700;
-                                        font-size: 0.85rem;
-                                        color: #64748b;
-                                    }
-                                }
-
-                                .queue-treatment-sub {
-                                    font-size: 0.75rem;
-                                    color: #64748b;
-                                    font-weight: 500;
-                                }
-                            }
-
-                            .queue-action-cell {
-                                .btn-action-call {
-                                    background: #ffffff;
-                                    border: 1px solid;
-                                    font-size: 0.75rem;
-                                    font-weight: 700;
-                                    padding: 0.2rem 0.65rem;
-
-                                    &:hover {
-                                        background: var(--bg-tint);
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    .queue-empty-substate {
-                        padding: 2.5rem 1rem;
-                        text-align: center;
-                        background: #f8fafc;
-                        border-radius: 12px;
-                        border: 1px dashed #cbd5e1;
-                    }
-                }
-            }
-
-            // UPCOMING TODAY COMPACT PREVIEW
-            .upcoming-preview-section {
-                padding: 0.75rem 1.25rem 1rem 1.25rem;
-                border-top: 1px solid #f1f5f9;
-                background: #fafafa;
-
-                .upcoming-header {
-                    margin-bottom: 0.5rem;
-
-                    .upcoming-title {
-                        font-size: 0.7rem;
-                        font-weight: 800;
-                        letter-spacing: 1px;
-                        color: #94a3b8;
-                    }
-                }
-
-                .upcoming-items-list {
-                    display: flex;
-                    flex-direction: column;
-                    gap: 0.4rem;
-
-                    .upcoming-row-compact {
-                        display: flex;
-                        align-items: center;
-                        font-size: 0.8rem;
-                        padding: 0.25rem 0.4rem;
-                        border-radius: 6px;
-                        background: #ffffff;
-                        border: 1px solid #f1f5f9;
-
-                        .up-p-name {
-                            font-weight: 600;
-                            color: #334155;
-                            max-width: 180px;
-                        }
-                    }
-                }
-            }
+            align-items: center;
+            min-width: 52px;
+            padding: 4px 6px;
+            border-radius: 10px;
+            background: $dq-canvas;
         }
+
+        > div:first-child { background: var(--accent-tint); color: var(--accent); }
     }
 
-    // 3. TV Fullscreen Mode Specific Adjustments
-    &.tv-fullscreen-mode {
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        width: 100vw;
-        height: 100vh;
-        z-index: 999999;
+    .dq-count-value { font-size: 1.05rem; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
+    .dq-count-label { font-size: 0.62rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: $dq-text-3; }
+    .dq-doc-counts > div:first-child .dq-count-label { color: inherit; opacity: 0.8; }
+
+    .dq-card-body {
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        padding: 14px 18px 16px;
+    }
+
+    .dq-section-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 8px;
+    }
+
+    .dq-section-label {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.68rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: $dq-text-3;
+    }
+
+    .dq-serving > .dq-section-label { margin-bottom: 8px; }
+
+    .dq-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--accent);
+        animation: dq-pulse 1.8s infinite;
+    }
+
+    .dq-pill {
+        font-size: 0.72rem;
+        font-weight: 600;
+        color: $dq-text-2;
+        background: $dq-canvas;
+        border: 1px solid $dq-divider;
+        border-radius: 999px;
+        padding: 1px 10px;
+    }
+
+    // ---------------------------------------------------------------- Now serving
+    .dq-serving { flex-shrink: 0; }
+
+    .dq-serving-card {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        text-align: center;
+        padding: 18px 16px;
+        border-radius: 14px;
+        border: 1px solid var(--accent-border);
+        background: linear-gradient(180deg, var(--accent-tint), #fff 85%);
+
+        &.is-active { box-shadow: inset 0 0 0 2px var(--accent-border); }
+    }
+
+    .dq-serving-token {
+        font-size: 3rem;
+        font-weight: 800;
+        line-height: 1;
+        letter-spacing: 0.02em;
+        color: var(--accent);
+        font-variant-numeric: tabular-nums;
+    }
+
+    .dq-serving-patient {
+        font-size: 1.05rem;
+        font-weight: 700;
+    }
+
+    .dq-demo {
+        color: $dq-text-3;
+        font-weight: 500;
+        margin-left: 6px;
+        font-size: 0.85em;
+    }
+
+    .dq-serving-meta {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 6px;
+    }
+
+    .dq-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 3px 10px;
+        border-radius: 999px;
+        background: #fff;
+        border: 1px solid $dq-divider;
+        color: $dq-text-2;
+        font-size: 0.76rem;
+        font-weight: 600;
+
+        .oi { color: var(--accent); font-size: 15px; }
+    }
+
+    .dq-idle-icon {
+        width: 52px;
+        height: 52px;
+        border-radius: 50%;
+        background: #fff;
+        color: var(--accent);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 28px;
+        box-shadow: 0 0 0 6px var(--accent-tint);
+    }
+
+    .dq-idle-title { font-size: 1rem; font-weight: 700; }
+    .dq-idle-sub { color: $dq-text-2; font-size: 0.82rem; }
+
+    // ---------------------------------------------------------------- Waiting queue
+    .dq-queue {
+        flex: 1;
+        min-height: 120px;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .dq-queue-scroll {
+        flex: 1;
+        min-height: 0;
         overflow-y: auto;
-        padding-bottom: 0;
-        background: #f8fafc;
+        margin: 0 -6px;
+        padding: 0 6px;
+        scrollbar-width: thin;
+        scrollbar-color: #b9e4e8 transparent;
+    }
 
-        .queue-tv-header {
-            padding: 1.25rem 2.5rem;
+    .dq-queue-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
 
-            .clinic-name {
-                font-size: 1.6rem !important;
-            }
+    .dq-queue-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 10px;
+        border-radius: 12px;
+        border: 1px solid $dq-divider;
+        background: #fff;
+        transition: border-color 0.15s ease, background-color 0.15s ease;
 
-            .clock-time {
-                font-size: 1.75rem !important;
-            }
+        &:hover { border-color: var(--accent-border); }
 
-            .header-action-btns {
-                .btn-switch-list {
-                    display: none !important;
-                }
-            }
+        &.is-next {
+            border-color: var(--accent-border);
+            background: var(--accent-tint);
+            .dq-token { background: var(--accent); color: #fff; border-color: var(--accent); }
         }
 
-        .queue-operatory-board {
-            padding: 2rem 2.5rem;
-
-            .hero-token-number {
-                font-size: 5rem !important;
-            }
-
-            .doctor-heading-name {
-                font-size: 1.4rem !important;
-            }
-
-            .p-name {
-                font-size: 1.6rem !important;
-            }
-
-            .p-demo {
-                font-size: 1.25rem !important;
-            }
-
-            .queue-row-item {
-                padding: 0.85rem 1rem !important;
-
-                .token-code-pill {
-                    font-size: 1.25rem !important;
-                }
-
-                .q-patient-name {
-                    font-size: 1.15rem !important;
-                }
-
-                .q-patient-demo {
-                    font-size: 1rem !important;
-                }
-
-                .next-badge-chip {
-                    font-size: 0.8rem !important;
-                    padding: 0.2rem 0.6rem !important;
-                }
-            }
-        }
-
-        .btn-floating-tv-exit {
-            position: fixed;
-            bottom: 2rem;
-            right: 2.5rem;
-            background: rgba(15, 23, 42, 0.85);
-            backdrop-filter: blur(8px);
-            color: #ffffff;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            padding: 0.65rem 1.25rem;
-            border-radius: 9999px;
-            font-size: 0.85rem;
-            font-weight: 700;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
-            cursor: pointer;
-            z-index: 1000000;
-            transition: all 0.2s ease;
-
-            &:hover {
-                background: #0f172a;
-                transform: scale(1.05);
-            }
-        }
+        &.is-emergency { border-left: 4px solid $dq-danger; }
     }
-}
 
-@keyframes queueLivePulse {
-    0% {
-        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+    .dq-pos {
+        width: 18px;
+        text-align: center;
+        font-weight: 700;
+        color: $dq-text-3;
+        font-variant-numeric: tabular-nums;
+        flex-shrink: 0;
     }
-    70% {
-        box-shadow: 0 0 0 7px rgba(16, 185, 129, 0);
+
+    .dq-token {
+        min-width: 64px;
+        text-align: center;
+        padding: 4px 8px;
+        border-radius: 8px;
+        border: 1.5px solid var(--accent-border);
+        color: var(--accent);
+        font-weight: 800;
+        font-variant-numeric: tabular-nums;
+        flex-shrink: 0;
     }
-    100% {
-        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+
+    .dq-queue-main { flex: 1; min-width: 0; }
+
+    .dq-queue-name {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-weight: 700;
+        min-width: 0;
+    }
+
+    .dq-queue-sub {
+        color: $dq-text-2;
+        font-size: 0.78rem;
+    }
+
+    .dq-tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 2px;
+        flex-shrink: 0;
+        font-size: 0.62rem;
+        font-weight: 800;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        border-radius: 5px;
+        padding: 1px 6px;
+
+        .oi { font-size: 12px; }
+    }
+
+    .dq-tag-next { background: var(--accent); color: #fff; }
+    .dq-tag-emergency { background: $dq-danger-soft; color: $dq-danger; }
+
+    .dq-wait {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        color: $dq-text-2;
+        font-size: 0.76rem;
+        font-weight: 600;
+        white-space: nowrap;
+        font-variant-numeric: tabular-nums;
+        flex-shrink: 0;
+
+        .oi { font-size: 15px; }
+        &.is-long { color: $dq-warning; }
+        &.is-critical { color: $dq-danger; }
+    }
+
+    .dq-queue-empty {
+        height: 100%;
+        min-height: 80px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        color: $dq-text-3;
+        border: 1.5px dashed $dq-border;
+        border-radius: 12px;
+        font-weight: 600;
+
+        .oi { color: $dq-success; font-size: 20px; }
+    }
+
+    // ---------------------------------------------------------------- Upcoming
+    .dq-upcoming {
+        flex-shrink: 0;
+        padding-top: 12px;
+        border-top: 1px solid $dq-divider;
+    }
+
+    .dq-upcoming-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .dq-upcoming-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .dq-time {
+        min-width: 72px;
+        font-size: 0.76rem;
+        font-weight: 700;
+        color: $dq-primary-dark;
+        background: $dq-primary-soft;
+        border-radius: 6px;
+        padding: 2px 8px;
+        text-align: center;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .dq-upcoming-name { flex: 1; font-weight: 600; }
+
+    // ---------------------------------------------------------------- Single doctor: two-pane card
+    .layout-single .dq-card-body {
+        display: grid;
+        grid-template-columns: minmax(320px, 0.85fr) minmax(0, 1.15fr);
+        grid-template-rows: minmax(0, 1fr) auto;
+        gap: 16px 24px;
+
+        .dq-serving { grid-row: 1 / span 2; display: flex; flex-direction: column; }
+        .dq-serving-card { flex: 1; }
+        .dq-serving-token { font-size: 5rem; }
+        .dq-serving-patient { font-size: 1.35rem; }
+        .dq-queue { grid-column: 2; min-height: 0; }
+        .dq-upcoming { grid-column: 2; }
+    }
+
+    // ---------------------------------------------------------------- TV footer
+    .dq-tv-footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 10px 24px;
+        background: $dq-primary-dark;
+        color: rgba(255, 255, 255, 0.9);
+        font-size: 1rem;
+        flex-shrink: 0;
+
+        .oi { vertical-align: -3px; }
+    }
+
+    .dq-tv-exit {
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        background: transparent;
+        color: #fff;
+        border-radius: 8px;
+        padding: 4px 12px;
+        opacity: 0.6;
+        &:hover { opacity: 1; }
+    }
+
+    // ---------------------------------------------------------------- TV mode (large, read-only)
+    &.is-tv {
+        font-size: 1.05rem;
+
+        .dq-header { padding: 16px 32px; }
+        .dq-brand-mark { width: 60px; height: 60px; font-size: 32px; }
+        .dq-clinic { font-size: 1.6rem; }
+        .dq-stat-value { font-size: 1.5rem; }
+        .dq-clock-time { font-size: 2.2rem; }
+        .dq-clock { border-right: none; padding-right: 0; }
+        .dq-main { padding: 20px 32px; }
+        .dq-announce { margin: 16px 32px 0; padding: 16px 24px; }
+        .dq-announce-token { font-size: 2.6rem; }
+        .dq-announce-text { font-size: 1.3rem; }
+        .dq-doctor-name { font-size: 1.3rem; }
+        .dq-serving-token { font-size: 4.2rem; }
+        .layout-single .dq-serving-token { font-size: 7rem; }
+        .dq-queue-item { padding: 12px 14px; }
+        .dq-token { font-size: 1.2rem; min-width: 84px; }
+        .dq-queue-name { font-size: 1.1rem; }
+    }
+
+    // ---------------------------------------------------------------- Responsive
+    // Laptop widths: keep the header on one row (icon-only buttons keep their tooltips)
+    @media (max-width: 1599.98px) {
+        .dq-header { gap: 12px 16px; padding: 10px 18px; }
+        .dq-header-end { gap: 12px; }
+        .dq-clock { padding-right: 12px; }
+        .dq-btn-label { display: none; }
+        .dq-controls .dq-btn { width: 38px; padding: 0; }
+        .dq-stat { padding: 5px 10px 5px 6px; gap: 8px; }
+        .dq-stat-icon { width: 28px; height: 28px; font-size: 16px; }
+        .dq-address { display: none; }
+        .dq-main { padding: 12px 18px 14px; }
+        .dq-announce { margin: 10px 18px 0; }
+    }
+
+    @media (max-width: 1279.98px) {
+        .dq-stat-icon { display: none; }
+    }
+
+    // Short screens: compact "Now serving" so the waiting queue keeps its space
+    @media (max-height: 860px) {
+        .dq-card-head { padding: 10px 14px; }
+        .dq-card-body { padding: 10px 14px 12px; gap: 10px; }
+        .dq-serving-card { padding: 10px 12px; gap: 5px; }
+        .dq-serving-token { font-size: 2.2rem; }
+        .dq-idle-icon { display: none; }
+        .dq-upcoming { padding-top: 8px; }
+        .dq-upcoming-item:nth-child(n + 2) { display: none; }
+        .dq-queue-item { padding: 6px 8px; }
+    }
+
+    @media (max-width: 991.98px) {
+        overflow: auto;
+        height: auto;
+        min-height: 100%;
+
+        .dq-header { grid-template-columns: 1fr; padding: 12px 16px; }
+        .dq-header-end { justify-content: space-between; flex-wrap: wrap; }
+        .dq-stats { flex-wrap: wrap; }
+        .dq-main { overflow: visible; padding: 12px 16px; }
+        .dq-grid { height: auto; }
+        .dq-grid.layout-double { grid-template-columns: minmax(0, 1fr); }
+        .layout-single .dq-card-body { display: flex; }
+        .dq-queue-scroll { max-height: 420px; }
+        .dq-announce { margin: 12px 16px 0; flex-wrap: wrap; }
+    }
+
+    @keyframes dq-pulse {
+        0% { box-shadow: 0 0 0 0 rgba(21, 128, 61, 0.45); }
+        70% { box-shadow: 0 0 0 7px rgba(21, 128, 61, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(21, 128, 61, 0); }
+    }
+
+    @keyframes dq-slide-in {
+        from { opacity: 0; transform: translateY(-8px); }
+        to { opacity: 1; transform: none; }
+    }
+
+    @keyframes dq-glow {
+        50% { filter: brightness(1.12); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .dq-live-dot, .dq-dot, .dq-announce { animation: none; }
     }
 }

@@ -2,43 +2,73 @@
 
 import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
-import { Component, onWillStart, proxy, markup } from "@odoo/owl";
+import { Component, onWillStart, onWillUnmount, proxy, markup } from "@odoo/owl";
 import { user } from "@web/core/user";
+import { FormViewDialog } from "@web/views/view_dialogs/form_view_dialog";
+
+const SEARCH_DELAY_MS = 250;
+
+// YYYY-MM-DD in the browser's local time (toISOString() would give the UTC date)
+function toLocalDateStr(d) {
+    const pad = (n) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+function parseDateStr(s) {
+    const [y, m, d] = s.split("-").map(Number);
+    return new Date(y, m - 1, d);
+}
 
 export class BookAppointmentFlow extends Component {
     setup() {
         this.orm = useService("orm");
         this.action = useService("action");
         this.notification = useService("notification");
+        this.dialog = useService("dialog");
 
-        const todayStr = new Date().toISOString().split("T")[0];
+        const todayStr = toLocalDateStr(new Date());
 
         this.state = proxy({
-            step: 1, // 1: Patient, 2: Type, 3: Doctor, 4: Slots, 5: Form, 6: Success
-            patientType: "new", // 'new' | 'returning'
+            step: 1, // 1: Patient, 2: Type, 3: Doctor, 4: Slots, 5: Confirm, 6: Success
+            // Staff book for registered patients only; new patients are registered first (popup)
+            patientType: "returning",
             searchIdentifier: "",
             searchingPatient: false,
             searchMessage: "",
+            suggestions: [],
+            showSuggestions: false,
+            activeIndex: -1,
             foundPatient: null,
 
-            // Step 2: Types
+            // Step 2: Services (appointment types + catalog treatments)
             types: [],
+            serviceSearch: "",
+            selectedServiceKey: null,
             selectedTypeId: null,
+            selectedTreatmentId: null,
             selectedTypeName: "",
             selectedTypeDuration: 30,
 
             // Step 3: Doctors
             doctors: [],
+            doctorSearch: "",
             selectedDoctorId: null, // null = Any Specialist
             selectedDoctorName: "Any Specialist",
             selectedDoctorSpec: "Dental Specialist",
 
-            // Step 4: Schedule & Slots
+            // Step 4: Schedule & Slots (times are clinic-local, computed by the server)
+            todayDate: todayStr,
             selectedDate: todayStr,
+            dateLabel: "",
             slots: [],
+            slotPeriods: [],
+            slotMessage: "",
+            nextAvailableDate: false,
+            nextAvailableLabel: "",
             loadingSlots: false,
             selectedSlotTime: null,
             selectedSlotLabel: "",
+            selectedSlotEndLabel: "",
 
             // Step 5: Patient Details Form
             firstName: "",
@@ -64,6 +94,8 @@ export class BookAppointmentFlow extends Component {
                 address: ""
             }
         });
+
+        onWillUnmount(() => clearTimeout(this._searchTimer));
 
         onWillStart(async () => {
             try {
@@ -107,24 +139,21 @@ export class BookAppointmentFlow extends Component {
 
     async loadInitialData() {
         try {
-            // 1. Load appointment types
-            const types = await this.orm.searchRead(
-                "dental.appointment.type",
-                [["active", "=", true]],
-                ["id", "name", "duration", "description", "price"],
-                { order: "id asc" }
-            );
-            this.state.types = types || [];
+            // 1. Load every bookable service for the current branch
+            const res = await this.orm.call("dental.appointment", "get_bookable_services", [], {
+                branch_id: user.activeCompany?.id || false,
+            });
+            this.state.types = (res && res.services) || [];
             if (this.state.types.length > 0) {
-                this.state.selectedTypeId = this.state.types[0].id;
-                this.state.selectedTypeName = this.state.types[0].name;
-                this.state.selectedTypeDuration = this.state.types[0].duration || 30;
+                this.applyService(this.state.types[0]);
             }
 
-            // 2. Load dentists
+            // 2. Load dentists of the current branch (or shared across branches)
+            const branchId = user.activeCompany?.id;
             const doctors = await this.orm.searchRead(
                 "hr.employee",
-                [["is_dentist", "=", true], ["active", "=", true]],
+                [["is_dentist", "=", true], ["active", "=", true],
+                 ...(branchId ? ["|", ["company_id", "=", false], ["company_id", "=", branchId]] : [])],
                 ["id", "name", "job_title", "work_email", "work_phone"],
                 { order: "id asc" }
             );
@@ -150,7 +179,29 @@ export class BookAppointmentFlow extends Component {
         }
     }
 
+    get steps() {
+        return [
+            { number: 1, label: "Patient", icon: "fa-user" },
+            { number: 2, label: "Service", icon: "fa-stethoscope" },
+            { number: 3, label: "Dentist", icon: "fa-user-md" },
+            { number: 4, label: "Schedule", icon: "fa-calendar-check-o" },
+            { number: 5, label: "Confirm", icon: "fa-check-square-o" },
+        ];
+    }
+
+    canGoToStep(targetStep) {
+        if (targetStep === 1) return true;
+        if (targetStep === 2) return Boolean(this.state.foundPatient);
+        if (targetStep === 3) return Boolean(this.state.foundPatient && this.state.selectedServiceKey);
+        if (targetStep === 4) return Boolean(this.state.foundPatient && this.state.selectedServiceKey);
+        if (targetStep === 5) return Boolean(this.state.foundPatient && this.state.selectedServiceKey && this.state.selectedSlotTime);
+        return false;
+    }
+
     goToStep(stepNumber) {
+        if (stepNumber > this.state.step && !this.canGoToStep(stepNumber)) {
+            return;
+        }
         this.state.errorMessage = "";
         if (stepNumber === 4) {
             this.fetchSlots();
@@ -158,60 +209,172 @@ export class BookAppointmentFlow extends Component {
         this.state.step = stepNumber;
     }
 
-    // Step 1: Patient Type & Lookup
-    setPatientType(type) {
-        this.state.patientType = type;
-        this.state.searchMessage = "";
-        if (type === "new") {
-            this.state.foundPatient = null;
+    get filteredServices() {
+        const q = (this.state.serviceSearch || "").toLowerCase().trim();
+        if (!q) return this.state.types;
+        return this.state.types.filter(t => 
+            (t.name && t.name.toLowerCase().includes(q)) || 
+            (t.description && t.description.toLowerCase().includes(q))
+        );
+    }
+
+    clearServiceSearch() {
+        this.state.serviceSearch = "";
+    }
+
+    get filteredDoctors() {
+        const q = (this.state.doctorSearch || "").toLowerCase().trim();
+        if (!q) return this.state.doctors;
+        return this.state.doctors.filter(d => 
+            (d.name && d.name.toLowerCase().includes(q)) || 
+            (d.job_title && d.job_title.toLowerCase().includes(q))
+        );
+    }
+
+    clearDoctorSearch() {
+        this.state.doctorSearch = "";
+    }
+
+    // ------------------------------------------------------------------
+    // Step 1: find the registered patient (name, phone, email or Patient ID)
+    // ------------------------------------------------------------------
+
+    onSearchInput(ev) {
+        this.state.searchIdentifier = ev.target.value;
+        clearTimeout(this._searchTimer);
+        const term = this.state.searchIdentifier.trim();
+        if (term.length < 2) {
+            this.state.suggestions = [];
+            this.state.showSuggestions = false;
+            this.state.searchMessage = "";
+            return;
+        }
+        this._searchTimer = setTimeout(() => this.runSearch(term), SEARCH_DELAY_MS);
+    }
+
+    async runSearch(term = (this.state.searchIdentifier || "").trim()) {
+        clearTimeout(this._searchTimer);
+        if (term.length < 2) {
+            this.state.searchMessage = "Type at least 2 characters of the name, phone, email or Patient ID.";
+            return;
+        }
+        const requestId = (this._searchRequest = (this._searchRequest || 0) + 1);
+        this.state.searchingPatient = true;
+        try {
+            const results = await this.orm.call("dental.appointment", "search_booking_patients", [], {
+                term,
+                limit: 8,
+            });
+            if (requestId !== this._searchRequest) {
+                return; // a newer search is running (fast typing)
+            }
+            this.state.suggestions = results || [];
+            this.state.activeIndex = this.state.suggestions.length ? 0 : -1;
+            this.state.showSuggestions = true;
+            this.state.searchMessage = this.state.suggestions.length
+                ? ""
+                : `No patient found for "${term}". Check the spelling or register a new patient.`;
+        } catch (err) {
+            this.state.searchMessage = "Search failed: " + (err.message || err);
+        } finally {
+            if (requestId === this._searchRequest) {
+                this.state.searchingPatient = false;
+            }
         }
     }
 
-    async lookupPatient() {
-        const idVal = (this.state.searchIdentifier || "").trim();
-        if (!idVal) {
-            this.state.searchMessage = "Please enter a phone number, email, or Patient ID.";
+    onSearchKeydown(ev) {
+        const list = this.state.suggestions;
+        if (ev.key === "ArrowDown" && list.length) {
+            ev.preventDefault();
+            this.state.showSuggestions = true;
+            this.state.activeIndex = (this.state.activeIndex + 1) % list.length;
+        } else if (ev.key === "ArrowUp" && list.length) {
+            ev.preventDefault();
+            this.state.activeIndex = (this.state.activeIndex - 1 + list.length) % list.length;
+        } else if (ev.key === "Enter") {
+            ev.preventDefault();
+            // Enter picks the highlighted suggestion; it never skips the explicit choice
+            if (this.state.showSuggestions && list[this.state.activeIndex]) {
+                this.selectPatient(list[this.state.activeIndex]);
+            } else {
+                this.runSearch();
+            }
+        } else if (ev.key === "Escape") {
+            this.state.showSuggestions = false;
+        }
+    }
+
+    onSearchBlur() {
+        // Let a click on a suggestion land first
+        setTimeout(() => (this.state.showSuggestions = false), 150);
+    }
+
+    onSearchFocus() {
+        if (this.state.suggestions.length && !this.state.foundPatient) {
+            this.state.showSuggestions = true;
+        }
+    }
+
+    onSuggestionMouseDown(ev, p) {
+        ev.preventDefault(); // keep focus so the blur handler does not close the list first
+        this.selectPatient(p);
+    }
+
+    onRegisterLinkClick(ev) {
+        ev.preventDefault();
+        this.registerNewPatient();
+    }
+
+    selectPatient(p) {
+        this.state.foundPatient = p;
+        this.state.patientType = "returning";
+        this.state.showSuggestions = false;
+        this.state.searchMessage = "";
+        this.state.searchIdentifier = p.name || "";
+        const parts = (p.name || "").trim().split(" ");
+        this.state.firstName = parts[0] || "";
+        this.state.lastName = parts.slice(1).join(" ") || "";
+        this.state.phone = p.phone || "";
+        this.state.email = p.email || "";
+        this.state.dob = p.date_of_birth || "";
+        this.state.gender = p.gender || "male";
+    }
+
+    clearPatient() {
+        this.state.foundPatient = null;
+        this.state.searchIdentifier = "";
+        this.state.suggestions = [];
+        this.state.showSuggestions = false;
+        this.state.searchMessage = "";
+    }
+
+    continueWithPatient() {
+        if (!this.state.foundPatient) {
+            this.state.searchMessage = "Select the patient from the search results first.";
             return;
         }
+        this.goToStep(2);
+    }
 
-        this.state.searchingPatient = true;
-        this.state.searchMessage = "Looking up patient records...";
-
-        try {
-            const res = await this.orm.call(
-                "dental.appointment",
-                "check_patient",
-                [],
-                { identifier: idVal }
-            );
-
-            this.state.searchingPatient = false;
-            if (res && res.found) {
-                const p = res.patient || res;
-                this.state.foundPatient = p;
-                this.state.searchMessage = `Found patient: ${p.name} (${p.dental_patient_id || ""})`;
-
-                // Pre-fill details
-                const parts = (p.name || "").split(" ");
-                this.state.firstName = parts[0] || "";
-                this.state.lastName = parts.slice(1).join(" ") || "";
-                this.state.phone = p.phone || idVal;
-                this.state.email = p.email || "";
-                this.state.dob = p.date_of_birth || "";
-                this.state.gender = p.gender || "male";
-
-                // Automatically proceed to service selection after short delay
-                setTimeout(() => {
-                    this.goToStep(2);
-                }, 600);
-            } else {
-                this.state.foundPatient = null;
-                this.state.searchMessage = res.message || `No record found for "${idVal}". You can continue as a New Patient.`;
-            }
-        } catch (err) {
-            this.state.searchingPatient = false;
-            this.state.searchMessage = "Lookup failed: " + (err.message || err);
-        }
+    registerNewPatient() {
+        // Patient registration form in a popup: the booking in progress is kept and the new patient is selected
+        this.dialog.add(FormViewDialog, {
+            resModel: "res.partner",
+            title: "Register New Patient",
+            context: {
+                default_is_dental_patient: true,
+                default_customer_rank: 1,
+                default_name: /\d/.test(this.state.searchIdentifier) ? "" : this.state.searchIdentifier.trim(),
+            },
+            onRecordSaved: async (record) => {
+                const patient = await this.orm.call("dental.appointment", "get_booking_patient", [record.resId]);
+                if (patient) {
+                    this.selectPatient(patient);
+                    this.notification.add(`${patient.name} registered and selected.`, { type: "success" });
+                }
+            },
+        });
     }
 
     // Procedure Type Icon & Class Helpers
@@ -306,11 +469,27 @@ export class BookAppointmentFlow extends Component {
     }
 
     // Step 2: Appointment Type Selection
-    selectType(type) {
-        this.state.selectedTypeId = type.id;
-        this.state.selectedTypeName = type.name;
-        this.state.selectedTypeDuration = type.duration || 30;
+    applyService(service) {
+        this.state.selectedServiceKey = service.key;
+        this.state.selectedTypeId = service.appointment_type_id || null;
+        this.state.selectedTreatmentId = service.treatment_id || null;
+        this.state.selectedTypeName = service.name;
+        this.state.selectedTypeDuration = service.duration || 30;
+    }
+
+    selectType(service) {
+        if (service.key !== this.state.selectedServiceKey) {
+            // A different service has a different length: the chosen time must be re-picked
+            this.clearSlotSelection();
+        }
+        this.applyService(service);
         this.goToStep(3);
+    }
+
+    clearSlotSelection() {
+        this.state.selectedSlotTime = null;
+        this.state.selectedSlotLabel = "";
+        this.state.selectedSlotEndLabel = "";
     }
 
     // Step 3: Doctor Selection
@@ -329,14 +508,53 @@ export class BookAppointmentFlow extends Component {
 
     // Step 4: Slots & Date
     async onDateChange(ev) {
-        this.state.selectedDate = ev.target.value;
-        this.state.selectedSlotTime = null;
+        await this.setDate(ev.target.value);
+    }
+
+    async setDate(dateStr) {
+        if (!dateStr) return;
+        // Never go before today
+        this.state.selectedDate = dateStr < this.state.todayDate ? this.state.todayDate : dateStr;
         await this.fetchSlots();
+    }
+
+    async shiftDate(days) {
+        const d = parseDateStr(this.state.selectedDate);
+        d.setDate(d.getDate() + days);
+        await this.setDate(toLocalDateStr(d));
+    }
+
+    get canGoToPreviousDay() {
+        return this.state.selectedDate > this.state.todayDate;
+    }
+
+    // Quick-pick chips for the next 7 days
+    get upcomingDays() {
+        const days = [];
+        const start = parseDateStr(this.state.todayDate);
+        for (let i = 0; i < 7; i++) {
+            const d = new Date(start);
+            d.setDate(start.getDate() + i);
+            days.push({
+                value: toLocalDateStr(d),
+                weekday: i === 0 ? "Today" : i === 1 ? "Tomorrow" : d.toLocaleDateString(undefined, { weekday: "short" }),
+                day: d.toLocaleDateString(undefined, { day: "numeric", month: "short" }),
+            });
+        }
+        return days;
+    }
+
+    get availableSlotCount() {
+        return this.state.slots.filter((s) => s.available).length;
+    }
+
+    slotsForPeriod(periodKey) {
+        return this.state.slots.filter((s) => s.period === periodKey);
     }
 
     async fetchSlots() {
         this.state.loadingSlots = true;
-        this.state.selectedSlotTime = null;
+        this.clearSlotSelection();
         try {
             const res = await this.orm.call(
                 "dental.appointment",
@@ -345,13 +563,24 @@ export class BookAppointmentFlow extends Component {
                 {
                     date: this.state.selectedDate,
                     doctor_id: this.state.selectedDoctorId,
-                    duration: this.state.selectedTypeDuration
+                    duration: this.state.selectedTypeDuration,
+                    branch_id: user.activeCompany?.id || false,
                 }
             );
-            this.state.slots = (res && res.slots) ? res.slots : [];
+            this.state.slots = res?.slots || [];
+            this.state.slotPeriods = res?.periods || [];
+            this.state.slotMessage = res?.message || "";
+            this.state.dateLabel = res?.date_label || this.state.selectedDate;
+            this.state.nextAvailableDate = res?.next_available_date || false;
+            this.state.nextAvailableLabel = res?.next_available_label || "";
+            if (res?.today) {
+                this.state.todayDate = res.today;  // clinic's "today" wins over the browser's
+            }
         } catch (e) {
             console.error("Error loading slots:", e);
             this.state.slots = [];
+            this.state.slotPeriods = [];
+            this.state.slotMessage = "Could not load availability. Please try again.";
         } finally {
             this.state.loadingSlots = false;
         }
@@ -361,6 +590,7 @@ export class BookAppointmentFlow extends Component {
         if (!slot.available) return;
         this.state.selectedSlotTime = slot.time;
         this.state.selectedSlotLabel = slot.label;
+        this.state.selectedSlotEndLabel = slot.end_label || "";
     }
 
     // Step 5: Insurance toggle
@@ -372,19 +602,14 @@ export class BookAppointmentFlow extends Component {
     async submitBooking() {
         this.state.errorMessage = "";
 
-        const fName = (this.state.firstName || "").trim();
-        const lName = (this.state.lastName || "").trim();
-        const fullName = `${fName} ${lName}`.trim();
-        const phone = (this.state.phone || "").trim();
-
-        if (!fullName) {
-            this.state.errorMessage = "Please enter patient's name.";
+        // Bookings are always for a registered patient (their details are kept in the patient record)
+        if (!this.state.foundPatient) {
+            this.state.errorMessage = "Please select the patient first.";
+            this.goToStep(1);
             return;
         }
-        if (!phone) {
-            this.state.errorMessage = "Please enter patient's mobile phone number.";
-            return;
-        }
+        const fullName = this.state.foundPatient.name;
+        const phone = this.state.foundPatient.phone || "";
         if (!this.state.selectedDate || !this.state.selectedSlotTime) {
             this.state.errorMessage = "Please select an appointment date and time slot.";
             return;
@@ -405,6 +630,8 @@ export class BookAppointmentFlow extends Component {
             dob: this.state.dob || false,
             gender: this.state.gender,
             appointment_type_id: this.state.selectedTypeId,
+            treatment_id: this.state.selectedTreatmentId,
+            branch_id: user.activeCompany?.id || false,
             doctor_id: this.state.selectedDoctorId,
             appointment_date: this.state.selectedDate,
             appointment_time: this.state.selectedSlotTime,
@@ -413,7 +640,8 @@ export class BookAppointmentFlow extends Component {
             duration: this.state.selectedTypeDuration,
             duration_minutes: this.state.selectedTypeDuration,
             notes: fullNotes,
-            priority: this.state.priority || "1"
+            priority: this.state.priority || "1",
+            ...this.getExtraBookingParams(),
         };
 
         this.state.submitting = true;
@@ -435,11 +663,25 @@ export class BookAppointmentFlow extends Component {
                 });
             } else {
                 this.state.errorMessage = (res && res.error) || "Failed to book appointment. Please verify details.";
+                if (/no longer available|not available at|booked at|outside clinic hours/i.test(this.state.errorMessage)) {
+                    // Someone took the slot meanwhile: refresh and send the user back to pick another time
+                    const message = this.state.errorMessage;
+                    this.goToStep(4);
+                    this.state.errorMessage = message;
+                }
             }
         } catch (err) {
             this.state.submitting = false;
             this.state.errorMessage = "Booking failed: " + (err.message || err);
         }
+    }
+
+    /**
+     * Extra values sent to create_appointment_booking. Extension point for add-ons
+     * (e.g. dental_teleconsult adds the consultation mode).
+     */
+    getExtraBookingParams() {
+        return {};
     }
 
     // Success Screen Actions
@@ -456,12 +698,10 @@ export class BookAppointmentFlow extends Component {
 
     bookAnother() {
         this.state.step = 1;
-        this.state.patientType = "new";
-        this.state.foundPatient = null;
-        this.state.searchIdentifier = "";
-        this.state.searchMessage = "";
-        this.state.selectedSlotTime = null;
-        this.state.selectedSlotLabel = "";
+        this.state.patientType = "returning";
+        this.clearPatient();
+        this.clearSlotSelection();
+        this.state.selectedDate = this.state.todayDate;
         this.state.firstName = "";
         this.state.lastName = "";
         this.state.phone = "";

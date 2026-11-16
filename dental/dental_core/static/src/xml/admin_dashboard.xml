@@ -12,110 +12,24 @@
                     <!-- Content Title Header -->
                     <div class="content-header">
                         <div>
-                            <h1 class="title-heading">Dental Hospital Overview</h1>
+                            <!-- Name of the clinic selected in the company switcher -->
+                            <h1 class="title-heading"><t t-out="this.companyName"/></h1>
                             <p class="subtitle-desc">Real-time view of clinic operations, patients and resources</p>
                         </div>
-                        <div class="date-picker-badge">
-                            <i class="fa fa-calendar-o me-1"/>
-                            <span><t t-out="this.state.data.header.date_str"/></span>
-                            <i class="fa fa-chevron-down ms-2 fs-8"/>
+                        <div class="header-action-group">
+                            <button class="btn-refresh-dashboard" t-on-click="() => this.loadDashboardData()" title="Clear cached data and refresh live values without lag">
+                                <i t-attf-class="fa fa-refresh #{this.state.loading ? 'fa-spin' : ''}"/>
+                                <span>Refresh</span>
+                            </button>
+                            <div class="date-picker-badge">
+                                <i class="fa fa-calendar-o me-1"/>
+                                <span><t t-out="this.state.data.header.date_str"/></span>
+                            </div>
                         </div>
                     </div>
 
-                    <!-- 3D Clinic Isometric Floorplan (Clean render without baked-in badges) -->
-                    <div class="floorplan-card-container">
-                        <img src="/dental_core/static/src/img/clinic_floorplan_clean_v2.png?v=2" 
-                             alt="Dental Hospital 3D Layout" 
-                             class="floorplan-image"/>
-
-                        <!-- Interactive Overlaid Room Badges (Covering original image badges seamlessly) -->
-                        <!-- 1. OPD -->
-                        <div class="room-badge badge-opd" t-on-click="() => this.onRoomClick('opd')" title="Open OPD Queue">
-                            <div class="badge-icon-wrap bg-purple"><i class="fa fa-users"/></div>
-                            <div class="badge-text-group">
-                                <span class="badge-label">OPD</span>
-                                <span class="badge-val"><t t-out="this.state.data.floorplan.opd.count"/> / <t t-out="this.state.data.floorplan.opd.capacity"/></span>
-                            </div>
-                            <span class="status-dot dot-green"/>
-                        </div>
-
-                        <!-- 2. Dental Chairs -->
-                        <div class="room-badge badge-chairs" t-on-click="() => this.onRoomClick('chairs')" title="View Active Dental Chairs">
-                            <div class="badge-icon-wrap bg-blue"><i class="fa fa-wheelchair"/></div>
-                            <div class="badge-text-group">
-                                <span class="badge-label">Dental Chairs</span>
-                                <span class="badge-val"><t t-out="this.state.data.floorplan.chairs.occupied"/> / <t t-out="this.state.data.floorplan.chairs.total"/></span>
-                            </div>
-                            <span class="status-dot dot-green"/>
-                        </div>
-
-                        <!-- 3. Radiology (X-Ray) -->
-                        <div class="room-badge badge-radiology" t-on-click="() => this.onRoomClick('radiology')" title="View Digital X-Rays">
-                            <div class="badge-icon-wrap bg-teal"><i class="fa fa-picture-o"/></div>
-                            <div class="badge-text-group">
-                                <span class="badge-label">Radiology (X-Ray)</span>
-                                <span class="badge-val"><t t-out="this.state.data.floorplan.radiology.count"/> / <t t-out="this.state.data.floorplan.radiology.capacity"/></span>
-                            </div>
-                            <span class="status-dot dot-green"/>
-                        </div>
-
-                        <!-- 4. Laboratory -->
-                        <div class="room-badge badge-lab" t-on-click="() => this.onRoomClick('lab')" title="View Dental Lab Orders">
-                            <div class="badge-icon-wrap bg-amber"><i class="fa fa-flask"/></div>
-                            <div class="badge-text-group">
-                                <span class="badge-label">Laboratory</span>
-                                <span class="badge-val"><t t-out="this.state.data.floorplan.lab.count"/> / <t t-out="this.state.data.floorplan.lab.capacity"/></span>
-                            </div>
-                            <span class="status-dot dot-amber"/>
-                        </div>
-
-                        <!-- 5. Reception -->
-                        <div class="room-badge badge-reception" t-on-click="() => this.onRoomClick('reception')" title="Front Desk Check-in &amp; Queue">
-                            <div class="badge-icon-wrap bg-blue"><i class="fa fa-user-circle-o"/></div>
-                            <div class="badge-text-group">
-                                <span class="badge-label">Reception</span>
-                                <span class="badge-val"><t t-out="this.state.data.floorplan.reception.label"/></span>
-                            </div>
-                            <span class="status-dot dot-blue"/>
-                        </div>
-
-                        <!-- 6. Clinical -->
-                        <div class="room-badge badge-clinical" t-on-click="() => this.onRoomClick('clinical')" title="Clinical Examination &amp; Cases">
-                            <div class="badge-icon-wrap bg-blue"><i class="fa fa-stethoscope"/></div>
-                            <div class="badge-text-group">
-                                <span class="badge-label">Clinical</span>
-                                <span class="badge-val"><t t-out="this.state.data.floorplan.clinical.active"/> / <t t-out="this.state.data.floorplan.clinical.capacity"/></span>
-                            </div>
-                            <span class="status-dot dot-green"/>
-                        </div>
-
-                        <!-- 7. Pharmacy -->
-                        <div class="room-badge badge-pharmacy" t-on-click="() => this.onRoomClick('pharmacy')" title="Pharmacy Dispensary">
-                            <div class="badge-icon-wrap bg-rose"><i class="fa fa-medkit"/></div>
-                            <div class="badge-text-group">
-                                <span class="badge-label">Pharmacy</span>
-                                <span class="badge-val"><t t-out="this.state.data.floorplan.pharmacy.status"/></span>
-                            </div>
-                            <span class="status-dot dot-green"/>
-                        </div>
-
-                        <!-- 8. Sterilization -->
-                        <div class="room-badge badge-sterilization" t-on-click="() => this.onRoomClick('sterilization')" title="Sterilization Status">
-                            <div class="badge-icon-wrap bg-emerald"><i class="fa fa-check-circle"/></div>
-                            <div class="badge-text-group">
-                                <span class="badge-label">Sterilization</span>
-                                <span class="badge-val"><t t-out="this.state.data.floorplan.sterilization.status"/></span>
-                            </div>
-                            <span class="status-dot dot-green"/>
-                        </div>
-
-                        <!-- Hospital Front Entrance Sign -->
-                        <div class="clinic-front-banner">
-                            <i class="fa fa-plus-square text-primary"/>
-                            <span>DENTAL HOSPITAL</span>
-                        </div>
-                    </div>
-
+                    <!-- Configurable floor plan of the selected clinic (rooms + live elements) -->
+                    <DentalFloorPlan/>
                     <!-- Bottom Grid of 4 Cards -->
                     <div class="bottom-cards-grid">
                         
@@ -299,14 +213,6 @@
                 <!-- Right Stats Column -->
                 <aside class="dashboard-right-sidebar">
                     
-                    <!-- Branch Selector -->
-                    <div class="right-branch-selector">
-                        <div class="branch-left">
-                            <i class="fa fa-map-marker"/>
-                            <span><t t-out="this.state.data.header.current_branch_name"/></span>
-                        </div>
-                        <i class="fa fa-angle-down text-muted fs-8"/>
-                    </div>
 
                     <!-- 1. OPD Patients Today -->
                     <div class="kpi-stat-card" t-on-click="() => this.navigateTo('opd')">

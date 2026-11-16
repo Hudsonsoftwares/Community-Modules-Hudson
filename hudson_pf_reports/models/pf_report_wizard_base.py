@@ -48,18 +48,18 @@ class HdsPfReportWizardBase(models.AbstractModel):
     department_id = fields.Many2one(
         'hr.department',
         string='Department',
+        domain="['|', ('company_id', '=', False), ('company_id', '=', company_id)]",
         help="Optional filter by department."
     )
     employee_id = fields.Many2one(
         'hr.employee',
         string='Employee',
+        domain="['|', ('company_id', '=', False), ('company_id', '=', company_id)]",
         help="Optional filter by specific employee."
     )
     payslip_state = fields.Selection([
         ('all', 'All States (Draft, Verify, Done, Paid)'),
         ('confirmed', 'Confirmed & Paid (Done, Paid)'),
-        ('done', 'Done Only'),
-        ('paid', 'Paid Only'),
     ], string='Payslip Status', default='all', required=True)
 
     generated_on_date = fields.Date(
@@ -167,7 +167,12 @@ class HdsPfReportWizardBase(models.AbstractModel):
 
         # 2. Employee EPF Deduction
         ee_epf_lines = lines.filtered(lambda l: l.code in ('EPF', 'PF', 'EPF_DED', 'EMPLOYEE_EPF', 'EE_EPF', 'PF_DED', 'EPF_EE'))
-        ee_epf = abs(sum(ee_epf_lines.mapped('total'))) if ee_epf_lines else 0.0
+        if ee_epf_lines:
+            ee_epf = abs(sum(ee_epf_lines.mapped('total')))
+        elif pf_wage > 0.0 and getattr(payslip.employee_id, 'hds_in_epf_applicable', False):
+            ee_epf = round(pf_wage * 0.12, 2)
+        else:
+            ee_epf = 0.0
 
         # 2b. VPF (Voluntary PF) Deduction
         vpf_lines = lines.filtered(lambda l: l.code in ('VPF', 'EE_VPF', 'VOLUNTARY_PF', 'PF_VPF', 'EPF_VPF'))
@@ -175,7 +180,17 @@ class HdsPfReportWizardBase(models.AbstractModel):
 
         # 3. Employer EPS Share
         er_eps_lines = lines.filtered(lambda l: l.code in ('EMPLOYER_EPS', 'EPS', 'EPS_SHARE', 'ER_EPS', 'PENSION', 'EMPLOYER_PENSION'))
-        er_eps = abs(sum(er_eps_lines.mapped('total'))) if er_eps_lines else 0.0
+        if er_eps_lines:
+            er_eps = abs(sum(er_eps_lines.mapped('total')))
+        elif pf_wage > 0.0 and getattr(payslip.employee_id, 'hds_in_epf_applicable', False):
+            eps_applicable = getattr(payslip.employee_id, 'hds_in_eps_applicable', True)
+            if eps_applicable:
+                eps_limit = self.env['hr.rule.parameter'].get_pf_parameter('EPS_WAGE_CEILING', date=payslip.date_to) or 15000.0
+                er_eps = round(min(pf_wage, eps_limit) * 0.0833, 2)
+            else:
+                er_eps = 0.0
+        else:
+            er_eps = 0.0
 
         # 4. Employer EPF Share (3.67%)
         er_epf_share_lines = lines.filtered(lambda l: l.code in ('EMPLOYER_EPF_SHARE', 'EPF_ER_SHARE', 'EPF_ER', 'ER_EPF'))
@@ -186,16 +201,32 @@ class HdsPfReportWizardBase(models.AbstractModel):
             if er_epf_total_lines:
                 total_er_epf = abs(sum(er_epf_total_lines.mapped('total')))
                 er_epf = max(0.0, total_er_epf - er_eps)
+            elif pf_wage > 0.0 and getattr(payslip.employee_id, 'hds_in_epf_applicable', False):
+                total_er_epf = round(pf_wage * 0.12, 2)
+                er_epf = max(0.0, round(total_er_epf - er_eps, 2))
             else:
                 er_epf = 0.0
 
         # 5. EDLI
         edli_lines = lines.filtered(lambda l: l.code in ('EDLI', 'EMPLOYER_EDLI', 'EDLI_CONT', 'ER_EDLI'))
-        edli = abs(sum(edli_lines.mapped('total'))) if edli_lines else 0.0
+        if edli_lines:
+            edli = abs(sum(edli_lines.mapped('total')))
+        elif pf_wage > 0.0 and getattr(payslip.employee_id, 'hds_in_epf_applicable', False) and getattr(payslip.employee_id, 'hds_in_edli_applicable', True):
+            edli_limit = self.env['hr.rule.parameter'].get_pf_parameter('EDLI_WAGE_CEILING', date=payslip.date_to) or 15000.0
+            edli_rate = self.env['hr.rule.parameter'].get_pf_parameter('EDLI_RATE', date=payslip.date_to, as_decimal=True) or 0.005
+            edli = round(min(pf_wage, edli_limit) * edli_rate, 2)
+        else:
+            edli = 0.0
 
         # 6. Admin Charges
         admin_lines = lines.filtered(lambda l: l.code in ('EDLI_ADMIN_TOTAL', 'EPF_ADMIN', 'EDLI_ADMIN', 'ADMIN_CHARGES', 'PF_ADMIN', 'EPF_ADMIN_CHARGE'))
-        admin = abs(sum(admin_lines.mapped('total'))) if admin_lines else 0.0
+        if admin_lines:
+            admin = abs(sum(admin_lines.mapped('total')))
+        elif pf_wage > 0.0 and getattr(payslip.employee_id, 'hds_in_epf_applicable', False):
+            admin_rate = self.env['hr.rule.parameter'].get_pf_parameter('EPF_ADMIN_RATE', date=payslip.date_to, as_decimal=True) or 0.005
+            admin = round(pf_wage * admin_rate, 2)
+        else:
+            admin = 0.0
 
         # 7. Total Employer Statutory Cost
         cost_lines = lines.filtered(lambda l: l.code in ('EMPLOYER_PF_TOTAL_COST', 'EMPLOYER_PF_COST', 'PF_EMP_COST', 'TOTAL_EMPLOYER_COST'))

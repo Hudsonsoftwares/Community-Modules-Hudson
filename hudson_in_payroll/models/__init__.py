@@ -5,7 +5,6 @@ from . import hds_in_payroll_audit
 from . import hr_rule_parameter
 from . import tds_lta_previous_employer
 from . import tds_house_property_loss_carryforward
-from . import hds_payment_mode
 from . import hr_employee
 from . import hr_salary_rule
 from . import hr_contract
@@ -36,4 +35,8 @@ from . import hr_leave_type
 from . import hds_salary_statement_report
 from . import ir_ui_menu
 from . import esic_contribution_period
+from . import hds_leave_encashment_policy
+from . import hds_leave_encashment_request
+from . import hds_tds_challan
+from . import hds_form_138
 

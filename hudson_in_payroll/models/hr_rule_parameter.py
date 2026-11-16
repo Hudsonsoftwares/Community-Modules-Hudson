@@ -22,6 +22,12 @@ GRATUITY_PARAMETER_MAPPING = {
     'STATUTORY_CEILING': 'hds_in_gratuity_statutory_ceiling',
 }
 
+LEAVE_ENCASHMENT_PARAMETER_MAPPING = {
+    'MONTH_DIVISOR': 'hds_in_leave_encashment_month_divisor',
+    'MAX_ENCASHABLE_DAYS': 'hds_in_max_encashable_days',
+    'STATUTORY_CEILING': 'hds_in_leave_encashment_statutory_ceiling',
+}
+
 
 class HrRuleParameter(models.Model):
     _inherit = 'hr.rule.parameter'
@@ -44,4 +50,13 @@ class HrRuleParameter(models.Model):
         - Accepts either a mapping key (e.g. 'STATUTORY_CEILING') or raw parameter code.
         """
         code = GRATUITY_PARAMETER_MAPPING.get(code_key_or_code, code_key_or_code)
+        return self.get_parameter(code, date=date, as_decimal=as_decimal)
+
+    @api.model
+    def get_leave_encashment_parameter(self, code_key_or_code, date=None, as_decimal=False):
+        """
+        Shared helper method to retrieve statutory Leave Encashment parameters safely.
+        - Accepts either a mapping key (e.g. 'STATUTORY_CEILING') or raw parameter code.
+        """
+        code = LEAVE_ENCASHMENT_PARAMETER_MAPPING.get(code_key_or_code, code_key_or_code)
         return self.get_parameter(code, date=date, as_decimal=as_decimal)

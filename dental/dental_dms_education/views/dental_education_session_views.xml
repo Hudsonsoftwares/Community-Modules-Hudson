@@ -1,0 +1,205 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_dental_education_session_form" model="ir.ui.view">
+        <field name="name">dental.education.session.form</field>
+        <field name="model">dental.education.session</field>
+        <field name="arch" type="xml">
+            <form string="Patient Education">
+                <header>
+                    <button name="action_present" type="object" string="Present on Screen" class="btn-primary"
+                            icon="fa-television" invisible="state == 'cancel'"/>
+                    <button name="action_share_tablet_link" type="object" string="Tablet Link / QR" icon="fa-tablet"
+                            invisible="state in ('cancel', 'done')"/>
+                    <button name="action_load_recommendations" type="object" string="Recommend Media" icon="fa-magic"
+                            invisible="state != 'draft'"/>
+                    <button name="action_open_library" type="object" string="Browse Library" icon="fa-film"/>
+                    <button name="action_done" type="object" string="Mark Completed" invisible="state in ('done', 'cancel')"/>
+                    <button name="action_revoke_link" type="object" string="Revoke Link" invisible="not token_expiry"/>
+                    <button name="action_cancel" type="object" string="Cancel" invisible="state in ('done', 'cancel')"/>
+                    <button name="action_reset_draft" type="object" string="Reset to Draft" invisible="state != 'cancel'"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,presented,done"/>
+                </header>
+                <sheet>
+                    <widget name="web_ribbon" title="Acknowledged" bg_color="text-bg-success" invisible="not acknowledged"/>
+                    <div class="oe_title">
+                        <h1><field name="name" readonly="1"/></h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="patient_id" options="{'no_create': True}" readonly="state != 'draft'"/>
+                            <field name="purpose" readonly="state != 'draft'"/>
+                            <field name="lang_id" options="{'no_create': True}"/>
+                            <field name="user_id" options="{'no_create': True}"/>
+                        </group>
+                        <group>
+                            <field name="examination_id" options="{'no_create': True}" domain="[('patient_id', '=', patient_id)]"/>
+                            <field name="case_id" options="{'no_create': True}" domain="[('patient_id', '=', patient_id)]"/>
+                            <field name="treatment_plan_id" options="{'no_create': True}" domain="[('patient_id', '=', patient_id)]"/>
+                            <field name="treatment_session_id" options="{'no_create': True}" domain="[('patient_id', '=', patient_id)]"/>
+                            <field name="appointment_id" options="{'no_create': True}" domain="[('patient_id', '=', patient_id)]"/>
+                            <field name="company_id" groups="base.group_multi_company" options="{'no_create': True}"/>
+                        </group>
+                    </group>
+                    <div class="alert alert-info d-flex gap-4 align-items-center" role="status" invisible="not token_expiry">
+                        <field name="presenter_qr_html" nolabel="1" readonly="1"/>
+                        <div>
+                            <strong>Open on the clinic tablet or monitor</strong>
+                            <p class="mb-1">Scan the QR code or open this link. It expires automatically and only plays this playlist.</p>
+                            <field name="presenter_url" widget="CopyClipboardChar" readonly="1"/>
+                            <div class="text-muted small">Valid until <field name="token_expiry" readonly="1" class="d-inline"/></div>
+                        </div>
+                    </div>
+                    <notebook>
+                        <page string="Playlist" name="playlist">
+                            <field name="line_ids" readonly="state in ('done', 'cancel')">
+                                <list editable="bottom">
+                                    <field name="sequence" widget="handle"/>
+                                    <field name="thumbnail" widget="image" options="{'size': [64, 36]}" readonly="1"/>
+                                    <field name="file_id" options="{'no_create': True}"
+                                           context="{'list_view_ref': 'dental_dms_education.view_dms_file_list_education',
+                                                     'search_view_ref': 'dental_dms_education.view_dms_file_search_education',
+                                                     'kanban_view_ref': 'dental_dms_education.view_dms_file_kanban_education'}"/>
+                                    <field name="topic_id" optional="show"/>
+                                    <field name="media_type" optional="show"/>
+                                    <field name="media_purpose" optional="hide"/>
+                                    <field name="play_lang_id" optional="show"/>
+                                    <field name="recommended" optional="show"/>
+                                    <field name="completed" optional="show"/>
+                                    <field name="watched_seconds" optional="hide"/>
+                                    <field name="last_viewed" optional="hide"/>
+                                    <button name="action_preview" type="object" icon="fa-play" title="Preview"/>
+                                </list>
+                            </field>
+                            <group>
+                                <group>
+                                    <field name="progress" widget="progressbar"/>
+                                </group>
+                            </group>
+                        </page>
+                        <page string="Viewing History" name="history">
+                            <field name="view_ids">
+                                <list create="false" edit="false" delete="false">
+                                    <field name="date_start"/>
+                                    <field name="file_id"/>
+                                    <field name="lang_id"/>
+                                    <field name="device"/>
+                                    <field name="watched_seconds"/>
+                                    <field name="media_duration"/>
+                                    <field name="completed"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Acknowledgement" name="ack">
+                            <group>
+                                <field name="acknowledged"/>
+                                <field name="acknowledged_date"/>
+                                <field name="acknowledgement_note"/>
+                            </group>
+                        </page>
+                        <page string="Notes" name="notes">
+                            <field name="notes"/>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_dental_education_session_list" model="ir.ui.view">
+        <field name="name">dental.education.session.list</field>
+        <field name="model">dental.education.session</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="name"/>
+                <field name="create_date" string="Date"/>
+                <field name="patient_id"/>
+                <field name="purpose"/>
+                <field name="user_id"/>
+                <field name="lang_id" optional="show"/>
+                <field name="progress" widget="progressbar"/>
+                <field name="acknowledged"/>
+                <field name="state" widget="badge" decoration-success="state == 'done'" decoration-info="state == 'presented'"/>
+                <field name="company_id" groups="base.group_multi_company" optional="show"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_dental_education_session_search" model="ir.ui.view">
+        <field name="name">dental.education.session.search</field>
+        <field name="model">dental.education.session</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name"/>
+                <field name="patient_id"/>
+                <field name="case_id"/>
+                <field name="user_id"/>
+                <filter string="My Sessions" name="mine" domain="[('user_id', '=', uid)]"/>
+                <filter string="Acknowledged" name="acknowledged" domain="[('acknowledged', '=', True)]"/>
+                <filter string="Before Treatment" name="pre" domain="[('purpose', '=', 'pre_treatment')]"/>
+                <filter string="Post-Treatment Care" name="post" domain="[('purpose', '=', 'post_care')]"/>
+                <group>
+                    <filter string="Patient" name="groupby_patient" context="{'group_by': 'patient_id'}"/>
+                    <filter string="Status" name="groupby_state" context="{'group_by': 'state'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_dental_education_sessions" model="ir.actions.act_window">
+        <field name="name">Patient Education Records</field>
+        <field name="res_model">dental.education.session</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">No patient education yet</p>
+            <p>Use <b>Educate Patient</b> on a consultation, case or treatment plan: the treatment videos are
+               recommended automatically and can be shown on a clinic monitor or tablet.</p>
+        </field>
+    </record>
+
+    <record id="view_dental_education_view_list" model="ir.ui.view">
+        <field name="name">dental.education.view.list</field>
+        <field name="model">dental.education.view</field>
+        <field name="arch" type="xml">
+            <list create="false" edit="false">
+                <field name="date_start"/>
+                <field name="patient_id"/>
+                <field name="file_id"/>
+                <field name="topic_id"/>
+                <field name="lang_id"/>
+                <field name="device"/>
+                <field name="watched_seconds"/>
+                <field name="completed"/>
+                <field name="presented_by_id"/>
+                <field name="company_id" groups="base.group_multi_company" optional="hide"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_dental_education_view_pivot" model="ir.ui.view">
+        <field name="name">dental.education.view.pivot</field>
+        <field name="model">dental.education.view</field>
+        <field name="arch" type="xml">
+            <pivot string="Education Views">
+                <field name="topic_id" type="row"/>
+                <field name="date_start" interval="month" type="col"/>
+            </pivot>
+        </field>
+    </record>
+
+    <record id="view_dental_education_view_graph" model="ir.ui.view">
+        <field name="name">dental.education.view.graph</field>
+        <field name="model">dental.education.view</field>
+        <field name="arch" type="xml">
+            <graph string="Education Views">
+                <field name="topic_id"/>
+            </graph>
+        </field>
+    </record>
+
+    <record id="action_dental_education_views" model="ir.actions.act_window">
+        <field name="name">Video Viewing History</field>
+        <field name="res_model">dental.education.view</field>
+        <field name="view_mode">list,pivot,graph</field>
+    </record>
+</odoo>

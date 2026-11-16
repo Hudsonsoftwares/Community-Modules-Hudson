@@ -58,18 +58,25 @@ class HudsonPayrollPayRunPayWizard(models.TransientModel):
         string='Report Name',
         help="Custom name for the generated payment report or advice."
     )
-    company_bank_id = fields.Many2one(
-        'res.partner.bank',
-        string='Company Bank Account',
-        domain="['|', ('company_id', '=', company_id), ('company_id', '=', False)]",
-        help="Disbursing bank account of the company."
-    )
     company_id = fields.Many2one(
         'res.company',
         string='Company',
         compute='_compute_company_id',
         store=True,
         readonly=True
+    )
+    company_partner_id = fields.Many2one(
+        'res.partner',
+        string='Company Partner',
+        related='company_id.partner_id',
+        readonly=True
+    )
+    company_bank_id = fields.Many2one(
+        'res.partner.bank',
+        string='Company Bank Account',
+        domain="['|', ('partner_id', '=', company_partner_id), ('company_id', '=', company_id)]",
+        check_company=True,
+        help="Disbursing bank account of the company."
     )
     by_cheque = fields.Boolean(
         string='By Cheque',
@@ -114,7 +121,7 @@ class HudsonPayrollPayRunPayWizard(models.TransientModel):
             if wiz.payslip_id:
                 slips = wiz.payslip_id
             elif wiz.payslip_run_id:
-                slips = wiz.payslip_run_id.slip_ids
+                slips = wiz.payslip_run_id.slip_ids.filtered(lambda s: s.state in ('done', 'paid'))
             else:
                 slips = self.env['hr.payslip']
             if not wiz.include_unpaid:
@@ -142,9 +149,11 @@ class HudsonPayrollPayRunPayWizard(models.TransientModel):
                 if 'report_name' in fields_list and not res.get('report_name'):
                     res['report_name'] = f"Payment Advice - {slip.name}"
                 company = slip.company_id or self.env.company
-                bank_acc = company.partner_id.bank_ids and company.partner_id.bank_ids[0] or False
+                bank_acc = company.partner_id.bank_ids and company.partner_id.bank_ids.filtered(lambda b: not b.company_id or b.company_id == company)[:1] or False
                 if not bank_acc:
-                    bank_acc = self.env['res.partner.bank'].search([('company_id', '=', company.id)], limit=1)
+                    bank_acc = self.env['res.partner.bank'].search([
+                        '|', ('partner_id', '=', company.partner_id.id), ('company_id', '=', company.id),
+                    ], limit=1)
                 if bank_acc and 'company_bank_id' in fields_list:
                     res['company_bank_id'] = bank_acc.id
                 return res
@@ -158,23 +167,46 @@ class HudsonPayrollPayRunPayWizard(models.TransientModel):
                 if 'report_name' in fields_list and not res.get('report_name'):
                     res['report_name'] = f"Payment Advice - {run.name}"
                 company = run.company_id or self.env.company
-                bank_acc = company.partner_id.bank_ids and company.partner_id.bank_ids[0] or False
+                bank_acc = getattr(run, 'company_bank_id', False)
                 if not bank_acc:
-                    bank_acc = self.env['res.partner.bank'].search([('company_id', '=', company.id)], limit=1)
+                    bank_acc = company.partner_id.bank_ids and company.partner_id.bank_ids.filtered(lambda b: not b.company_id or b.company_id == company)[:1] or False
+                if not bank_acc:
+                    bank_acc = self.env['res.partner.bank'].search([
+                        '|', ('partner_id', '=', company.partner_id.id), ('company_id', '=', company.id),
+                    ], limit=1)
                 if bank_acc and 'company_bank_id' in fields_list:
                     res['company_bank_id'] = bank_acc.id
         return res
 
+    @api.onchange('company_id')
+    def _onchange_company_id(self):
+        if self.company_id and not self.company_bank_id:
+            company = self.company_id
+            bank_acc = company.partner_id.bank_ids and company.partner_id.bank_ids.filtered(lambda b: not b.company_id or b.company_id == company)[:1] or False
+            if not bank_acc:
+                bank_acc = self.env['res.partner.bank'].search([
+                    '|', ('partner_id', '=', company.partner_id.id), ('company_id', '=', company.id),
+                ], limit=1)
+            if bank_acc:
+                self.company_bank_id = bank_acc
+
     def _ensure_payment_advice(self):
         """Creates or updates the payment advice with current run's or payslip's lines."""
         self.ensure_one()
+        if self.mode == 'advice' and not self.company_bank_id:
+            raise UserError(_("Company Bank Account is mandatory. Please select or add a Company Bank Account before generating Payment Advice, PDF, or Excel."))
+
         if self.payslip_id:
+            if self.payslip_id.state not in ('done', 'paid'):
+                raise UserError(_("Only validated payslips can be paid. Please validate payslip '%(slip)s' first.")
+                                % {'slip': self.payslip_id.name})
             slips_to_include = self.payslip_id
         elif self.payslip_run_id:
             run = self.payslip_run_id
             if not run.slip_ids:
                 raise UserError(_("No payslips found in this pay run to process payment."))
-            slips_to_include = run.slip_ids
+            # Only validated slips; cancelled ones are skipped, draft ones block payment
+            slips_to_include = run._get_payable_slips()
             if not self.include_unpaid:
                 slips_to_include = slips_to_include.filtered(lambda s: not getattr(s, 'paid', False))
         else:
@@ -215,6 +247,8 @@ class HudsonPayrollPayRunPayWizard(models.TransientModel):
             advice = self.env['hudson.payroll.payment.advice'].create(advice_vals)
             if self.payslip_run_id:
                 self.payslip_run_id.advice_id = advice
+                if self.company_bank_id:
+                    self.payslip_run_id.company_bank_id = self.company_bank_id
             if self.payslip_id:
                 self.payslip_id.advice_id = advice
         else:
@@ -224,6 +258,8 @@ class HudsonPayrollPayRunPayWizard(models.TransientModel):
             }
             if self.company_bank_id:
                 advice_vals['company_bank_id'] = self.company_bank_id.id
+                if self.payslip_run_id:
+                    self.payslip_run_id.company_bank_id = self.company_bank_id
             if self.by_cheque:
                 advice_vals['note'] = note_str
             advice.write(advice_vals)
@@ -244,16 +280,19 @@ class HudsonPayrollPayRunPayWizard(models.TransientModel):
     def action_mark_paid(self):
         """Marks payslips as paid, updates pay run state if applicable, and confirms advice."""
         self.ensure_one()
+        if self.mode == 'advice' and not self.company_bank_id:
+            raise UserError(_("Company Bank Account is mandatory. Please select or add a Company Bank Account before marking as Paid."))
         advice = self._ensure_payment_advice()
+        paid_context = {'hds_payment_date': self.payment_date} if self.payment_date else {}
         if self.payslip_id:
-            self.payslip_id.action_payslip_paid()
+            self.payslip_id.with_context(**paid_context).action_payslip_paid()
             run = self.payslip_id.payslip_run_id
-            if run and all(s.state == 'paid' for s in run.slip_ids):
+            active_slips = run.slip_ids.filtered(lambda s: s.state != 'cancel') if run else False
+            if active_slips and all(s.state == 'paid' for s in active_slips):
                 run.write({'state': 'paid'})
         elif self.payslip_run_id:
             run = self.payslip_run_id
-            slips = run.slip_ids
-            slips.action_payslip_paid()
+            run._get_payable_slips().with_context(**paid_context).action_payslip_paid()
             run.write({'state': 'paid'})
 
         advice.action_confirm()
@@ -262,12 +301,16 @@ class HudsonPayrollPayRunPayWizard(models.TransientModel):
     def action_create_pdf(self):
         """Generates and downloads PDF Payment Advice report."""
         self.ensure_one()
+        if not self.company_bank_id:
+            raise UserError(_("Company Bank Account is mandatory. Please select or add a Company Bank Account before generating the PDF Payment Advice."))
         advice = self._ensure_payment_advice()
         return self.env.ref('hudson_payroll_base.action_report_payment_advice').report_action(advice)
 
     def action_create_xlsx(self):
         """Generates and downloads a formatted Excel (.xlsx) file."""
         self.ensure_one()
+        if not self.company_bank_id:
+            raise UserError(_("Company Bank Account is mandatory. Please select or add a Company Bank Account before generating the Excel Payment Advice."))
         advice = self._ensure_payment_advice()
         return advice.action_export_xlsx()
 

@@ -117,6 +117,20 @@
             <field name="description">Finance Act 2024 enhanced employer NPS limit to 14% under New Regime w.e.f. 01-Apr-2025.</field>
         </record>
 
+        <!-- 8b. NPS Employer Contribution Percentage (Direct Configurable Parameter) -->
+        <record id="hds_in_tds_nps_employer_contribution_percentage" model="hr.rule.parameter">
+            <field name="name">TDS: NPS Employer Contribution Percentage (New Regime)</field>
+            <field name="code">NPS_EMPLOYER_CONTRIBUTION_PERCENTAGE</field>
+            <field name="category">rate</field>
+            <field name="description">Statutory employer NPS contribution deduction limit percentage under Section 80CCD(2) for New Tax Regime (default 14%).</field>
+        </record>
+        <record id="hds_in_tds_nps_employer_contribution_percentage_val_1" model="hr.rule.parameter.value">
+            <field name="parameter_id" ref="hds_in_tds_nps_employer_contribution_percentage"/>
+            <field name="date_from">2025-04-01</field>
+            <field name="parameter_value">14</field>
+            <field name="description">Statutory employer NPS deduction limit percentage under Section 80CCD(2) w.e.f. 01-Apr-2025 (14%).</field>
+        </record>
+
         <!-- 9. Employer NPS Limit % - Old Regime Private (10%) -->
         <record id="hds_in_tds_nps_limit_old_private" model="hr.rule.parameter">
             <field name="name">TDS: Employer NPS Limit % (Old Regime - Private)</field>
@@ -729,30 +743,36 @@
 
         <!-- 51. Section 57(iia) Family Pension Deduction Limit - New Regime (₹25,000) -->
         <record id="hds_in_tds_family_pension_limit_new" model="hr.rule.parameter">
-            <field name="name">TDS: Family Pension Deduction Limit (New Regime)</field>
+            <field name="name">TDS: Family Pension Deduction Limit Section 93(1)(d) (New Regime)</field>
             <field name="code">HDS_IN_TDS_FAMILY_PENSION_LIMIT_NEW</field>
             <field name="category">ceiling</field>
-            <field name="description">Statutory maximum ceiling allowance under Section 57(iia) for New Tax Regime. Limit ₹25,000 w.e.f. FY 2025-26 / FY 2026-27 (Finance Act 2024).</field>
+            <field name="description">Statutory maximum ceiling allowance under Section 93(1)(d) / Section 57(iia) for New Tax Regime. Limit ₹25,000 (1/3 of family pension or ₹25,000, whichever is lower).</field>
         </record>
         <record id="hds_in_tds_family_pension_limit_new_val_1" model="hr.rule.parameter.value">
             <field name="parameter_id" ref="hds_in_tds_family_pension_limit_new"/>
             <field name="date_from">2024-04-01</field>
             <field name="parameter_value">25000</field>
-            <field name="description">Finance (No.2) Act 2024, FY 2024-25 onwards</field>
+            <field name="description">Finance (No.2) Act 2024 / Income-tax Act 2025 Section 93(1)(d), FY 2024-25 onwards</field>
         </record>
 
-        <!-- 52. Section 57(iia) Family Pension Deduction Limit - Old Regime (₹15,000) -->
+        <!-- 52. Section 57(iia) / Section 93(1)(d) Family Pension Deduction Limit - Old Regime -->
         <record id="hds_in_tds_family_pension_limit_old" model="hr.rule.parameter">
-            <field name="name">TDS: Family Pension Deduction Limit (Old Regime)</field>
+            <field name="name">TDS: Family Pension Deduction Limit Section 93(1)(d) (Old Regime)</field>
             <field name="code">HDS_IN_TDS_FAMILY_PENSION_LIMIT_OLD</field>
             <field name="category">ceiling</field>
-            <field name="description">Statutory maximum ceiling allowance under Section 57(iia) for Old Tax Regime. Limit ₹15,000.</field>
+            <field name="description">Statutory maximum ceiling allowance under Section 93(1)(d) / Section 57(iia) for Old Tax Regime. Limit ₹15,000 (₹25,000 w.e.f. Section 93(1)(d)).</field>
         </record>
         <record id="hds_in_tds_family_pension_limit_old_val_1" model="hr.rule.parameter.value">
             <field name="parameter_id" ref="hds_in_tds_family_pension_limit_old"/>
             <field name="date_from">2001-04-01</field>
             <field name="parameter_value">15000</field>
             <field name="description">Income Tax Act Section 57(iia) Old Regime statutory ceiling ₹15,000.</field>
+        </record>
+        <record id="hds_in_tds_family_pension_limit_old_val_2" model="hr.rule.parameter.value">
+            <field name="parameter_id" ref="hds_in_tds_family_pension_limit_old"/>
+            <field name="date_from">2026-04-01</field>
+            <field name="parameter_value">25000</field>
+            <field name="description">Income-tax Act 2025 Section 93(1)(d) ceiling ₹25,000 (1/3 of family pension or ₹25,000, whichever is lower).</field>
         </record>
 
         <!-- 53. Section 80CCH Agniveer Corpus Fund Eligibility Percentage - Old Regime (100%) -->

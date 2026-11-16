@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 {
     'name': 'Hudson Attendance and Payroll Connection',
-    'version': '20.0.1.0.1',
+    'version': '20.0.1.0.2',
+
     'category': 'Human Resources',
     'summary': 'Connects biometric attendance, contract rates, leave deductions, and auto-regularization with payroll.',
     'description': """
@@ -18,7 +19,6 @@ This module connects biometric attendance anomalies, contract rates, unpaid leav
     
     ],
     'data': [
-        'views/res_config_settings_views.xml',
         'views/hr_version_views.xml',
         'views/hr_employee_views.xml',
         'views/hr_payslip_views.xml',

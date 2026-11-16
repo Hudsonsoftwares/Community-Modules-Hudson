@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 import base64
 import io
-from odoo import api, fields, models, _
-from odoo.exceptions import UserError
+from odoo import api, fields, models, _# pyrefly: ignore [missing-import]
+from odoo.exceptions import UserError# pyrefly: ignore [missing-import]
 
 try:
-    import xlsxwriter
+    import xlsxwriter# pyrefly: ignore [missing-import]
 except ImportError:
     xlsxwriter = None
 
@@ -18,6 +18,7 @@ class HdsPfLedgerWizard(models.TransientModel):
     employee_id = fields.Many2one(
         'hr.employee',
         string='Employee',
+        domain="['|', ('company_id', '=', False), ('company_id', '=', company_id)]",
         required=True,
         help="Target employee for PF ledger statement."
     )
@@ -105,18 +106,34 @@ class HdsPfLedgerWizard(models.TransientModel):
         if xlsxwriter:
             workbook = xlsxwriter.Workbook(output, {'in_memory': True})
             sheet = workbook.add_worksheet('PF Ledger')
+            sheet.set_column(0, 0, 18)  # Period (MM/YYYY)
+            sheet.set_column(1, 1, 18)  # PF Wage
+            sheet.set_column(2, 2, 18)  # Employee EPF
+            sheet.set_column(3, 3, 18)  # Employer EPF
+            sheet.set_column(4, 4, 18)  # Employer EPS
+            sheet.set_column(5, 5, 26)  # Cumulative Employee EPF
+            sheet.set_column(6, 6, 30)  # Cumulative Employer Contribution
 
             title_fmt = workbook.add_format({'bold': True, 'font_size': 14})
             sub_fmt = workbook.add_format({'bold': True, 'font_size': 11})
-            header_fmt = workbook.add_format({'bold': True, 'bg_color': '#1F4E78', 'font_color': '#FFFFFF', 'border': 1})
-            num_fmt = workbook.add_format({'num_format': '#,##0.00', 'border': 1})
-            text_fmt = workbook.add_format({'border': 1})
-            total_fmt = workbook.add_format({'bold': True, 'num_format': '#,##0.00', 'bg_color': '#D9E1F2', 'border': 1})
+            header_fmt = workbook.add_format({
+                'bold': True,
+                'bg_color': '#1F4E78',
+                'font_color': '#FFFFFF',
+                'border': 1,
+                'align': 'center',
+                'valign': 'vcenter',
+                'text_wrap': True,
+            })
+            num_fmt = workbook.add_format({'num_format': '#,##0.00', 'border': 1, 'align': 'right', 'valign': 'vcenter'})
+            text_fmt = workbook.add_format({'border': 1, 'align': 'center', 'valign': 'vcenter'})
+            total_fmt = workbook.add_format({'bold': True, 'num_format': '#,##0.00', 'bg_color': '#D9E1F2', 'border': 1, 'align': 'right', 'valign': 'vcenter'})
 
             sheet.write(0, 0, f"EMPLOYEE PF LEDGER STATEMENT", title_fmt)
             sheet.write(1, 0, f"Employee: {self.employee_id.name} | Code: {emp_code} | UAN: {uan}", sub_fmt)
             sheet.write(2, 0, f"Period: {self.year_from} to {self.year_to} | Company: {self.company_id.name}", sub_fmt)
 
+            sheet.set_row(4, 26)
             headers = [
                 'Period (MM/YYYY)', 'PF Wage', 'Employee EPF', 'Employer EPF',
                 'Employer EPS', 'Cumulative Employee EPF', 'Cumulative Employer Contribution'
@@ -148,16 +165,21 @@ class HdsPfLedgerWizard(models.TransientModel):
         else:
             xlsx_content = b"Excel export requires xlsxwriter library."
 
+        try:
+            # pyrefly: ignore [missing-import]
+            from odoo.tools import BinaryBytes
+            file_data = BinaryBytes(xlsx_content, filename=xlsx_filename)
+        except Exception:
+            file_data = base64.b64encode(xlsx_content).decode('utf-8')
+
         self.write({
             'state': 'generated',
-            'xlsx_file': base64.b64encode(xlsx_content),
+            'xlsx_file': file_data,
             'xlsx_filename': xlsx_filename,
         })
 
         return {
-            'type': 'ir.actions.act_window',
-            'res_model': self._name,
-            'res_id': self.id,
-            'view_mode': 'form',
-            'target': 'current',
+            'type': 'ir.actions.act_url',
+            'url': f'/web/content/?model={self._name}&id={self.id}&field=xlsx_file&filename_field=xlsx_filename&download=true',
+            'target': 'self',
         }

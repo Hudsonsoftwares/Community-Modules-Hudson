@@ -67,10 +67,6 @@ def post_init_hook(env):
         if regular_struct and not indian_company.hds_in_regular_struct_id:
             comp_vals['hds_in_regular_struct_id'] = regular_struct.id
 
-        bonus_struct = env.ref('hudson_in_payroll.hds_in_structure_bonus', raise_if_not_found=False)
-        if bonus_struct and not indian_company.hds_in_bonus_struct_id:
-            comp_vals['hds_in_bonus_struct_id'] = bonus_struct.id
-
         tax_year = env['tds.financial.year'].sudo().search([('active', '=', True)], limit=1)
         if tax_year and not indian_company.hds_in_default_tax_year:
             comp_vals['hds_in_default_tax_year'] = tax_year.id
@@ -117,5 +113,26 @@ def post_init_hook(env):
             worker_vals['country_id'] = country_india.id
         if worker_vals:
             worker_type.sudo().write(worker_vals)
+
+    # Ensure standard salary structures, categories, and rules are company-agnostic (company_id=NULL)
+    # so they remain globally accessible across all companies in multi-company setups.
+    try:
+        env.cr.execute("""
+            UPDATE hr_payroll_structure
+            SET company_id = NULL
+            WHERE code IN ('REGULAR', 'WORKER', 'FINAL_SETTLEMENT_STRUCT');
+
+            UPDATE hr_salary_rule
+            SET company_id = NULL
+            WHERE struct_id IN (
+                SELECT id FROM hr_payroll_structure WHERE code IN ('REGULAR', 'WORKER', 'FINAL_SETTLEMENT_STRUCT')
+            );
+
+            UPDATE hr_salary_rule_category
+            SET company_id = NULL
+            WHERE code IN ('BASIC', 'ALW', 'GROSS', 'DED', 'NET', 'COMP', 'PF_CALC', 'ESIC_CALC');
+        """)
+    except Exception:
+        pass
 
 

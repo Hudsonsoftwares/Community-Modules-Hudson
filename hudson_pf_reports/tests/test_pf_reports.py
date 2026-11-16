@@ -26,14 +26,25 @@ class TestPfReports(common.TransactionCase):
             'hds_in_pf_contribution_basis': 'statutory_ceiling',
         })
 
-        self.contract_valid = self.Contract.create({
-            'name': 'Valid Contract',
-            'employee_id': self.emp_valid.id,
+        contract = self.Contract.search([('employee_id', '=', self.emp_valid.id)], limit=1)
+        contract_vals = {
             'wage': 50000.0,
             'basic_salary': 30000.0,
             'date_start': date(2026, 1, 1),
-            'state': 'open',
-        })
+            'contract_date_start': date(2026, 1, 1),
+            'date_end': False,
+            'contract_date_end': False,
+        }
+        if contract:
+            contract.write(contract_vals)
+            self.contract_valid = contract
+        else:
+            self.contract_valid = self.Contract.create({
+                'name': 'Valid Contract',
+                'employee_id': self.emp_valid.id,
+                **contract_vals
+            })
+            self.emp_valid.version_id = self.contract_valid
 
         # Setup employee WITHOUT UAN
         self.emp_no_uan = self.Employee.create({
@@ -44,14 +55,25 @@ class TestPfReports(common.TransactionCase):
             'hds_in_eps_applicable': True,
         })
 
-        self.contract_no_uan = self.Contract.create({
-            'name': 'No UAN Contract',
-            'employee_id': self.emp_no_uan.id,
+        contract_no_uan = self.Contract.search([('employee_id', '=', self.emp_no_uan.id)], limit=1)
+        vals_no_uan = {
             'wage': 20000.0,
             'basic_salary': 15000.0,
             'date_start': date(2026, 1, 1),
-            'state': 'open',
-        })
+            'contract_date_start': date(2026, 1, 1),
+            'date_end': False,
+            'contract_date_end': False,
+        }
+        if contract_no_uan:
+            contract_no_uan.write(vals_no_uan)
+            self.contract_no_uan = contract_no_uan
+        else:
+            self.contract_no_uan = self.Contract.create({
+                'name': 'No UAN Contract',
+                'employee_id': self.emp_no_uan.id,
+                **vals_no_uan
+            })
+            self.emp_no_uan.version_id = self.contract_no_uan
 
     def _create_and_confirm_payslip(self, employee, contract, date_from, date_to):
         payslip = self.Payslip.create({
@@ -83,11 +105,11 @@ class TestPfReports(common.TransactionCase):
 
     def test_02_ecr_export_success(self):
         """Test successful ECR text and excel generation for valid employee."""
-        self._create_and_confirm_payslip(self.emp_valid, self.contract_valid, date(2026, 7, 1), date(2026, 7, 31))
+        self._create_and_confirm_payslip(self.emp_valid, self.contract_valid, date(2029, 5, 1), date(2029, 5, 31))
 
         wizard = self.EcrWizard.create({
-            'year': 2026,
-            'month': '7',
+            'year': 2029,
+            'month': '5',
             'company_id': self.env.company.id,
         })
 
@@ -99,8 +121,29 @@ class TestPfReports(common.TransactionCase):
 
         # Verify text file format contains pipe delimiter #~#
         import base64
-        txt_content = base64.b64decode(wizard.txt_file).decode('utf-8')
+        import io
+        import zipfile
+        try:
+            txt_content = bytes(wizard.txt_file).decode('utf-8')
+        except Exception:
+            txt_content = base64.b64decode(wizard.txt_file).decode('utf-8')
         self.assertIn('100000000002#~#Valid UAN Employee', txt_content)
+
+        # Verify Excel header column 12 is 'REFUND OF ADVANCES'
+        try:
+            xlsx_data = bytes(wizard.xlsx_file)
+            with zipfile.ZipFile(io.BytesIO(xlsx_data)) as z:
+                pass
+        except Exception:
+            xlsx_data = base64.b64decode(wizard.xlsx_file)
+
+        with zipfile.ZipFile(io.BytesIO(xlsx_data)) as z:
+            content = ""
+            for name in z.namelist():
+                if 'sharedStrings' in name or 'sheet' in name:
+                    content += z.read(name).decode('utf-8')
+            self.assertIn('REFUND OF ADVANCES', content)
+            self.assertNotIn('REFUNDED OF ADVANCES', content)
 
     def test_03_pf_register_export_company_summary(self):
         """Test Case 1: Company PF Register generation when Employee is NOT selected."""

@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
+# pyrefly: ignore [missing-import]
 from odoo.tests.common import TransactionCase
+# pyrefly: ignore [missing-import]
 from odoo.fields import Date
-from odoo.addons.hudson_in_payroll.services.gratuity.gratuity_validator import GratuityValidator
+from odoo.addons.hudson_in_payroll.services.gratuity.gratuity_validator import GratuityValidator# pyrefly: ignore [missing-import]
 
 
 class TestGratuityValidator(TransactionCase):
@@ -38,9 +40,12 @@ class TestGratuityValidator(TransactionCase):
         result = self.validator.validate(self.employee, separation_date='2024-01-01')
         self.assertFalse(result.is_eligible)
         self.assertIn("joining date is missing", result.reason)
+        # Restore joining date for subsequent tests
+        self.employee.first_contract_date = Date.from_string('2018-01-01')
 
     def test_03_missing_separation_date_validation(self):
         """Test validation fails when separation date is missing."""
+        self.employee.first_contract_date = Date.from_string('2018-01-01')
         result = self.validator.validate(self.employee, separation_date=None)
         self.assertFalse(result.is_eligible)
         self.assertIn("Separation date cannot be determined", result.reason)
@@ -64,13 +69,39 @@ class TestGratuityValidator(TransactionCase):
         self.assertIn("Eligible for gratuity", result.reason)
 
     def test_06_gratuity_rounding_rule_validation(self):
-        """Test statutory rounding: 4 years 7 months rounds UP to 5 completed years (Eligible)."""
+        """Test statutory continuous service gate: 4 years 7 months is below mandatory 5 full years (Ineligible)."""
         self.employee.first_contract_date = Date.from_string('2019-01-01')
         result = self.validator.validate(self.employee, separation_date='2023-08-15')
-        self.assertTrue(result.is_eligible)
-        self.assertEqual(result.completed_years, 5)
+        self.assertFalse(result.is_eligible)
+        self.assertEqual(result.completed_years, 4)
         self.assertEqual(result.total_years, 4)
         self.assertEqual(result.remaining_months, 7)
+        self.assertIn("below the statutory minimum", result.reason)
+
+    def test_06b_gratuity_rounding_rule_after_mandatory_five_years(self):
+        """Test statutory rounding: 5 years 7 months rounds UP to 6 completed years for payout (Eligible)."""
+        self.employee.first_contract_date = Date.from_string('2018-01-01')
+        result = self.validator.validate(self.employee, separation_date='2023-08-15')
+        self.assertTrue(result.is_eligible)
+        self.assertEqual(result.total_years, 5)
+        self.assertEqual(result.remaining_months, 7)
+        self.assertEqual(result.completed_years, 6)
+        self.assertIn("Eligible for gratuity", result.reason)
+
+    def test_06c_gratuity_death_disablement_fraction_rounding(self):
+        """Test statutory exception: 2 years 7 months with death/disablement flag rounds UP to 3 payout years."""
+        self.employee.first_contract_date = Date.from_string('2021-01-01')
+        result = self.validator.validate(
+            self.employee,
+            separation_date='2023-08-15',
+            is_death_or_disablement=True
+        )
+        self.assertTrue(result.is_eligible)
+        self.assertTrue(result.is_death_or_disablement)
+        self.assertEqual(result.total_years, 2)
+        self.assertEqual(result.remaining_months, 7)
+        self.assertEqual(result.completed_years, 3)
+        self.assertIn("Death/Disablement exemption", result.reason)
 
     def test_07_death_disablement_exception_validation(self):
         """Test statutory exception: 2 years service with death/disablement flag is Eligible."""

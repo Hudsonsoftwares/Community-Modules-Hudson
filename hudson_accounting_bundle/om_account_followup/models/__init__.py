@@ -4,3 +4,4 @@ from . import followup_partner
 from . import partner
 from . import res_company
 from . import settings
+from . import mail_activity

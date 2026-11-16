@@ -2,7 +2,7 @@
 
 {
     'name': 'Field Service',
-    'version': '20.0.4.5.0',
+    'version': '20.0.4.8.0',
     'category': 'Services/Field Service',
     'sequence': 55,
     'summary': 'Plan onsite interventions in Planning, invoice time and materials, complete worksheets, and track customer satisfaction',

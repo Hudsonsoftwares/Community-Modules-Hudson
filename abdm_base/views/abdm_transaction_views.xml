@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="abdm_transaction_view_list" model="ir.ui.view">
+        <field name="name">abdm.transaction.list</field>
+        <field name="model">abdm.transaction</field>
+        <field name="arch" type="xml">
+            <list create="0" edit="0" decoration-danger="state == 'error'" decoration-warning="state == 'timeout'">
+                <field name="sent_date"/>
+                <field name="operation"/>
+                <field name="state" widget="badge" decoration-success="state == 'done'"
+                       decoration-info="state == 'sent'" decoration-danger="state == 'error'" decoration-warning="state == 'timeout'"/>
+                <field name="response_date" optional="show"/>
+                <field name="res_model" optional="hide"/>
+                <field name="request_id" optional="hide"/>
+                <field name="company_id" groups="base.group_multi_company" optional="hide"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="abdm_transaction_view_form" model="ir.ui.view">
+        <field name="name">abdm.transaction.form</field>
+        <field name="model">abdm.transaction</field>
+        <field name="arch" type="xml">
+            <form create="0" edit="0">
+                <header>
+                    <field name="state" widget="statusbar" statusbar_visible="sent,done"/>
+                </header>
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_view_logs" type="object" class="oe_stat_button" icon="format_list_bulleted"
+                                groups="abdm_base.group_abdm_manager">
+                            <field name="log_count" widget="statinfo" string="API Calls"/>
+                        </button>
+                        <button name="action_open_related" type="object" class="oe_stat_button" icon="open_in_new"
+                                string="Related Record" invisible="not res_id"/>
+                    </div>
+                    <div class="oe_title">
+                        <h1><field name="operation"/></h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="request_id"/>
+                            <field name="sent_date"/>
+                            <field name="response_date"/>
+                        </group>
+                        <group>
+                            <field name="callback_path"/>
+                            <field name="res_model"/>
+                            <field name="company_id" groups="base.group_multi_company"/>
+                        </group>
+                    </group>
+                    <field name="error_message" invisible="not error_message" class="text-danger"/>
+                    <notebook>
+                        <page string="Sent" name="sent">
+                            <field name="request_summary" widget="code" options="{'mode': 'javascript'}"/>
+                        </page>
+                        <page string="ABDM Answer" name="answer">
+                            <field name="response_summary" widget="code" options="{'mode': 'javascript'}"/>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="abdm_transaction_view_search" model="ir.ui.view">
+        <field name="name">abdm.transaction.search</field>
+        <field name="model">abdm.transaction</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="operation"/>
+                <field name="request_id"/>
+                <filter name="waiting" string="Waiting for ABDM" domain="[('state', '=', 'sent')]"/>
+                <filter name="problems" string="Errors / No Answer" domain="[('state', 'in', ('error', 'timeout'))]"/>
+                <group>
+                    <filter name="group_operation" string="Operation" context="{'group_by': 'operation'}"/>
+                    <filter name="group_state" string="Status" context="{'group_by': 'state'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_abdm_transaction" model="ir.actions.act_window">
+        <field name="name">Transactions</field>
+        <field name="res_model">abdm.transaction</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">No ABDM transactions yet</p>
+            <p>Each request that ABDM answers later (on your callback URL) is tracked here until the answer arrives.</p>
+        </field>
+    </record>
+</odoo>

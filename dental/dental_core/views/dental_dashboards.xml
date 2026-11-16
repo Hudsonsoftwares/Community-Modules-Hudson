@@ -50,23 +50,30 @@
     <record id="action_reception_todays_appointments" model="ir.actions.act_window">
         <field name="name">Today's Appointments</field>
         <field name="res_model">dental.appointment</field>
-        <field name="view_mode">list,calendar,form</field>
-        <field name="view_id" ref="dental_appointment.view_dental_appointment_tree"/>
+        <field name="view_mode">kanban,list,calendar,form</field>
+        <field name="view_ids" eval="[(5, 0, 0),
+            (0, 0, {'view_mode': 'kanban'}),
+            (0, 0, {'view_mode': 'list', 'view_id': ref('dental_appointment.view_dental_appointment_tree')}),
+            (0, 0, {'view_mode': 'calendar'}),
+            (0, 0, {'view_mode': 'form'})]"/>
         <field name="domain">[('date_start', '&gt;=', context_today().strftime('%Y-%m-%d 00:00:00')), ('date_start', '&lt;=', context_today().strftime('%Y-%m-%d 23:59:59'))]</field>
     </record>
 
     <record id="action_reception_checked_in" model="ir.actions.act_window">
-        <field name="name">Checked-in &amp; Waiting</field>
+        <field name="name">Checked-in Patients</field>
         <field name="res_model">dental.appointment</field>
-        <field name="view_mode">list,form</field>
+        <field name="view_mode">list,kanban,form</field>
         <field name="domain">[('state', 'in', ('checked_in', 'in_consultation'))]</field>
-        <field name="view_id" ref="dental_appointment.view_dental_appointment_queue_tree"/>
+        <field name="view_ids" eval="[(5, 0, 0),
+            (0, 0, {'view_mode': 'list', 'view_id': ref('dental_appointment.view_dental_appointment_queue_tree')}),
+            (0, 0, {'view_mode': 'kanban'}),
+            (0, 0, {'view_mode': 'form'})]"/>
     </record>
 
     <record id="action_reception_patients" model="ir.actions.act_window">
         <field name="name">Patient Registration</field>
         <field name="res_model">res.partner</field>
-        <field name="view_mode">list,form</field>
+        <field name="view_mode">kanban,list,form</field>
         <field name="domain">[('is_dental_patient', '=', True)]</field>
         <field name="context">{'default_is_dental_patient': True}</field>
     </record>
@@ -110,11 +117,19 @@
               action="action_reception_patients"
               sequence="10"/>
 
+    <menuitem id="menu_reception_checked_in"
+              name="Checked-in Patients"
+              parent="menu_reception_front_desk"
+              action="action_reception_checked_in"
+              sequence="15"
+              active="False"/>
+
     <menuitem id="menu_reception_waiting_queue"
               name="Waiting Queue"
               parent="menu_reception_front_desk"
               action="action_dental_waiting_queue_board"
-              sequence="20"/>
+              sequence="20"
+              active="False"/>
 
     <menuitem id="menu_reception_doctors"
               name="Doctors Availability"
@@ -140,11 +155,13 @@
               action="action_reception_crm_enquiries"
               sequence="10"/>
 
+    <!-- Hidden from Enquiries (CRM) navbar -->
     <menuitem id="menu_reception_crm_followups"
               name="Enquiry Follow-ups"
               parent="menu_reception_crm_root"
               action="action_reception_crm_followups"
-              sequence="20"/>
+              sequence="20"
+              active="False"/>
 
     <menuitem id="menu_reception_crm_reports"
               name="Enquiry Reports"
@@ -186,7 +203,8 @@
               name="Patient Check-in"
               parent="menu_reception_appointments_dropdown"
               action="dental_appointment.action_dental_patient_checkin"
-              sequence="40"/>
+              sequence="40"
+              active="False"/>
 
     <!-- ========================================================================= -->
     <!-- 3. MY WORKSPACE (Dentist Workflow: Sequence 35)                          -->
@@ -197,7 +215,9 @@
         <field name="parent_id" eval="False"/>
         <field name="sequence" eval="25"/>
         <field name="web_icon">dental_core,static/description/icon.png</field>
-        <!-- Only users with Dentist or Management role see this standalone workspace -->
+        <!-- Permission gate (Dentist / Clinic Manager / Dental Administrator). On top of this,
+             ir.ui.menu._filter_visible_menus hides the whole app unless the user is linked to an
+             active employee with Dental Role = Dentist; the dashboard RPC enforces the same rule. -->
         <field name="group_ids" eval="[(6, 0, [
             ref('dental_base.group_dental_dentist'),
             ref('dental_base.group_dental_manager'),
@@ -215,55 +235,68 @@
     <record id="action_dentist_workspace_all_appointments" model="ir.actions.act_window">
         <field name="name">My Appointments</field>
         <field name="res_model">dental.appointment</field>
-        <field name="view_mode">list,calendar,form</field>
+        <field name="view_mode">dental_gantt,kanban,list,calendar,form</field>
+        <field name="view_id" ref="dental_appointment.view_dental_appointment_gantt"/>
         <field name="domain">[('doctor_id.user_id', '=', uid)]</field>
     </record>
 
     <record id="action_dentist_workspace_queue" model="ir.actions.act_window">
         <field name="name">Patient Queue</field>
         <field name="res_model">dental.appointment</field>
-        <field name="view_mode">list,form</field>
+        <field name="view_mode">kanban,list,form</field>
         <field name="domain">[('state', 'in', ('checked_in', 'in_consultation')), ('doctor_id.user_id', '=', uid)]</field>
-        <field name="view_id" ref="dental_appointment.view_dental_appointment_queue_tree"/>
+        <field name="view_ids" eval="[(5, 0, 0),
+            (0, 0, {'view_mode': 'kanban'}),
+            (0, 0, {'view_mode': 'list', 'view_id': ref('dental_appointment.view_dental_appointment_queue_tree')}),
+            (0, 0, {'view_mode': 'form'})]"/>
     </record>
     
     <record id="action_dentist_workspace_patient_records" model="ir.actions.act_window">
         <field name="name">Patient Records</field>
         <field name="res_model">res.partner</field>
-        <field name="view_mode">list,form</field>
+        <field name="view_mode">kanban,list,form</field>
         <field name="domain">[('is_dental_patient', '=', True)]</field>
     </record>
 
     <record id="action_dentist_workspace_active_cases" model="ir.actions.act_window">
         <field name="name">Clinical Consultations</field>
         <field name="res_model">dental.case</field>
-        <field name="view_mode">list,form</field>
+        <field name="view_mode">kanban,list,form</field>
         <field name="domain">[('doctor_id.user_id', '=', uid)]</field>
     </record>
     
     <record id="action_dentist_workspace_treatment_plans" model="ir.actions.act_window">
         <field name="name">Treatment Plans</field>
         <field name="res_model">dental.treatment.plan</field>
-        <field name="view_mode">list,form</field>
+        <field name="view_mode">kanban,list,form</field>
         <field name="domain">[('doctor_id.user_id', '=', uid)]</field>
     </record>
     
     <record id="action_dentist_workspace_follow_ups" model="ir.actions.act_window">
         <field name="name">Follow-ups</field>
         <field name="res_model">dental.follow.up</field>
-        <field name="view_mode">list,form</field>
+        <field name="view_mode">kanban,list,form</field>
         <field name="domain">[('doctor_id.user_id', '=', uid)]</field>
     </record>
 
-    <!-- Dentist Workspace Sub-Menus -->
-    <menuitem id="menu_dentist_ws_overview" name="Dentist Dashboard" parent="menu_dental_dentist_workspace" action="action_dentist_professional_dashboard" sequence="10"/>
-    <menuitem id="menu_dentist_ws_all_appointments" name="My Appointments" parent="menu_dental_dentist_workspace" action="action_dentist_workspace_all_appointments" sequence="20"/>
-    <menuitem id="menu_dentist_ws_queue" name="Patient Queue" parent="menu_dental_dentist_workspace" action="action_dentist_workspace_queue" sequence="30"/>
-    <menuitem id="menu_dentist_ws_active_cases" name="Clinical Consultations" parent="menu_dental_dentist_workspace" action="action_dentist_workspace_active_cases" sequence="40"/>
-    <menuitem id="menu_dentist_ws_patient_records" name="Patient Records" parent="menu_dental_dentist_workspace" action="action_dentist_workspace_patient_records" sequence="50"/>
-    <menuitem id="menu_dentist_ws_treatment_plans" name="Treatment Plans" parent="menu_dental_dentist_workspace" action="action_dentist_workspace_treatment_plans" sequence="60"/>
-    <menuitem id="menu_dentist_ws_follow_ups" name="Follow-ups" parent="menu_dental_dentist_workspace" action="action_dentist_workspace_follow_ups" sequence="70"/>
-    <menuitem id="menu_dentist_ws_leaves" name="My Leaves" parent="menu_dental_dentist_workspace" action="dental_appointment.action_dental_my_leaves" sequence="80"/>
+    <!-- Dentist Workspace Sub-Menus
+         Navbar is grouped into short dropdowns to keep it compact:
+           Dashboard | Schedule ▾ | Clinical ▾ | Second Opinions ▾ (dental_second_opinion) -->
+    <menuitem id="menu_dentist_ws_overview" name="Dashboard" parent="menu_dental_dentist_workspace" action="action_dentist_professional_dashboard" sequence="10"/>
+
+    <!-- Schedule: the dentist's day-to-day patient flow -->
+    <menuitem id="menu_dentist_ws_schedule" name="Schedule" parent="menu_dental_dentist_workspace" sequence="20"/>
+    <menuitem id="menu_dentist_ws_all_appointments" name="My Appointments" parent="menu_dentist_ws_schedule" action="action_dentist_workspace_all_appointments" sequence="10"/>
+    <menuitem id="menu_dentist_ws_queue" name="Patient Queue" parent="menu_dentist_ws_schedule" action="action_dentist_workspace_queue" sequence="20"/>
+    <menuitem id="menu_dentist_ws_follow_ups" name="Follow-ups" parent="menu_dentist_ws_schedule" action="action_dentist_workspace_follow_ups" sequence="30"/>
+
+    <!-- Clinical: cases, plans and patient history -->
+    <menuitem id="menu_dentist_ws_clinical" name="Clinical" parent="menu_dental_dentist_workspace" sequence="40"/>
+    <menuitem id="menu_dentist_ws_active_cases" name="Clinical Consultations" parent="menu_dentist_ws_clinical" action="action_dentist_workspace_active_cases" sequence="10"/>
+    <menuitem id="menu_dentist_ws_treatment_plans" name="Treatment Plans" parent="menu_dentist_ws_clinical" action="action_dentist_workspace_treatment_plans" sequence="20"/>
+    <menuitem id="menu_dentist_ws_patient_records" name="Patient Records" parent="menu_dentist_ws_clinical" action="action_dentist_workspace_patient_records" sequence="30"/>
+    <!-- Hidden from the Dentist Workspace navbar; leave requests stay available under Staff > My Leave Requests -->
+    <menuitem id="menu_dentist_ws_leaves" name="My Leaves" parent="menu_dental_dentist_workspace" action="dental_appointment.action_dental_my_leaves" sequence="80" active="False"/>
 
     <!-- ========================================================================= -->
     <!-- 4. ACCOUNTING (Top Menu: Sequence 80)                                     -->
@@ -274,7 +307,8 @@
         <field name="parent_id" ref="dental_base.menu_dental_root"/>
         <field name="sequence" eval="60"/>
         <field name="group_ids" eval="[(6, 0, [ref('dental_base.group_dental_manager'), ref('dental_base.group_dental_admin')])]"/>
-        <field name="active" eval="True"/>
+        <!-- Hidden from the Dental Clinic app: available from its own module -->
+        <field name="active" eval="False"/>
     </record>
 
     <menuitem id="menu_dental_accounting_dashboard"

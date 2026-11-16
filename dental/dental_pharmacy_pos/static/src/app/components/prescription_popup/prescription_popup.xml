@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates id="template" xml:space="preserve">
+
+    <t t-name="dental_pharmacy_pos.PrescriptionPopup">
+        <Dialog title="this.title" size="'xl'" contentClass="'o_dental_rx_popup'" bodyClass="'p-0'">
+            <div class="d-flex flex-column flex-lg-row o_dental_rx_body">
+                <!-- Prescription queue -->
+                <div class="o_dental_rx_list border-end p-2">
+                    <input type="text" class="form-control mb-2 o_dental_rx_search"
+                           placeholder="Search Rx no., patient, phone, patient ID"
+                           t-att-value="this.state.search" t-on-input="this.onSearchInput"/>
+                    <div t-if="this.props.partnerId" class="form-check form-switch mb-2">
+                        <input class="form-check-input" type="checkbox" id="dental_rx_only_patient"
+                               t-att-checked="this.state.onlyPatient" t-on-change="this.toggleOnlyPatient"/>
+                        <label class="form-check-label" for="dental_rx_only_patient">
+                            Only <t t-out="this.props.partnerName"/>
+                        </label>
+                    </div>
+                    <div t-if="this.state.loading" class="text-muted p-3">Loading...</div>
+                    <div t-elif="this.state.error" class="alert alert-warning m-0">
+                        Prescriptions could not be loaded. Check the connection and try again.
+                    </div>
+                    <div t-elif="!this.state.prescriptions.length" class="text-muted p-3">
+                        No pending prescription.
+                    </div>
+                    <button t-foreach="this.state.prescriptions" t-as="rx" t-key="rx.id"
+                            class="btn btn-outline-secondary w-100 text-start mb-2 o_dental_rx_item"
+                            t-att-class="{ 'active': rx.id === this.state.selectedId }"
+                            t-on-click="() => this.select(rx)">
+                        <div class="d-flex justify-content-between">
+                            <strong t-out="rx.name"/>
+                            <small t-out="rx.date"/>
+                        </div>
+                        <div class="text-truncate" t-out="rx.patient"/>
+                        <div class="d-flex justify-content-between small">
+                            <span class="text-muted text-truncate" t-out="rx.dentist"/>
+                            <span class="badge text-bg-info" t-if="rx.state === 'partially_dispensed'" t-out="rx.state_label"/>
+                            <span class="badge text-bg-danger" t-if="rx.allergy.status === 'known'">Allergy</span>
+                        </div>
+                    </button>
+                </div>
+
+                <!-- Prescription details -->
+                <div class="flex-grow-1 p-3 o_dental_rx_detail" t-if="this.selected">
+                    <t t-set="rx" t-value="this.selected"/>
+                    <div class="d-flex flex-wrap justify-content-between gap-2 mb-2">
+                        <div>
+                            <h4 class="mb-0" t-out="rx.patient"/>
+                            <small class="text-muted">
+                                <t t-if="rx.patient_ref"><t t-out="rx.patient_ref"/> · </t>
+                                <t t-out="rx.patient_phone"/>
+                            </small>
+                        </div>
+                        <div class="text-end small">
+                            <div><strong t-out="rx.name"/> · <t t-out="rx.date"/></div>
+                            <div>Doctor: <t t-out="rx.dentist"/></div>
+                            <div t-if="rx.case">Case: <t t-out="rx.case"/></div>
+                        </div>
+                    </div>
+
+                    <div class="alert py-2 o_dental_rx_allergy" t-att-class="this.allergyClass(rx.allergy)" role="alert">
+                        <strong>Allergies: <t t-out="rx.allergy.status_label"/></strong>
+                        <t t-if="rx.allergy.text"> - <t t-out="rx.allergy.text"/></t>
+                        <div t-if="rx.allergy.status === 'unknown'" class="small">Ask the patient before dispensing.</div>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-sm align-middle o_dental_rx_lines">
+                            <thead>
+                                <tr>
+                                    <th/>
+                                    <th>Medicine</th>
+                                    <th>Dosage</th>
+                                    <th class="text-end">Prescribed</th>
+                                    <th class="text-end">Remaining</th>
+                                    <th class="text-end">In Stock</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr t-foreach="rx.lines" t-as="line" t-key="line.id"
+                                    t-att-class="{ 'table-danger': line.allergy_conflict, 'text-muted': !this.isSellable(line) }"
+                                    t-on-click="() => this.toggleLine(line)" style="cursor: pointer">
+                                    <td>
+                                        <input type="checkbox" class="form-check-input"
+                                               t-att-checked="this.state.lineIds.includes(line.id)"
+                                               t-att-disabled="!this.isSellable(line)"/>
+                                    </td>
+                                    <td>
+                                        <div class="fw-bold" t-out="line.medicine"/>
+                                        <small class="text-muted">
+                                            <t t-out="line.generic_name"/>
+                                            <t t-if="line.dosage_form"> · <t t-out="line.dosage_form"/></t>
+                                        </small>
+                                        <div t-if="line.allergy_conflict" class="small text-danger fw-bold" t-out="line.allergy_note or 'Allergy conflict'"/>
+                                        <div t-if="this.isUsed(line)" class="small">Already in this order</div>
+                                        <div t-elif="!line.available_in_pos" class="small text-danger">Not sold at the counter</div>
+                                    </td>
+                                    <td class="small">
+                                        <div><t t-out="line.frequency"/><t t-if="line.duration">, <t t-out="line.duration"/> days</t></div>
+                                        <div class="text-muted"><t t-out="line.route"/><t t-if="line.instructions"> · <t t-out="line.instructions"/></t></div>
+                                    </td>
+                                    <td class="text-end"><t t-out="line.quantity"/> <small t-out="line.uom"/></td>
+                                    <td class="text-end fw-bold" t-out="line.remaining_qty"/>
+                                    <td class="text-end" t-att-class="this.stockClass(line)" t-out="line.available_qty"/>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <t t-set-slot="footer">
+                <button class="btn btn-primary btn-lg o_dental_rx_add" t-att-disabled="!this.state.lineIds.length"
+                        t-on-click="this.confirm">Add to Order</button>
+                <button class="btn btn-secondary btn-lg" t-on-click="this.props.close">Close</button>
+            </t>
+        </Dialog>
+    </t>
+
+</templates>

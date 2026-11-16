@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
+# pyrefly: ignore [missing-import]
 from odoo.tests import common
-from odoo import fields
 from ..services.epf.epf_service import EPFService
 
 
@@ -64,7 +64,7 @@ class TestEmployerEpfCalculation(common.TransactionCase):
             })
         self.rule_da.write({'hds_in_include_in_pf_wage': True})
 
-        # 3. Ensure PF Wage Ceiling parameter exists at ₹15,000
+        # 3. Ensure PF Wage Ceiling parameter exists at ₹25,000
         self.pf_ceiling_param = self.RuleParameter.search([('code', '=', 'hds_in_pf_wage_ceiling')], limit=1)
         if not self.pf_ceiling_param:
             self.pf_ceiling_param = self.RuleParameter.create({
@@ -75,7 +75,7 @@ class TestEmployerEpfCalculation(common.TransactionCase):
             self.RuleParameterValue.create({
                 'parameter_id': self.pf_ceiling_param.id,
                 'date_from': '2014-09-01',
-                'parameter_value': '15000',
+                'parameter_value': '25000',
             })
 
         # 4. Ensure Employee EPF Rate parameter exists at 12%
@@ -135,6 +135,9 @@ class TestEmployerEpfCalculation(common.TransactionCase):
             'hra': hra,
             'struct_id': self.struct_base.id,
             'date_start': date_from,
+            'contract_date_start': date_from,
+            'pay_by_attendance': False,
+            'enable_attendance_threshold': False,
         })
 
         payslip = self.Payslip.create({
@@ -179,25 +182,25 @@ class TestEmployerEpfCalculation(common.TransactionCase):
     def test_scenario_b_wage_above_ceiling(self):
         """
         Scenario B:
-        Actual PF Wage = ₹20,000
+        Actual PF Wage = ₹30,000
         Contribution Basis = statutory_ceiling
-        Ceiling = ₹15,000
+        Ceiling = ₹25,000
         Employer EPF Rate = 12%
 
         Expected:
-        Contribution Wage = ₹15,000
-        Employer EPF = ₹1,800
+        Contribution Wage = ₹25,000
+        Employer EPF = ₹3,000
         """
         emp, payslip = self._create_payslip_and_employee(
-            'Scenario B Employee', basic=18000.0, da=2000.0, hra=5000.0, basis='statutory_ceiling'
+            'Scenario B Employee', basic=28000.0, da=2000.0, hra=5000.0, basis='statutory_ceiling'
         )
         payslip.compute_sheet()
         line_map = {l.code: l.total for l in payslip.line_ids}
 
-        self.assertEqual(line_map.get('PF_WAGE'), 20000.0, "Actual PF Wage must be 20000.0")
-        self.assertEqual(payslip.hds_in_get_pf_contribution_wage(), 15000.0, "Contribution wage must be capped at 15000.0")
+        self.assertEqual(line_map.get('PF_WAGE'), 30000.0, "Actual PF Wage must be 30000.0")
+        self.assertEqual(payslip.hds_in_get_pf_contribution_wage(), 25000.0, "Contribution wage must be capped at 25000.0")
         er_epf = line_map.get('EMPLOYER_EPF') or line_map.get('EPF_ER')
-        self.assertEqual(er_epf, 1800.0, "Employer EPF must be +1800.0 (12% of 15000.0)")
+        self.assertEqual(er_epf, 3000.0, "Employer EPF must be +3000.0 (12% of 25000.0)")
 
     def test_scenario_c_uncapped_contribution(self):
         """

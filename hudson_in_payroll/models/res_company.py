@@ -51,13 +51,14 @@ class ResCompany(models.Model):
             ('hds_in_enable_notice_pay_settlement', 'BOOLEAN DEFAULT TRUE'),
             ('hds_in_notice_period_unit', "VARCHAR DEFAULT 'days'"),
             ('hds_in_regular_struct_id', 'INTEGER'),
-            ('hds_in_bonus_struct_id', 'INTEGER'),
             ('hds_in_retention_min_service_months', 'INTEGER DEFAULT 12'),
             ('hds_in_retention_exclude_notice_period', 'BOOLEAN DEFAULT TRUE'),
             ('hds_in_bonus_apply_tds', 'BOOLEAN DEFAULT TRUE'),
             ('hds_in_bonus_apply_pf', 'BOOLEAN DEFAULT FALSE'),
             ('hds_in_bonus_apply_esi', 'BOOLEAN DEFAULT FALSE'),
             ('hds_in_bonus_apply_pt', 'BOOLEAN DEFAULT FALSE'),
+            ('enable_attendance_threshold', 'BOOLEAN DEFAULT TRUE'),
+            ('min_attendance_threshold_days', 'NUMERIC DEFAULT 14.0'),
         ]
         try:
             for col, col_def in columns_to_ensure:
@@ -96,10 +97,16 @@ class ResCompany(models.Model):
     )
     hds_in_eps_applicable = fields.Boolean(
         string="EPS Applicable",
+        compute='_compute_hds_in_epf_subschemes',
+        store=True,
+        readonly=False,
         help="Enable Employee Pension Scheme (EPS) calculations."
     )
     hds_in_edli_applicable = fields.Boolean(
         string="EDLI Applicable",
+        compute='_compute_hds_in_epf_subschemes',
+        store=True,
+        readonly=False,
         help="Enable Employee Deposit Linked Insurance (EDLI) calculations."
     )
     hds_in_edli_registration_number = fields.Char(
@@ -112,6 +119,18 @@ class ResCompany(models.Model):
         help="Record detailed calculation input/output/parameter audit logs for statutory compliance."
     )
 
+    @api.depends('hds_in_epf_applicable')
+    def _compute_hds_in_epf_subschemes(self):
+        for company in self:
+            company.hds_in_eps_applicable = company.hds_in_epf_applicable
+            company.hds_in_edli_applicable = company.hds_in_epf_applicable
+
+    @api.onchange('hds_in_epf_applicable')
+    def _onchange_hds_in_epf_applicable(self):
+        for company in self:
+            company.hds_in_eps_applicable = company.hds_in_epf_applicable
+            company.hds_in_edli_applicable = company.hds_in_epf_applicable
+
     # ESIC Company Configuration Fields
     hds_in_esic_applicable = fields.Boolean(
         string="Enable ESIC",
@@ -119,8 +138,8 @@ class ResCompany(models.Model):
         help="Enable Employee State Insurance (ESIC) statutory compliance for this company."
     )
     hds_in_esic_employer_code = fields.Char(
-        string="ESIC Employer Code",
-        help="Enter the Employer Code allotted by the Employees' State Insurance Corporation."
+        string="ESIC IP Number",
+        help="Enter the 17-digit ESIC Code / IP Number allotted by the Employees' State Insurance Corporation."
     )
     hds_in_esic_registration_no = fields.Char(
         string="ESIC Registration Number",
@@ -202,6 +221,37 @@ class ResCompany(models.Model):
         size=10,
         help="Tax Deduction and Collection Account Number allotted by the Income Tax Department (10 characters, e.g. ABCD12345E)."
     )
+    # Deductor details of the quarterly TDS return (Form 138 text file)
+    hds_in_company_pan = fields.Char(
+        string="Company PAN",
+        size=10,
+        help="Permanent Account Number of the company (deductor), printed in the quarterly TDS return (e.g. ABCDE1234F)."
+    )
+    hds_in_deductor_type = fields.Selection([
+        ('A', 'Central Government'),
+        ('S', 'State Government'),
+        ('D', 'Statutory Body (Central Govt.)'),
+        ('E', 'Statutory Body (State Govt.)'),
+        ('G', 'Autonomous Body (Central Govt.)'),
+        ('H', 'Autonomous Body (State Govt.)'),
+        ('L', 'Local Authority (Central Govt.)'),
+        ('N', 'Local Authority (State Govt.)'),
+        ('K', 'Company'),
+        ('M', 'Branch / Division of Company'),
+        ('P', 'Association of Persons (AOP)'),
+        ('T', 'Association of Persons (Trust)'),
+        ('J', 'Artificial Juridical Person'),
+        ('B', 'Body of Individuals'),
+        ('Q', 'Individual / HUF'),
+        ('F', 'Firm'),
+    ], string="Deductor Type", default='K',
+        help="Deductor category of the quarterly TDS return.")
+    hds_in_tds_responsible_name = fields.Char(
+        string="Responsible Person",
+        help="Person responsible for deducting tax, printed in the quarterly TDS return.")
+    hds_in_tds_responsible_designation = fields.Char(string="Designation")
+    hds_in_tds_responsible_email = fields.Char(string="Responsible Person Email")
+    hds_in_tds_responsible_mobile = fields.Char(string="Responsible Person Mobile")
     hds_in_default_tax_regime = fields.Selection(
         selection=[
             ('new', 'New Tax Regime Income-tax Act, 2025 — Section 202(1)'),
@@ -268,11 +318,6 @@ class ResCompany(models.Model):
         string="Regular Payroll Structure",
         help="Default Salary Structure used for regular monthly payroll processing."
     )
-    hds_in_bonus_struct_id = fields.Many2one(
-        'hr.payroll.structure',
-        string="Bonus Payroll Structure",
-        help="Default Salary Structure used for separate bonus payroll processing."
-    )
     hds_in_retention_min_service_months = fields.Integer(
         string="Retention Bonus Min Service (Months)",
         default=12,
@@ -309,14 +354,21 @@ class ResCompany(models.Model):
         for vals in vals_list:
             if vals.get('hds_in_tan'):
                 vals['hds_in_tan'] = vals['hds_in_tan'].strip().upper()
+            if 'hds_in_epf_applicable' in vals:
+                vals['hds_in_eps_applicable'] = vals['hds_in_epf_applicable']
+                vals['hds_in_edli_applicable'] = vals['hds_in_epf_applicable']
         return super().create(vals_list)
 
     def write(self, vals):
         if vals.get('hds_in_tan'):
             vals['hds_in_tan'] = vals['hds_in_tan'].strip().upper()
+        if 'hds_in_epf_applicable' in vals:
+            vals['hds_in_eps_applicable'] = vals['hds_in_epf_applicable']
+            vals['hds_in_edli_applicable'] = vals['hds_in_epf_applicable']
         res = super().write(vals)
-        if 'hds_in_enable_lwf' in vals:
-            self.env.registry.clear_cache()
+        if 'hds_in_enable_lwf' in vals or 'hds_in_enable_leave_encashment' in vals:
+            self.env.transaction.invalidate_ormcache()
+            self.env.invalidate_all()
         return res
 
 

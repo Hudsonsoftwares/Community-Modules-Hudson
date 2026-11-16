@@ -2,10 +2,19 @@ from . import dental_case
 from . import dental_clinical_examination
 from . import dental_diagnosis
 from . import dental_treatment_plan
+from . import dental_follow_up
+from . import account_move
+from . import res_company
 from . import dental_appointment_inherit
 from . import res_partner_inherit
 from . import dental_tooth_finding
 from . import dental_reporting
+from . import dental_patient_history
 from . import crm_lead_inherit
 from . import dental_maintenance
 
+from . import res_users
+from . import ir_ui_menu
+from . import hr_employee
+from . import dental_floor_plan
+from . import dental_payment_summary

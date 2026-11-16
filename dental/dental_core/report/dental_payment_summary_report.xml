@@ -1,0 +1,235 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Report Action -->
+    <record id="action_report_dental_payment_summary" model="ir.actions.report">
+        <field name="name">End of Day Payment Summary</field>
+        <field name="model">dental.payment.summary</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">dental_core.report_payment_summary_template</field>
+        <field name="print_report_name">'Payment_Summary_%s_%s' % (object.name.replace('/', '_'), object.date)</field>
+        <field name="binding_model_id" ref="model_dental_payment_summary"/>
+        <field name="binding_type">report</field>
+    </record>
+
+    <!-- QWeb Template -->
+    <template id="report_payment_summary_template">
+        <t t-call="web.html_container">
+            <t t-foreach="docs" t-as="doc">
+                <t t-call="web.external_layout">
+                    <div class="page" style="font-family: Arial, sans-serif; font-size: 12px; color: #1e293b;">
+                        
+                        <!-- Header Banner -->
+                        <div class="row pb-3 mb-3 border-bottom align-items-center">
+                            <div class="col-7">
+                                <h3 class="fw-bold text-primary mb-1">
+                                    <span t-esc="doc.company_id.name"/>
+                                </h3>
+                                <div class="text-uppercase fw-bold text-muted" style="letter-spacing: 0.5px; font-size: 13px;">
+                                    End of Day Payment Summary &amp; Reconciliation
+                                </div>
+                            </div>
+                            <div class="col-5 text-end">
+                                <h4 class="fw-bold mb-0 text-dark"><span t-esc="doc.name"/></h4>
+                                <div class="text-muted small"><strong>Date:</strong> <span t-field="doc.date"/></div>
+                                <div>
+                                    <span t-if="doc.state == 'closed'" class="badge text-bg-success px-2 py-1">RECONCILED &amp; CLOSED</span>
+                                    <span t-elif="doc.state == 'draft'" class="badge text-bg-warning px-2 py-1">DRAFT / IN PROGRESS</span>
+                                    <span t-else="" class="badge text-bg-secondary px-2 py-1"><span t-esc="doc.state"/></span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Meta Info Strip -->
+                        <div class="row p-3 mb-3 rounded bg-light border">
+                            <div class="col-6">
+                                <div><strong>Cashier / Receptionist:</strong> <span t-esc="doc.user_id.name"/></div>
+                                <div><strong>Clinic Branch:</strong> <span t-esc="doc.company_id.name"/></div>
+                            </div>
+                            <div class="col-6 text-end">
+                                <div t-if="doc.closing_date">
+                                    <strong>Closed On:</strong> <span t-field="doc.closing_date"/>
+                                </div>
+                                <div t-if="doc.closing_user_id">
+                                    <strong>Closed By:</strong> <span t-esc="doc.closing_user_id.name"/>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 4 Highlight Cards -->
+                        <table class="table table-bordered mb-4 text-center" style="background-color: #f8fafc;">
+                            <thead>
+                                <tr style="background-color: #e2e8f0; font-size: 11px;">
+                                    <th style="width: 25%;">NET COLLECTIONS</th>
+                                    <th style="width: 25%;">EXPECTED CASH</th>
+                                    <th style="width: 25%;">COUNTED CASH</th>
+                                    <th style="width: 25%;">CASH DISCREPANCY</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr style="font-size: 15px; font-weight: bold;">
+                                    <td class="text-primary">
+                                        <span t-field="doc.net_collected" t-options="{'widget': 'monetary', 'display_currency': doc.currency_id}"/>
+                                    </td>
+                                    <td class="text-dark">
+                                        <span t-field="doc.total_cash_expected" t-options="{'widget': 'monetary', 'display_currency': doc.currency_id}"/>
+                                    </td>
+                                    <td class="text-success">
+                                        <span t-field="doc.total_cash_counted" t-options="{'widget': 'monetary', 'display_currency': doc.currency_id}"/>
+                                    </td>
+                                    <td t-attf-class="{{ 'text-success' if doc.cash_difference == 0 else ('text-danger' if doc.cash_difference &lt; 0 else 'text-warning') }}">
+                                        <span t-field="doc.cash_difference" t-options="{'widget': 'monetary', 'display_currency': doc.currency_id}"/>
+                                        <span style="font-size: 10px; font-weight: normal;">
+                                            (<span t-if="doc.cash_difference == 0">Balanced</span>
+                                             <span t-elif="doc.cash_difference &lt; 0">Shortage</span>
+                                             <span t-else="">Overage</span>)
+                                        </span>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <!-- SECTION 1: Payment Method Breakdown -->
+                        <h6 class="fw-bold text-dark border-bottom pb-1 mb-2">1. Payment Method Breakdown</h6>
+                        <table class="table table-sm table-bordered mb-4">
+                            <thead class="table-light text-center" style="font-size: 11px;">
+                                <tr>
+                                    <th style="width: 28%; text-align: left;">Payment Method</th>
+                                    <th style="width: 12%;">Type</th>
+                                    <th style="width: 10%;">Txns</th>
+                                    <th style="width: 16%; text-align: right;">Gross Collected</th>
+                                    <th style="width: 16%; text-align: right;">Net Expected</th>
+                                    <th style="width: 18%; text-align: right;">Counted / Verified</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr t-foreach="doc.journal_line_ids" t-as="jl">
+                                    <td class="fw-bold"><span t-esc="jl.journal_id.name"/></td>
+                                    <td class="text-center text-uppercase small"><span t-esc="jl.journal_type"/></td>
+                                    <td class="text-center"><span t-esc="jl.transaction_count"/></td>
+                                    <td class="text-end">
+                                        <span t-field="jl.amount_collected" t-options="{'widget': 'monetary', 'display_currency': doc.currency_id}"/>
+                                    </td>
+                                    <td class="text-end fw-bold">
+                                        <span t-field="jl.amount_expected" t-options="{'widget': 'monetary', 'display_currency': doc.currency_id}"/>
+                                    </td>
+                                    <td class="text-end fw-bold">
+                                        <span t-field="jl.amount_counted" t-options="{'widget': 'monetary', 'display_currency': doc.currency_id}"/>
+                                    </td>
+                                </tr>
+                            </tbody>
+                            <tfoot class="table-light fw-bold">
+                                <tr>
+                                    <td colspan="2">Total</td>
+                                    <td class="text-center"><span t-esc="doc.payment_count"/></td>
+                                    <td class="text-end">
+                                        <span t-field="doc.total_collected" t-options="{'widget': 'monetary', 'display_currency': doc.currency_id}"/>
+                                    </td>
+                                    <td class="text-end">
+                                        <span t-field="doc.net_collected" t-options="{'widget': 'monetary', 'display_currency': doc.currency_id}"/>
+                                    </td>
+                                    <td class="text-end">
+                                        <span t-field="doc.total_cash_counted" t-options="{'widget': 'monetary', 'display_currency': doc.currency_id}"/>
+                                    </td>
+                                </tr>
+                            </tfoot>
+                        </table>
+
+                        <!-- SECTION 2: Cash Denominations (if counted) -->
+                        <t t-set="active_denoms" t-value="doc.denomination_ids.filtered(lambda d: d.count &gt; 0)"/>
+                        <t t-if="active_denoms">
+                            <h6 class="fw-bold text-dark border-bottom pb-1 mb-2">2. Physical Cash Drawer Denominations</h6>
+                            <table class="table table-sm table-bordered mb-4" style="width: 70%;">
+                                <thead class="table-light text-center" style="font-size: 11px;">
+                                    <tr>
+                                        <th style="width: 35%; text-align: left;">Denomination Note / Coin</th>
+                                        <th style="width: 25%;">Count / Pieces</th>
+                                        <th style="width: 40%; text-align: right;">Subtotal</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr t-foreach="active_denoms" t-as="denom">
+                                        <td>
+                                            <span t-esc="doc.currency_id.symbol or ''"/> <span t-esc="'%.0f' % denom.denomination_value"/>
+                                        </td>
+                                        <td class="text-center"><span t-esc="denom.count"/></td>
+                                        <td class="text-end fw-bold">
+                                            <span t-field="denom.total_amount" t-options="{'widget': 'monetary', 'display_currency': doc.currency_id}"/>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                                <tfoot class="table-light fw-bold">
+                                    <tr>
+                                        <td colspan="2">Total Physical Cash Counted</td>
+                                        <td class="text-end text-success">
+                                            <span t-field="doc.total_cash_counted" t-options="{'widget': 'monetary', 'display_currency': doc.currency_id}"/>
+                                        </td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </t>
+
+                        <!-- SECTION 3: Itemized Receipts Table -->
+                        <h6 class="fw-bold text-dark border-bottom pb-1 mb-2">3. Patient Payment Transactions</h6>
+                        <table class="table table-sm table-bordered mb-4" style="font-size: 11px;">
+                            <thead class="table-light text-center">
+                                <tr>
+                                    <th style="width: 15%;">Receipt / Ref</th>
+                                    <th style="width: 10%;">Time</th>
+                                    <th style="width: 22%; text-align: left;">Patient Name &amp; ID</th>
+                                    <th style="width: 16%; text-align: left;">Origin / Invoice</th>
+                                    <th style="width: 14%; text-align: left;">Doctor</th>
+                                    <th style="width: 11%;">Method</th>
+                                    <th style="width: 12%; text-align: right;">Amount</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <t t-if="not doc.line_ids">
+                                    <tr>
+                                        <td colspan="7" class="text-center text-muted py-2">No payment transactions recorded for this day.</td>
+                                    </tr>
+                                </t>
+                                <tr t-foreach="doc.line_ids" t-as="line">
+                                    <td class="text-center fw-bold"><span t-esc="line.payment_name"/></td>
+                                    <td class="text-center"><span t-esc="line.payment_time or '-'"/></td>
+                                    <td>
+                                        <div class="fw-bold"><span t-esc="line.partner_id.name if line.partner_id else 'Unknown'"/></div>
+                                        <div t-if="line.patient_identifier" class="text-muted small"><span t-esc="line.patient_identifier"/></div>
+                                    </td>
+                                    <td><span t-esc="line.invoice_origin or '-'"/></td>
+                                    <td><span t-esc="line.dentist_id.name if line.dentist_id else '-'"/></td>
+                                    <td class="text-center small"><span t-esc="line.journal_id.name"/></td>
+                                    <td class="text-end fw-bold">
+                                        <span t-field="line.amount" t-options="{'widget': 'monetary', 'display_currency': doc.currency_id}"/>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <!-- SECTION 4: Notes & Remarks -->
+                        <div t-if="doc.note" class="mb-4 p-2 border rounded bg-light">
+                            <strong>Discrepancy Notes / Remarks:</strong>
+                            <div class="mt-1" t-esc="doc.note"/>
+                        </div>
+
+                        <!-- Sign-off Block -->
+                        <div class="row mt-5 pt-4">
+                            <div class="col-6 text-center">
+                                <div style="border-top: 1px solid #64748b; width: 80%; margin: 0 auto; padding-top: 6px;">
+                                    <strong>Prepared By (Cashier / Receptionist)</strong>
+                                    <div class="text-muted small"><span t-esc="doc.user_id.name"/></div>
+                                </div>
+                            </div>
+                            <div class="col-6 text-center">
+                                <div style="border-top: 1px solid #64748b; width: 80%; margin: 0 auto; padding-top: 6px;">
+                                    <strong>Verified &amp; Approved By (Clinic Supervisor)</strong>
+                                    <div class="text-muted small"><span t-esc="doc.closing_user_id.name if doc.closing_user_id else 'Clinic Manager'"/></div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </t>
+            </t>
+        </t>
+    </template>
+</odoo>

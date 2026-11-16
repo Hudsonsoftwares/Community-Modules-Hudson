@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_dental_clinical_examination_form_inherit_speech" model="ir.ui.view">
+        <field name="name">dental.clinical.examination.form.inherit.speech</field>
+        <field name="model">dental.clinical.examination</field>
+        <field name="inherit_id" ref="dental_core.view_dental_clinical_examination_form"/>
+        <field name="arch" type="xml">
+            <!-- The examination form has its own header (Complete / Reopen); add the button to it -->
+            <xpath expr="//form/header/field[@name='state']" position="before">
+                <button name="action_open_conversation_summary" string="Conversation Summary" type="object" icon="mic"
+                        class="btn-secondary"
+                        groups="dental_base.group_dental_dentist,dental_base.group_dental_manager"
+                        invisible="not case_id"
+                        help="Record the consultation with the patient's consent and get a summary to review and approve"/>
+            </xpath>
+            <field name="clinical_findings" position="after">
+                <field name="conversation_diagnosis" invisible="not conversation_diagnosis and not conversation_approved_date"/>
+                <field name="conversation_treatment_plan" invisible="not conversation_treatment_plan and not conversation_approved_date"/>
+                <field name="conversation_follow_up" invisible="not conversation_follow_up and not conversation_approved_date"/>
+            </field>
+            <xpath expr="//notebook" position="inside">
+                <page string="Conversation" name="conversation" invisible="not conversation_approved_date and not conversation_consent_date"
+                      groups="dental_base.group_dental_dentist,dental_base.group_dental_manager">
+                    <group>
+                        <group string="Approval">
+                            <field name="conversation_approved_by_id"/>
+                            <field name="conversation_approved_date"/>
+                        </group>
+                        <group string="Recording Consent">
+                            <field name="conversation_consent_by_id"/>
+                            <field name="conversation_consent_date"/>
+                        </group>
+                    </group>
+                    <field name="conversation_transcript" nolabel="1" invisible="not conversation_transcript"/>
+                </page>
+            </xpath>
+        </field>
+    </record>
+</odoo>

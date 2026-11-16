@@ -10,7 +10,7 @@
                 <div class="hds_in_payroll_localization_container" invisible="not hds_in_is_india_company">
                     <h2 class="mt32">Indian Localization</h2>
                     <div class="row mt16 o_settings_container">
-                        <!-- Left Column: EPF -->
+                        <!-- Master EPF Setting Box -->
                         <div class="col-12 col-lg-6 o_setting_box" id="hds_in_epf_setting">
                             <div class="o_setting_left_pane">
                                 <field name="hds_in_epf_applicable"/>
@@ -23,40 +23,8 @@
                                 <div class="content-group mt8" invisible="not hds_in_epf_applicable">
                                     <div class="row mt8">
                                         <label for="hds_in_epf_employer_id" class="col-lg-5 o_light_label"/>
-                                        <field name="hds_in_epf_employer_id" placeholder="e.g. MH/BAN/0012345/000"/>
+                                        <field name="hds_in_epf_employer_id" placeholder="E.g. GJ/BAN/0000006/000/0000..."/>
                                     </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Right Column: EDLI -->
-                        <div class="col-12 col-lg-6 o_setting_box" id="hds_in_edli_setting">
-                            <div class="o_setting_left_pane">
-                                <field name="hds_in_edli_applicable"/>
-                            </div>
-                            <div class="o_setting_right_pane">
-                                <label for="hds_in_edli_applicable" string="Employee Deposit Linked Insurance (EDLI)" class="fw-bold"/>
-                                <div class="text-muted">
-                                    Enable this to calculate the employer's EDLI contribution as part of statutory PF compliance.
-                                </div>
-                                <div class="content-group mt8" invisible="not hds_in_edli_applicable">
-                                    <div class="row mt8">
-                                        <label for="hds_in_edli_registration_number" class="col-lg-5 o_light_label"/>
-                                        <field name="hds_in_edli_registration_number" placeholder="e.g. EDLI/12345/REG"/>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Left Column: EPS -->
-                        <div class="col-12 col-lg-6 o_setting_box" id="hds_in_eps_setting">
-                            <div class="o_setting_left_pane">
-                                <field name="hds_in_eps_applicable"/>
-                            </div>
-                            <div class="o_setting_right_pane">
-                                <label for="hds_in_eps_applicable" string="Employee Pension Scheme (EPS)" class="fw-bold"/>
-                                <div class="text-muted">
-                                    Enable this to automatically calculate and allocate pension contributions from the employer's PF contribution.
                                 </div>
                             </div>
                         </div>
@@ -67,25 +35,14 @@
                                 <field name="hds_in_esic_applicable"/>
                             </div>
                             <div class="o_setting_right_pane">
-                                <label for="hds_in_esic_applicable" string="Employees' State Insurance (ESIC)" class="fw-bold"/>
+                                <label for="hds_in_esic_applicable" string="ESIC (Employee State Insurance)" class="fw-bold"/>
                                 <div class="text-muted">
-                                    Enable Employee State Insurance (ESIC) statutory compliance for this company.
+                                    Enable this if your organization is registered under ESIC. This will deduct and contribute the ESIC amount for both employee and employer.
                                 </div>
                                 <div class="content-group mt8" invisible="not hds_in_esic_applicable">
                                     <div class="row mt8">
-                                        <label for="hds_in_esic_employer_code" class="col-lg-5 o_light_label"/>
-                                        <field name="hds_in_esic_employer_code" placeholder="e.g. 31000123450000101"/>
-                                    </div>
-                                    <div class="row mt8">
-                                        <label for="hds_in_esic_registration_no" class="col-lg-5 o_light_label"/>
-                                        <field name="hds_in_esic_registration_no" placeholder="e.g. ESIC/MH/3100012"/>
-                                    </div>
-                                    <div class="mt8">
-                                        <button name="%(hudson_in_payroll.action_esic_contribution_period)d"
-                                                icon="arrow_forward"
-                                                type="action"
-                                                string="Configure Contribution Periods"
-                                                class="btn-link"/>
+                                        <label for="hds_in_esic_employer_code" string="ESIC IP Number" class="col-lg-5 o_light_label"/>
+                                        <field name="hds_in_esic_employer_code" placeholder="e.g. 34567788876890875"/>
                                     </div>
                                 </div>
                             </div>
@@ -180,132 +137,105 @@
                             </div>
                         </div>
 
-                        <!-- Left Column: Professional Tax (PT) -->
-                        <div class="col-12 col-lg-6 o_setting_box" id="hds_in_pt_setting">
-                            <div class="o_setting_left_pane">
-                                <field name="hds_in_enable_professional_tax"/>
-                            </div>
-                            <div class="o_setting_right_pane">
-                                <label for="hds_in_enable_professional_tax" string="Professional Tax (PT)" class="fw-bold"/>
-                                <div class="text-muted">
-                                    Determines whether the company is registered under the applicable State Professional Tax Act and liable to deduct Professional Tax.
+                        <!-- Column 1: Left (PT + Payment Modes) -->
+                        <div class="col-12 col-lg-6">
+                            <!-- Professional Tax (PT) -->
+                            <div class="o_setting_box" id="hds_in_pt_setting">
+                                <div class="o_setting_left_pane">
+                                    <field name="hds_in_enable_professional_tax"/>
                                 </div>
-                                <div class="content-group mt8" invisible="not hds_in_enable_professional_tax">
-                                    <div class="row mt8">
-                                        <label for="hds_in_professional_tax_registration_no" class="col-lg-5 o_light_label"/>
-                                        <field name="hds_in_professional_tax_registration_no" placeholder="e.g. PTRC/MH/2026/00123"/>
+                                <div class="o_setting_right_pane">
+                                    <label for="hds_in_enable_professional_tax" string="Professional Tax (PT)" class="fw-bold"/>
+                                    <div class="text-muted">
+                                        Determines whether the company is registered under the applicable State Professional Tax Act and liable to deduct Professional Tax.
                                     </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Right Column: Tax Deducted at Source (TDS) -->
-                        <div class="col-12 col-lg-6 o_setting_box" id="hds_in_tds_setting">
-                            <div class="o_setting_left_pane">
-                                <field name="hds_in_tds_applicable"/>
-                            </div>
-                            <div class="o_setting_right_pane">
-                                <label for="hds_in_tds_applicable" string="Tax Deducted at Source (TDS)" class="fw-bold"/>
-                                <div class="text-muted">
-                                    Master switch to enable or disable TDS statutory compliance and configure company TAN &amp; default tax regime preferences.
-                                </div>
-                                <div class="content-group mt8" invisible="not hds_in_tds_applicable">
-                                    <div class="row mt8">
-                                        <label for="hds_in_tan" class="col-lg-5 o_light_label"/>
-                                        <field name="hds_in_tan" placeholder="e.g. ABCD12345E"/>
-                                    </div>
-                                    <div class="row mt8">
-                                        <label for="hds_in_default_tax_regime" class="col-lg-5 o_light_label"/>
-                                        <div class="col-lg-7">
-                                            <field name="hds_in_default_tax_regime" widget="radio" options="{'horizontal': true}"/>
-                                            <div class="text-muted small mt-1" invisible="hds_in_default_tax_regime != 'new'">
-                                                <i class="fa fa-lock me-1 text-info"/>All employees are mandated to follow the <strong>New Tax Regime Income-tax Act, 2025 — Section 202(1)</strong>. Individual selection is locked.
-                                            </div>
-                                            <div class="text-muted small mt-1" invisible="hds_in_default_tax_regime != 'old'">
-                                                <i class="fa fa-lock me-1 text-info"/>All employees are mandated to follow the <strong>Old Tax Regime</strong>. Individual selection is locked.
-                                            </div>
-                                            <div class="text-muted small mt-1" invisible="hds_in_default_tax_regime != 'flexible'">
-                                                <i class="fa fa-check-circle me-1 text-success"/><strong>Flexible Mode:</strong> Allows choosing New or Old Regime individually at the employee level.
-                                            </div>
+                                    <div class="content-group mt8" invisible="not hds_in_enable_professional_tax">
+                                        <div class="row mt8">
+                                            <label for="hds_in_professional_tax_registration_no" class="col-lg-5 o_light_label"/>
+                                            <field name="hds_in_professional_tax_registration_no" placeholder="e.g. PTRC/MH/2026/00123"/>
                                         </div>
                                     </div>
-                                    <div class="row mt8">
-                                        <label for="hds_in_default_tax_year" class="col-lg-5 o_light_label"/>
-                                        <field name="hds_in_default_tax_year" placeholder="Select Default Tax Year"/>
+                                </div>
+                            </div>
+
+                        </div>
+
+                        <!-- Column 2: Right (TDS + Payroll Structure) -->
+                        <div class="col-12 col-lg-6">
+                            <!-- Tax Deducted at Source (TDS) -->
+                            <div class="o_setting_box" id="hds_in_tds_setting">
+                                <div class="o_setting_left_pane">
+                                    <field name="hds_in_tds_applicable"/>
+                                </div>
+                                <div class="o_setting_right_pane">
+                                    <label for="hds_in_tds_applicable" string="Tax Deducted at Source (TDS)" class="fw-bold"/>
+                                    <div class="text-muted">
+                                        Master switch to enable or disable TDS statutory compliance and configure company TAN &amp; default tax regime preferences.
+                                    </div>
+                                    <div class="content-group mt8" invisible="not hds_in_tds_applicable">
+                                        <div class="row mt8">
+                                            <label for="hds_in_tan" class="col-lg-5 o_light_label"/>
+                                            <field name="hds_in_tan" placeholder="e.g. ABCD12345E"/>
+                                        </div>
+                                        <div class="row mt8">
+                                            <label for="hds_in_company_pan" class="col-lg-5 o_light_label"/>
+                                            <field name="hds_in_company_pan" placeholder="e.g. ABCDE1234F"/>
+                                        </div>
+                                        <div class="row mt8">
+                                            <label for="hds_in_deductor_type" class="col-lg-5 o_light_label"/>
+                                            <field name="hds_in_deductor_type"/>
+                                        </div>
+                                        <div class="row mt8">
+                                            <label for="hds_in_tds_responsible_name" class="col-lg-5 o_light_label"/>
+                                            <field name="hds_in_tds_responsible_name" placeholder="Person responsible for TDS"/>
+                                        </div>
+                                        <div class="row mt8">
+                                            <label for="hds_in_tds_responsible_designation" class="col-lg-5 o_light_label"/>
+                                            <field name="hds_in_tds_responsible_designation" placeholder="e.g. HR Manager"/>
+                                        </div>
+                                        <div class="row mt8">
+                                            <label for="hds_in_tds_responsible_email" class="col-lg-5 o_light_label"/>
+                                            <field name="hds_in_tds_responsible_email" widget="email"/>
+                                        </div>
+                                        <div class="row mt8">
+                                            <label for="hds_in_tds_responsible_mobile" class="col-lg-5 o_light_label"/>
+                                            <field name="hds_in_tds_responsible_mobile" widget="phone"/>
+                                        </div>
+                                        <div class="row mt8">
+                                            <label for="hds_in_default_tax_regime" class="col-lg-5 o_light_label"/>
+                                            <div class="col-lg-7">
+                                                <field name="hds_in_default_tax_regime" widget="radio" options="{'horizontal': true}"/>
+                                                <div class="text-muted small mt-1" invisible="hds_in_default_tax_regime != 'new'">
+                                                    <i class="fa fa-lock me-1 text-info"/>All employees are mandated to follow the <strong>New Tax Regime Income-tax Act, 2025 — Section 202(1)</strong>. Individual selection is locked.
+                                                </div>
+                                                <div class="text-muted small mt-1" invisible="hds_in_default_tax_regime != 'old'">
+                                                    <i class="fa fa-lock me-1 text-info"/>All employees are mandated to follow the <strong>Old Tax Regime</strong>. Individual selection is locked.
+                                                </div>
+                                                <div class="text-muted small mt-1" invisible="hds_in_default_tax_regime != 'flexible'">
+                                                    <i class="fa fa-check-circle me-1 text-success"/><strong>Flexible Mode:</strong> Allows choosing New or Old Regime individually at the employee level.
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="row mt8">
+                                            <label for="hds_in_default_tax_year" class="col-lg-5 o_light_label"/>
+                                            <field name="hds_in_default_tax_year" placeholder="Select Default Tax Year"/>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
 
-
-                        <!-- Statutory Audit Setting Box -->
-                        <div class="col-12 col-lg-6 o_setting_box" id="hds_in_statutory_audit_setting">
-                            <div class="o_setting_left_pane">
-                                <field name="hds_in_enable_statutory_audit"/>
-                            </div>
-                            <div class="o_setting_right_pane">
-                                <label for="hds_in_enable_statutory_audit" string="Statutory Calculation Audit Logging" class="fw-bold"/>
-                                <div class="text-muted">
-                                    Record immutable JSON calculation input/output/parameter audit logs for statutory compliance &amp; inspection.
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Payment Modes Configuration -->
-                        <div class="col-12 col-lg-6 o_setting_box" id="hds_in_payment_mode_setting">
-                            <div class="o_setting_right_pane">
-                                <span class="o_form_label fw-bold">Payment Modes</span>
-                                <div class="text-muted">
-                                    Configure the salary disbursement methods available in your organization
-                                    (e.g. Bank Transfer, NEFT/RTGS, Cash, UPI). These modes appear on
-                                    employee profiles and payslips.
-                                </div>
-                                <div class="mt8">
-                                    <button name="%(hudson_in_payroll.action_hds_payment_mode)d"
-                                            icon="arrow_forward"
-                                            type="action"
-                                            string="Configure Payment Modes"
-                                            class="btn-link"/>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Payroll Structures Configuration -->
-
-                        <div class="col-12 col-lg-6 o_setting_box" id="hds_in_payroll_structures_setting">
-                            <div class="o_setting_right_pane">
-                                <span class="o_form_label fw-bold">Payroll Structure Configuration</span>
-                                <div class="text-muted">
-                                    Configure default salary structures for regular monthly payroll and bonus payroll processing.
-                                </div>
-                                <div class="content-group mt8">
-                                    <div class="row mt8">
-                                        <label for="hds_in_regular_struct_id" class="col-lg-5 o_light_label"/>
-                                        <field name="hds_in_regular_struct_id"/>
+                            <!-- Payroll Structure Configuration -->
+                            <div class="o_setting_box" id="hds_in_payroll_structures_setting">
+                                <div class="o_setting_right_pane">
+                                    <span class="o_form_label fw-bold">Payroll Structure Configuration</span>
+                                    <div class="text-muted">
+                                        Configure default salary structure for regular monthly payroll processing.
                                     </div>
-                                    <div class="row mt8">
-                                        <label for="hds_in_bonus_struct_id" class="col-lg-5 o_light_label"/>
-                                        <field name="hds_in_bonus_struct_id"/>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Generic Bonus Configuration Setting Box -->
-                        <div class="col-12 col-lg-6 o_setting_box" id="hds_in_bonus_setting">
-                            <div class="o_setting_right_pane">
-                                <span class="o_form_label fw-bold">Bonus Configuration</span>
-                                <div class="text-muted">
-                                    Configure bonus eligibility rules and tax applicability.
-                                </div>
-                                <div class="content-group mt8">
-                                    <div class="field_boolean">
-                                        <field name="hds_in_retention_exclude_notice_period"/>
-                                        <label for="hds_in_retention_exclude_notice_period" string="Exclude Employees in Notice Period"/>
-                                    </div>
-                                    <div class="field_boolean mt-2">
-                                        <field name="hds_in_bonus_apply_tds"/>
-                                        <label for="hds_in_bonus_apply_tds" string="Apply TDS on Bonus"/>
+                                    <div class="content-group mt8">
+                                        <div class="row mt8">
+                                            <label for="hds_in_regular_struct_id" class="col-lg-5 o_light_label"/>
+                                            <field name="hds_in_regular_struct_id"/>
+                                        </div>
                                     </div>
                                 </div>
                             </div>

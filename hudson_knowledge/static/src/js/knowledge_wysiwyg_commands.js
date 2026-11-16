@@ -3,11 +3,21 @@
 import { Plugin } from "@html_editor/plugin";
 import { _t } from "@web/core/l10n/translation";
 import { withSequence } from "@html_editor/utils/resource";
+import { registry } from "@web/core/registry";
+
+/**
+ * The AI article generator is provided by the Hudson AI module. Its assets are
+ * only in the bundle when it is installed in this database, so the presence of
+ * its "Ask AI" systray item tells us whether the feature can be offered.
+ */
+export function isHudsonAIAvailable() {
+    return registry.category("systray").contains("hudson_ai.systray");
+}
 
 /**
  * KnowledgeEditorPlugin
  *
- * Extends Odoo 19 html_editor with custom Knowledge commands:
+ * Extends the Odoo html_editor with custom Knowledge commands:
  *  - Load a Template
  *  - Build an Item Kanban
  *  - Build an Item List
@@ -16,6 +26,7 @@ import { withSequence } from "@html_editor/utils/resource";
  *
  * These commands appear in the Powerbox when typing "/" anywhere in the article,
  * and the AI command also appears in the empty-line power buttons row.
+ * The AI command is only offered when the Hudson AI module is installed.
  */
 export class KnowledgeEditorPlugin extends Plugin {
     static id = "knowledgeEditor";
@@ -30,7 +41,7 @@ export class KnowledgeEditorPlugin extends Plugin {
                 id: "knowledgeLoadTemplate",
                 title: _t("Load a Template"),
                 description: _t("Insert content from a saved template"),
-                icon: "fa-paint-brush",
+                icon: "brush",
                 run: () => {
                     if (this.config.knowledgeAction) {
                         this.config.knowledgeAction.onBrowseTemplates();
@@ -41,7 +52,7 @@ export class KnowledgeEditorPlugin extends Plugin {
                 id: "knowledgeBuildItemKanban",
                 title: _t("Build an Item Kanban"),
                 description: _t("Create an interactive Kanban board inside this article"),
-                icon: "fa-th-large",
+                icon: "view_kanban",
                 run: () => {
                     if (this.config.knowledgeAction) {
                         this.config.knowledgeAction.openInsertViewModal("kanban", this._getTargetBlock());
@@ -52,7 +63,7 @@ export class KnowledgeEditorPlugin extends Plugin {
                 id: "knowledgeBuildItemList",
                 title: _t("Build an Item List"),
                 description: _t("Create an interactive list inside this article"),
-                icon: "fa-list",
+                icon: "format_list_bulleted",
                 run: () => {
                     if (this.config.knowledgeAction) {
                         this.config.knowledgeAction.openInsertViewModal("list", this._getTargetBlock());
@@ -63,24 +74,28 @@ export class KnowledgeEditorPlugin extends Plugin {
                 id: "knowledgeBuildItemCalendar",
                 title: _t("Build an Item Calendar"),
                 description: _t("Create an interactive calendar inside this article"),
-                icon: "fa-calendar",
+                icon: "calendar_today",
                 run: () => {
                     if (this.config.knowledgeAction) {
                         this.config.knowledgeAction.openInsertViewModal("calendar", this._getTargetBlock());
                     }
                 },
             },
-            {
-                id: "knowledgeGenerateArticleAI",
-                title: _t("Generate an Article with AI"),
-                description: _t("Generate structured article content using AI"),
-                icon: "fa-magic",
-                run: () => {
-                    if (this.config.knowledgeAction) {
-                        this.config.knowledgeAction.onOpenAIGenerator();
-                    }
-                },
-            },
+            ...(isHudsonAIAvailable()
+                ? [
+                      {
+                          id: "knowledgeGenerateArticleAI",
+                          title: _t("Generate an Article with AI"),
+                          description: _t("Generate structured article content using AI"),
+                          icon: "wand_stars",
+                          run: () => {
+                              if (this.config.knowledgeAction) {
+                                  this.config.knowledgeAction.onOpenAIGenerator();
+                              }
+                          },
+                      },
+                  ]
+                : []),
         ],
         powerbox_items: [
             withSequence(10, {
@@ -103,19 +118,25 @@ export class KnowledgeEditorPlugin extends Plugin {
                 commandId: "knowledgeBuildItemCalendar",
                 keywords: [_t("calendar"), _t("date"), _t("schedule"), _t("item")],
             }),
-            withSequence(50, {
-                categoryId: "knowledge",
-                commandId: "knowledgeGenerateArticleAI",
-                keywords: [_t("ai"), _t("generate"), _t("chatgpt"), _t("magic"), _t("write")],
-            }),
+            ...(isHudsonAIAvailable()
+                ? [
+                      withSequence(50, {
+                          categoryId: "knowledge",
+                          commandId: "knowledgeGenerateArticleAI",
+                          keywords: [_t("ai"), _t("generate"), _t("magic"), _t("write")],
+                      }),
+                  ]
+                : []),
         ],
-        power_buttons: [
-            withSequence(85, {
-                commandId: "knowledgeGenerateArticleAI",
-                description: _t("Generate an Article with AI"),
-                icon: "fa-magic",
-            }),
-        ],
+        power_buttons: isHudsonAIAvailable()
+            ? [
+                  withSequence(85, {
+                      commandId: "knowledgeGenerateArticleAI",
+                      description: _t("Generate an Article with AI"),
+                      icon: "wand_stars",
+                  }),
+              ]
+            : [],
     };
 
     _getTargetBlock() {

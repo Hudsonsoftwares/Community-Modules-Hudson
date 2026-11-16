@@ -1,5 +1,7 @@
 import logging
+# pyrefly: ignore [missing-import]
 from odoo import api, fields, models, _
+# pyrefly: ignore [missing-import]
 from odoo.exceptions import ValidationError
 
 _logger = logging.getLogger(__name__)
@@ -48,6 +50,81 @@ class TdsEmployeeDeclarationLine(models.Model):
         store=True,
         readonly=True
     )
+    hds_in_is_agnipath = fields.Boolean(
+        string="Employee under Agnipath Scheme",
+        related='declaration_id.hds_in_is_agnipath',
+        store=True,
+        readonly=True
+    )
+    is_proof_window_open = fields.Boolean(
+        string="Proof Window Open",
+        related='declaration_id.is_proof_window_open',
+        store=False,
+        readonly=True
+    )
+
+    CATEGORY_NEW_SELECTION = [
+        ('57iia', 'Family Pension — Section 93(1)(d) (Both Regimes)'),
+    ]
+
+    CATEGORY_NEW_AGNIPATH_SELECTION = [
+        ('57iia', 'Family Pension — Section 93(1)(d) (Both Regimes)'),
+        ('80cch', 'Section 80CCH Agniveer Corpus Fund Contribution (Both Regimes)'),
+    ]
+
+    CATEGORY_OLD_SELECTION = [
+        ('80c', 'Section 80C (PPF, ELSS, LIC, Tuition Fee, EPF)'),
+        ('80ccd1b', 'Section 80CCD(1B) Additional NPS Contribution'),
+        ('80d_self', 'Section 80D Medical Insurance (Self & Family)'),
+        ('80d_parents', 'Section 80D Medical Insurance (Parents)'),
+        ('80d_preventive', 'Section 80D Preventive Health Checkup'),
+        ('80tta', 'Section 80TTA Savings Interest (Non-Senior)'),
+        ('80ttb', 'Section 80TTB Savings & FD Interest (Senior Citizen)'),
+        ('80dd', 'Section 80DD Dependent Disability'),
+        ('80u', 'Section 80U Employee Disability'),
+        ('24b', 'Section 24(b) Home Loan Interest (Self-Occupied)'),
+        ('80eea', 'Section 80EEA First-time Home Loan Additional Interest'),
+        ('80e', 'Section 80E Education Loan Interest'),
+        ('80g', 'Section 80G Charitable Donations'),
+        ('80gg', 'Section 80GG Rent Paid without HRA'),
+        ('hra', 'Section 10(13A) House Rent Exemption (Rent Paid)'),
+        ('children_edu', 'Section 10(14) Children Education Allowance'),
+        ('hostel', 'Section 10(14) Hostel Expenditure Allowance'),
+        ('lta', 'Section 10(5) Leave Travel Assistance (LTA)'),
+        ('nps_employee', 'Section 80CCD(1) Employee NPS Contribution'),
+        ('57iia', 'Family Pension — Section 93(1)(d) (Both Regimes)'),
+        ('leave_encashment', 'Section 10(10AA) Leave Encashment Exemption'),
+        ('vrs', 'Section 10(10C) VRS Compensation Exemption'),
+        ('other', 'Other Statutory Exemptions'),
+    ]
+
+    CATEGORY_OLD_AGNIPATH_SELECTION = [
+        ('80c', 'Section 80C (PPF, ELSS, LIC, Tuition Fee, EPF)'),
+        ('80ccd1b', 'Section 80CCD(1B) Additional NPS Contribution'),
+        ('80d_self', 'Section 80D Medical Insurance (Self & Family)'),
+        ('80d_parents', 'Section 80D Medical Insurance (Parents)'),
+        ('80d_preventive', 'Section 80D Preventive Health Checkup'),
+        ('80tta', 'Section 80TTA Savings Interest (Non-Senior)'),
+        ('80ttb', 'Section 80TTB Savings & FD Interest (Senior Citizen)'),
+        ('80dd', 'Section 80DD Dependent Disability'),
+        ('80u', 'Section 80U Employee Disability'),
+        ('24b', 'Section 24(b) Home Loan Interest (Self-Occupied)'),
+        ('80eea', 'Section 80EEA First-time Home Loan Additional Interest'),
+        ('80e', 'Section 80E Education Loan Interest'),
+        ('80g', 'Section 80G Charitable Donations'),
+        ('80gg', 'Section 80GG Rent Paid without HRA'),
+        ('hra', 'Section 10(13A) House Rent Exemption (Rent Paid)'),
+        ('children_edu', 'Section 10(14) Children Education Allowance'),
+        ('hostel', 'Section 10(14) Hostel Expenditure Allowance'),
+        ('lta', 'Section 10(5) Leave Travel Assistance (LTA)'),
+        ('nps_employee', 'Section 80CCD(1) Employee NPS Contribution'),
+        ('57iia', 'Family Pension — Section 93(1)(d) (Both Regimes)'),
+        ('80cch', 'Section 80CCH Agniveer Corpus Fund Contribution (Both Regimes)'),
+        ('leave_encashment', 'Section 10(10AA) Leave Encashment Exemption'),
+        ('vrs', 'Section 10(10C) VRS Compensation Exemption'),
+        ('other', 'Other Statutory Exemptions'),
+    ]
+
     category = fields.Selection([
         ('80c', 'Section 80C (PPF, ELSS, LIC, Tuition Fee, EPF)'),
         ('80ccd1b', 'Section 80CCD(1B) Additional NPS Contribution'),
@@ -69,12 +146,107 @@ class TdsEmployeeDeclarationLine(models.Model):
         ('lta', 'Section 10(5) Leave Travel Assistance (LTA)'),
         ('nps_employee', 'Section 80CCD(1) Employee NPS Contribution'),
         ('80ccd2', 'Employer NPS Contribution — Section 124 (Both Regimes)'),
-        ('57iia', 'Section 57(iia) Family Pension Deduction (Both Regimes)'),
+        ('57iia', 'Family Pension — Section 93(1)(d) (Both Regimes)'),
         ('80cch', 'Section 80CCH Agniveer Corpus Fund Contribution (Both Regimes)'),
         ('leave_encashment', 'Section 10(10AA) Leave Encashment Exemption'),
         ('vrs', 'Section 10(10C) VRS Compensation Exemption'),
         ('other', 'Other Statutory Exemptions'),
-    ], string="Declaration Category", required=True)
+    ], string="Declaration Category", required=False)
+
+    category_new = fields.Selection(
+        selection=CATEGORY_NEW_SELECTION,
+        string="Declaration Category",
+        compute='_compute_ui_categories',
+        inverse='_inverse_category_new',
+        store=True,
+        help="Statutory investment and deduction categories permitted under New Tax Regime."
+    )
+
+    category_new_agnipath = fields.Selection(
+        selection=CATEGORY_NEW_AGNIPATH_SELECTION,
+        string="Declaration Category",
+        compute='_compute_ui_categories',
+        inverse='_inverse_category_new_agnipath',
+        store=True,
+        help="Statutory investment and deduction categories permitted under New Tax Regime for Agnipath scheme."
+    )
+
+    category_old = fields.Selection(
+        selection=CATEGORY_OLD_SELECTION,
+        string="Declaration Category",
+        compute='_compute_ui_categories',
+        inverse='_inverse_category_old',
+        store=True,
+        help="Statutory investment and deduction categories permitted under Old Tax Regime."
+    )
+
+    category_old_agnipath = fields.Selection(
+        selection=CATEGORY_OLD_AGNIPATH_SELECTION,
+        string="Declaration Category",
+        compute='_compute_ui_categories',
+        inverse='_inverse_category_old_agnipath',
+        store=True,
+        help="Statutory investment and deduction categories permitted under Old Tax Regime for Agnipath scheme."
+    )
+
+    @api.depends('category')
+    def _compute_ui_categories(self):
+        new_cats = dict(self.CATEGORY_NEW_SELECTION)
+        new_ag_cats = dict(self.CATEGORY_NEW_AGNIPATH_SELECTION)
+        old_cats = dict(self.CATEGORY_OLD_SELECTION)
+        old_ag_cats = dict(self.CATEGORY_OLD_AGNIPATH_SELECTION)
+        for line in self:
+            c = line.category
+            line.category_new = c if c in new_cats else False
+            line.category_new_agnipath = c if c in new_ag_cats else False
+            line.category_old = c if c in old_cats else False
+            line.category_old_agnipath = c if c in old_ag_cats else False
+
+    def _inverse_category_new(self):
+        for line in self:
+            if line.category_new and line.category != line.category_new:
+                line.category = line.category_new
+
+    def _inverse_category_new_agnipath(self):
+        for line in self:
+            if line.category_new_agnipath and line.category != line.category_new_agnipath:
+                line.category = line.category_new_agnipath
+
+    def _inverse_category_old(self):
+        for line in self:
+            if line.category_old and line.category != line.category_old:
+                line.category = line.category_old
+
+    def _inverse_category_old_agnipath(self):
+        for line in self:
+            if line.category_old_agnipath and line.category != line.category_old_agnipath:
+                line.category = line.category_old_agnipath
+
+    @api.onchange('category_new', 'category_new_agnipath', 'category_old', 'category_old_agnipath')
+    def _onchange_ui_categories(self):
+        selected = self.category_new or self.category_new_agnipath or self.category_old or self.category_old_agnipath
+        if selected:
+            self.category = selected
+            if not self.description:
+                desc_map = {
+                    '57iia': 'Family Pension Received (annual) — Section 93(1)(d)',
+                    '80cch': 'Agniveer Corpus Fund Contribution (80CCH)',
+                    '80c': 'Section 80C Specified Investments',
+                    '80ccd1b': 'Additional NPS Contribution u/s 80CCD(1B)',
+                    '80d_self': 'Medical Insurance Premium (Self & Family)',
+                    '80d_parents': 'Medical Insurance Premium (Parents)',
+                    '80d_preventive': 'Preventive Health Checkup',
+                    '24b': 'Interest on Housing Loan (Self-Occupied)',
+                    'hra': 'House Rent Allowance (Section 10(13A))',
+                }
+                self.description = desc_map.get(selected, False)
+
+    @api.constrains('category', 'category_new', 'category_new_agnipath', 'category_old', 'category_old_agnipath')
+    def _check_category_mandatory(self):
+        for line in self:
+            if not any([line.category, line.category_new, line.category_new_agnipath, line.category_old, line.category_old_agnipath]):
+                raise ValidationError(_("Please select an investment category for declaration line '%s'.") % (line.description or 'Line Item'))
+
 
 
     section_code = fields.Char(
@@ -195,7 +367,16 @@ class TdsEmployeeDeclarationLine(models.Model):
         help="Proof receipts attached specifically for this investment line item."
     )
 
-    @api.depends('category')
+    @api.constrains('attachment_ids')
+    def _check_single_attachment_per_line(self):
+        for rec in self:
+            if len(rec.attachment_ids) > 1:
+                raise ValidationError(_(
+                    "Maximum 1 file can be uploaded for investment line '%s'. Currently %d files are attached. "
+                    "Please upload only 1 supporting document."
+                ) % (rec.description or 'Investment Line', len(rec.attachment_ids)))
+
+    @api.depends('category', 'category_new', 'category_new_agnipath', 'category_old', 'category_old_agnipath')
     def _compute_section_code(self):
         code_map = {
             '80c': 'Sec 80C',
@@ -217,14 +398,15 @@ class TdsEmployeeDeclarationLine(models.Model):
             'lta': 'Sec 10(5)',
             'nps_employee': 'Sec 80CCD(1)',
             '80ccd2': 'Sec 80CCD(2)',
-            '57iia': 'Sec 57(iia)',
+            '57iia': 'Sec 93(1)(d)',
             '80cch': 'Sec 80CCH',
             'leave_encashment': 'Sec 10(10AA)',
             'vrs': 'Sec 10(10C)',
             'other': 'Other',
         }
         for line in self:
-            line.section_code = code_map.get(line.category, 'General')
+            cat = line.category or line.category_new or line.category_new_agnipath or line.category_old or line.category_old_agnipath
+            line.section_code = code_map.get(cat, 'General')
 
     eligible_amount = fields.Monetary(
         string="Eligible Deduction (₹)",
@@ -258,7 +440,7 @@ class TdsEmployeeDeclarationLine(models.Model):
                         "Please select a valid 80G category (100%% No Limit, 50%% No Limit, 100%% With Limit, or 50%% With Limit)."
                     ) % (line.description or 'Section 80G Donation', f"{eff_amount:,.2f}"))
 
-    @api.depends('declared_amount', 'approved_amount', 'tax_firm_approved_amount', 'is_regime_permitted', 'category', 'declaration_id.state', 'regime_code', 'declaration_id.employee_id', 'declaration_id.financial_year_id')
+    @api.depends('declared_amount', 'approved_amount', 'tax_firm_approved_amount', 'is_regime_permitted', 'category', 'category_new', 'category_new_agnipath', 'category_old', 'category_old_agnipath', 'declaration_id.state', 'regime_code', 'declaration_id.employee_id', 'declaration_id.financial_year_id')
     def _compute_deduction_eligibility(self):
         from ..services.tds.eligibility_rule_engine_service import EligibilityRuleEngineService
         engine = EligibilityRuleEngineService(self.env)
@@ -301,57 +483,79 @@ class TdsEmployeeDeclarationLine(models.Model):
 
         return res_amt
 
+    UI_CAT_FIELDS = ('category_new', 'category_new_agnipath', 'category_old', 'category_old_agnipath')
+
     @api.model_create_multi
     def create(self, vals_list):
         for vals in vals_list:
+            for f in self.UI_CAT_FIELDS:
+                if vals.get(f) and not vals.get('category'):
+                    vals['category'] = vals[f]
+                    break
+            if vals.get('category'):
+                c = vals['category']
+                if c in dict(self.CATEGORY_NEW_SELECTION) and not vals.get('category_new'):
+                    vals['category_new'] = c
+                if c in dict(self.CATEGORY_NEW_AGNIPATH_SELECTION) and not vals.get('category_new_agnipath'):
+                    vals['category_new_agnipath'] = c
+                if c in dict(self.CATEGORY_OLD_SELECTION) and not vals.get('category_old'):
+                    vals['category_old'] = c
+                if c in dict(self.CATEGORY_OLD_AGNIPATH_SELECTION) and not vals.get('category_old_agnipath'):
+                    vals['category_old_agnipath'] = c
+
             if 'tax_firm_approved_amount' in vals and vals.get('tax_firm_approved_amount') is not False:
                 tf_val = float(vals.get('tax_firm_approved_amount') or 0.0)
                 if tf_val > 0.0 or 'approved_amount' not in vals:
                     vals['approved_amount'] = tf_val
+            elif 'approved_amount' in vals and vals.get('approved_amount') is not False:
+                appr_val = float(vals.get('approved_amount') or 0.0)
+                if appr_val > 0.0 or 'tax_firm_approved_amount' not in vals:
+                    vals['tax_firm_approved_amount'] = appr_val
         lines = super(TdsEmployeeDeclarationLine, self).create(vals_list)
         for line in lines:
-            if line.tax_firm_approved_amount:
-                _logger.warning("""[TDS_DEBUG_TRACE][OPTION_A_SYNC]
-line_id=%s
-category=%s
-tax_firm_approved_amount=%s
-approved_amount_before=0.0
-approved_amount_after=%s
-declaration_id=%s
-declaration_total_approved_amount=%s""",
-                    line.id, line.category, line.tax_firm_approved_amount,
-                    line.approved_amount,
-                    line.declaration_id.id if line.declaration_id else 'N/A',
-                    line.declaration_id.total_approved_amount if line.declaration_id else 'N/A'
-                )
+            if line.declaration_id and line.attachment_ids:
+                new_att = line.attachment_ids - line.declaration_id.attachment_ids
+                if new_att:
+                    line.declaration_id.attachment_ids = [(4, att.id) for att in new_att]
         return lines
 
     def write(self, vals):
+        for f in self.UI_CAT_FIELDS:
+            if vals.get(f) and not vals.get('category'):
+                vals['category'] = vals[f]
+                break
+        if vals.get('category'):
+            c = vals['category']
+            if c in dict(self.CATEGORY_NEW_SELECTION) and not vals.get('category_new'):
+                vals['category_new'] = c
+            if c in dict(self.CATEGORY_NEW_AGNIPATH_SELECTION) and not vals.get('category_new_agnipath'):
+                vals['category_new_agnipath'] = c
+            if c in dict(self.CATEGORY_OLD_SELECTION) and not vals.get('category_old'):
+                vals['category_old'] = c
+            if c in dict(self.CATEGORY_OLD_AGNIPATH_SELECTION) and not vals.get('category_old_agnipath'):
+                vals['category_old_agnipath'] = c
+
         sync_tf = 'tax_firm_approved_amount' in vals
-        if sync_tf and 'approved_amount' not in vals:
+        sync_appr = 'approved_amount' in vals
+
+        if sync_tf and not sync_appr:
             vals['approved_amount'] = float(vals.get('tax_firm_approved_amount') or 0.0)
+        elif sync_appr and not sync_tf:
+            vals['tax_firm_approved_amount'] = float(vals.get('approved_amount') or 0.0)
 
         before_dict = {l.id: float(l.approved_amount or 0.0) for l in self}
         res = super(TdsEmployeeDeclarationLine, self).write(vals)
 
         for line in self:
-            if sync_tf or (line.tax_firm_approved_amount > 0.0 and line.approved_amount != line.tax_firm_approved_amount):
-                old_appr = before_dict.get(line.id, 0.0)
-                if line.approved_amount != line.tax_firm_approved_amount:
-                    super(TdsEmployeeDeclarationLine, line).write({'approved_amount': line.tax_firm_approved_amount})
-                _logger.warning("""[TDS_DEBUG_TRACE][OPTION_A_SYNC]
-line_id=%s
-category=%s
-tax_firm_approved_amount=%s
-approved_amount_before=%s
-approved_amount_after=%s
-declaration_id=%s
-declaration_total_approved_amount=%s""",
-                    line.id, line.category, line.tax_firm_approved_amount,
-                    old_appr, line.approved_amount,
-                    line.declaration_id.id if line.declaration_id else 'N/A',
-                    line.declaration_id.total_approved_amount if line.declaration_id else 'N/A'
-                )
+            if sync_tf and line.approved_amount != line.tax_firm_approved_amount:
+                super(TdsEmployeeDeclarationLine, line).write({'approved_amount': line.tax_firm_approved_amount})
+            elif sync_appr and line.tax_firm_approved_amount != line.approved_amount:
+                super(TdsEmployeeDeclarationLine, line).write({'tax_firm_approved_amount': line.approved_amount})
+            if 'attachment_ids' in vals and line.declaration_id and line.attachment_ids:
+                new_att = line.attachment_ids - line.declaration_id.attachment_ids
+                if new_att:
+                    line.declaration_id.attachment_ids = [(4, att.id) for att in new_att]
+
         return res
 
     def unlink(self):

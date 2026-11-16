@@ -1,4 +1,5 @@
-from odoo import models, fields, api
+from odoo import models, fields, api, _
+from odoo.exceptions import AccessError, UserError, ValidationError
 
 
 class HrEmployee(models.Model):
@@ -34,6 +35,12 @@ class HrEmployee(models.Model):
         string='Standard Consultation Fee',
         currency_field='currency_id',
         help='Default consultation charge for this doctor',
+    )
+    max_appointments_per_day = fields.Integer(
+        string='Max Appointments / Day',
+        default=0,
+        tracking=True,
+        help='Maximum number of appointments this doctor can take in a single day. 0 means no limit.',
     )
     signature_image = fields.Binary(
         string='Doctor Signature Image',
@@ -166,10 +173,37 @@ class HrEmployee(models.Model):
         else:
             self.resume_upload_date = False
 
+    @api.constrains('max_appointments_per_day')
+    def _check_max_appointments_per_day(self):
+        for employee in self:
+            if employee.max_appointments_per_day < 0:
+                raise ValidationError(_('Max Appointments / Day cannot be negative (use 0 for no limit).'))
+
     @api.depends('dental_role')
     def _compute_is_dentist(self):
         for employee in self:
             employee.is_dentist = (employee.dental_role == 'dentist')
+
+    def action_open_dental_user_access(self):
+        """Open the linked user's form, where access rights (groups) are managed.
+
+        Permissions live on res.users only (Staff & Doctors > Users & Access Rights);
+        the employee Designation never grants access by itself.
+        """
+        self.ensure_one()
+        if not self.env.user.has_group('dental_base.group_dental_admin'):
+            raise AccessError(_('Only Dental Administrators can manage access rights.'))
+        if not self.user_id:
+            raise UserError(_('%s has no linked system user.', self.name))
+        return {
+            'type': 'ir.actions.act_window',
+            'name': _('Access Rights: %s', self.user_id.name),
+            'res_model': 'res.users',
+            'res_id': self.user_id.id,
+            'view_mode': 'form',
+            'views': [(False, 'form')],
+            'target': 'current',
+        }
 
 class HrEmployeePublic(models.Model):
     _inherit = 'hr.employee.public'
@@ -180,6 +214,7 @@ class HrEmployeePublic(models.Model):
     registration_number = fields.Char(readonly=True)
     specialization = fields.Char(readonly=True)
     consultation_fee = fields.Monetary(currency_field='currency_id', readonly=True)
+    max_appointments_per_day = fields.Integer(readonly=True)
     assistant_qualification = fields.Char(readonly=True)
     assistant_skills = fields.Char(readonly=True)
     assigned_dentist_id = fields.Many2one('hr.employee.public', readonly=True)

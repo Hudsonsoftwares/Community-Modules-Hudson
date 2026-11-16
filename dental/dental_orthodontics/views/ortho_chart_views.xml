@@ -1,0 +1,504 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- ================= Orthodontic chart ================= -->
+    <record id="view_dental_ortho_chart_form" model="ir.ui.view">
+        <field name="name">dental.ortho.chart.form</field>
+        <field name="model">dental.ortho.chart</field>
+        <field name="arch" type="xml">
+            <form class="o_dental_ortho_form o_dc_form">
+                <header>
+                    <button name="action_confirm_plan" string="Confirm Plan" type="object" class="oe_highlight"
+                            invisible="state != 'assessment'"/>
+                    <button name="action_bond" string="Bond Appliances" type="object" class="oe_highlight"
+                            invisible="state != 'planned'"
+                            confirm="Mark all planned brackets and tubes as bonded today and start active treatment?"/>
+                    <button name="action_new_visit" string="New Visit" type="object" class="oe_highlight"
+                            invisible="state not in ('active', 'retention')"/>
+                    <button name="action_new_visit" string="New Visit" type="object" class="btn-secondary"
+                            invisible="state not in ('assessment', 'planned')"/>
+                    <button name="action_start_retention" string="Debond &amp; Start Retention" type="object" class="btn-secondary"
+                            invisible="state != 'active'"
+                            confirm="Remove all appliances today and start the retention phase?"/>
+                    <button name="action_complete" string="Complete Treatment" type="object" class="btn-secondary"
+                            invisible="state != 'retention'"/>
+                    <button name="action_cancel" string="Cancel" type="object" class="btn-secondary"
+                            invisible="state in ('completed', 'cancelled')" confirm="Cancel this orthodontic chart?"/>
+                    <button name="action_reset_to_assessment" string="Reopen" type="object" class="btn-secondary"
+                            invisible="state != 'cancelled'"/>
+                    <field name="state" widget="statusbar" statusbar_visible="assessment,planned,active,retention,completed"/>
+                </header>
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_open_case" type="object" class="oe_stat_button" icon="arrow_back" invisible="not case_id">
+                            <div class="o_stat_info">
+                                <span class="o_stat_value">Case</span>
+                                <span class="o_stat_text">Consultation</span>
+                            </div>
+                        </button>
+                        <button name="action_open_visits" type="object" class="oe_stat_button" icon="calendar_today">
+                            <field name="visit_count" widget="statinfo" string="Visits"/>
+                        </button>
+                    </div>
+
+                    <div class="o_dc_hero" name="ortho_hero">
+                        <field name="patient_allergy_status" invisible="1"/>
+                        <div class="o_dc_hero_head">
+                            <span class="o_dc_hero_logo"><span class="o_dc_icon o_dc_icon_tooth"/></span>
+                            <div class="o_dc_hero_titles">
+                                <div class="oe_title"><h1><field name="name"/></h1></div>
+                                <div class="o_dc_hero_badges">
+                                    <span class="o_dc_chip o_dc_chip_info" invisible="not phase">
+                                        <field name="phase" readonly="1" class="d-inline"/>
+                                    </span>
+                                    <span class="o_dc_chip o_dc_chip_ok" invisible="patient_allergy_status != 'none'">
+                                        <i class="oi" data-icon="check" title="No known allergies"/> No Known Allergies
+                                    </span>
+                                    <span class="o_dc_chip o_dc_chip_danger" invisible="patient_allergy_status != 'known'">
+                                        <i class="oi" data-icon="warning" title="Allergies"/> Allergies Recorded
+                                    </span>
+                                    <span class="o_dc_chip o_dc_chip_danger" invisible="not failed_count">
+                                        <i class="oi" data-icon="error" title="Loose appliances"/>
+                                        <field name="failed_count" class="d-inline"/> loose / failed
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="o_dc_strip">
+                            <div class="o_dc_strip_item o_dc_strip_patient">
+                                <field name="patient_image" widget="image" readonly="1" class="o_dc_avatar"
+                                       invisible="not patient_image" options="{'size': [56, 56]}"/>
+                                <span class="o_dc_avatar_placeholder" invisible="patient_image"><span class="o_dc_icon o_dc_icon_user"/></span>
+                                <div class="o_dc_strip_text">
+                                    <span class="o_dc_strip_label">Patient</span>
+                                    <field name="patient_id" class="o_dc_strip_value fw-bold" readonly="id" options="{'no_create': True}"/>
+                                    <span class="o_dc_strip_sub" invisible="not patient_age">
+                                        <field name="patient_age" class="d-inline"/> Years
+                                        <span invisible="not patient_gender"> · <field name="patient_gender" class="d-inline"/></span>
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="o_dc_strip_item">
+                                <span class="o_dc_icon o_dc_icon_stethoscope o_dc_strip_icon"/>
+                                <div class="o_dc_strip_text">
+                                    <span class="o_dc_strip_label">Orthodontist</span>
+                                    <field name="doctor_id" class="o_dc_strip_value" options="{'no_create': True}"/>
+                                </div>
+                            </div>
+                            <div class="o_dc_strip_item">
+                                <span class="o_dc_icon o_dc_icon_calendar o_dc_strip_icon"/>
+                                <div class="o_dc_strip_text">
+                                    <span class="o_dc_strip_label">Bonded</span>
+                                    <field name="start_date" class="o_dc_strip_value" placeholder="Not yet"/>
+                                    <span class="o_dc_strip_sub" invisible="not start_date">
+                                        <field name="months_in_treatment" class="d-inline"/> months in treatment
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="o_dc_strip_item">
+                                <span class="o_dc_icon o_dc_icon_tools o_dc_strip_icon"/>
+                                <div class="o_dc_strip_text">
+                                    <span class="o_dc_strip_label">Current Wires</span>
+                                    <span class="o_dc_strip_value">
+                                        U: <field name="current_upper_wire" class="d-inline" placeholder="-"/>
+                                    </span>
+                                    <span class="o_dc_strip_sub">L: <field name="current_lower_wire" class="d-inline"/></span>
+                                </div>
+                            </div>
+                            <div class="o_dc_strip_item">
+                                <span class="o_dc_icon o_dc_icon_chart o_dc_strip_icon"/>
+                                <div class="o_dc_strip_text">
+                                    <span class="o_dc_strip_label">Visits <field name="visit_count" class="d-inline"/> / <field name="planned_visits" class="d-inline"/></span>
+                                    <field name="progress" widget="progressbar" class="o_dc_strip_value"/>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="o_dental_case_alerts">
+                        <div class="o_dc_alert o_dc_alert_danger" role="alert" invisible="patient_allergy_status != 'known'">
+                            <i class="oi oi-lg" data-icon="warning" title="Allergy"/>
+                            <div class="flex-grow-1 min-w-0">
+                                <strong>Allergies:</strong>
+                                <field name="patient_allergies" readonly="1" class="d-block fw-bold o_dental_alert_html"/>
+                            </div>
+                        </div>
+                    </div>
+
+                    <notebook>
+                        <!-- 1. ASSESSMENT -->
+                        <page string="Assessment" name="ortho_assessment">
+                            <div class="d-flex justify-content-end mb-2" invisible="not case_id or state not in ('assessment', 'planned')">
+                                <button name="action_copy_from_examination" type="object" string="Copy from Examination"
+                                        icon="content_copy" class="btn btn-sm btn-secondary"
+                                        help="Fill empty fields with the occlusion recorded in the case's examination"/>
+                            </div>
+                            <group>
+                                <group string="Patient">
+                                    <field name="case_id" options="{'no_create': True}"/>
+                                    <field name="chief_concern" placeholder="e.g. Crooked front teeth, gap between upper teeth"/>
+                                    <field name="habits"/>
+                                    <field name="tmj_notes" placeholder="e.g. Clicking right, no pain"/>
+                                </group>
+                                <group string="Sagittal Relationship">
+                                    <field name="angle_class" widget="badges_selection"/>
+                                    <field name="molar_right"/>
+                                    <field name="molar_left"/>
+                                    <field name="canine_right"/>
+                                    <field name="canine_left"/>
+                                    <field name="overjet"/>
+                                </group>
+                                <group string="Vertical &amp; Transverse">
+                                    <field name="overbite"/>
+                                    <field name="overbite_percent"/>
+                                    <field name="open_bite" widget="boolean_toggle"/>
+                                    <field name="curve_of_spee" widget="badges_selection"/>
+                                    <field name="crossbite"/>
+                                    <field name="crossbite_teeth" invisible="crossbite in (False, 'none')" placeholder="e.g. 12, 22"/>
+                                </group>
+                                <group string="Midlines &amp; Space">
+                                    <field name="upper_midline" widget="badges_selection"/>
+                                    <field name="upper_midline_mm" invisible="upper_midline in (False, 'centered')"/>
+                                    <field name="lower_midline" widget="badges_selection"/>
+                                    <field name="lower_midline_mm" invisible="lower_midline in (False, 'centered')"/>
+                                    <field name="crowding_upper"/>
+                                    <field name="crowding_lower"/>
+                                </group>
+                                <group string="Skeletal &amp; Facial">
+                                    <field name="skeletal_pattern" widget="badges_selection"/>
+                                    <field name="vertical_pattern"/>
+                                    <field name="profile" widget="badges_selection"/>
+                                </group>
+                                <group string="Treatment Need (IOTN)">
+                                    <field name="iotn_dhc"/>
+                                    <field name="iotn_ac"/>
+                                    <field name="treatment_need" widget="badge"
+                                           decoration-success="treatment_need == 'none'"
+                                           decoration-warning="treatment_need == 'borderline'"
+                                           decoration-danger="treatment_need == 'need'"/>
+                                </group>
+                            </group>
+                            <group string="Cephalometric Analysis">
+                                <group>
+                                    <field name="ceph_sna"/>
+                                    <field name="ceph_snb"/>
+                                    <field name="ceph_anb"/>
+                                </group>
+                                <group>
+                                    <field name="ceph_fma"/>
+                                    <field name="ceph_impa"/>
+                                    <field name="ceph_u1_sn"/>
+                                </group>
+                            </group>
+                            <group>
+                                <field name="ceph_notes" placeholder="Other cephalometric findings"/>
+                                <field name="diagnosis_summary" placeholder="e.g. Class II div 1 malocclusion on a Class II skeletal base with 6 mm overjet and moderate upper crowding"/>
+                            </group>
+                        </page>
+
+                        <!-- 2. TREATMENT PLAN -->
+                        <page string="Treatment Plan" name="ortho_plan">
+                            <group>
+                                <group string="Appliance">
+                                    <field name="appliance_type"/>
+                                    <field name="bracket_prescription" invisible="appliance_type in (False, 'aligners', 'removable', 'functional')"/>
+                                    <field name="slot_size" invisible="appliance_type in (False, 'aligners', 'removable', 'functional')"/>
+                                    <field name="arches" widget="badges_selection"/>
+                                    <field name="auxiliaries"/>
+                                </group>
+                                <group string="Extractions &amp; Anchorage">
+                                    <field name="extraction_plan"/>
+                                    <field name="extraction_teeth" invisible="extraction_plan in (False, 'none')"/>
+                                    <field name="anchorage" widget="badges_selection"/>
+                                </group>
+                                <group string="Duration &amp; Visits">
+                                    <field name="estimated_months"/>
+                                    <field name="visit_interval_weeks"/>
+                                    <field name="start_date"/>
+                                    <field name="estimated_end_date"/>
+                                    <field name="debond_date" invisible="not debond_date"/>
+                                    <field name="phase" invisible="state != 'active'"/>
+                                </group>
+                                <group string="Billing &amp; Consent">
+                                    <field name="treatment_plan_id" options="{'no_create': True}"/>
+                                    <field name="plan_line_id" options="{'no_create': True}"/>
+                                    <field name="planned_visits" invisible="not plan_line_id"/>
+                                    <field name="consent_given" widget="boolean_toggle"/>
+                                    <div colspan="2" class="text-muted small">
+                                        Each completed adjustment visit records a session of this treatment line:
+                                        per-visit billing, or monthly installments when the plan is financed.
+                                    </div>
+                                </group>
+                            </group>
+                            <group>
+                                <field name="treatment_objectives" placeholder="e.g. Correct overjet to 2-3 mm, align arches, Class I canines, coincident midlines"/>
+                            </group>
+                        </page>
+
+                        <!-- 3. BRACKET CHART -->
+                        <page string="Bracket Chart" name="ortho_brackets">
+                            <div class="o_dc_card mb-3">
+                                <field name="chart_html" nolabel="1" readonly="1"/>
+                            </div>
+                            <div class="o_dental_section_title">
+                                <span>Appliances per Tooth</span>
+                                <small class="text-muted">Bond, mark loose or re-bond a tooth with the buttons on its row.</small>
+                                <button name="action_reset_chart" type="object" string="Rebuild from Plan" icon="refresh"
+                                        class="btn btn-sm btn-secondary ms-auto" invisible="state not in ('assessment', 'planned')"
+                                        confirm="Rebuild the bracket chart from the appliance and arches of the plan?"/>
+                            </div>
+                            <field name="tooth_ids" nolabel="1" readonly="state in ('completed', 'cancelled')">
+                                <list editable="bottom" create="1" default_order="sequence"
+                                      decoration-danger="status == 'failed'" decoration-success="status == 'bonded'"
+                                      decoration-muted="status in ('none', 'debonded') or missing">
+                                    <field name="sequence" column_invisible="1"/>
+                                    <field name="tooth_number" string="Tooth"/>
+                                    <field name="arch" optional="hide"/>
+                                    <field name="appliance"/>
+                                    <field name="status" widget="badge"
+                                           decoration-info="status == 'planned'" decoration-success="status == 'bonded'"
+                                           decoration-danger="status == 'failed'" decoration-muted="status in ('none', 'debonded')"/>
+                                    <field name="missing" widget="boolean_toggle" string="Missing"/>
+                                    <field name="bonded_date"/>
+                                    <field name="rebond_count" optional="show"/>
+                                    <field name="debonded_date" optional="hide"/>
+                                    <field name="note" optional="show"/>
+                                    <button name="action_bond" type="object" string="Bond" icon="check" class="btn-link text-success"
+                                            invisible="status not in ('planned', 'none') or missing"/>
+                                    <button name="action_mark_failed" type="object" string="Loose" icon="error" class="btn-link text-danger"
+                                            invisible="status != 'bonded'"/>
+                                    <button name="action_bond" type="object" string="Re-bond" icon="refresh" class="btn-link"
+                                            invisible="status != 'failed'"/>
+                                </list>
+                            </field>
+                        </page>
+
+                        <!-- 4. VISITS: adjustment log and archwire sequence -->
+                        <page string="Visits &amp; Wires" name="ortho_visits">
+                            <div class="o_dental_section_title">
+                                <span>Visit Log</span>
+                                <small class="text-muted">Newest first. Wires that changed at a visit are marked.</small>
+                                <button name="action_new_visit" type="object" string="New Visit" icon="add"
+                                        class="btn btn-sm btn-primary ms-auto" invisible="state in ('completed', 'cancelled')"/>
+                            </div>
+                            <field name="visit_ids" nolabel="1" readonly="1">
+                                <list create="0" default_order="date desc" decoration-muted="state == 'cancelled'" decoration-info="state == 'draft'">
+                                    <field name="date" widget="date"/>
+                                    <field name="visit_type"/>
+                                    <field name="upper_wire"/>
+                                    <field name="upper_wire_changed" string="U new" widget="boolean" optional="show"/>
+                                    <field name="lower_wire"/>
+                                    <field name="lower_wire_changed" string="L new" widget="boolean" optional="show"/>
+                                    <field name="elastics" optional="show"/>
+                                    <field name="elastic_size" optional="hide"/>
+                                    <field name="power_chain" optional="show"/>
+                                    <field name="aligner_tray" optional="hide"/>
+                                    <field name="hygiene" optional="show"/>
+                                    <field name="compliance" optional="show"/>
+                                    <field name="next_visit_date" optional="show"/>
+                                    <field name="doctor_id" optional="hide"/>
+                                    <field name="state" widget="badge" decoration-info="state == 'draft'" decoration-success="state == 'done'"/>
+                                    <button name="action_open_visit" type="object" string="Open" icon="open_in_new" class="btn-link"/>
+                                </list>
+                            </field>
+                        </page>
+
+                        <!-- 5. RETENTION -->
+                        <page string="Retention" name="ortho_retention">
+                            <group>
+                                <group string="Retainers">
+                                    <field name="retainer_upper"/>
+                                    <field name="retainer_lower"/>
+                                    <field name="retention_wear"/>
+                                    <field name="retention_review_months"/>
+                                </group>
+                                <group string="Dates">
+                                    <field name="debond_date"/>
+                                    <field name="months_in_treatment"/>
+                                </group>
+                            </group>
+                            <group>
+                                <field name="retention_notes" placeholder="e.g. Wear full-time for 6 months, then nights; bring retainers to every review"/>
+                            </group>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_dental_ortho_chart_list" model="ir.ui.view">
+        <field name="name">dental.ortho.chart.list</field>
+        <field name="model">dental.ortho.chart</field>
+        <field name="arch" type="xml">
+            <list decoration-muted="state in ('completed', 'cancelled')">
+                <field name="name"/>
+                <field name="patient_id"/>
+                <field name="doctor_id"/>
+                <field name="appliance_type"/>
+                <field name="start_date"/>
+                <field name="months_in_treatment" optional="show"/>
+                <field name="phase" optional="show"/>
+                <field name="visit_count" string="Visits"/>
+                <field name="progress" widget="progressbar" optional="show"/>
+                <field name="state" widget="badge" decoration-info="state in ('assessment', 'planned')"
+                       decoration-success="state == 'active'" decoration-warning="state == 'retention'"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_dental_ortho_chart_search" model="ir.ui.view">
+        <field name="name">dental.ortho.chart.search</field>
+        <field name="model">dental.ortho.chart</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name"/>
+                <field name="patient_id"/>
+                <field name="doctor_id"/>
+                <filter string="My Charts" name="my_charts" domain="[('doctor_id.user_id', '=', uid)]"/>
+                <separator/>
+                <filter string="Active Treatment" name="active" domain="[('state', '=', 'active')]"/>
+                <filter string="In Retention" name="retention" domain="[('state', '=', 'retention')]"/>
+                <filter string="Not Started" name="not_started" domain="[('state', 'in', ('assessment', 'planned'))]"/>
+                <group>
+                    <filter string="Status" name="group_state" context="{'group_by': 'state'}"/>
+                    <filter string="Orthodontist" name="group_doctor" context="{'group_by': 'doctor_id'}"/>
+                    <filter string="Appliance" name="group_appliance" context="{'group_by': 'appliance_type'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_dental_ortho_chart" model="ir.actions.act_window">
+        <field name="name">Orthodontic Charts</field>
+        <field name="res_model">dental.ortho.chart</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_dental_ortho_chart_search"/>
+        <field name="context">{'search_default_active': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">No orthodontic chart yet</p>
+            <p>Start one from a dental case: Treatment tab, Orthodontics.</p>
+        </field>
+    </record>
+
+    <!-- ================= Orthodontic visit ================= -->
+    <record id="view_dental_ortho_visit_form" model="ir.ui.view">
+        <field name="name">dental.ortho.visit.form</field>
+        <field name="model">dental.ortho.visit</field>
+        <field name="arch" type="xml">
+            <form class="o_dental_ortho_visit_form o_dc_form">
+                <header>
+                    <button name="action_done" string="Complete Visit" type="object" class="oe_highlight" invisible="state != 'draft'"/>
+                    <button name="action_cancel" string="Cancel" type="object" class="btn-secondary" invisible="state != 'draft'"/>
+                    <button name="action_reset_draft" string="Reset" type="object" class="btn-secondary" invisible="state != 'cancelled'"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,done"/>
+                </header>
+                <sheet>
+                    <div class="o_dc_hero">
+                        <div class="o_dc_hero_head">
+                            <span class="o_dc_hero_logo"><span class="o_dc_icon o_dc_icon_tools"/></span>
+                            <div class="o_dc_hero_titles">
+                                <div class="oe_title"><h1><field name="name"/></h1></div>
+                                <div class="o_dc_hero_badges">
+                                    <span class="o_dc_verified"><field name="chart_id" readonly="1" class="d-inline"/></span>
+                                    <span class="o_dc_verified" invisible="not session_id">
+                                        <i class="oi" data-icon="check_circle" title="Recorded"/> Session
+                                        <field name="session_id" class="d-inline"/>
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="o_dc_strip">
+                            <div class="o_dc_strip_item">
+                                <span class="o_dc_icon o_dc_icon_user o_dc_strip_icon"/>
+                                <div class="o_dc_strip_text">
+                                    <span class="o_dc_strip_label">Patient</span>
+                                    <field name="patient_id" class="o_dc_strip_value fw-bold"/>
+                                </div>
+                            </div>
+                            <div class="o_dc_strip_item">
+                                <span class="o_dc_icon o_dc_icon_calendar o_dc_strip_icon"/>
+                                <div class="o_dc_strip_text">
+                                    <span class="o_dc_strip_label">Date</span>
+                                    <field name="date" class="o_dc_strip_value"/>
+                                </div>
+                            </div>
+                            <div class="o_dc_strip_item">
+                                <span class="o_dc_icon o_dc_icon_calendar o_dc_strip_icon"/>
+                                <div class="o_dc_strip_text">
+                                    <span class="o_dc_strip_label">Appointment</span>
+                                    <field name="appointment_id" class="o_dc_strip_value" options="{'no_create': True}"/>
+                                </div>
+                            </div>
+                            <div class="o_dc_strip_item">
+                                <span class="o_dc_icon o_dc_icon_stethoscope o_dc_strip_icon"/>
+                                <div class="o_dc_strip_text">
+                                    <span class="o_dc_strip_label">Orthodontist</span>
+                                    <field name="doctor_id" class="o_dc_strip_value" options="{'no_create': True}"/>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="o_dc_card mb-3">
+                        <group>
+                            <field name="visit_type" widget="badges_selection"/>
+                        </group>
+                    </div>
+                    <group>
+                        <group string="Archwires">
+                            <field name="upper_wire"/>
+                            <field name="upper_wire_changed" invisible="not upper_wire_changed" string="Upper Changed"/>
+                            <field name="lower_wire"/>
+                            <field name="lower_wire_changed" invisible="not lower_wire_changed" string="Lower Changed"/>
+                            <field name="ligation"/>
+                            <field name="wire_notes"/>
+                        </group>
+                        <group string="Elastics &amp; Auxiliaries">
+                            <field name="elastics" widget="badges_selection"/>
+                            <field name="elastic_size" invisible="elastics in (False, 'none')"/>
+                            <field name="elastic_wear" invisible="elastics in (False, 'none')"/>
+                            <field name="power_chain"/>
+                            <field name="springs"/>
+                        </group>
+                        <group string="Procedures">
+                            <field name="rebond_teeth"/>
+                            <field name="ipr"/>
+                            <field name="aligner_tray"/>
+                            <field name="aligner_total"/>
+                            <field name="procedures"/>
+                        </group>
+                        <group string="Assessment &amp; Next Visit">
+                            <field name="hygiene" widget="badges_selection"/>
+                            <field name="compliance" widget="badges_selection"/>
+                            <field name="next_visit_weeks"/>
+                            <field name="next_visit_date"/>
+                        </group>
+                    </group>
+                    <group>
+                        <field name="progress_notes" placeholder="e.g. Spaces closing, 2 mm left upper right; overjet reduced to 4 mm"/>
+                        <field name="patient_instructions" placeholder="e.g. Wear Class II elastics 3/16 3.5 oz full-time; brush around brackets after every meal"/>
+                    </group>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_dental_ortho_visit_list" model="ir.ui.view">
+        <field name="name">dental.ortho.visit.list</field>
+        <field name="model">dental.ortho.visit</field>
+        <field name="arch" type="xml">
+            <list default_order="date desc">
+                <field name="date"/>
+                <field name="patient_id"/>
+                <field name="chart_id"/>
+                <field name="visit_type"/>
+                <field name="upper_wire"/>
+                <field name="lower_wire"/>
+                <field name="elastics" optional="show"/>
+                <field name="doctor_id" optional="show"/>
+                <field name="state" widget="badge" decoration-info="state == 'draft'" decoration-success="state == 'done'"/>
+            </list>
+        </field>
+    </record>
+</odoo>

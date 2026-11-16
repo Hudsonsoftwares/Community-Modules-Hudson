@@ -9,6 +9,10 @@ class ProductTemplate(models.Model):
     treatment_duration = fields.Float(string='Treatment Duration', help='Duration in hours or format (e.g. 1.5 for 1h 30m)')
     number_of_visits = fields.Integer(string='Number of Visits', default=1)
     followup_interval = fields.Char(string='Follow-up Interval', help='e.g., 6 Months, 1 Year')
+    visit_interval = fields.Char(
+        string='Interval Between Visits',
+        help='Time between the visits of a multi-visit treatment, e.g. 1 Week, 4 Weeks, 1 Month. '
+             'Used to date the next-visit follow-up after each completed session (default 1 week).')
     is_lab_required = fields.Boolean(string='Lab Required', default=False)
     is_consent_required = fields.Boolean(string='Consent Required', default=False)
     material_ids = fields.Many2many(

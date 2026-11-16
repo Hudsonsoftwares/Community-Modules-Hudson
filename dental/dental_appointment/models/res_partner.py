@@ -17,7 +17,6 @@ class ResPartner(models.Model):
         start_time = fields.Datetime.now()
         end_time = start_time + timedelta(minutes=30)
         
-        default_type = self.env['dental.appointment.type'].search([('active', '=', True)], limit=1)
         form_view = self.env.ref('dental_appointment.view_dental_appointment_form', raise_if_not_found=False)
         branch_id = getattr(self, 'active_clinic_id', False) and self.active_clinic_id.id or self.env.company.id
 
@@ -32,7 +31,6 @@ class ResPartner(models.Model):
                 'default_patient_id': self.id,
                 'default_date_start': start_time,
                 'default_date_end': end_time,
-                'default_appointment_type_id': default_type.id if default_type else False,
                 'default_branch_id': branch_id,
             }
         }

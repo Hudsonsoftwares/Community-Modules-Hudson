@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="res_config_settings_view_form_abdm" model="ir.ui.view">
+        <field name="name">res.config.settings.view.form.inherit.abdm</field>
+        <field name="model">res.config.settings</field>
+        <field name="priority" eval="85"/>
+        <field name="inherit_id" ref="base.res_config_settings_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//form" position="inside">
+                <app data-string="ABDM" string="ABDM" name="abdm_base" groups="abdm_base.group_abdm_manager">
+                    <block title="Step 1: Connect to ABDM" name="abdm_connection">
+                        <setting id="abdm_environment_setting" string="Environment"
+                                 help="Use Sandbox until ABDM gives you production keys.">
+                            <field name="abdm_environment" class="o_light_label" widget="radio"/>
+                        </setting>
+                        <setting id="abdm_credentials_setting" string="Client Credentials"
+                                 help="Client ID and Secret from your ABDM approval email.">
+                            <div class="content-group">
+                                <div class="row mt-2">
+                                    <label for="abdm_client_id" class="col-lg-4 o_light_label"/>
+                                    <field name="abdm_client_id" class="col-lg-8"/>
+                                </div>
+                                <div class="row">
+                                    <label for="abdm_client_secret" class="col-lg-4 o_light_label"/>
+                                    <field name="abdm_client_secret" password="True" class="col-lg-8"/>
+                                </div>
+                                <button name="action_abdm_test_connection" type="object"
+                                        string="Test Connection" icon="check_circle" class="btn-link mt-2"/>
+                            </div>
+                        </setting>
+                    </block>
+
+                    <block title="Step 2: Receive ABDM answers (needs your public domain)" name="abdm_callbacks">
+                        <setting id="abdm_callback_setting" string="Public Callback URL"
+                                 help="Public HTTPS address of this Odoo, e.g. https://yourdomain.com">
+                            <field name="abdm_callback_url" placeholder="https://yourdomain.com"/>
+                            <div>
+                                <button name="action_abdm_register_bridge_url" type="object"
+                                        string="Register Bridge URL with ABDM" icon="send" class="btn-link"/>
+                            </div>
+                        </setting>
+                        <setting id="abdm_verify_setting"
+                                 help="Accept only callbacks signed by the ABDM gateway.">
+                            <field name="abdm_verify_callbacks"/>
+                        </setting>
+                    </block>
+
+                    <block title="Step 3: Your facility (HFR)" name="abdm_facility">
+                        <setting id="abdm_facility_setting" string="Facility of this company"
+                                 help="Health Facility Registry ID, given by ABDM. Each company is one facility.">
+                            <div class="content-group">
+                                <div class="row mt-2">
+                                    <label for="abdm_hip_id" class="col-lg-4 o_light_label"/>
+                                    <field name="abdm_hip_id" class="col-lg-8" placeholder="IN27..."/>
+                                </div>
+                                <div class="row">
+                                    <label for="abdm_hip_name" class="col-lg-4 o_light_label"/>
+                                    <field name="abdm_hip_name" class="col-lg-8"/>
+                                </div>
+                                <button name="action_abdm_bridge_services" type="object"
+                                        string="Show facilities linked to my Client ID" icon="search" class="btn-link mt-2"/>
+                            </div>
+                        </setting>
+                    </block>
+
+                    <block title="Advanced" name="abdm_advanced">
+                        <setting id="abdm_override_setting" string="URL Overrides"
+                                 help="Leave empty to use the standard ABDM addresses.">
+                            <div class="content-group">
+                                <div class="row mt-2">
+                                    <label for="abdm_gateway_url" class="col-lg-4 o_light_label"/>
+                                    <field name="abdm_gateway_url" class="col-lg-8"/>
+                                </div>
+                                <div class="row">
+                                    <label for="abdm_abha_url" class="col-lg-4 o_light_label"/>
+                                    <field name="abdm_abha_url" class="col-lg-8"/>
+                                </div>
+                                <div class="row">
+                                    <label for="abdm_cm_id" class="col-lg-4 o_light_label"/>
+                                    <field name="abdm_cm_id" class="col-lg-8"/>
+                                </div>
+                            </div>
+                        </setting>
+                        <setting id="abdm_log_setting" string="Log Retention"
+                                 help="API logs and finished transactions older than this are deleted (0 = keep forever).">
+                            <field name="abdm_log_retention_days"/>
+                        </setting>
+                    </block>
+                </app>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="action_abdm_config_settings" model="ir.actions.act_window">
+        <field name="name">ABDM Settings</field>
+        <field name="res_model">res.config.settings</field>
+        <field name="view_mode">form</field>
+        <field name="context">{'module': 'abdm_base', 'bin_size': False}</field>
+    </record>
+</odoo>

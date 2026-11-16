@@ -1,0 +1,215 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <template id="teleconsult_lobby" name="Online Consultation Waiting Room">
+        <t t-call="website.layout">
+            <t t-set="pageName" t-value="'dental_teleconsult'"/>
+            <div id="wrap" class="o_dental_teleconsult_lobby py-4 py-md-5"
+                 t-att-data-stage="stage"
+                 t-att-data-status-url="base_path + '/status'"
+                 t-att-data-poll-interval="poll_interval">
+                <div class="container">
+                    <div class="row justify-content-center">
+                        <div class="col-12 col-lg-8 col-xl-7">
+                            <div class="card border-0 shadow-sm o_dental_tc_card">
+                                <!-- Visit header -->
+                                <div class="card-header bg-transparent border-0 pt-4 px-4">
+                                    <div class="d-flex align-items-center gap-3">
+                                        <div class="o_dental_tc_badge rounded-circle d-flex align-items-center justify-content-center flex-shrink-0">
+                                            <i class="oi" data-icon="videocam" title="Video consultation"/>
+                                        </div>
+                                        <div>
+                                            <div class="text-muted small text-uppercase fw-semibold">Online Video Consultation</div>
+                                            <h1 class="h4 mb-0" t-out="doctor_name"/>
+                                            <div class="text-muted small">
+                                                <t t-out="start_label"/> (<t t-out="tz_label"/>)
+                                                · <t t-out="clinic.name"/> · Ref. <t t-out="appointment.name"/>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="card-body px-4 pb-4">
+
+                                    <!-- Closed / ended / locked / expired -->
+                                    <div t-if="stage == 'closed'" class="alert alert-secondary mb-0" role="status">
+                                        This consultation link is no longer active. Please contact
+                                        <t t-out="clinic.name"/><t t-if="clinic.phone"> at <t t-out="clinic.phone"/></t> if you need help.
+                                    </div>
+                                    <t t-if="stage == 'ended'">
+                                        <div t-if="not show_summary" class="text-center py-3">
+                                            <h2 class="h5">Your consultation has ended</h2>
+                                            <p class="text-muted mb-0">Thank you. Your dentist's advice, any prescription and follow-up details
+                                                will appear on this page and be emailed to you.</p>
+                                        </div>
+                                        <div t-else="" class="o_dental_tc_summary">
+                                            <h2 class="h5 mb-3">Your visit summary</h2>
+                                            <div t-if="outcome_label" class="mb-3">
+                                                <span class="badge text-bg-primary fs-6" t-out="outcome_label"/>
+                                            </div>
+                                            <div class="border rounded p-3 mb-3" t-out="appointment.teleconsult_summary"/>
+                                            <div t-if="appointment.teleconsult_outcome in ('in_clinic', 'referral')" class="alert alert-info">
+                                                Your dentist recommends an in-person visit.
+                                                <t t-if="next_visit">It is booked for <strong t-out="next_visit.teleconsult_start_display"/>.</t>
+                                                <t t-else="">Please <a href="/book-appointment">book an appointment</a>
+                                                    <t t-if="clinic.phone"> or call <t t-out="clinic.phone"/></t>.</t>
+                                            </div>
+                                            <div t-if="appointment.teleconsult_outcome == 'emergency'" class="alert alert-danger">
+                                                Your dentist advises urgent care. If symptoms worsen, go to the nearest emergency service.
+                                            </div>
+                                            <div t-if="next_visit and appointment.teleconsult_outcome not in ('in_clinic', 'referral')" class="mb-3">
+                                                Next appointment: <strong t-out="next_visit.teleconsult_start_display"/>
+                                            </div>
+                                            <t t-if="prescriptions">
+                                                <h3 class="h6">Prescriptions</h3>
+                                                <ul class="list-unstyled mb-0">
+                                                    <li t-foreach="prescriptions" t-as="rx" class="mb-2">
+                                                        <a t-att-href="base_path + '/prescription/%s' % rx.id" class="btn btn-outline-primary btn-sm">
+                                                            Download prescription <t t-out="rx.name"/> (PDF)
+                                                        </a>
+                                                    </li>
+                                                </ul>
+                                            </t>
+                                        </div>
+                                    </t>
+                                    <div t-if="stage == 'locked'" class="alert alert-danger mb-0" role="alert">
+                                        This link has been locked after too many unsuccessful identity checks.
+                                        Please contact <t t-out="clinic.name"/><t t-if="clinic.phone"> at <t t-out="clinic.phone"/></t> to receive a new link.
+                                    </div>
+                                    <div t-if="stage == 'expired'" class="alert alert-warning mb-0" role="status">
+                                        The time to join this consultation has passed. Please contact
+                                        <t t-out="clinic.name"/> to reschedule.
+                                    </div>
+
+                                    <!-- Identity check -->
+                                    <t t-if="stage == 'verify'">
+                                        <h2 class="h5">Confirm your identity</h2>
+                                        <p class="text-muted">To protect your health information, please confirm who you are before joining.</p>
+                                        <div t-if="error == 'identity'" class="alert alert-danger" role="alert">
+                                            The details do not match our records. Please try again.
+                                        </div>
+                                        <form t-att-action="base_path + '/verify'" method="post" class="o_dental_tc_verify">
+                                            <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                            <div class="mb-3" t-if="identity_method == 'dob'">
+                                                <label for="tc_dob" class="form-label">Patient's date of birth</label>
+                                                <input type="date" class="form-control" id="tc_dob" name="dob" required="required"/>
+                                            </div>
+                                            <div class="mb-3" t-if="identity_method == 'phone'">
+                                                <label for="tc_phone" class="form-label">Last 4 digits of the patient's phone number</label>
+                                                <input type="text" class="form-control" id="tc_phone" name="phone_digits"
+                                                       inputmode="numeric" pattern="[0-9]{4}" maxlength="4" required="required" autocomplete="off"/>
+                                            </div>
+                                            <button type="submit" class="btn btn-primary w-100">Continue</button>
+                                        </form>
+                                        <p t-if="patient_has_account" class="text-center small mt-3 mb-0">
+                                            Have a patient account?
+                                            <a t-att-href="'/web/login?redirect=' + base_path">Log in instead</a>
+                                        </p>
+                                    </t>
+
+                                    <!-- Pay before joining -->
+                                    <t t-if="stage == 'payment'">
+                                        <h2 class="h5">Payment required</h2>
+                                        <p class="text-muted">The waiting room opens once the consultation fee has been paid.</p>
+                                        <div class="d-flex justify-content-between align-items-center border rounded p-3 mb-3" t-if="amount_due">
+                                            <span>Consultation fee</span>
+                                            <strong t-out="amount_due" t-options="{'widget': 'monetary', 'display_currency': currency}"/>
+                                        </div>
+                                        <a t-if="payment_url" t-att-href="payment_url" class="btn btn-primary w-100 mb-2">Pay now</a>
+                                        <div t-else="" class="alert alert-info">
+                                            The clinic is preparing your payment request. Please contact
+                                            <t t-out="clinic.name"/><t t-if="clinic.phone"> at <t t-out="clinic.phone"/></t>.
+                                        </div>
+                                        <a t-att-href="base_path" class="btn btn-outline-secondary w-100">I have paid, continue</a>
+                                    </t>
+
+                                    <!-- Before the room opens / ready to enter -->
+                                    <t t-if="stage in ('early', 'ready')">
+                                        <div t-if="stage == 'early'" class="alert alert-info" role="status">
+                                            The waiting room opens at <strong t-out="opens_label"/> (<t t-out="tz_label"/>).
+                                            Keep this page open: it updates automatically.
+                                        </div>
+                                        <div class="o_dental_tc_device_check border rounded p-3 mb-3">
+                                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                                <strong>Check your camera and microphone</strong>
+                                                <button type="button" class="btn btn-sm btn-outline-primary o_dental_tc_test_devices">Test devices</button>
+                                            </div>
+                                            <div class="ratio ratio-16x9 bg-dark rounded overflow-hidden d-none o_dental_tc_preview_wrap">
+                                                <video class="o_dental_tc_preview" autoplay="autoplay" muted="muted" playsinline="playsinline"/>
+                                            </div>
+                                            <div class="small mt-2 o_dental_tc_device_status text-muted">
+                                                Use a quiet, well-lit place and a recent browser (Chrome, Edge, Safari or Firefox).
+                                            </div>
+                                            <div class="alert alert-warning small mt-2 mb-0 d-none o_dental_tc_insecure">
+                                                Camera access needs a secure (https) connection. Please contact the clinic if the video does not start.
+                                            </div>
+                                        </div>
+                                        <form t-if="stage == 'ready'" t-att-action="base_path + '/ready'" method="post">
+                                            <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                            <div t-if="error == 'terms'" class="alert alert-danger" role="alert">
+                                                Please accept the online consultation terms to continue.
+                                            </div>
+                                            <div class="form-check mb-2">
+                                                <input class="form-check-input" type="checkbox" id="tc_terms" name="accept_terms" required="required"/>
+                                                <label class="form-check-label" for="tc_terms">
+                                                    I agree to receive this consultation by video. I understand that the dentist cannot
+                                                    physically examine me, may recommend an in-clinic visit, and that the video call
+                                                    is private to me and the clinical team.
+                                                </label>
+                                            </div>
+                                            <div class="form-check mb-3" t-if="recording_allowed">
+                                                <input class="form-check-input" type="checkbox" id="tc_recording" name="accept_recording"/>
+                                                <label class="form-check-label" for="tc_recording">
+                                                    (Optional) I allow the clinic to record this consultation for my medical record.
+                                                </label>
+                                            </div>
+                                            <button type="submit" class="btn btn-primary btn-lg w-100">Enter the waiting room</button>
+                                        </form>
+                                    </t>
+
+                                    <!-- Waiting to be admitted -->
+                                    <div t-if="stage == 'waiting'" class="text-center py-4">
+                                        <div class="spinner-border text-primary mb-3" role="status"/>
+                                        <h2 class="h5">You are in the waiting room</h2>
+                                        <p class="text-muted mb-0"><t t-out="doctor_name"/> has been notified and will let you in shortly.
+                                            Please keep this page open.</p>
+                                    </div>
+
+                                    <!-- Share photos / description with the dentist before the call -->
+                                    <div t-if="can_share_files" class="border rounded p-3 mt-3 o_dental_tc_share">
+                                        <strong>Share with your dentist (optional)</strong>
+                                        <p class="small text-muted mb-2">Describe your problem and add photos of the area, X-rays or reports.
+                                            Images or PDF, up to <t t-out="max_uploads"/> files of 10 MB.</p>
+                                        <div t-if="error == 'files_rejected'" class="alert alert-warning small" role="alert">
+                                            Some files were not accepted: only images (JPG, PNG, WEBP, GIF) and PDF files up to 10 MB are allowed.
+                                        </div>
+                                        <ul t-if="uploads" class="small mb-2">
+                                            <li t-foreach="uploads" t-as="upload" t-out="upload.name"/>
+                                        </ul>
+                                        <form t-att-action="base_path + '/share'" method="post" enctype="multipart/form-data">
+                                            <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                            <textarea name="patient_notes" class="form-control mb-2" rows="3" maxlength="4000"
+                                                      placeholder="e.g. Pain in the lower left back tooth for 3 days, worse when drinking cold water"
+                                                      t-out="appointment.teleconsult_patient_notes or ''"/>
+                                            <input t-if="len(uploads) &lt; max_uploads" type="file" name="files" multiple="multiple"
+                                                   accept="image/*,application/pdf" class="form-control mb-2"/>
+                                            <button type="submit" class="btn btn-sm btn-outline-primary">Share</button>
+                                        </form>
+                                    </div>
+
+                                    <!-- Admitted -->
+                                    <div t-if="stage == 'in_call'" class="text-center py-4">
+                                        <h2 class="h5">Your dentist is ready</h2>
+                                        <p class="text-muted">Joining the video call…</p>
+                                        <a t-att-href="base_path + '/room'" class="btn btn-primary btn-lg o_dental_tc_join">Join the consultation</a>
+                                    </div>
+                                </div>
+                            </div>
+                            <p class="text-center text-muted small mt-3">
+                                This page is private. Do not share your consultation link.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </t>
+    </template>
+</odoo>

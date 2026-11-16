@@ -3,3 +3,4 @@
 
 from . import portal
 from . import directory_download
+from . import file_request

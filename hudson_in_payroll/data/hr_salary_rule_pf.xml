@@ -8,6 +8,7 @@
             <field name="sequence" eval="20"/>
             <field name="category_id" ref="hudson_in_payroll.salary_rule_category_pf_calc"/>
             <field name="struct_id" ref="hudson_payroll_base.structure_base"/>
+            <field name="company_id" eval="False"/>
             <field name="condition_select">none</field>
             <field name="amount_select">code</field>
             <field name="amount_python_compute"><![CDATA[result = payslip_record.hds_in_compute_pf_wage()]]></field>

@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-name="custom_barcode_scanner.HomeScreen" owl="1">
+        <div class="h-100 d-flex flex-column bg-view">
+            <WithSearch resModel="'stock.picking.type'" searchViewId="false" t-slot-scope="search">
+                <!-- Custom Control Panel mimicking Odoo native -->
+                <div class="o_control_panel d-flex justify-content-between align-items-center px-3 py-2 border-bottom" style="background-color: var(--o-barcode-view-bg); min-height: 56px;">
+                        <div class="d-flex flex-column">
+                            <div class="text-info small fw-bold cursor-pointer" style="font-size: 0.75rem; color: #017e84 !important; text-decoration: none;" t-on-click="this.props.onBack">Barcode</div>
+                            <div class="d-flex align-items-center">
+                                <span class="fw-bold text-dark" style="font-size: 0.9rem;">Operations</span>
+                                <div class="dropdown d-inline-block ms-2">
+                                    <button type="button" class="btn o_btn_circle btn-light p-1 m-0 lh-1" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Actions menu" title="Actions"><i class="oi oi-fw" data-icon="more_vert" aria-hidden="true"/></button>
+                                    <ul class="dropdown-menu shadow-sm" style="font-size: 0.9rem; min-width: 180px;">
+                                        <li>
+                                            <a class="dropdown-item cursor-pointer py-2" t-on-click="this.exportData">
+                                                <i class="oi me-2 text-muted" data-icon="upload"/> Export
+                                            </a>
+                                        </li>
+                                        <li>
+                                            <a class="dropdown-item cursor-pointer text-muted py-2" style="pointer-events: none;">
+                                                <i class="oi me-2" data-icon="bookmark"/> Knowledge <i class="oi float-end mt-1 opacity-50" data-icon="arrow_right"/>
+                                            </a>
+                                        </li>
+                                        <li>
+                                            <a class="dropdown-item cursor-pointer text-muted py-2" style="pointer-events: none;">
+                                                <i class="oi me-2" data-icon="table"/> Spreadsheet <i class="oi float-end mt-1 opacity-50" data-icon="arrow_right"/>
+                                            </a>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    
+                    <div class="o_cp_searchview flex-grow-1 mx-3" style="max-width: 500px;">
+                        <SearchBar t-if="search.domain !== undefined" />
+                    </div>
+                    
+                    <div class="o_cp_pager d-flex align-items-center text-muted" style="font-size: 0.85rem;">
+                        <span class="me-3">
+                            <t t-if="this.state.count > 0">1-<t t-out="this.state.count"/></t>
+                            <t t-else="">0-0</t>
+                            / <t t-out="this.state.count"/>
+                        </span>
+                        <div class="btn-group">
+                            <button class="btn btn-sm btn-light border-0 px-2 text-muted"><i class="oi" data-icon="chevron_left"/></button>
+                            <button class="btn btn-sm btn-light border-0 px-2 text-muted"><i class="oi" data-icon="chevron_right"/></button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Kanban Tiles -->
+                <HomeGrid domain="search.domain" groupBy="search.groupBy" onTypeClick="this.props.onTypeClick" onDataLoaded="(c) => this.state.count = c"/>
+            </WithSearch>
+        </div>
+    </t>
+
+    <t t-name="custom_barcode_scanner.HomeGrid" owl="1">
+        <div class="o_barcode_kanban_container p-3 flex-grow-1" style="background-color: var(--o-barcode-page-bg); overflow-x: auto;">
+            <!-- Ungrouped view (Default Grid) -->
+            <div t-if="!this.props.groupBy || this.props.groupBy.length === 0" class="row g-3">
+                <t t-foreach="this.state.operationTypes" t-as="type" t-key="type.id">
+                    <div class="col-12 col-sm-6 col-lg-3">
+                        <div class="o_barcode_op_tile bg-view border d-flex justify-content-between align-items-center px-4 py-3 cursor-pointer shadow-sm" t-on-click="() => this.props.onTypeClick(type.id)" style="min-height: 115px; border-radius: 6px;">
+                            <span class="fw-bold text-uppercase me-3" style="font-size: 1rem; letter-spacing: 0.02em; color: var(--o-barcode-text);"><t t-out="type.name"/></span>
+                            <span class="o_barcode_op_count" t-att-class="((type.code === 'mrp_operation' ? type.count_mo_confirmed : type.count_picking_ready) || 0) ? '' : 'opacity-50'" style="background-color: var(--o-barcode-muted-bg); color: var(--o-barcode-text-muted); min-width: 2.1rem; height: 2.1rem; padding: 0 0.6rem; display: inline-flex; align-items: center; justify-content: center; border-radius: 1.05rem; font-size: 0.95rem; font-weight: 700;"><t t-out="(type.code === 'mrp_operation' ? type.count_mo_confirmed : type.count_picking_ready) || 0"/></span>
+                        </div>
+                    </div>
+                </t>
+                <!-- Inventory Adjustments -->
+                <div class="col-12 col-sm-6 col-lg-3" t-if="!this.props.domain || this.props.domain.length === 0">
+                    <div class="o_barcode_op_tile bg-view border d-flex justify-content-between align-items-center px-4 py-3 cursor-pointer shadow-sm" t-on-click="() => this.props.onTypeClick('inventory')" style="min-height: 115px; border-radius: 6px;">
+                        <span class="fw-bold text-uppercase me-3" style="font-size: 1rem; letter-spacing: 0.02em; color: var(--o-barcode-text);">Inventory Adjustments</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Grouped view (Columns) -->
+            <div t-else="" class="d-flex h-100" style="gap: 24px;">
+                <t t-foreach="this.groupedOperations" t-as="group" t-key="group.title">
+                    <div class="flex-shrink-0" style="width: 320px;">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h6 class="fw-bold mb-0 text-dark"><t t-out="group.title"/> (<t t-out="group.items.length"/>)</h6>
+                        </div>
+                        <div class="d-flex flex-column gap-2">
+                            <t t-foreach="group.items" t-as="type" t-key="type.id">
+                                <div t-if="type.is_inventory" class="o_barcode_op_tile bg-view border d-flex justify-content-between align-items-center px-4 py-3 cursor-pointer shadow-sm" t-on-click="() => this.props.onTypeClick('inventory')" style="min-height: 115px; border-radius: 6px;">
+                                    <span class="fw-bold text-uppercase me-3" style="font-size: 1rem; letter-spacing: 0.02em; color: var(--o-barcode-text);"><t t-out="type.name"/></span>
+                                </div>
+                                <div t-else="" class="o_barcode_op_tile bg-view border d-flex justify-content-between align-items-center px-4 py-3 cursor-pointer shadow-sm" t-on-click="() => this.props.onTypeClick(type.id)" style="min-height: 115px; border-radius: 6px;">
+                                    <span class="fw-bold text-uppercase me-3" style="font-size: 1rem; letter-spacing: 0.02em; color: var(--o-barcode-text);"><t t-out="type.name"/></span>
+                                    <span class="o_barcode_op_count" t-att-class="((type.code === 'mrp_operation' ? type.count_mo_confirmed : type.count_picking_ready) || 0) ? '' : 'opacity-50'" style="background-color: var(--o-barcode-muted-bg); color: var(--o-barcode-text-muted); min-width: 2.1rem; height: 2.1rem; padding: 0 0.6rem; display: inline-flex; align-items: center; justify-content: center; border-radius: 1.05rem; font-size: 0.95rem; font-weight: 700;"><t t-out="(type.code === 'mrp_operation' ? type.count_mo_confirmed : type.count_picking_ready) || 0"/></span>
+                                </div>
+                            </t>
+                        </div>
+                    </div>
+                </t>
+            </div>
+        </div>
+    </t>
+</templates>

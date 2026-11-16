@@ -11,6 +11,10 @@ access_dental_treatment_plan_dentist,dental.treatment.plan.dentist,model_dental_
 access_dental_treatment_plan_manager,dental.treatment.plan.manager,model_dental_treatment_plan,dental_base.group_dental_manager,crud,
 access_dental_treatment_plan_line_dentist,dental.treatment.plan.line.dentist,model_dental_treatment_plan_line,dental_base.group_dental_dentist,cru,"['|', ('plan_id.doctor_id.user_id', '=', user.id), ('plan_id.doctor_id', '=', False)]"
 access_dental_treatment_plan_line_manager,dental.treatment.plan.line.manager,model_dental_treatment_plan_line,dental_base.group_dental_manager,crud,
+access_dental_treatment_stage_dentist,dental.treatment.stage.dentist,model_dental_treatment_stage,dental_base.group_dental_dentist,r,
+access_dental_treatment_stage_manager,dental.treatment.stage.manager,model_dental_treatment_stage,dental_base.group_dental_manager,crud,
+access_dental_treatment_stage_admin,dental.treatment.stage.admin,model_dental_treatment_stage,dental_base.group_dental_admin,crud,
+access_dental_treatment_stage_receptionist,dental.treatment.stage.receptionist,model_dental_treatment_stage,dental_base.group_dental_receptionist,r,
 access_dental_treatment_session_dentist,dental.treatment.session.dentist,model_dental_treatment_session,dental_base.group_dental_dentist,cru,"['|', ('doctor_id.user_id', '=', user.id), ('doctor_id', '=', False)]"
 access_dental_treatment_session_manager,dental.treatment.session.manager,model_dental_treatment_session,dental_base.group_dental_manager,crud,
 access_res_partner_receptionist,res.partner.receptionist,base.model_res_partner,dental_base.group_dental_receptionist,cru,
@@ -50,3 +54,38 @@ access_dental_patient_document_receptionist,dental.patient.document.receptionist
 access_dental_patient_document_dentist,dental.patient.document.dentist,model_dental_patient_document,dental_base.group_dental_dentist,cru,
 access_dental_patient_document_manager,dental.patient.document.manager,model_dental_patient_document,dental_base.group_dental_manager,crud,
 access_dental_patient_document_admin,dental.patient.document.admin,model_dental_patient_document,dental_base.group_dental_admin,crud,
+dental_case_company_rule,Dental case: company isolation,model_dental_case,,crud,"['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]"
+dental_clinical_examination_company_rule,Dental clinical examination: company isolation,model_dental_clinical_examination,,crud,"['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]"
+dental_patient_diagnosis_company_rule,Dental patient diagnosis: company isolation,model_dental_patient_diagnosis,,crud,"['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]"
+dental_tooth_finding_company_rule,Dental tooth finding: company isolation,model_dental_tooth_finding,,crud,"['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]"
+dental_treatment_plan_company_rule,Dental treatment plan: company isolation,model_dental_treatment_plan,,crud,"['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]"
+dental_treatment_plan_line_company_rule,Dental treatment plan line: company isolation,model_dental_treatment_plan_line,,crud,"['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]"
+dental_treatment_session_company_rule,Dental treatment session: company isolation,model_dental_treatment_session,,crud,"['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]"
+dental_patient_document_company_rule,Dental patient document: company isolation,model_dental_patient_document,,crud,"['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]"
+dental_branch_performance_report_company_rule,Dental branch performance report: company isolation,model_dental_branch_performance_report,,crud,"['|', ('branch_id', '=', False), ('branch_id', 'in', company_ids)]"
+dental_revenue_report_company_rule,Dental revenue report: company isolation,model_dental_revenue_report,,crud,"['|', ('branch_id', '=', False), ('branch_id', 'in', company_ids)]"
+dental_treatment_report_company_rule,Dental treatment report: company isolation,model_dental_treatment_report,,crud,"['|', ('branch_id', '=', False), ('branch_id', 'in', company_ids)]"
+access_dental_patient_history_dentist,dental.patient.history.dentist,model_dental_patient_history,dental_base.group_dental_dentist,r,
+access_dental_patient_history_manager,dental.patient.history.manager,model_dental_patient_history,dental_base.group_dental_manager,r,
+access_dental_floor_room_user,dental.floor.room.user,model_dental_floor_room,base.group_user,r,"[('company_id', 'in', company_ids)]"
+access_dental_floor_room_admin,dental.floor.room.admin,model_dental_floor_room,dental_base.group_dental_admin,crud,"[('company_id', 'in', company_ids)]"
+access_dental_floor_element_user,dental.floor.element.user,model_dental_floor_element,base.group_user,r,"[('company_id', 'in', company_ids)]"
+access_dental_floor_element_admin,dental.floor.element.admin,model_dental_floor_element,dental_base.group_dental_admin,crud,"[('company_id', 'in', company_ids)]"
+access_dental_payment_summary_receptionist,dental.payment.summary.receptionist,model_dental_payment_summary,dental_base.group_dental_receptionist,cru,
+access_dental_payment_summary_manager,dental.payment.summary.manager,model_dental_payment_summary,dental_base.group_dental_manager,crud,
+access_dental_payment_summary_admin,dental.payment.summary.admin,model_dental_payment_summary,dental_base.group_dental_admin,crud,
+access_dental_payment_summary_journal_line_receptionist,dental.payment.summary.journal.line.receptionist,model_dental_payment_summary_journal_line,dental_base.group_dental_receptionist,cru,
+access_dental_payment_summary_journal_line_manager,dental.payment.summary.journal.line.manager,model_dental_payment_summary_journal_line,dental_base.group_dental_manager,crud,
+access_dental_payment_summary_journal_line_admin,dental.payment.summary.journal.line.admin,model_dental_payment_summary_journal_line,dental_base.group_dental_admin,crud,
+access_dental_payment_summary_line_receptionist,dental.payment.summary.line.receptionist,model_dental_payment_summary_line,dental_base.group_dental_receptionist,cru,
+access_dental_payment_summary_line_manager,dental.payment.summary.line.manager,model_dental_payment_summary_line,dental_base.group_dental_manager,crud,
+access_dental_payment_summary_line_admin,dental.payment.summary.line.admin,model_dental_payment_summary_line,dental_base.group_dental_admin,crud,
+access_dental_payment_summary_denomination_receptionist,dental.payment.summary.denomination.receptionist,model_dental_payment_summary_denomination,dental_base.group_dental_receptionist,cru,
+access_dental_payment_summary_denomination_manager,dental.payment.summary.denomination.manager,model_dental_payment_summary_denomination,dental_base.group_dental_manager,crud,
+access_dental_payment_summary_denomination_admin,dental.payment.summary.denomination.admin,model_dental_payment_summary_denomination,dental_base.group_dental_admin,crud,
+dental_payment_summary_company_rule,Dental payment summary: company isolation,model_dental_payment_summary,,crud,"['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]"
+access_dental_floor_fixture_user,dental.floor.fixture.user,model_dental_floor_fixture,base.group_user,r,"[('company_id', 'in', company_ids)]"
+access_dental_floor_fixture_admin,dental.floor.fixture.admin,model_dental_floor_fixture,dental_base.group_dental_admin,crud,"[('company_id', 'in', company_ids)]"
+access_dental_examination_perio_line_dentist,dental.examination.perio.line.dentist,model_dental_examination_perio_line,dental_base.group_dental_dentist,crud,"['|', ('examination_id.doctor_id.user_id', '=', user.id), ('examination_id.doctor_id', '=', False)]"
+access_dental_examination_perio_line_manager,dental.examination.perio.line.manager,model_dental_examination_perio_line,dental_base.group_dental_manager,crud,
+dental_examination_perio_line_company_rule,Dental periodontal chart: company isolation,model_dental_examination_perio_line,,crud,"['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]"

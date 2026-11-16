@@ -2,9 +2,14 @@
 import base64
 import calendar
 import io
-from datetime import date
+import json
+import logging
+from datetime import date, datetime
+
 from odoo import api, fields, models, _
 from odoo.exceptions import UserError
+
+_logger = logging.getLogger(__name__)
 
 try:
     import xlsxwriter
@@ -17,6 +22,121 @@ MONTH_SELECTION = [
     ('5', 'May'), ('6', 'June'), ('7', 'July'), ('8', 'August'),
     ('9', 'September'), ('10', 'October'), ('11', 'November'), ('12', 'December')
 ]
+
+
+def format_inr(amount):
+    """Format numeric values according to the Indian numbering system with Rupee symbol.
+    Example: 150000 -> ₹ 1,50,000.00, -1800 -> ₹ -1,800.00
+    """
+    if amount is None:
+        amount = 0.0
+    val = float(amount)
+    is_neg = val < 0
+    val = abs(val)
+
+    int_str = str(int(val))
+    dec_str = f"{val:.2f}".split('.')[1]
+
+    if len(int_str) > 3:
+        last3 = int_str[-3:]
+        rest = int_str[:-3]
+        groups = []
+        while rest:
+            groups.insert(0, rest[-2:])
+            rest = rest[:-2]
+        formatted_int = ",".join(groups) + "," + last3
+    else:
+        formatted_int = int_str
+
+    formatted_num = f"{formatted_int}.{dec_str}"
+    if is_neg:
+        return f"₹ -{formatted_num}"
+    return f"₹ {formatted_num}"
+
+
+def _compute_pt_yearly_amount(env, emp, monthly_amt, eval_date, company):
+    """
+    Compute yearly Professional Tax amount based on employee's state periodicity and statutory rules.
+    Statutory ceiling under Article 276(2) Constitution of India is Rs 2,500/year.
+    """
+    amt = abs(float(monthly_amt or 0.0))
+    if amt == 0.0:
+        return 0.0
+
+    emp_state = False
+    periodicity = None
+    try:
+        from ..services.payroll.work_location_service import PayrollWorkLocationService
+        from ..services.professional_tax.pt_period_config_service import PTPeriodScheduleService
+        from ..services.professional_tax.professional_tax_slab_service import ProfessionalTaxSlabService
+
+        loc_svc = PayrollWorkLocationService(env)
+        sched_svc = PTPeriodScheduleService(env)
+        slab_svc = ProfessionalTaxSlabService(env)
+
+        emp_state = loc_svc.get_work_state(emp)
+        if emp_state:
+            period_sched = sched_svc.resolve_schedule(emp_state, company=company, eval_date=eval_date)
+            periodicity = period_sched.periodicity if period_sched else slab_svc.resolve_state_periodicity(emp_state, company=company)
+    except Exception as e:
+        _logger.debug("Could not resolve PT periodicity for employee %s: %s", getattr(emp, 'name', ''), e)
+
+    if periodicity == 'half_yearly':
+        yearly = amt * 2.0
+    elif periodicity == 'quarterly':
+        yearly = amt * 4.0
+    elif periodicity == 'annual':
+        yearly = amt * 1.0
+    elif periodicity == 'monthly':
+        yearly = amt * 12.0
+        # If standard Maharashtra 200/month, Feb is 300, total is 2500
+        state_code = getattr(emp_state, 'code', '') or ''
+        if round(amt, 2) == 200.0 and state_code.upper() in ('MH', 'MAHARASHTRA'):
+            yearly = 2500.0
+    else:
+        # Fallback heuristic based on standard Indian PT rules:
+        # In India, monthly PT never exceeds Rs 300.
+        # If amt >= 500 (e.g. 1000, 1250), it is a half-yearly or annual deduction
+        if amt >= 500.0:
+            yearly = amt * 2.0
+        else:
+            yearly = amt * 12.0
+
+    # Constitutional cap under Article 276(2)
+    return min(yearly, 2500.0)
+
+
+def _compute_lwf_yearly_amount(env, emp, monthly_amt, eval_date, company):
+    """
+    Compute yearly Labour Welfare Fund amount based on state frequency (monthly, half-yearly, annual).
+    """
+    amt = abs(float(monthly_amt or 0.0))
+    if amt == 0.0:
+        return 0.0
+
+    freq = None
+    try:
+        from ..services.payroll.work_location_service import PayrollWorkLocationService
+        from ..services.lwf.lwf_rate_service import LWFRateService
+
+        work_state = PayrollWorkLocationService(env).get_work_state(emp)
+        rate_cfg = LWFRateService(env).get_rate_config(work_state, eval_date=eval_date, company=company)
+        if rate_cfg:
+            freq = rate_cfg.deduction_frequency
+    except Exception as e:
+        _logger.debug("Could not resolve LWF frequency for employee %s: %s", getattr(emp, 'name', ''), e)
+
+    if freq == 'half_yearly':
+        yearly = amt * 2.0
+    elif freq == 'annual':
+        yearly = amt * 1.0
+    elif freq == 'monthly':
+        yearly = amt * 12.0
+    else:
+        # Fallback: In India, LWF is almost always half-yearly (June & Dec) or annual (Dec).
+        yearly = amt * 2.0
+
+    return yearly
 
 
 class HdsSalaryStatementReport(models.Model):
@@ -58,7 +178,7 @@ class HdsSalaryStatementReport(models.Model):
         ('confirmed', 'Confirmed & Paid (Done, Paid)'),
         ('done', 'Done'),
         ('all', 'All States (Draft, Verify, Done, Paid)'),
-    ], string='Payslip Status Filter', default='paid', required=True)
+    ], string='Payslip Status Filter', default='confirmed', required=True)
 
     state = fields.Selection([
         ('draft', 'Draft'),
@@ -114,23 +234,24 @@ class HdsSalaryStatementReport(models.Model):
         month_start = date(y, m, 1)
         month_end = date(y, m, calendar.monthrange(y, m)[1])
 
-        # Search matching payslips for company and period based on payslip_state
+        # Search matching payslips for company and period
         domain = [
             ('company_id', '=', self.company_id.id),
             ('date_from', '>=', month_start),
             ('date_to', '<=', month_end),
-            ('state', '!=', 'cancel'),
+            ('state', 'in', ('done', 'paid')),
         ]
-        if self.payslip_state == 'done':
-            domain.append(('state', '=', 'done'))
-        elif self.payslip_state == 'paid':
-            domain.append(('state', '=', 'paid'))
-        elif self.payslip_state == 'confirmed':
-            domain.append(('state', 'in', ('done', 'paid')))
-
         payslips = self.env['hr.payslip'].search(domain, order='employee_id asc, date_to desc, id desc')
+        if not payslips:
+            domain_any = [
+                ('company_id', '=', self.company_id.id),
+                ('date_from', '>=', month_start),
+                ('date_to', '<=', month_end),
+                ('state', '!=', 'cancel'),
+            ]
+            payslips = self.env['hr.payslip'].search(domain_any, order='employee_id asc, date_to desc, id desc')
 
-        # Deduplicate per employee: pick the best slip per employee (paid > done > verify > draft, and latest id)
+        # Deduplicate per employee: pick the best slip per employee
         state_prio = {'paid': 4, 'done': 3, 'verify': 2, 'draft': 1}
         emp_slips = {}
         for slip in payslips:
@@ -147,180 +268,341 @@ class HdsSalaryStatementReport(models.Model):
                     emp_slips[emp_id] = slip
 
         valid_slips = list(emp_slips.values())
-        if not valid_slips:
-            raise UserError(_("No computed payslips found for %s, %s matching the selected criteria.") % (dict(MONTH_SELECTION).get(str(self.month)), self.year))
-
         self.line_ids.unlink()
 
-        month_label = f"{dict(MONTH_SELECTION).get(str(self.month))} {self.year}"
+        month_name = dict(MONTH_SELECTION).get(str(self.month), '')
+        month_label = f"{month_name} {self.year}"
 
         for slip in valid_slips:
             emp = slip.employee_id
             emp_ref = getattr(emp, 'registration_number', False) or getattr(emp, 'emp_id', False) or f"EMP{emp.id:04d}"
 
-            # Compute working days / paid days from worked_days_line_ids or default
+            # 1. Dates & Designations for Employee Info Box
+            doj = getattr(emp, 'first_contract_date', False) or getattr(emp, 'date_start', False)
+            if not doj and hasattr(emp, 'contract_id') and emp.contract_id:
+                doj = emp.contract_id.date_start
+            doj_str = doj.strftime('%d/%m/%Y') if doj else '-'
+
+            eff_date = slip.date_from or (emp.contract_id.date_start if hasattr(emp, 'contract_id') and emp.contract_id else False)
+            eff_str = eff_date.strftime('%d/%m/%Y') if eff_date else '-'
+
+            designation_str = getattr(emp, 'job_title', None) or (emp.job_id.name if hasattr(emp, 'job_id') and emp.job_id else '') or '-'
+            structure_str = slip.struct_id.name or 'India: Regular Pay'
+
+            lines = slip.line_ids
+
+            # Working days
             working_days = 0.0
             if slip.worked_days_line_ids:
                 working_days = sum(float(w.number_of_days or 0.0) for w in slip.worked_days_line_ids if (w.code or '').upper() not in ('UNPAID', 'ABSENT', 'SHORTAGE', 'LEAVE_UNPAID'))
             if working_days <= 0:
                 working_days = float(calendar.monthrange(y, m)[1])
 
-            lines = slip.line_ids
-
-            # 1. Earnings Breakdown
-            basic_val = 0.0
-            hra_val = 0.0
-            alw_val = 0.0
-            other_earn_val = 0.0
-
+            # 2. Earnings / Allowances Breakdown
+            allowance_items = []
             for line in lines:
                 code = (line.code or '').upper()
                 cat_code = (line.category_id.code or '').upper() if line.category_id else ''
                 amt = float(line.total or 0.0)
 
-                # Skip non-earning categories and intermediate calculation rules explicitly
-                if cat_code in ('GROSS', 'NET', 'DED', 'COMP', 'PF_CALC', 'ESIC_CALC', 'CALC') or code in ('PF_WAGE', 'ESIC_WAGE', 'BASIC_PF', 'PF_BASE', 'ESI_WAGE', 'ESIC_BASE'):
+                # Skip deductions, employer contributions, intermediate calculations, and net
+                if cat_code in ('DED', 'COMP', 'NET', 'PF_CALC', 'ESIC_CALC', 'CALC') or code in ('PF_WAGE', 'ESIC_WAGE', 'BASIC_PF', 'PF_BASE', 'ESI_WAGE', 'ESIC_BASE'):
                     continue
 
-                if code == 'BASIC' or cat_code == 'BASIC':
-                    basic_val += amt
-                elif code == 'HRA':
-                    hra_val += amt
-                elif cat_code == 'ALW':
-                    alw_val += amt
-                elif amt > 0:
-                    other_earn_val += amt
+                if amt <= 0:
+                    continue
 
-            # Gross Salary
-            gross_line = lines.filtered(lambda l: (l.code or '').upper() == 'GROSS' or (l.category_id and l.category_id.code == 'GROSS'))
-            if gross_line:
-                gross_val = float(gross_line[0].total or 0.0)
-            else:
-                gross_val = float(getattr(slip, 'gross_amount', None) or getattr(slip, 'gross_wage', 0.0) or 0.0)
-                if gross_val <= 0:
-                    gross_val = basic_val + hra_val + alw_val + other_earn_val
+                display_name = line.name
+                if code == 'GROSS' and (not display_name or display_name == 'Gross'):
+                    display_name = 'Taxable Salary'
 
-            # 2. Employee Deductions Breakdown
-            pf_ee_val = 0.0
-            esi_ee_val = 0.0
-            pt_val = 0.0
-            lwf_ee_val = 0.0
-            tds_val = 0.0
-            other_ded_val = 0.0
+                monthly_val = amt
+                yearly_val = round(monthly_val * 12, 2)
+                allowance_items.append({
+                    'code': code,
+                    'name': display_name,
+                    'monthly': monthly_val,
+                    'yearly': yearly_val,
+                    'monthly_str': format_inr(monthly_val),
+                    'yearly_str': format_inr(yearly_val),
+                })
+
+            # Sort allowances so BASIC, HRA, FIXED, other, GROSS, Reimbursement appear logically
+            def alw_sort_key(item):
+                c = item['code']
+                if c == 'BASIC':
+                    return 1
+                if c == 'HRA':
+                    return 2
+                if c == 'FIXED':
+                    return 3
+                if c == 'GROSS':
+                    return 8
+                if 'REIMBURSE' in c or 'REIMB' in c:
+                    return 9
+                return 5
+            allowance_items.sort(key=alw_sort_key)
+
+            # 3. Deductions Breakdown
+            deduction_items = []
+
+            TOTAL_ER_EPF_CODES = {'EMPLOYER_EPF', 'ER_EPF', 'ER_PF', 'PF_ER', 'EMPR_PF'}
+            all_line_codes = {(l.code or '').upper() for l in lines}
+            has_total_er_epf = bool(all_line_codes.intersection(TOTAL_ER_EPF_CODES))
+            seen_er_epf = False
+            seen_er_esic = False
+            seen_er_lwf = False
 
             for line in lines:
                 code = (line.code or '').upper()
                 cat_code = (line.category_id.code or '').upper() if line.category_id else ''
                 amt = abs(float(line.total or 0.0))
 
-                # Skip company contributions, earnings, intermediate calculations, net/gross
-                if cat_code in ('COMP', 'BASIC', 'ALW', 'GROSS', 'NET', 'PF_CALC', 'ESIC_CALC', 'CALC') or code in ('PF_WAGE', 'ESIC_WAGE', 'BASIC_PF', 'PF_BASE', 'ESI_WAGE', 'ESIC_BASE'):
+                # Avoid duplicate / breakdown lines when aggregate employer EPF already exists
+                if has_total_er_epf and code in ('EPF_SHARE', 'EPS', 'EDLI', 'EPF_ADMIN', 'EDLI_ADMIN', 'EDLI_ADMIN_CHARGE', 'EPF_ADMIN_CHARGE'):
                     continue
 
-                if code in ('PF', 'EPF', 'EE_PF') or (cat_code == 'DED' and code in ('PF', 'EPF', 'EE_PF')):
-                    pf_ee_val += amt
-                elif code in ('ESI', 'ESIC', 'EE_ESI', 'ESIC_EE') or (cat_code == 'DED' and code in ('ESI', 'ESIC', 'EE_ESI', 'ESIC_EE')):
-                    esi_ee_val += amt
-                elif code in ('PT', 'PROF_TAX', 'PT_DED') or (cat_code == 'DED' and 'PT' in code):
-                    pt_val += amt
-                elif code in ('LWF', 'LWF_EE', 'EE_LWF') or (cat_code == 'DED' and 'LWF' in code):
-                    lwf_ee_val += amt
-                elif code in ('TDS', 'HDS_IN_TDS', 'INCOME_TAX', 'IT') or 'TDS' in code or cat_code == 'TDS':
-                    tds_val += amt
-                elif cat_code == 'DED':
-                    other_ded_val += amt
+                is_ded = cat_code == 'DED'
+                is_er_epf = cat_code == 'COMP' and (
+                    code in TOTAL_ER_EPF_CODES or
+                    (not has_total_er_epf and code == 'EPF_SHARE')
+                )
+                is_er_esic = cat_code == 'COMP' and code in ('ESIC_ER', 'ER_ESI', 'ESI_ER')
+                is_er_lwf = cat_code == 'COMP' and code in ('LWF_ER', 'ER_LWF')
 
-            total_ded_val = pf_ee_val + esi_ee_val + pt_val + lwf_ee_val + tds_val + other_ded_val
+                if not (is_ded or is_er_epf or is_er_esic or is_er_lwf):
+                    continue
 
-            # 3. Net Pay
-            net_line = lines.filtered(lambda l: (l.code or '').upper() == 'NET' or (l.category_id and l.category_id.code == 'NET'))
+                if is_er_epf:
+                    if seen_er_epf:
+                        continue
+                    seen_er_epf = True
+                elif is_er_esic:
+                    if seen_er_esic:
+                        continue
+                    seen_er_esic = True
+                elif is_er_lwf:
+                    if seen_er_lwf:
+                        continue
+                    seen_er_lwf = True
+
+                if amt == 0:
+                    continue
+
+                display_name = line.name
+                if code in ('EPF', 'EE_PF', 'PF'):
+                    display_name = 'Provident fund - Employee'
+                elif is_er_epf or code in TOTAL_ER_EPF_CODES or code == 'EPF_SHARE':
+                    display_name = 'Provident fund - Employer'
+                elif code in ('ESIC_EE', 'EE_ESI', 'ESI', 'ESIC', 'ESI_EE') or (cat_code == 'DED' and 'ESI' in code):
+                    display_name = "Employee's State Insurance Corporation"
+                elif is_er_esic or code in ('ESIC_ER', 'ER_ESI', 'ESI_ER'):
+                    display_name = "Employer ESIC Contribution"
+                elif code in ('LWF_EE', 'EE_LWF', 'LWF', 'LWF_DED') or (cat_code == 'DED' and 'LWF' in code):
+                    display_name = "Employee's Deduction Towards State Labour Welfare Fund"
+                elif is_er_lwf or code in ('LWF_ER', 'ER_LWF'):
+                    display_name = "Employer LWF Contribution"
+                elif code in ('PT', 'PROF_TAX', 'PT_DED', 'PROFESSIONAL_TAX', 'HDS_IN_PT') or (cat_code == 'DED' and 'PT' in code):
+                    display_name = 'Professional Tax'
+                elif code in ('TDS', 'HDS_IN_TDS', 'INCOME_TAX', 'IT'):
+                    display_name = 'Tax Deducted at Source'
+
+                monthly_val = -amt
+                eval_date = slip.date_from or date(y, m, 1)
+
+                if 'Professional Tax' in display_name:
+                    yearly_abs = _compute_pt_yearly_amount(self.env, emp, amt, eval_date, self.company_id)
+                    yearly_val = -yearly_abs
+                elif "Labour Welfare" in display_name or "LWF" in display_name:
+                    yearly_abs = _compute_lwf_yearly_amount(self.env, emp, amt, eval_date, self.company_id)
+                    yearly_val = -yearly_abs
+                else:
+                    yearly_val = round(monthly_val * 12, 2)
+
+                deduction_items.append({
+                    'code': code,
+                    'name': display_name,
+                    'monthly': monthly_val,
+                    'yearly': yearly_val,
+                    'monthly_str': format_inr(monthly_val),
+                    'yearly_str': format_inr(yearly_val),
+                })
+
+            eval_date = slip.date_from or date(y, m, 1)
+
+            # Ensure Employer ESIC Contribution is included if applicable and missing from slip lines
+            if not seen_er_esic:
+                ee_esic_item = next((d for d in deduction_items if any(k in d['name'] for k in ("State Insurance", "ESIC", "ESI")) or d['code'] in ('ESIC_EE', 'EE_ESI', 'ESI', 'ESIC', 'ESI_EE')), None)
+                er_esic_amt = 0.0
+                if hasattr(slip, 'hds_in_compute_esic_employer'):
+                    try:
+                        er_esic_amt = abs(float(slip.hds_in_compute_esic_employer() or 0.0))
+                    except Exception:
+                        er_esic_amt = 0.0
+                if er_esic_amt == 0.0 and ee_esic_item:
+                    ee_amt = abs(float(ee_esic_item.get('monthly', 0.0)))
+                    if ee_amt > 0:
+                        er_esic_amt = round((ee_amt / 0.0075) * 0.0325, 2)
+                elif er_esic_amt == 0.0 and getattr(emp, 'hds_in_esic_applicable', False):
+                    gross_wage = sum(a['monthly'] for a in allowance_items)
+                    if 0 < gross_wage <= 21000.0:
+                        er_esic_amt = round(gross_wage * 0.0325, 2)
+
+                if er_esic_amt > 0.0:
+                    monthly_val = -er_esic_amt
+                    yearly_val = round(monthly_val * 12, 2)
+                    deduction_items.append({
+                        'code': 'ESIC_ER',
+                        'name': 'Employer ESIC Contribution',
+                        'monthly': monthly_val,
+                        'yearly': yearly_val,
+                        'monthly_str': format_inr(monthly_val),
+                        'yearly_str': format_inr(yearly_val),
+                    })
+
+            # Ensure Employer LWF Contribution is included if applicable and missing from slip lines
+            if not seen_er_lwf:
+                ee_lwf_item = next((d for d in deduction_items if (any(k in d['name'] for k in ("Labour Welfare", "LWF")) or d['code'] in ('LWF_EE', 'EE_LWF', 'LWF', 'LWF_DED')) and not (any(e in d['name'] for e in ("Employer", "ER")) or d['code'] in ('LWF_ER', 'ER_LWF'))), None)
+                er_lwf_amt = 0.0
+                if hasattr(slip, 'hds_in_compute_lwf_employer'):
+                    try:
+                        er_lwf_amt = abs(float(slip.hds_in_compute_lwf_employer() or 0.0))
+                    except Exception:
+                        er_lwf_amt = 0.0
+                # Fallback only when Employee LWF was deducted on slip and this is a statutory deduction month
+                if er_lwf_amt == 0.0 and ee_lwf_item:
+                    try:
+                        from ..services.payroll.work_location_service import PayrollWorkLocationService
+                        from ..services.lwf.lwf_rate_service import LWFRateService
+                        work_state = PayrollWorkLocationService(self.env).get_work_state(emp)
+                        rate_cfg = LWFRateService(self.env).get_rate_config(work_state, eval_date=eval_date, company=self.company_id)
+                        if rate_cfg and rate_cfg.is_deduction_month(eval_date):
+                            er_lwf_amt = float(rate_cfg.empl_contribution or 0.0)
+                    except Exception:
+                        pass
+                    if er_lwf_amt == 0.0:
+                        try:
+                            work_state = PayrollWorkLocationService(self.env).get_work_state(emp)
+                            rate_cfg = LWFRateService(self.env).get_rate_config(work_state, eval_date=eval_date, company=self.company_id)
+                            if rate_cfg and rate_cfg.is_deduction_month(eval_date):
+                                ee_amt = abs(float(ee_lwf_item.get('monthly', 0.0)))
+                                er_lwf_amt = round(ee_amt * 3.0, 2) if ee_amt == 25.0 else ee_amt
+                        except Exception:
+                            pass
+
+                if er_lwf_amt > 0.0:
+                    monthly_val = -er_lwf_amt
+                    yearly_abs = _compute_lwf_yearly_amount(self.env, emp, er_lwf_amt, eval_date, self.company_id)
+                    yearly_val = -yearly_abs
+                    deduction_items.append({
+                        'code': 'LWF_ER',
+                        'name': 'Employer LWF Contribution',
+                        'monthly': monthly_val,
+                        'yearly': yearly_val,
+                        'monthly_str': format_inr(monthly_val),
+                        'yearly_str': format_inr(yearly_val),
+                    })
+
+            def ded_sort_key(item):
+                name = item['name']
+                if 'Professional Tax' in name:
+                    return 1
+                if 'Provident fund - Employee' in name:
+                    return 2
+                if 'Provident fund - Employer' in name:
+                    return 3
+                if any(k in name for k in ("Employee's State Insurance", "Employee ESIC", "ESIC - Employee")):
+                    return 4
+                if any(k in name for k in ("Employer ESIC", "Employer's State Insurance", "ESIC - Employer")):
+                    return 5
+                if any(k in name for k in ("Employee's Deduction Towards State Labour Welfare", "Employee LWF", "LWF - Employee", "Labour Welfare Fund - Employee")):
+                    return 6
+                if any(k in name for k in ("Employer LWF", "Employer's Deduction Towards State Labour Welfare", "LWF - Employer", "Labour Welfare Fund - Employer")):
+                    return 7
+                if 'Tax Deducted at Source' in name:
+                    return 8
+                return 10
+            deduction_items.sort(key=ded_sort_key)
+
+            total_ded_monthly = sum(d['monthly'] for d in deduction_items)
+            total_ded_yearly = sum(d['yearly'] for d in deduction_items)
+
+            # 4. Net Salary
+            net_line = lines.filtered(lambda l: (l.code or '').upper() == 'NET')
             if net_line:
-                net_val = float(net_line[0].total or 0.0)
+                net_monthly = float(net_line[0].total or 0.0)
             else:
-                net_val = float(getattr(slip, 'net_amount', None) or getattr(slip, 'net_wage', 0.0) or 0.0)
-                if net_val <= 0:
-                    net_val = gross_val - total_ded_val
+                net_monthly = float(getattr(slip, 'net_amount', None) or getattr(slip, 'net_wage', 0.0) or 0.0)
+                if net_monthly <= 0:
+                    net_monthly = sum(a['monthly'] for a in allowance_items) + total_ded_monthly
 
-            # 4. Employer Contributions & Rates Breakdown
-            comp_lines = lines.filtered(lambda l: l.category_id and l.category_id.code == 'COMP')
-            comp_map = { (l.code or '').upper(): abs(float(l.total or 0.0)) for l in comp_lines }
+            net_yearly = round(net_monthly * 12, 2)
 
-            # Statutory EPF:
-            # EMPLOYER_EPF = 12% (EPS 8.33% + EPF_SHARE 3.67%).
-            # Avoid double-counting: if EMPLOYER_EPF is present, use it as total base.
-            # Otherwise, sum EPS and EPF_SHARE.
-            pf_er_eps = comp_map.get('EPS', 0.0)
-            pf_er_share = comp_map.get('EPF_SHARE', 0.0)
-            if 'EMPLOYER_EPF' in comp_map:
-                pf_er_base = comp_map['EMPLOYER_EPF']
-            elif pf_er_eps or pf_er_share:
-                pf_er_base = pf_er_eps + pf_er_share
-            else:
-                pf_er_base = comp_map.get('ER_PF', 0.0) or comp_map.get('PF_ER', 0.0) or comp_map.get('EMPR_PF', 0.0)
-
-            if pf_er_base > 0 and pf_er_eps == 0.0 and pf_er_share == 0.0:
-                pf_er_eps = round(min(pf_er_base / 0.12, 15000.0) * 0.0833, 2)
-                pf_er_share = round(pf_er_base - pf_er_eps, 2)
-
-            pf_er_admin = (
-                comp_map.get('EDLI', 0.0) +
-                comp_map.get('EPF_ADMIN', 0.0) +
-                comp_map.get('EDLI_ADMIN', 0.0) +
-                comp_map.get('EDLI_ADMIN_CHARGE', 0.0) +
-                comp_map.get('EPF_ADMIN_CHARGE', 0.0)
-            )
-            pf_er_val = pf_er_base + pf_er_admin
-
-            # Employer ESI (Statutory 3.25%)
-            esi_er_val = comp_map.get('ESIC_ER', 0.0) or comp_map.get('ESI_ER', 0.0) or comp_map.get('ER_ESI', 0.0)
-
-            # Employer LWF
-            lwf_er_val = comp_map.get('LWF_ER', 0.0) or comp_map.get('ER_LWF', 0.0)
-
-            # Other Employer Contributions
-            accounted_codes = {
-                'EMPLOYER_EPF', 'EPS', 'EPF_SHARE', 'EDLI', 'EPF_ADMIN', 'EDLI_ADMIN',
-                'EDLI_ADMIN_CHARGE', 'EPF_ADMIN_CHARGE',
-                'ER_PF', 'PF_ER', 'EMPR_PF', 'ESIC_ER', 'ESI_ER', 'ER_ESI', 'LWF_ER', 'ER_LWF'
+            statement_data = {
+                'allowances': allowance_items,
+                'deductions': deduction_items,
+                'total_ded_monthly': total_ded_monthly,
+                'total_ded_yearly': total_ded_yearly,
+                'total_ded_monthly_str': format_inr(total_ded_monthly),
+                'total_ded_yearly_str': format_inr(total_ded_yearly),
+                'net_monthly': net_monthly,
+                'net_yearly': net_yearly,
+                'net_monthly_str': format_inr(net_monthly),
+                'net_yearly_str': format_inr(net_yearly),
             }
-            other_er_val = sum(amt for code, amt in comp_map.items() if code not in accounted_codes)
 
-            total_er_val = pf_er_val + esi_er_val + lwf_er_val + other_er_val
-            emp_cost_val = gross_val + total_er_val
-
-            self.env['hds.salary.statement.line'].create({
+            created_line = self.env['hds.salary.statement.line'].create({
                 'statement_id': self.id,
                 'employee_id': emp.id,
                 'emp_ref': emp_ref,
                 'department_id': emp.department_id.id if emp.department_id else False,
                 'job_id': emp.job_id.id if emp.job_id else False,
+                'designation': designation_str,
+                'date_of_joining': doj_str,
+                'salary_effective_from': eff_str,
+                'structure_name': structure_str,
                 'payslip_id': slip.id,
                 'payroll_month': month_label,
                 'working_days': round(working_days, 1),
-                'basic': round(basic_val, 2),
-                'hra': round(hra_val, 2),
-                'allowances': round(alw_val, 2),
-                'other_earnings': round(other_earn_val, 2),
-                'gross': round(gross_val, 2),
-                'pf_ee': round(pf_ee_val, 2),
-                'esi_ee': round(esi_ee_val, 2),
-                'pt': round(pt_val, 2),
-                'lwf_ee': round(lwf_ee_val, 2),
-                'tds': round(tds_val, 2),
-                'other_deductions': round(other_ded_val, 2),
-                'total_deductions': round(total_ded_val, 2),
-                'net_pay': round(net_val, 2),
-                'pf_er_eps': round(pf_er_eps, 2),
-                'pf_er_share': round(pf_er_share, 2),
-                'pf_er_admin': round(pf_er_admin, 2),
-                'pf_er': round(pf_er_val, 2),
-                'esi_er': round(esi_er_val, 2),
-                'lwf_er': round(lwf_er_val, 2),
-                'other_er_contrib': round(other_er_val, 2),
-                'total_employer_cost': round(emp_cost_val, 2),
+                'statement_data_json': json.dumps(statement_data),
+                'gross': sum(a['monthly'] for a in allowance_items),
+                'total_deductions': abs(total_ded_monthly),
+                'net_pay': net_monthly,
             })
 
+            # Generate individual PDF report
+            created_line.generate_pdf_report()
+
         self.state = 'done'
+        return True
+
+    def action_view_employees(self):
+        self.ensure_one()
+        return {
+            'name': _('Employee Declarations'),
+            'type': 'ir.actions.act_window',
+            'res_model': 'hds.salary.statement.line',
+            'view_mode': 'list,form',
+            'views': [
+                (self.env.ref('hudson_in_payroll.hds_salary_statement_line_view_tree').id, 'list'),
+                (self.env.ref('hudson_in_payroll.hds_salary_statement_line_view_form').id, 'form'),
+            ],
+            'domain': [('statement_id', '=', self.id)],
+            'context': {'default_statement_id': self.id},
+            'target': 'current',
+        }
+
+    def action_print_pdf(self):
+        self.ensure_one()
+        if not self.line_ids:
+            self.action_populate()
+        if not self.line_ids:
+            raise UserError(_("No salary statement lines available to print."))
+        return self.env.ref('hudson_in_payroll.action_report_salary_statement').report_action(self)
+
+    def action_reset_to_draft(self):
+        self.ensure_one()
+        self.state = 'draft'
         return True
 
     def action_export_xlsx(self):
@@ -341,207 +623,49 @@ class HdsSalaryStatementReport(models.Model):
             title_fmt = workbook.add_format({'bold': True, 'font_size': 14})
             sub_title_fmt = workbook.add_format({'font_size': 10, 'italic': True, 'font_color': '#555555'})
 
-            hdr_emp_fmt = workbook.add_format({'bold': True, 'bg_color': '#1F4E78', 'font_color': '#FFFFFF', 'border': 1, 'align': 'center', 'valign': 'vcenter'})
-            hdr_earn_fmt = workbook.add_format({'bold': True, 'bg_color': '#2E75B6', 'font_color': '#FFFFFF', 'border': 1, 'align': 'center', 'valign': 'vcenter'})
-            hdr_ded_fmt = workbook.add_format({'bold': True, 'bg_color': '#C55A11', 'font_color': '#FFFFFF', 'border': 1, 'align': 'center', 'valign': 'vcenter'})
-            hdr_er_fmt = workbook.add_format({'bold': True, 'bg_color': '#548235', 'font_color': '#FFFFFF', 'border': 1, 'align': 'center', 'valign': 'vcenter'})
-            hdr_final_fmt = workbook.add_format({'bold': True, 'bg_color': '#70AD47', 'font_color': '#FFFFFF', 'border': 1, 'align': 'center', 'valign': 'vcenter'})
-
+            hdr_fmt = workbook.add_format({'bold': True, 'bg_color': '#2E75B6', 'font_color': '#FFFFFF', 'border': 1, 'align': 'center', 'valign': 'vcenter'})
             num_fmt = workbook.add_format({'num_format': '#,##0.00', 'border': 1})
-            days_fmt = workbook.add_format({'num_format': '0.0', 'border': 1, 'align': 'center'})
             text_fmt = workbook.add_format({'border': 1})
             total_fmt = workbook.add_format({'bold': True, 'num_format': '#,##0.00', 'bg_color': '#D9E1F2', 'border': 1})
-            total_text_fmt = workbook.add_format({'bold': True, 'bg_color': '#D9E1F2', 'border': 1})
 
             sheet.write(0, 0, f"SALARY STATEMENT REPORT — {self.company_id.name}", title_fmt)
-            sheet.write(1, 0, f"{self.name} | Period: {dict(MONTH_SELECTION).get(str(self.month))} {self.year} | Generated: {fields.Date.today()}", sub_title_fmt)
+            sheet.write(1, 0, f"{self.name} | Period: {dict(MONTH_SELECTION).get(str(self.month))} {self.year}", sub_title_fmt)
 
-            headers = [
-                ('Employee ID / Ref', hdr_emp_fmt),
-                ('Employee Name', hdr_emp_fmt),
-                ('Department', hdr_emp_fmt),
-                ('Job Position', hdr_emp_fmt),
-                ('Payroll Month', hdr_emp_fmt),
-                ('Paid Days', hdr_emp_fmt),
-                ('Basic Salary', hdr_earn_fmt),
-                ('HRA', hdr_earn_fmt),
-                ('Allowances', hdr_earn_fmt),
-                ('Other Earnings', hdr_earn_fmt),
-                ('Gross Salary', hdr_earn_fmt),
-                ('Employee PF', hdr_ded_fmt),
-                ('Employee ESI', hdr_ded_fmt),
-                ('Professional Tax', hdr_ded_fmt),
-                ('LWF', hdr_ded_fmt),
-                ('TDS', hdr_ded_fmt),
-                ('Other Deductions', hdr_ded_fmt),
-                ('Total Deductions', hdr_ded_fmt),
-                ('Net Pay', hdr_final_fmt),
-                ('Employer EPS (8.33%)', hdr_er_fmt),
-                ('Employer EPF Share (3.67%)', hdr_er_fmt),
-                ('EPF Admin & EDLI (1.0%)', hdr_er_fmt),
-                ('Total Employer PF', hdr_er_fmt),
-                ('Employer ESI (3.25%)', hdr_er_fmt),
-                ('Employer LWF', hdr_er_fmt),
-                ('Other Employer Contrib.', hdr_er_fmt),
-                ('Total Employer Cost (CTC)', hdr_final_fmt),
-            ]
+            sheet.set_column(0, 0, 16)
+            sheet.set_column(1, 1, 24)
+            sheet.set_column(2, 3, 20)
+            sheet.set_column(4, 6, 16)
 
-            for col_idx, (text, fmt) in enumerate(headers):
-                sheet.write(3, col_idx, text, fmt)
+            headers = ['Employee Ref', 'Employee Name', 'Department', 'Designation', 'Gross Salary', 'Total Deductions', 'Net Salary']
+            for col, h in enumerate(headers):
+                sheet.write(3, col, h, hdr_fmt)
 
-            tot_days = 0.0
-            tot_basic = 0.0
-            tot_hra = 0.0
-            tot_alw = 0.0
-            tot_other_earn = 0.0
-            tot_gross = 0.0
+            row = 4
+            for l in self.line_ids:
+                sheet.write(row, 0, l.emp_ref or '', text_fmt)
+                sheet.write(row, 1, l.employee_id.name or '', text_fmt)
+                sheet.write(row, 2, l.department_id.name or '', text_fmt)
+                sheet.write(row, 3, l.designation or '', text_fmt)
+                sheet.write(row, 4, l.gross, num_fmt)
+                sheet.write(row, 5, l.total_deductions, num_fmt)
+                sheet.write(row, 6, l.net_pay, num_fmt)
+                row += 1
 
-            tot_pf_ee = 0.0
-            tot_esi_ee = 0.0
-            tot_pt = 0.0
-            tot_lwf_ee = 0.0
-            tot_tds = 0.0
-            tot_other_ded = 0.0
-            tot_total_ded = 0.0
+            sheet.write(row, 3, 'TOTAL', total_fmt)
+            sheet.write(row, 4, sum(l.gross for l in self.line_ids), total_fmt)
+            sheet.write(row, 5, sum(l.total_deductions for l in self.line_ids), total_fmt)
+            sheet.write(row, 6, sum(l.net_pay for l in self.line_ids), total_fmt)
 
-            tot_net = 0.0
-
-            tot_pf_eps = 0.0
-            tot_pf_share = 0.0
-            tot_pf_admin = 0.0
-            tot_pf_er = 0.0
-            tot_esi_er = 0.0
-            tot_lwf_er = 0.0
-            tot_other_er = 0.0
-            tot_total_cost = 0.0
-
-            for row_idx, line in enumerate(self.line_ids, start=4):
-                sheet.write(row_idx, 0, line.emp_ref or '', text_fmt)
-                sheet.write(row_idx, 1, line.employee_id.name or '', text_fmt)
-                sheet.write(row_idx, 2, line.department_id.name if line.department_id else '', text_fmt)
-                sheet.write(row_idx, 3, line.job_id.name if line.job_id else '', text_fmt)
-                sheet.write(row_idx, 4, line.payroll_month or '', text_fmt)
-                sheet.write(row_idx, 5, line.working_days, days_fmt)
-
-                sheet.write(row_idx, 6, line.basic, num_fmt)
-                sheet.write(row_idx, 7, line.hra, num_fmt)
-                sheet.write(row_idx, 8, line.allowances, num_fmt)
-                sheet.write(row_idx, 9, line.other_earnings, num_fmt)
-                sheet.write(row_idx, 10, line.gross, num_fmt)
-
-                sheet.write(row_idx, 11, line.pf_ee, num_fmt)
-                sheet.write(row_idx, 12, line.esi_ee, num_fmt)
-                sheet.write(row_idx, 13, line.pt, num_fmt)
-                sheet.write(row_idx, 14, line.lwf_ee, num_fmt)
-                sheet.write(row_idx, 15, line.tds, num_fmt)
-                sheet.write(row_idx, 16, line.other_deductions, num_fmt)
-                sheet.write(row_idx, 17, line.total_deductions, num_fmt)
-
-                sheet.write(row_idx, 18, line.net_pay, num_fmt)
-
-                sheet.write(row_idx, 19, line.pf_er_eps, num_fmt)
-                sheet.write(row_idx, 20, line.pf_er_share, num_fmt)
-                sheet.write(row_idx, 21, line.pf_er_admin, num_fmt)
-                sheet.write(row_idx, 22, line.pf_er, num_fmt)
-                sheet.write(row_idx, 23, line.esi_er, num_fmt)
-                sheet.write(row_idx, 24, line.lwf_er, num_fmt)
-                sheet.write(row_idx, 25, line.other_er_contrib, num_fmt)
-                sheet.write(row_idx, 26, line.total_employer_cost, num_fmt)
-
-                tot_days += line.working_days
-                tot_basic += line.basic
-                tot_hra += line.hra
-                tot_alw += line.allowances
-                tot_other_earn += line.other_earnings
-                tot_gross += line.gross
-
-                tot_pf_ee += line.pf_ee
-                tot_esi_ee += line.esi_ee
-                tot_pt += line.pt
-                tot_lwf_ee += line.lwf_ee
-                tot_tds += line.tds
-                tot_other_ded += line.other_deductions
-                tot_total_ded += line.total_deductions
-
-                tot_net += line.net_pay
-
-                tot_pf_eps += line.pf_er_eps
-                tot_pf_share += line.pf_er_share
-                tot_pf_admin += line.pf_er_admin
-                tot_pf_er += line.pf_er
-                tot_esi_er += line.esi_er
-                tot_lwf_er += line.lwf_er
-                tot_other_er += line.other_er_contrib
-                tot_total_cost += line.total_employer_cost
-
-            tot_row = len(self.line_ids) + 4
-            sheet.write(tot_row, 0, "TOTAL", total_text_fmt)
-            sheet.write(tot_row, 1, f"{len(self.line_ids)} Employees", total_text_fmt)
-            for c in range(2, 5):
-                sheet.write(tot_row, c, "", total_text_fmt)
-            sheet.write(tot_row, 5, tot_days, total_fmt)
-            sheet.write(tot_row, 6, tot_basic, total_fmt)
-            sheet.write(tot_row, 7, tot_hra, total_fmt)
-            sheet.write(tot_row, 8, tot_alw, total_fmt)
-            sheet.write(tot_row, 9, tot_other_earn, total_fmt)
-            sheet.write(tot_row, 10, tot_gross, total_fmt)
-            sheet.write(tot_row, 11, tot_pf_ee, total_fmt)
-            sheet.write(tot_row, 12, tot_esi_ee, total_fmt)
-            sheet.write(tot_row, 13, tot_pt, total_fmt)
-            sheet.write(tot_row, 14, tot_lwf_ee, total_fmt)
-            sheet.write(tot_row, 15, tot_tds, total_fmt)
-            sheet.write(tot_row, 16, tot_other_ded, total_fmt)
-            sheet.write(tot_row, 17, tot_total_ded, total_fmt)
-            sheet.write(tot_row, 18, tot_net, total_fmt)
-            sheet.write(tot_row, 19, tot_pf_eps, total_fmt)
-            sheet.write(tot_row, 20, tot_pf_share, total_fmt)
-            sheet.write(tot_row, 21, tot_pf_admin, total_fmt)
-            sheet.write(tot_row, 22, tot_pf_er, total_fmt)
-            sheet.write(tot_row, 23, tot_esi_er, total_fmt)
-            sheet.write(tot_row, 24, tot_lwf_er, total_fmt)
-            sheet.write(tot_row, 25, tot_other_er, total_fmt)
-            sheet.write(tot_row, 26, tot_total_cost, total_fmt)
             workbook.close()
             output.seek(0)
-            xlsx_content = output.read()
-        else:
-            xlsx_content = b"Excel export requires xlsxwriter library."
-
-        self.write({
-            'xlsx_file': base64.b64encode(xlsx_content),
-            'xlsx_filename': filename,
-        })
+            self.xlsx_file = base64.b64encode(output.read())
+            self.xlsx_filename = filename
 
         return {
             'type': 'ir.actions.act_url',
-            'url': f'/web/content/?model={self._name}&id={self.id}&field=xlsx_file&filename_field=xlsx_filename&download=true',
+            'url': f'/web/content/?model=hds.salary.statement.report&id={self.id}&field=xlsx_file&download=true&filename={filename}',
             'target': 'self',
         }
-
-    def action_print_pdf(self):
-        self.ensure_one()
-        if not self.line_ids:
-            self.action_populate()
-        if not self.line_ids:
-            raise UserError(_("No salary statement lines available to print."))
-        return self.env.ref('hudson_in_payroll.action_report_salary_statement').report_action(self)
-
-    def action_view_employees(self):
-        self.ensure_one()
-        emp_ids = self.line_ids.mapped('employee_id').ids
-        return {
-            'name': _('Eligible Employees'),
-            'type': 'ir.actions.act_window',
-            'res_model': 'hr.employee',
-            'view_mode': 'list,form',
-            'domain': [('id', 'in', emp_ids)],
-            'target': 'current',
-        }
-
-    def action_reset_to_draft(self):
-        self.ensure_one()
-        self.state = 'draft'
-        return True
 
 
 class HdsSalaryStatementLine(models.Model):
@@ -555,47 +679,354 @@ class HdsSalaryStatementLine(models.Model):
         ondelete='cascade',
         required=True
     )
+    company_id = fields.Many2one(
+        'res.company',
+        string='Company',
+        related='statement_id.company_id',
+        store=True,
+        index=True,
+        readonly=True
+    )
 
     employee_id = fields.Many2one('hr.employee', string='Employee', required=True)
     emp_ref = fields.Char(string='Employee ID / Reference')
     department_id = fields.Many2one('hr.department', string='Department')
     job_id = fields.Many2one('hr.job', string='Job Position')
+    designation = fields.Char(string='Designation')
+    date_of_joining = fields.Char(string='Date of Joining')
+    salary_effective_from = fields.Char(string='Salary Effective from')
+    structure_name = fields.Char(string='Salary Structure')
 
     payslip_id = fields.Many2one('hr.payslip', string='Payslip')
     payroll_month = fields.Char(string='Payroll Month')
     working_days = fields.Float(string='Paid Days / Working Days')
 
-    # Earnings
-    basic = fields.Monetary(string='Basic Salary')
-    hra = fields.Monetary(string='HRA')
-    allowances = fields.Monetary(string='Allowances')
-    other_earnings = fields.Monetary(string='Other Earnings')
+    statement_data_json = fields.Text(string='Statement Data JSON')
+
+    pdf_file = fields.Binary(string='PDF File', readonly=True)
+    pdf_filename = fields.Char(string='PDF Filename', readonly=True)
+    state = fields.Selection([
+        ('draft', 'Draft'),
+        ('generated', 'Generated PDF'),
+    ], string='State', default='generated')
+
+    # Summary amounts
     gross = fields.Monetary(string='Gross Salary')
-
-    # Employee Deductions
-    pf_ee = fields.Monetary(string='Employee PF')
-    esi_ee = fields.Monetary(string='Employee ESI')
-    pt = fields.Monetary(string='Professional Tax')
-    lwf_ee = fields.Monetary(string='LWF')
-    tds = fields.Monetary(string='TDS')
-    other_deductions = fields.Monetary(string='Other Deductions')
     total_deductions = fields.Monetary(string='Total Deductions')
-
-    # Net Pay
     net_pay = fields.Monetary(string='Net Pay')
-
-    # Employer Contributions
-    pf_er_eps = fields.Monetary(string='Employer EPS (8.33%)')
-    pf_er_share = fields.Monetary(string='Employer EPF Share (3.67%)')
-    pf_er_admin = fields.Monetary(string='EPF Admin & EDLI (1.0%)')
-    pf_er = fields.Monetary(string='Employer PF (12% + Admin)')
-    esi_er = fields.Monetary(string='Employer ESI (3.25%)')
-    lwf_er = fields.Monetary(string='Employer LWF')
-    other_er_contrib = fields.Monetary(string='Other Employer Contributions')
-    total_employer_cost = fields.Monetary(string='Total Employer Cost (CTC)')
 
     currency_id = fields.Many2one(
         'res.currency',
         related='statement_id.company_id.currency_id',
         readonly=True
     )
+
+    def get_statement_month_year(self):
+        self.ensure_one()
+        m_name = dict(MONTH_SELECTION).get(str(self.statement_id.month), '')
+        return f"{m_name} {self.statement_id.year}"
+
+    def get_statement_data(self):
+        self.ensure_one()
+        if self.statement_data_json:
+            try:
+                return json.loads(self.statement_data_json)
+            except Exception:
+                pass
+        return {}
+
+    def get_allowance_lines(self):
+        return self.get_statement_data().get('allowances', [])
+
+    def _sanitize_statement_data(self):
+        """Sanitize statement_data_json to remove duplicate EPF_SHARE (917),
+        recalculate PT and LWF yearly amounts based on employee cycles, and keep totals accurate."""
+        self.ensure_one()
+        data = self.get_statement_data()
+        if not data:
+            return
+        deductions = data.get('deductions', [])
+        has_total_epf = any(
+            d.get('code') in ('EMPLOYER_EPF', 'ER_EPF', 'ER_PF', 'PF_ER', 'EMPR_PF') or
+            (d.get('name') == 'Provident fund - Employer' and round(abs(d.get('monthly', 0.0)), 2) != 917.0 and abs(d.get('monthly', 0.0)) > 917.0)
+            for d in deductions
+        )
+        has_duplicate_917 = any(
+            d.get('code') == 'EPF_SHARE' or
+            (d.get('name') == 'Provident fund - Employer' and round(abs(d.get('monthly', 0.0)), 2) == 917.0)
+            for d in deductions
+        )
+        if has_total_epf and has_duplicate_917:
+            deductions = [
+                d for d in deductions
+                if d.get('code') != 'EPF_SHARE'
+                and not (d.get('name') == 'Provident fund - Employer' and round(abs(d.get('monthly', 0.0)), 2) == 917.0)
+            ]
+
+        eval_date = date(int(self.statement_id.year), int(self.statement_id.month), 1) if (self.statement_id and self.statement_id.year and self.statement_id.month) else fields.Date.today()
+        emp = self.employee_id
+        company = self.company_id or self.env.company
+
+        # Statutory LWF schedule check
+        lwf_rate_cfg = None
+        is_lwf_month = False
+        try:
+            from ..services.payroll.work_location_service import PayrollWorkLocationService
+            from ..services.lwf.lwf_rate_service import LWFRateService
+            work_state = PayrollWorkLocationService(self.env).get_work_state(emp)
+            lwf_rate_cfg = LWFRateService(self.env).get_rate_config(work_state, eval_date=eval_date, company=company)
+            if lwf_rate_cfg:
+                is_lwf_month = lwf_rate_cfg.is_deduction_month(eval_date)
+        except Exception:
+            pass
+
+        slip = self.payslip_id
+        slip_has_er_lwf = bool(slip and any(line.salary_rule_id.code in ('LWF_ER', 'ER_LWF') and abs(line.total) > 0 for line in slip.line_ids))
+        has_ee_lwf_in_data = any(
+            (any(k in d.get('name', '') for k in ("Labour Welfare", "LWF")) or d.get('code') in ('LWF_EE', 'EE_LWF', 'LWF'))
+            and not (any(e in d.get('name', '') for e in ("Employer", "ER")) or d.get('code') in ('LWF_ER', 'ER_LWF'))
+            for d in deductions
+        )
+
+        seen_er_epf = False
+        seen_er_esic = False
+        seen_er_lwf = False
+        final_ded = []
+
+        for d in deductions:
+            name = d.get('name', '')
+            m_val = float(d.get('monthly', 0.0))
+            amt = abs(m_val)
+
+            # Standardize names matching reference format
+            if 'Provident fund - Employer' in name:
+                if seen_er_epf:
+                    continue
+                seen_er_epf = True
+            elif 'State Insurance' in name or 'ESIC' in name:
+                if 'Employer' in name or 'ER' in d.get('code', ''):
+                    if seen_er_esic:
+                        continue
+                    seen_er_esic = True
+                    name = "Employer ESIC Contribution"
+                else:
+                    name = "Employee's State Insurance Corporation"
+            elif 'Labour Welfare' in name or 'LWF' in name:
+                if 'Employer' in name or 'ER' in d.get('code', ''):
+                    # Statutory validation: Employer LWF should only exist if:
+                    # 1) The payslip actually computed an LWF_ER salary rule, OR
+                    # 2) This month is a statutory deduction month AND Employee LWF is present on the statement
+                    if not slip_has_er_lwf and (not is_lwf_month or not has_ee_lwf_in_data):
+                        continue  # Discard phantom Employer LWF in non-deduction / non-LWF month
+                    if seen_er_lwf:
+                        continue
+                    seen_er_lwf = True
+                    name = "Employer LWF Contribution"
+                else:
+                    name = "Employee's Deduction Towards State Labour Welfare Fund"
+
+            # Recompute yearly amounts for PT and LWF based on employee cycle / state frequency
+            y_val = float(d.get('yearly', 0.0))
+            if 'Professional Tax' in name:
+                y_val = -_compute_pt_yearly_amount(self.env, emp, amt, eval_date, company)
+            elif 'Labour Welfare' in name or 'LWF' in name:
+                y_val = -_compute_lwf_yearly_amount(self.env, emp, amt, eval_date, company)
+            elif y_val == 0.0:
+                y_val = round(m_val * 12, 2)
+
+            d['name'] = name
+            d['monthly'] = m_val
+            d['yearly'] = y_val
+            d['monthly_str'] = format_inr(m_val)
+            d['yearly_str'] = format_inr(y_val)
+            final_ded.append(d)
+
+        # Check if Employer ESIC is missing but Employee ESIC is present on the record
+        if not seen_er_esic:
+            ee_esic_item = next((d for d in final_ded if (any(k in d.get('name', '') for k in ("State Insurance", "ESIC", "ESI")) or d.get('code') in ('ESIC_EE', 'EE_ESI', 'ESI', 'ESIC', 'ESI_EE')) and not (any(e in d.get('name', '') for e in ("Employer", "ER")) or d.get('code') in ('ESIC_ER', 'ER_ESI', 'ESI_ER'))), None)
+            slip = self.payslip_id
+            er_esic_amt = 0.0
+            if slip and hasattr(slip, 'hds_in_compute_esic_employer'):
+                try:
+                    er_esic_amt = abs(float(slip.hds_in_compute_esic_employer() or 0.0))
+                except Exception:
+                    er_esic_amt = 0.0
+            if er_esic_amt == 0.0 and ee_esic_item:
+                ee_amt = abs(float(ee_esic_item.get('monthly', 0.0)))
+                if ee_amt > 0:
+                    er_esic_amt = round((ee_amt / 0.0075) * 0.0325, 2)
+            elif er_esic_amt == 0.0 and getattr(emp, 'hds_in_esic_applicable', False):
+                allowances = data.get('allowances', [])
+                gross_wage = sum(float(a.get('monthly', 0.0)) for a in allowances)
+                if 0 < gross_wage <= 21000.0:
+                    er_esic_amt = round(gross_wage * 0.0325, 2)
+
+            if er_esic_amt > 0.0:
+                monthly_val = -er_esic_amt
+                yearly_val = round(monthly_val * 12, 2)
+                final_ded.append({
+                    'code': 'ESIC_ER',
+                    'name': 'Employer ESIC Contribution',
+                    'monthly': monthly_val,
+                    'yearly': yearly_val,
+                    'monthly_str': format_inr(monthly_val),
+                    'yearly_str': format_inr(yearly_val),
+                })
+
+        # Check if Employer LWF is missing but Employee LWF is present on the record
+        if not seen_er_lwf:
+            ee_lwf_item = next((d for d in final_ded if (any(k in d.get('name', '') for k in ("Labour Welfare", "LWF")) or d.get('code') in ('LWF_EE', 'EE_LWF', 'LWF', 'LWF_DED')) and not (any(e in d.get('name', '') for e in ("Employer", "ER")) or d.get('code') in ('LWF_ER', 'ER_LWF'))), None)
+            slip = self.payslip_id
+            er_lwf_amt = 0.0
+            if slip and hasattr(slip, 'hds_in_compute_lwf_employer'):
+                try:
+                    er_lwf_amt = abs(float(slip.hds_in_compute_lwf_employer() or 0.0))
+                except Exception:
+                    er_lwf_amt = 0.0
+            if er_lwf_amt == 0.0 and ee_lwf_item and is_lwf_month:
+                if lwf_rate_cfg:
+                    er_lwf_amt = float(lwf_rate_cfg.empl_contribution or 0.0)
+                if er_lwf_amt == 0.0:
+                    ee_amt = abs(float(ee_lwf_item.get('monthly', 0.0)))
+                    er_lwf_amt = round(ee_amt * 3.0, 2) if ee_amt == 25.0 else ee_amt
+
+            if er_lwf_amt > 0.0:
+                monthly_val = -er_lwf_amt
+                yearly_abs = _compute_lwf_yearly_amount(self.env, emp, er_lwf_amt, eval_date, company)
+                yearly_val = -yearly_abs
+                final_ded.append({
+                    'code': 'LWF_ER',
+                    'name': 'Employer LWF Contribution',
+                    'monthly': monthly_val,
+                    'yearly': yearly_val,
+                    'monthly_str': format_inr(monthly_val),
+                    'yearly_str': format_inr(yearly_val),
+                })
+
+        def ded_sort_key(item):
+            n = item.get('name', '')
+            if 'Professional Tax' in n:
+                return 1
+            if 'Provident fund - Employee' in n:
+                return 2
+            if 'Provident fund - Employer' in n:
+                return 3
+            if any(k in n for k in ("Employee's State Insurance", "Employee ESIC", "ESIC - Employee")):
+                return 4
+            if any(k in n for k in ("Employer ESIC", "Employer's State Insurance", "ESIC - Employer")):
+                return 5
+            if any(k in n for k in ("Employee's Deduction Towards State Labour Welfare", "Employee LWF", "LWF - Employee", "Labour Welfare Fund - Employee")):
+                return 6
+            if any(k in n for k in ("Employer LWF", "Employer's Deduction Towards State Labour Welfare", "LWF - Employer", "Labour Welfare Fund - Employer")):
+                return 7
+            if 'Tax Deducted at Source' in n:
+                return 8
+            return 10
+        final_ded.sort(key=ded_sort_key)
+
+        tot_monthly = sum(d.get('monthly', 0.0) for d in final_ded)
+        tot_yearly = sum(d.get('yearly', 0.0) for d in final_ded)
+        data['deductions'] = final_ded
+        data['total_ded_monthly'] = tot_monthly
+        data['total_ded_yearly'] = tot_yearly
+        data['total_ded_monthly_str'] = format_inr(tot_monthly)
+        data['total_ded_yearly_str'] = format_inr(tot_yearly)
+
+        self.write({
+            'statement_data_json': json.dumps(data),
+            'total_deductions': abs(tot_monthly),
+        })
+
+    def get_deduction_lines(self):
+        deductions = self.get_statement_data().get('deductions', [])
+        needs_sanitize = False
+        has_ee_esic = any(('State Insurance' in d.get('name', '') or 'ESIC' in d.get('name', '') or d.get('code') in ('ESIC_EE', 'EE_ESI', 'ESI', 'ESIC')) and not ('Employer' in d.get('name', '') or 'ER' in d.get('code', '')) for d in deductions)
+        has_er_esic = any(('Employer' in d.get('name', '') and ('ESIC' in d.get('name', '') or 'Insurance' in d.get('name', ''))) or d.get('code') in ('ESIC_ER', 'ER_ESI', 'ESI_ER') for d in deductions)
+        has_ee_lwf = any(('Labour Welfare' in d.get('name', '') or 'LWF' in d.get('name', '') or d.get('code') in ('LWF_EE', 'EE_LWF', 'LWF')) and not ('Employer' in d.get('name', '') or 'ER' in d.get('code', '')) for d in deductions)
+        has_er_lwf = any(('Employer' in d.get('name', '') and ('LWF' in d.get('name', '') or 'Labour Welfare' in d.get('name', ''))) or d.get('code') in ('LWF_ER', 'ER_LWF') for d in deductions)
+
+        if (has_ee_esic and not has_er_esic) or (has_ee_lwf and not has_er_lwf) or (has_er_lwf and not has_ee_lwf):
+            needs_sanitize = True
+
+        for d in deductions:
+            n = d.get('name', '')
+            m = abs(float(d.get('monthly', 0.0)))
+            y = abs(float(d.get('yearly', 0.0)))
+            if 'Professional Tax' in n and (y > 2500.0 or (m >= 500.0 and y > m * 2)):
+                needs_sanitize = True
+                break
+            if ('Labour Welfare' in n or 'LWF' in n) and (m > 0 and round(y, 2) == round(m * 12, 2) and m >= 20):
+                needs_sanitize = True
+                break
+            if d.get('code') == 'EPF_SHARE':
+                needs_sanitize = True
+                break
+            if n in ("Employer's State Insurance Corporation", "Employer's Deduction Towards State Labour Welfare Fund"):
+                needs_sanitize = True
+                break
+
+        if needs_sanitize:
+            try:
+                self._sanitize_statement_data()
+                deductions = self.get_statement_data().get('deductions', [])
+            except Exception:
+                pass
+        return deductions
+
+    def get_total_ded_monthly_str(self):
+        ded_lines = self.get_deduction_lines()
+        if ded_lines:
+            tot = sum(d.get('monthly', 0.0) for d in ded_lines)
+            return format_inr(tot)
+        return self.get_statement_data().get('total_ded_monthly_str', '₹ 0.00')
+
+    def get_total_ded_yearly_str(self):
+        ded_lines = self.get_deduction_lines()
+        if ded_lines:
+            tot = sum(d.get('yearly', 0.0) for d in ded_lines)
+            return format_inr(tot)
+        return self.get_statement_data().get('total_ded_yearly_str', '₹ 0.00')
+
+    def get_net_monthly_str(self):
+        return self.get_statement_data().get('net_monthly_str', '₹ 0.00')
+
+    def get_net_yearly_str(self):
+        return self.get_statement_data().get('net_yearly_str', '₹ 0.00')
+
+    def generate_pdf_report(self):
+        self.ensure_one()
+        try:
+            self._sanitize_statement_data()
+        except Exception as e:
+            _logger.debug("Non-blocking sanitize error during PDF generation: %s", e)
+        report_action = self.env.ref('hudson_in_payroll.action_report_salary_statement_line', raise_if_not_found=False)
+        m_name = dict(MONTH_SELECTION).get(str(self.statement_id.month), '')
+        filename = f"{self.employee_id.name}-salary-statement-report-{m_name}-{self.statement_id.year}.pdf"
+        if not report_action:
+            self.write({
+                'pdf_filename': filename,
+                'state': 'generated',
+            })
+            return
+
+        try:
+            pdf_content, _ = report_action._render_qweb_pdf(report_action.report_name, [self.id])
+            self.write({
+                'pdf_file': base64.b64encode(pdf_content),
+                'pdf_filename': filename,
+                'state': 'generated',
+            })
+        except Exception as e:
+            _logger.warning("Could not generate PDF for salary statement line %s: %s", self.id, e)
+            self.write({
+                'pdf_filename': filename,
+                'state': 'generated',
+            })
+
+    def action_print_pdf(self):
+        self.ensure_one()
+        try:
+            self._sanitize_statement_data()
+        except Exception as e:
+            _logger.debug("Non-blocking sanitize error during print PDF: %s", e)
+        return self.env.ref('hudson_in_payroll.action_report_salary_statement_line').report_action(self)

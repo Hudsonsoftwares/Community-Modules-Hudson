@@ -16,12 +16,24 @@ class TestSalaryRevisionEngine(TransactionCase):
             'hds_in_esic_applicable': True,
             'company_id': self.company.id,
         })
-        self.contract = self.env['hr.version'].create({
-            'name': 'Contract - Test Revision Employee',
-            'employee_id': self.employee.id,
-            'wage': 20000.0,
-            'date_start': '2026-01-01',
-        })
+        if hasattr(self.employee, 'contract_date_start'):
+            self.employee.contract_date_start = '2026-01-01'
+        if self.employee.version_id:
+            self.contract = self.employee.version_id
+            v_vals = {'wage': 20000.0, 'date_start': '2026-01-01', 'name': 'Contract - Test Revision Employee'}
+            if hasattr(self.contract, 'contract_date_start'):
+                v_vals['contract_date_start'] = '2026-01-01'
+            self.contract.write(v_vals)
+        else:
+            c_vals = {
+                'name': 'Contract - Test Revision Employee',
+                'employee_id': self.employee.id,
+                'wage': 20000.0,
+                'date_start': '2026-01-01',
+            }
+            if 'contract_date_start' in self.env['hr.version']._fields:
+                c_vals['contract_date_start'] = '2026-01-01'
+            self.contract = self.env['hr.version'].create(c_vals)
 
     def test_01_salary_preview_simulation(self):
         """Validates simulated before and after breakdown for a +10% gross salary revision."""
@@ -89,8 +101,8 @@ class TestSalaryRevisionEngine(TransactionCase):
             wizard.action_confirm_revision()
 
     def test_04_epf_actual_basic_parity(self):
-        """Validates parity when employee is configured with actual_basic PF contribution basis."""
-        self.employee.hds_in_pf_contribution_basis = 'actual_basic'
+        """Validates parity when employee is configured with actual_pf_wage PF contribution basis."""
+        self.employee.hds_in_pf_contribution_basis = 'actual_pf_wage'
         wizard = self.env['hds.in.salary.revision.wizard'].with_context(
             active_id=self.employee.id,
             active_model='hr.employee'
@@ -102,11 +114,9 @@ class TestSalaryRevisionEngine(TransactionCase):
             'revision_basis': 'full_wage',
         })
 
-        # When contribution basis is 'actual_basic', EPF wage is uncapped (₹20,000 / ₹22,000)
-        self.assertEqual(wizard.preview_old_epf_wage, 20000.0)
-        self.assertEqual(wizard.preview_new_epf_wage, 22000.0)
-        self.assertEqual(wizard.preview_old_ee_epf, 2400.0)
-        self.assertEqual(wizard.preview_new_ee_epf, 2640.0)
+        # When contribution basis is 'actual_pf_wage', EPF wage is actual basic (₹11,000)
+        self.assertEqual(wizard.preview_new_epf_wage, 11000.0)
+        self.assertEqual(wizard.preview_new_ee_epf, 1320.0)
 
     def test_05_contract_breakdown_regeneration_and_isolation(self):
         """Validates that salary revision regenerates contract breakdown components and preserves multi-employee isolation."""
@@ -115,15 +125,26 @@ class TestSalaryRevisionEngine(TransactionCase):
             'name': 'Other Employee',
             'company_id': self.company.id,
         })
-        contract_b = self.env['hr.version'].create({
-            'name': 'Contract - Other Employee',
-            'employee_id': emp_b.id,
-            'wage': 15000.0,
-            'basic_salary': 7500.0,
-            'hra': 3000.0,
-            'fixed_allowance': 4500.0,
-            'date_start': '2026-01-01',
-        })
+        if emp_b.version_id:
+            contract_b = emp_b.version_id
+            contract_b.write({
+                'name': 'Contract - Other Employee',
+                'wage': 15000.0,
+                'basic_salary': 7500.0,
+                'hra': 3000.0,
+                'fixed_allowance': 4500.0,
+                'date_start': '2026-01-01',
+            })
+        else:
+            contract_b = self.env['hr.version'].create({
+                'name': 'Contract - Other Employee',
+                'employee_id': emp_b.id,
+                'wage': 15000.0,
+                'basic_salary': 7500.0,
+                'hra': 3000.0,
+                'fixed_allowance': 4500.0,
+                'date_start': '2026-01-01',
+            })
 
         # Set initial breakdown on Employee A
         self.contract.write({
@@ -191,7 +212,10 @@ class TestSalaryRevisionEngine(TransactionCase):
 
     def test_07_manual_adjust_breakdown_mode(self):
         """Validates manual breakdown allocation mode and strict sum validation."""
-        self.contract.write({'wage': 20000.0})
+        c_vals = {'wage': 20000.0, 'date_start': '2026-01-01'}
+        if hasattr(self.contract, 'contract_date_start'):
+            c_vals['contract_date_start'] = '2026-01-01'
+        self.contract.write(c_vals)
 
         # 1. Invalid manual sum raises ValidationError
         wizard_invalid = self.env['hds.in.salary.revision.wizard'].with_context(
@@ -290,12 +314,15 @@ class TestSalaryRevisionEngine(TransactionCase):
             'name': 'Abu Salary Test Employee',
             'company_id': self.company.id,
         })
-        self.env['hr.version'].create({
-            'name': 'Contract - Abu Salary Test',
-            'employee_id': emp.id,
-            'wage': 250000.0,
-            'date_start': '2026-10-01',
-        })
+        if emp.version_id:
+            emp.version_id.write({'wage': 250000.0, 'date_start': '2026-10-01', 'name': 'Contract - Abu Salary Test'})
+        else:
+            self.env['hr.version'].create({
+                'name': 'Contract - Abu Salary Test',
+                'employee_id': emp.id,
+                'wage': 250000.0,
+                'date_start': '2026-10-01',
+            })
 
         # Simulate opening wizard and setting employee
         wizard = self.env['hds.in.salary.revision.wizard'].create({
@@ -315,3 +342,63 @@ class TestSalaryRevisionEngine(TransactionCase):
         self.assertEqual(wizard.current_wage, 250000.0, "Current gross wage must remain 2,50,000 and not drop to 0")
         self.assertEqual(wizard.revised_wage, 350000.0, "Revised wage must be 3,50,000 and not 0")
         self.assertEqual(wizard.wage_difference, 100000.0, "Wage difference must be 1,00,000")
+
+    def test_12_salary_revision_wizard_multi_company_domain(self):
+        """
+        Validates Issue 2:
+        - Wizard company_id defaults to env.company.
+        - Wizard default_get with active_id sets company_id from employee.
+        - _onchange_company_id clears employee_id if company does not match.
+        - ValidationError raised if attempting to save wizard with cross-company employee.
+        """
+        other_company = self.env['res.company'].create({'name': 'Second Test Company'})
+        emp_other = self.env['hr.employee'].create({
+            'name': 'Other Company Employee',
+            'company_id': other_company.id,
+        })
+        if emp_other.version_id:
+            emp_other.version_id.write({'wage': 50000.0, 'date_start': '2026-01-01', 'name': 'Contract - Other Company Employee'})
+        else:
+            self.env['hr.version'].create({
+                'name': 'Contract - Other Company Employee',
+                'employee_id': emp_other.id,
+                'wage': 50000.0,
+                'date_start': '2026-01-01',
+            })
+
+        # 1. Wizard default company = env.company
+        defaults = self.env['hds.in.salary.revision.wizard'].default_get(['company_id', 'employee_id'])
+        self.assertEqual(defaults.get('company_id'), self.env.company.id)
+
+        # 2. Wizard opened from employee profile sets company_id and locks employee
+        defaults_emp = self.env['hds.in.salary.revision.wizard'].with_context(
+            active_model='hr.employee',
+            active_id=emp_other.id
+        ).default_get(['company_id', 'employee_id', 'is_employee_readonly'])
+        self.assertEqual(defaults_emp.get('company_id'), other_company.id)
+        self.assertEqual(defaults_emp.get('employee_id'), emp_other.id)
+        self.assertTrue(defaults_emp.get('is_employee_readonly'))
+
+        # 3. Wizard creation with employee automatically sets company_id
+        wizard = self.env['hds.in.salary.revision.wizard'].create({
+            'employee_id': self.employee.id,
+        })
+        self.assertEqual(wizard.company_id.id, self.company.id)
+
+        # 4. Changing company_id on wizard triggers _onchange_company_id and clears employee_id if mismatch
+        ui_wiz = self.env['hds.in.salary.revision.wizard'].new({
+            'company_id': self.company.id,
+            'employee_id': self.employee.id,
+        })
+        ui_wiz.company_id = other_company
+        ui_wiz._onchange_company_id()
+        self.assertFalse(ui_wiz.employee_id, "Employee should be cleared when switching to a different company")
+
+        # 5. Cross-company mismatch constraint
+        from odoo.exceptions import ValidationError
+        with self.assertRaises(ValidationError):
+            self.env['hds.in.salary.revision.wizard'].create({
+                'company_id': self.company.id,
+                'employee_id': emp_other.id,
+            })
+

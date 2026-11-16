@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_partner_form_dental_membership" model="ir.ui.view">
+        <field name="name">res.partner.form.dental.membership</field>
+        <field name="model">res.partner</field>
+        <field name="inherit_id" ref="base.view_partner_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//div[@name='button_box']" position="inside">
+                <button name="action_view_dental_memberships" type="object" class="oe_stat_button" icon="fa-id-card"
+                        groups="dental_subscription.group_membership_user"
+                        invisible="not is_dental_patient">
+                    <field name="dental_membership_count" widget="statinfo" string="Memberships"/>
+                </button>
+            </xpath>
+            <xpath expr="//div[@name='button_box']" position="after">
+                <field name="has_active_dental_membership" invisible="1"/>
+                <div class="alert alert-success py-1 mb-2" role="status"
+                     invisible="not is_dental_patient or not dental_membership_summary">
+                    <i class="fa fa-id-card me-1"/> <field name="dental_membership_summary" readonly="1"/>
+                </div>
+            </xpath>
+        </field>
+    </record>
+</odoo>

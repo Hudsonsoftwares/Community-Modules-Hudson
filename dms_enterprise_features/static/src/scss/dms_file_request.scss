@@ -1,0 +1,50 @@
+// Link documents and requested ("missing") files on the DMS kanban
+
+.mk_file_kanban_view {
+    .o_kanban_record:has(.o_dms_request_preview) {
+        border: 1px dashed #c4c9d0 !important;
+        background-color: #fff;
+
+        .o_kanban_dms_file_preview {
+            background-color: #f6f7f9 !important;
+        }
+    }
+
+    .o_dms_request_preview {
+        color: #a3a9b1;
+        transition: color 0.15s ease;
+    }
+
+    .o_kanban_record:hover .o_dms_request_preview {
+        color: #6c757d;
+    }
+
+    .o_dms_request_upload {
+        display: inline-flex;
+        align-items: center;
+        cursor: pointer;
+
+        &:hover {
+            filter: brightness(0.8);
+        }
+    }
+
+    .o_dms_url_preview {
+        background-color: #fff;
+    }
+
+    .o_dms_url_fallback {
+        color: #8a94a3;
+    }
+
+    .o_dms_url_image {
+        object-fit: contain;
+        background-color: #fff;
+        padding: 8px;
+    }
+
+    .o_dms_kind_icon {
+        display: inline-flex;
+        vertical-align: -1px;
+    }
+}

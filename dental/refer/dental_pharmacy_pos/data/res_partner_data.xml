@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+    <!-- Shared by all branches (no company): the customer of walk-in pharmacy sales -->
+    <record id="partner_pharmacy_walkin" model="res.partner">
+        <field name="name">Walk-in Customer</field>
+        <field name="company_id" eval="False"/>
+        <field name="comment">Default customer for walk-in (over-the-counter) pharmacy sales without a named customer. Every pharmacy counter sale is invoiced.</field>
+    </record>
+</odoo>

@@ -41,17 +41,6 @@
     </record>
 
     
-    <record id="rule_knowledge_article_workspace_read" model="ir.access">
-        <field name="name">Knowledge: workspace and shared articles are readable by all users</field>
-        <field name="model_id" ref="model_knowledge_management_article" />
-        <field name="group_id" ref="group_knowledge_user" />
-        <field name="domain">[('visibility', 'in', ['workspace', 'shared'])]</field>
-        <field name="operation">r</field></record>
-
-    <record id="rule_knowledge_article_owner_all" model="ir.access">
-        <field name="name">Knowledge: owners have full access to their own articles</field>
-        <field name="model_id" ref="model_knowledge_management_article" />
-        <field name="group_id" ref="group_knowledge_user" />
-        <field name="domain">['|', ('visibility', '!=', 'private'), ('create_uid', '=', user.id)]</field>
-        <field name="operation">crud</field></record>
+    <!-- Article access domains live on the group lines of security/ir.access.csv
+         (Odoo 20: a group line without domain would grant every record). -->
 </odoo>

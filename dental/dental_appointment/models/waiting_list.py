@@ -3,13 +3,13 @@ from odoo import models, fields
 class DentalWaitingList(models.Model):
     _name = 'dental.waiting.list'
     _description = 'Dental Waiting List'
-    _inherit = ['mail.thread', 'mail.activity.mixin']
+    _inherit = ['mail.thread', 'mail.activity.mixin', 'dental.company.mixin']
 
     patient_id = fields.Many2one('res.partner', string='Patient', required=True, domain=[('is_dental_patient', '=', True)], tracking=True)
-    doctor_id = fields.Many2one('hr.employee', string='Preferred Doctor', tracking=True)
+    doctor_id = fields.Many2one('hr.employee', string='Preferred Doctor', tracking=True, check_company=True)
     date_from = fields.Datetime(string='Preferred Time From')
     date_to = fields.Datetime(string='Preferred Time To')
-    treatment_id = fields.Many2one('product.template', string='Treatment', domain=[('is_dental_treatment', '=', True)])
+    treatment_id = fields.Many2one('product.template', string='Treatment', domain=[('is_dental_treatment', '=', True)], check_company=True)
     
     priority = fields.Selection([
         ('normal', 'Normal'),

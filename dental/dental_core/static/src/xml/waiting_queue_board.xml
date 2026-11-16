@@ -1,283 +1,242 @@
 <?xml version="1.0" encoding="utf-8"?>
 <templates id="template" xml:space="preserve">
     <t t-name="dental_core.WaitingQueueBoard">
-        <div class="dental-queue-display-container" t-att-class="{'tv-fullscreen-mode': this.state.is_tv_mode}">
-            <!-- 1. Top Clinic & TV Display Header -->
-            <header class="queue-tv-header">
-                <div class="header-left">
-                    <div class="clinic-brand-mark">
-                        <i class="fa fa-stethoscope"/>
-                    </div>
-                    <div class="clinic-info">
-                        <div class="clinic-title-row">
-                            <h1 class="clinic-name"><t t-out="this.state.clinic_name"/></h1>
-                            <span class="live-status-pill">
-                                <span class="pulse-dot"></span>
-                                LIVE
+        <div t-attf-class="o_action dq-board #{this.state.is_tv_mode ? 'is-tv' : ''}">
+
+            <!-- ================= HEADER ================= -->
+            <header class="dq-header">
+                <div class="dq-brand">
+                    <span class="dq-brand-mark"><span class="dq-tooth"/></span>
+                    <div class="dq-brand-text">
+                        <div class="dq-brand-row">
+                            <h1 class="dq-clinic"><t t-out="this.state.clinic_name"/></h1>
+                            <span t-attf-class="dq-live #{this.state.auto_refresh ? '' : 'is-paused'}"
+                                  t-att-title="this.state.lastSyncStr ? 'Last synced ' + this.state.lastSyncStr : ''">
+                                <span class="dq-live-dot"/>
+                                <t t-out="this.state.auto_refresh ? 'Live' : 'Paused'"/>
                             </span>
                         </div>
-                        <div class="clinic-address-row">
-                            <i class="fa fa-map-marker me-1 text-primary opacity-75"/>
-                            <span><t t-out="this.state.clinic_address"/></span>
-                        </div>
+                        <div class="dq-address"><i class="oi" data-icon="location_on"/><t t-out="this.state.clinic_address"/></div>
                     </div>
                 </div>
 
-                <div class="header-center">
-                    <div class="tv-stats-bar">
-                        <div class="stat-pill stat-total">
-                            <i class="fa fa-users me-1 text-primary"/>
-                            <span class="stat-val"><t t-out="this.state.stats.total_patients_today"/></span>
-                            <span class="stat-lbl">Patients Today</span>
-                        </div>
-                        <div class="stat-pill stat-serving">
-                            <i class="fa fa-user-md me-1 text-info"/>
-                            <span class="stat-val"><t t-out="this.state.stats.now_serving_count"/></span>
-                            <span class="stat-lbl">Now Serving</span>
-                        </div>
-                        <div class="stat-pill stat-waiting">
-                            <i class="fa fa-clock-o me-1 text-warning"/>
-                            <span class="stat-val"><t t-out="this.state.stats.waiting_count"/></span>
-                            <span class="stat-lbl">Waiting Queue</span>
-                        </div>
+                <div class="dq-stats" aria-label="Today's queue summary">
+                    <div class="dq-stat">
+                        <span class="dq-stat-icon tone-teal"><i class="oi" data-icon="group"/></span>
+                        <span><span class="dq-stat-value"><t t-out="this.state.stats.total_patients_today"/></span><span class="dq-stat-label">Patients today</span></span>
+                    </div>
+                    <div class="dq-stat">
+                        <span class="dq-stat-icon tone-violet"><i class="oi" data-icon="stethoscope"/></span>
+                        <span><span class="dq-stat-value"><t t-out="this.state.stats.now_serving_count"/></span><span class="dq-stat-label">In treatment</span></span>
+                    </div>
+                    <div class="dq-stat">
+                        <span class="dq-stat-icon tone-amber"><i class="oi" data-icon="hourglass_top"/></span>
+                        <span><span class="dq-stat-value"><t t-out="this.state.stats.waiting_count"/></span><span class="dq-stat-label">Waiting</span></span>
+                    </div>
+                    <div class="dq-stat">
+                        <span class="dq-stat-icon tone-green"><i class="oi" data-icon="check_circle"/></span>
+                        <span><span class="dq-stat-value"><t t-out="this.state.stats.completed_count"/></span><span class="dq-stat-label">Completed</span></span>
                     </div>
                 </div>
 
-                <div class="header-right">
-                    <div class="tv-clock-widget">
-                        <div class="clock-time"><t t-out="this.state.currentTimeStr"/></div>
-                        <div class="clock-date"><t t-out="this.state.currentDateStr"/></div>
+                <div class="dq-header-end">
+                    <div class="dq-clock">
+                        <div class="dq-clock-time"><t t-out="this.state.currentTimeStr"/></div>
+                        <div class="dq-clock-date"><t t-out="this.state.currentDateStr"/></div>
                     </div>
-
-                    <div class="header-action-btns">
-                        <!-- Sound Alert Toggle -->
-                        <button class="btn-tv-control" 
-                                t-att-class="{'active': this.state.sound_enabled}"
-                                t-on-click="() => this.toggleSound()"
-                                title="Toggle Audio Call Chime">
-                            <i t-attf-class="fa #{this.state.sound_enabled ? 'fa-bell text-warning' : 'fa-bell-slash text-muted'}"/>
+                    <div class="dq-controls" t-if="!this.state.is_tv_mode">
+                        <button t-attf-class="dq-icon-btn #{this.state.callingKey === 'all' ? 'is-on' : ''}" t-on-click="() => this.callPatients()"
+                                t-att-title="this.state.callingKey === 'all' ? 'Calling... click to stop' : 'Call all tokens'" t-att-aria-pressed="this.state.callingKey === 'all'" aria-label="Call all tokens">
+                            <i class="oi" t-att-data-icon="this.state.callingKey === 'all' ? 'volume_up' : 'volume_off'"/>
                         </button>
-
-                        <!-- Refresh Button -->
-                        <button class="btn-tv-control" 
-                                t-on-click="() => this.loadQueueData(true)"
-                                title="Refresh Queue Data">
-                            <i class="fa fa-refresh text-primary"/>
+                        <button t-attf-class="dq-icon-btn #{this.state.auto_refresh ? 'is-on' : ''}" t-on-click="() => this.toggleAutoRefresh()"
+                                t-att-title="this.state.auto_refresh ? 'Auto-refresh on (every 8s)' : 'Auto-refresh paused'" t-att-aria-pressed="this.state.auto_refresh" aria-label="Auto-refresh">
+                            <i class="oi" t-att-data-icon="this.state.auto_refresh ? 'autorenew' : 'pause_circle'"/>
                         </button>
-
-                        <!-- Table / List View Switcher -->
-                        <button class="btn-tv-control btn-switch-list" 
-                                t-on-click="() => this.switchToList()"
-                                title="Switch to List/Table View">
-                            <i class="fa fa-list me-1"/>
-                            <span>List View</span>
+                        <button class="dq-icon-btn" t-on-click="() => this.loadQueueData(true)" title="Refresh now" aria-label="Refresh now">
+                            <i class="oi" data-icon="refresh"/>
                         </button>
-
-                        <!-- TV Fullscreen Toggle -->
-                        <button class="btn-tv-control btn-fullscreen-toggle" 
-                                t-on-click="() => this.toggleFullscreen()"
-                                title="Toggle TV Fullscreen Mode">
-                            <i t-attf-class="fa #{this.state.is_tv_mode ? 'fa-compress' : 'fa-television me-1'}"/>
-                            <span t-if="!this.state.is_tv_mode">TV Display</span>
+                        <button class="dq-btn dq-btn-outline" t-on-click="() => this.switchToList()" title="Open as list" aria-label="List View">
+                            <i class="oi" data-icon="view_list"/><span class="dq-btn-label">List View</span>
+                        </button>
+                        <button class="dq-btn dq-btn-primary" t-on-click="() => this.toggleFullscreen()" title="Full-screen TV display" aria-label="TV Display">
+                            <i class="oi" data-icon="tv"/><span class="dq-btn-label">TV Display</span>
                         </button>
                     </div>
                 </div>
             </header>
 
-            <!-- 2. Main Operatory Columns Display -->
-            <main class="queue-operatory-board">
-                <t t-if="this.state.loading">
-                    <div class="queue-loading-state">
-                        <div class="spinner-grow text-primary" role="status" style="width: 3rem; height: 3rem;">
-                            <span class="visually-hidden">Loading queue...</span>
-                        </div>
-                        <h4 class="mt-3 text-secondary fw-semibold">Syncing Real-Time Clinic Queue...</h4>
-                    </div>
-                </t>
+            <!-- ================= NOW CALLING BANNER ================= -->
+            <div t-if="this.state.announcement" class="dq-announce" role="status" aria-live="assertive"
+                 t-attf-style="--accent: #{this.state.announcement.accent_color}">
+                <span class="dq-announce-icon"><i class="oi" data-icon="campaign"/></span>
+                <span class="dq-announce-label">Now calling</span>
+                <span class="dq-announce-token"><t t-out="this.state.announcement.token"/></span>
+                <span class="dq-announce-text">
+                    <strong><t t-out="this.displayName(this.state.announcement.patient_name)"/></strong>
+                    please proceed to <strong><t t-out="this.state.announcement.operatory_name"/></strong>
+                    · <t t-out="this.state.announcement.doctor_name"/>
+                </span>
+                <button t-if="!this.state.is_tv_mode" class="dq-announce-close" t-on-click="() => this.dismissAnnouncement()" aria-label="Dismiss">
+                    <i class="oi" data-icon="close"/>
+                </button>
+            </div>
 
-                <t t-elif="!this.state.doctors || this.state.doctors.length === 0">
-                    <div class="queue-empty-board">
-                        <div class="empty-icon-box">
-                            <i class="fa fa-user-md fa-3x text-muted"/>
-                        </div>
-                        <h3 class="mt-3 fw-bold text-dark">No Active Operatories Today</h3>
-                        <p class="text-secondary max-w-500">
-                            No doctors currently scheduled or checked in. Appointments scheduled for today will appear here as doctors and patients arrive.
-                        </p>
-                    </div>
-                </t>
+            <!-- ================= BOARD ================= -->
+            <main class="dq-main">
+                <div t-if="this.state.loading" class="dq-state">
+                    <div class="spinner-border dq-spinner" role="status"><span class="visually-hidden">Loading queue…</span></div>
+                    <div class="dq-state-title">Syncing live clinic queue…</div>
+                </div>
 
-                <t t-else="">
-                    <div class="operatory-columns-grid" t-attf-style="grid-template-columns: repeat(#{Math.min(this.state.doctors.length, 4)}, minmax(320px, 1fr));">
-                        <t t-foreach="this.state.doctors" t-as="doc" t-key="doc.doctor_id">
-                            <div class="operatory-column-card shadow-sm" t-att-style="'--accent-color: ' + doc.accent_color + '; --bg-tint: ' + doc.bg_tint + '; --border-color: ' + doc.border_color">
-                                <!-- Operatory & Doctor Header -->
-                                <div class="operatory-card-header">
-                                    <div class="doctor-badge-info">
-                                        <div class="doctor-avatar-circle">
-                                            <img t-att-src="doc.avatar_url" alt="Doctor" onerror="this.src='/web/static/img/placeholder.png'"/>
-                                        </div>
-                                        <div class="doctor-meta">
-                                            <h2 class="doctor-heading-name" t-att-style="'color: ' + doc.accent_color">
-                                                <t t-out="doc.doctor_name"/>
-                                            </h2>
-                                            <div class="operatory-sub-tag">
-                                                <t t-out="doc.operatory_title"/>
-                                            </div>
+                <div t-elif="!this.state.doctors.length" class="dq-state">
+                    <span class="dq-state-icon"><i class="oi" data-icon="stethoscope"/></span>
+                    <div class="dq-state-title">No active operatories today</div>
+                    <p>Doctors and their queues appear here as soon as appointments are scheduled for today.</p>
+                </div>
+
+                <div t-else="" t-attf-class="dq-grid #{this.boardLayoutClass}">
+                    <t t-foreach="this.state.doctors" t-as="doc" t-key="doc.doctor_id">
+                        <section class="dq-card" t-attf-style="--accent: #{doc.accent_color}; --accent-tint: #{doc.bg_tint}; --accent-border: #{doc.border_color}">
+
+                            <!-- Doctor header -->
+                            <header class="dq-card-head">
+                                <div class="dq-doctor">
+                                    <span class="dq-avatar">
+                                        <span class="dq-avatar-initials"><t t-out="this.initials(doc.doctor_name)"/></span>
+                                        <img t-att-src="doc.avatar_url" alt="" onerror="this.remove()"/>
+                                    </span>
+                                    <div class="dq-doctor-text">
+                                        <h2 class="dq-doctor-name"><t t-out="doc.doctor_name"/></h2>
+                                        <div class="dq-doctor-sub">
+                                            <span><t t-out="doc.specialization"/></span>
+                                            <span class="dq-operatory"><t t-out="doc.operatory_name"/></span>
                                         </div>
                                     </div>
-                                    <div class="queue-count-pill" t-att-style="'background: ' + doc.bg_tint + '; color: ' + doc.accent_color + '; border-color: ' + doc.border_color">
-                                        <span class="count-num"><t t-out="doc.waiting_count"/></span>
-                                        <span class="count-txt">WAITING</span>
+                                </div>
+                                <button t-if="!this.state.is_tv_mode" t-attf-class="dq-icon-btn dq-card-call #{this.state.callingKey === doc.doctor_id ? 'is-on' : ''}"
+                                        t-on-click="() => this.callPatients(doc)"
+                                        t-att-title="this.state.callingKey === doc.doctor_id ? 'Calling... click to stop' : 'Call token for ' + doc.doctor_name"
+                                        t-att-aria-pressed="this.state.callingKey === doc.doctor_id" t-att-aria-label="'Call token for ' + doc.doctor_name">
+                                    <i class="oi" t-att-data-icon="this.state.callingKey === doc.doctor_id ? 'volume_up' : 'volume_off'"/>
+                                </button>
+                                <div class="dq-doc-counts">
+                                    <div><span class="dq-count-value"><t t-out="doc.waiting_count"/></span><span class="dq-count-label">Waiting</span></div>
+                                    <div><span class="dq-count-value"><t t-out="doc.completed_count"/></span><span class="dq-count-label">Done</span></div>
+                                    <div><span class="dq-count-value"><t t-out="doc.total_doc_patients"/></span><span class="dq-count-label">Today</span></div>
+                                </div>
+                            </header>
+
+                            <div class="dq-card-body">
+                                <!-- Now serving -->
+                                <div class="dq-serving">
+                                    <div class="dq-section-label"><span class="dq-dot"/>Now serving</div>
+                                    <div t-if="doc.now_serving" class="dq-serving-card is-active">
+                                        <div class="dq-serving-token"><t t-out="doc.now_serving.token"/></div>
+                                        <div class="dq-serving-patient">
+                                            <button class="dq-link" t-att-disabled="this.state.is_tv_mode" t-on-click="() => this.openAppointment(doc.now_serving.id)">
+                                                <t t-out="this.displayName(doc.now_serving.patient_name)"/>
+                                            </button>
+                                            <span class="dq-demo" t-if="doc.now_serving.demographics and !this.state.is_tv_mode"><t t-out="doc.now_serving.demographics"/></span>
+                                        </div>
+                                        <div class="dq-serving-meta">
+                                            <span class="dq-chip"><i class="oi" data-icon="medical_services"/><t t-out="doc.now_serving.treatment_name"/></span>
+                                            <span class="dq-chip" t-if="doc.now_serving.elapsed_mins"><i class="oi" data-icon="timer"/><t t-out="doc.now_serving.elapsed_mins"/> min in chair</span>
+                                        </div>
+                                        <button t-if="!this.state.is_tv_mode" class="dq-btn dq-btn-success"
+                                                t-att-disabled="this.state.busyId" t-on-click="() => this.completeVisit(doc.now_serving)">
+                                            <i class="oi" data-icon="check"/> Mark Completed
+                                        </button>
+                                    </div>
+                                    <div t-else="" class="dq-serving-card is-idle">
+                                        <span class="dq-idle-icon"><i class="oi" data-icon="stethoscope"/></span>
+                                        <div class="dq-idle-title">Ready for next patient</div>
+                                        <div class="dq-idle-sub" t-if="doc.waiting_queue.length">
+                                            Next up: <strong><t t-out="doc.waiting_queue[0].token"/></strong>
+                                            · <t t-out="this.displayName(doc.waiting_queue[0].patient_name)"/>
+                                        </div>
+                                        <div class="dq-idle-sub" t-else="">No patients waiting</div>
+                                        <button t-if="!this.state.is_tv_mode and this.state.canStartConsultation and doc.waiting_queue.length" class="dq-btn dq-btn-accent"
+                                                t-att-disabled="this.state.busyId" t-on-click="() => this.callNextPatient(doc.waiting_queue[0])">
+                                            <i class="oi" data-icon="campaign"/> Call <t t-out="doc.waiting_queue[0].token"/>
+                                        </button>
                                     </div>
                                 </div>
 
-                                <!-- NOW SERVING SECTION (Hero Token Area) -->
-                                <div class="now-serving-container">
-                                    <div class="serving-header-label">
-                                        <span class="serving-dot"></span>
-                                        NOW SERVING
+                                <!-- Waiting queue -->
+                                <div class="dq-queue">
+                                    <div class="dq-section-head">
+                                        <div class="dq-section-label">Waiting queue</div>
+                                        <span class="dq-pill"><t t-out="doc.waiting_count"/> in line</span>
                                     </div>
-
-                                    <t t-if="doc.now_serving">
-                                        <div class="hero-token-card">
-                                            <div class="hero-token-number" t-att-style="'color: ' + doc.accent_color">
-                                                <t t-out="doc.now_serving.token"/>
-                                            </div>
-                                            <div class="hero-patient-name">
-                                                <span class="p-name"><t t-out="doc.now_serving.patient_name"/></span>
-                                                <span class="p-demo ms-1" t-if="doc.now_serving.demographics"><t t-out="doc.now_serving.demographics"/></span>
-                                            </div>
-                                            <div class="hero-treatment-badge">
-                                                <i class="fa fa-check-circle me-1"/>
-                                                <t t-out="doc.now_serving.treatment_name"/>
-                                                <span class="elapsed-time ms-2" t-if="doc.now_serving.elapsed_mins > 0">
-                                                    (<t t-out="doc.now_serving.elapsed_mins"/>m in visit)
-                                                </span>
-                                            </div>
-
-                                            <!-- Receptionist Quick Action (hidden in TV Mode) -->
-                                            <div class="hero-action-row" t-if="!this.state.is_tv_mode">
-                                                <button class="btn btn-sm btn-outline-success rounded-pill px-3 py-1 shadow-sm"
-                                                        t-on-click="() => this.completeVisit(doc.now_serving)">
-                                                    <i class="fa fa-check me-1"/> Mark Completed
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </t>
-
-                                    <t t-else="">
-                                        <div class="hero-token-card hero-token-idle">
-                                            <div class="idle-token-placeholder">— — —</div>
-                                            <div class="idle-message">Doctor Ready • Operatory Available</div>
-                                            <div class="idle-action-box" t-if="!this.state.is_tv_mode and doc.waiting_queue.length > 0">
-                                                <button class="btn btn-sm btn-primary rounded-pill px-3 py-1 fw-bold shadow-sm"
-                                                        t-att-style="'background: ' + doc.accent_color + '; border-color: ' + doc.accent_color"
-                                                        t-on-click="() => this.callNextPatient(doc.waiting_queue[0])">
-                                                    <i class="fa fa-bullhorn me-1"/> Call Next Patient
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </t>
-                                </div>
-
-                                <!-- WAITING QUEUE LIST SECTION -->
-                                <div class="waiting-queue-section">
-                                    <div class="section-title-bar">
-                                        <span class="section-title">WAITING QUEUE</span>
-                                        <span class="section-count-badge badge rounded-pill bg-light text-dark border">
-                                            <t t-out="doc.waiting_count"/> in line
-                                        </span>
-                                    </div>
-
-                                    <div class="waiting-queue-scroll-area">
-                                        <t t-if="doc.waiting_queue and doc.waiting_queue.length > 0">
-                                            <div class="waiting-patients-list">
-                                                <t t-foreach="doc.waiting_queue" t-as="item" t-key="item.id">
-                                                    <div class="queue-row-item" t-att-class="{'is-next-item': item.is_next, 'is-emergency-item': item.is_emergency}">
-                                                        <!-- Token and Next Badge -->
-                                                        <div class="queue-token-cell">
-                                                            <span class="token-code-pill" t-att-class="{'token-next-pill': item.is_next}" t-att-style="item.is_next ? ('color: ' + doc.accent_color + '; border-color: ' + doc.accent_color) : ''">
-                                                                <t t-out="item.token"/>
-                                                            </span>
-                                                            <span class="next-badge-chip" t-if="item.is_next" t-att-style="'background: ' + doc.accent_color">
-                                                                NEXT
-                                                            </span>
-                                                            <span class="emergency-badge-chip badge bg-danger text-white ms-1" t-if="item.is_emergency">
-                                                                EMERGENCY
-                                                            </span>
+                                    <div class="dq-queue-scroll">
+                                        <ol t-if="doc.waiting_queue.length" class="dq-queue-list">
+                                            <t t-foreach="doc.waiting_queue" t-as="item" t-key="item.id">
+                                                <li t-attf-class="dq-queue-item #{item.is_next ? 'is-next' : ''} #{item.is_emergency ? 'is-emergency' : ''}">
+                                                    <span class="dq-pos"><t t-out="item_index + 1"/></span>
+                                                    <span class="dq-token"><t t-out="item.token"/></span>
+                                                    <div class="dq-queue-main">
+                                                        <div class="dq-queue-name">
+                                                            <span class="dq-ellipsis"><t t-out="this.displayName(item.patient_name)"/></span>
+                                                            <span class="dq-demo" t-if="item.demographics and !this.state.is_tv_mode"><t t-out="item.demographics"/></span>
+                                                            <span t-if="item.is_next" class="dq-tag dq-tag-next">Next</span>
+                                                            <span t-if="item.is_emergency" class="dq-tag dq-tag-emergency"><i class="oi" data-icon="emergency"/>Emergency</span>
                                                         </div>
-
-                                                        <!-- Patient Demographics -->
-                                                        <div class="queue-patient-cell">
-                                                            <div class="queue-patient-name-row">
-                                                                <span class="q-patient-name"><t t-out="item.patient_name"/></span>
-                                                                <span class="q-patient-demo ms-1" t-if="item.demographics"><t t-out="item.demographics"/></span>
-                                                            </div>
-                                                            <div class="queue-treatment-sub">
-                                                                <t t-out="item.treatment_name"/>
-                                                                <span class="q-wait-time text-muted ms-2" t-if="item.waiting_mins > 0">
-                                                                    • <t t-out="item.waiting_mins"/>m wait
-                                                                </span>
-                                                            </div>
-                                                        </div>
-
-                                                        <!-- Quick Call Button for Receptionist -->
-                                                        <div class="queue-action-cell" t-if="!this.state.is_tv_mode">
-                                                            <button class="btn btn-sm btn-action-call rounded-pill"
-                                                                    t-att-style="'color: ' + doc.accent_color + '; border-color: ' + doc.accent_color"
-                                                                    t-on-click="() => this.callNextPatient(item)"
-                                                                    title="Call to Operatory">
-                                                                <i class="fa fa-bullhorn me-1"/> Call
-                                                            </button>
-                                                        </div>
+                                                        <div class="dq-queue-sub dq-ellipsis"><t t-out="item.treatment_name"/></div>
                                                     </div>
-                                                </t>
-                                            </div>
-                                        </t>
-
-                                        <t t-else="">
-                                            <div class="queue-empty-substate">
-                                                <i class="fa fa-check-circle-o fa-2x text-success opacity-50 mb-2"/>
-                                                <div class="text-muted fw-semibold">No patients currently waiting</div>
-                                            </div>
-                                        </t>
+                                                    <span t-attf-class="dq-wait #{this.waitLevel(item.waiting_mins)}" title="Time since check-in">
+                                                        <i class="oi" data-icon="schedule"/><t t-out="this.formatWait(item.waiting_mins)"/>
+                                                    </span>
+                                                    <button t-if="!this.state.is_tv_mode and this.state.canStartConsultation" class="dq-btn dq-btn-sm dq-btn-outline-accent"
+                                                            t-att-disabled="this.state.busyId or doc.now_serving"
+                                                            t-att-title="doc.now_serving ? 'Complete the current visit first' : 'Call to ' + doc.operatory_name"
+                                                            t-on-click="() => this.callNextPatient(item)">
+                                                        <i class="oi" data-icon="campaign"/> Call
+                                                    </button>
+                                                </li>
+                                            </t>
+                                        </ol>
+                                        <div t-else="" class="dq-queue-empty">
+                                            <i class="oi" data-icon="check_circle"/>
+                                            <span>No patients waiting</span>
+                                        </div>
                                     </div>
                                 </div>
 
-                                <!-- UPCOMING / SCHEDULED PREVIEW SECTION -->
-                                <t t-if="doc.upcoming_list and doc.upcoming_list.length > 0">
-                                    <div class="upcoming-preview-section" t-if="!this.state.is_tv_mode">
-                                        <div class="upcoming-header">
-                                            <span class="upcoming-title">UPCOMING TODAY (<t t-out="doc.upcoming_list.length"/>)</span>
-                                        </div>
-                                        <div class="upcoming-items-list">
-                                            <t t-foreach="doc.upcoming_list.slice(0, 3)" t-as="up" t-key="up.id">
-                                                <div class="upcoming-row-compact">
-                                                    <span class="badge bg-light text-dark border me-2"><t t-out="up.scheduled_time"/></span>
-                                                    <span class="up-p-name text-truncate"><t t-out="up.patient_name"/> <span class="text-muted" t-if="up.demographics"><t t-out="up.demographics"/></span></span>
-                                                    <button class="btn btn-xs btn-outline-primary rounded-pill ms-auto px-2 py-0"
-                                                            t-on-click="() => this.checkInPatient(up)">
-                                                        Check In
-                                                    </button>
-                                                </div>
-                                            </t>
-                                        </div>
+                                <!-- Upcoming (reception only) -->
+                                <div t-if="!this.state.is_tv_mode and doc.upcoming_list.length" class="dq-upcoming">
+                                    <div class="dq-section-head">
+                                        <div class="dq-section-label">Upcoming today</div>
+                                        <span class="dq-pill"><t t-out="doc.upcoming_list.length"/> scheduled</span>
                                     </div>
-                                </t>
+                                    <ul class="dq-upcoming-list">
+                                        <t t-foreach="doc.upcoming_list.slice(0, 3)" t-as="up" t-key="up.id">
+                                            <li class="dq-upcoming-item">
+                                                <span class="dq-time"><t t-out="up.scheduled_time"/></span>
+                                                <span class="dq-upcoming-name dq-ellipsis">
+                                                    <t t-out="up.patient_name"/>
+                                                    <span class="dq-demo" t-if="up.demographics"><t t-out="up.demographics"/></span>
+                                                </span>
+                                                <button t-if="this.state.canCheckIn" class="dq-btn dq-btn-sm dq-btn-outline" t-att-disabled="this.state.busyId" t-on-click="() => this.checkInPatient(up)">
+                                                    <i class="oi" data-icon="login"/> Check In
+                                                </button>
+                                            </li>
+                                        </t>
+                                    </ul>
+                                </div>
                             </div>
-                        </t>
-                    </div>
-                </t>
+                        </section>
+                    </t>
+                </div>
             </main>
 
-            <!-- 3. TV Mode Floating Quick Exit Button -->
-            <button class="btn-floating-tv-exit" 
-                    t-if="this.state.is_tv_mode"
-                    t-on-click="() => this.toggleFullscreen()"
-                    title="Exit Fullscreen Mode">
-                <i class="fa fa-times me-1"/> Exit TV Mode (ESC)
-            </button>
+            <!-- TV mode footer -->
+            <footer t-if="this.state.is_tv_mode" class="dq-tv-footer">
+                <span><i class="oi" data-icon="info"/> Please wait for your token number to be called. Emergencies are seen first.</span>
+                <button class="dq-tv-exit" t-on-click="() => this.toggleFullscreen()" title="Exit TV mode (Esc)">
+                    <i class="oi" data-icon="fullscreen_exit"/> Exit
+                </button>
+            </footer>
         </div>
     </t>
 </templates>

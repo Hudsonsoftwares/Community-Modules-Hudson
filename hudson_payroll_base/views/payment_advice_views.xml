@@ -28,7 +28,10 @@
                             <field name="date"/>
                         </group>
                         <group>
-                            <field name="company_bank_id"/>
+                            <field name="company_partner_id" invisible="1"/>
+                            <field name="company_bank_id" required="1"
+                                   context="{'default_partner_id': company_partner_id, 'default_company_id': company_id}"
+                                   placeholder="Select or add Company Bank Account"/>
                             <field name="company_id" groups="base.group_multi_company"/>
                             <field name="enet_transaction_type"/>
                             <field name="enet_client_code" placeholder="Optional HDFC Corporate Code"/>

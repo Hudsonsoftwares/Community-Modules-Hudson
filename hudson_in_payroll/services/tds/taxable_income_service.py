@@ -56,17 +56,13 @@ class TaxableIncomeService(BaseStatutoryService):
     def round_tax_to_nearest_10(amount):
         """
         Statutory Section 288B Rounding of Tax, Surcharge, Cess, and Sums Payable/Refundable:
-        - If part of rupee is 50 paise or more, increase to 1 rupee; if less, ignore paise.
-        - If last digit of rupee amount is 5 or more, increase to next higher multiple of 10.
-        - If last digit is less than 5, reduce to next lower multiple of 10.
+        - Any part of a rupee consisting of paise shall be ignored (truncated).
+        - If the last figure in that amount is 5 or more, increased to next higher multiple of 10.
+        - If the last figure is less than 5, reduced to next lower multiple of 10.
         """
         if amount is None or amount <= 0:
             return 0.0
-        amt_f = float(amount)
-        whole_rupees = int(amt_f)
-        paise = amt_f - whole_rupees
-        if paise >= 0.50:
-            whole_rupees += 1
+        whole_rupees = int(float(amount))
         remainder = whole_rupees % 10
         if remainder >= 5:
             return float(whole_rupees + (10 - remainder))

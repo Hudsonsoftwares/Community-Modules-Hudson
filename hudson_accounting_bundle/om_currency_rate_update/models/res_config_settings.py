@@ -1,4 +1,4 @@
-from odoo import fields, models, _
+from odoo import fields, models
 
 
 class ResConfigSettings(models.TransientModel):
@@ -20,22 +20,12 @@ class ResConfigSettings(models.TransientModel):
 
     def action_update_currency_rates(self):
         self.ensure_one()
-        saved = self.company_id.root_id._update_currency_rates()
-        return self._rate_notification(self.company_id.root_id.rate_last_message, 'success' if saved else 'warning')
+        return self.company_id.action_update_currency_rates()
+
+    def action_force_update_currency_rates(self):
+        self.ensure_one()
+        return self.company_id.action_update_currency_rates(force=True)
 
     def action_test_currency_rates(self):
         self.ensure_one()
-        return self._rate_notification(self.company_id._test_currency_rates(), 'info')
-
-    def _rate_notification(self, message, notification_type):
-        return {
-            'type': 'ir.actions.client',
-            'tag': 'display_notification',
-            'params': {
-                'title': _('Currency Rates'),
-                'message': message,
-                'type': notification_type,
-                'sticky': notification_type == 'warning',
-                'next': {'type': 'ir.actions.client', 'tag': 'soft_reload'},
-            },
-        }
+        return self.company_id._rate_notification(self.company_id._test_currency_rates(), 'info')

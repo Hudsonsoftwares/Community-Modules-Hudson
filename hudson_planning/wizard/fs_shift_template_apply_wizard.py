@@ -82,13 +82,14 @@ class FsShiftTemplateApplyWizard(models.TransientModel):
 
             # Loop through employees
             for employee in employees:
-                # Retrieve timezone explicitly to prevent mismatched shift times
-                tz_name = employee.tz or self.env.context.get('tz') or self.env.user.tz
+                # Template hours are the planner's hours (what the planning
+                # displays), not the employee's: 8:00-17:00 stays 8:00-17:00.
+                tz_name = self.env.context.get('tz') or self.env.user.tz
                 if not tz_name:
                     raise UserError(_(
-                        "Timezone is not configured for employee '%s' or your user account. "
+                        "Your user account has no timezone. "
                         "Please set your Timezone in your Preferences to generate shifts correctly."
-                    ) % employee.name)
+                    ))
                 
                 emp_tz = pytz.timezone(tz_name)
                 

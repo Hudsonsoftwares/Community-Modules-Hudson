@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="insurance_plan_view_form_dental" model="ir.ui.view">
+        <field name="name">insurance.plan.form.dental</field>
+        <field name="model">insurance.plan</field>
+        <field name="inherit_id" ref="insurance_base.insurance_plan_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='coverage_line_ids']/list/field[@name='product_categ_id']" position="before">
+                <field name="dental_treatment_category_id"
+                       readonly="applies_to != 'dental_category'"
+                       required="applies_to == 'dental_category'"/>
+            </xpath>
+            <xpath expr="//field[@name='coverage_line_ids']/list/field[@name='product_tmpl_id']" position="attributes">
+                <attribute name="context">{'default_is_dental_treatment': True, 'default_type': 'service'}</attribute>
+            </xpath>
+            <xpath expr="//field[@name='coverage_line_ids']/list/field[@name='product_categ_id']" position="attributes">
+                <attribute name="optional">hide</attribute>
+            </xpath>
+            <xpath expr="//field[@name='coverage_line_ids']" position="attributes">
+                <attribute name="context">{'default_applies_to': 'dental_category'}</attribute>
+            </xpath>
+        </field>
+    </record>
+</odoo>

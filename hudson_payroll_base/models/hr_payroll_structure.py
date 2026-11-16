@@ -159,27 +159,29 @@ class HrPayrollStructure(models.Model):
     company_id = fields.Many2one(
         'res.company',
         string='Company',
-        default=lambda self: self.env.company
+        default=False,
+        help="If set, this salary structure will only be available to the specified company. If empty, it is shared across all companies."
     )
 
     @api.constrains('parent_id')
     def _check_parent_id(self):
-        if not self._check_recursion():
+        if self._has_cycle('parent_id'):
             raise ValidationError(_('Error! You cannot create recursive salary structures.'))
 
     def get_all_rules(self):
         """Returns all rules of this structure including parent structure rules.
         If a child structure defines a rule with the same code as a parent structure,
         the child structure's rule overrides the parent's rule.
+        Company-specific rules take priority over shared (company_id=False) rules.
         Rules are sorted by (sequence, id).
         """
         self.ensure_one()
         rule_by_code = {}
         curr = self
         while curr:
-            # Sort current structure rules by sequence
-            for rule in curr.rule_ids.sorted(key=lambda r: (r.sequence, r.id)):
-                # If rule code not yet registered, register it (child has priority)
+            # Sort current structure rules: company-specific rules first (priority override), then sequence
+            for rule in curr.rule_ids.sorted(key=lambda r: (0 if r.company_id else 1, r.sequence, r.id)):
+                # If rule code not yet registered, register it (child / company-specific has priority)
                 if rule.code not in rule_by_code:
                     rule_by_code[rule.code] = rule
             curr = curr.parent_id

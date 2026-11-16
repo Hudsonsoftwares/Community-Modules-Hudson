@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Orthodontics on the consultation: a smart button that starts the chart, then opens it -->
+    <record id="view_dental_case_form_inherit_ortho" model="ir.ui.view">
+        <field name="name">dental.case.form.inherit.ortho</field>
+        <field name="model">dental.case</field>
+        <field name="inherit_id" ref="dental_core.view_dental_case_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//div[@name='button_box']" position="inside">
+                <field name="ortho_chart_count" invisible="1"/>
+                <button name="action_open_ortho_chart" type="object" class="oe_stat_button" icon="medical_services"
+                        invisible="not ortho_chart_count and state in ('completed', 'cancelled')"
+                        groups="dental_base.group_dental_dentist,dental_base.group_dental_manager">
+                    <div class="o_stat_info">
+                        <span class="o_stat_value">Ortho</span>
+                        <span class="o_stat_text" invisible="not ortho_chart_count">Chart</span>
+                        <span class="o_stat_text" invisible="ortho_chart_count">Start Chart</span>
+                    </div>
+                </button>
+            </xpath>
+        </field>
+    </record>
+</odoo>

@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import logging
+from datetime import date
 # pyrefly: ignore [missing-import]
 from odoo import fields
 from ..base import BaseStatutoryService
@@ -171,7 +172,7 @@ class ProfessionalTaxService(BaseStatutoryService):
             if unpaid_ded <= 0.0:
                 worked_days = dict_ctx.get('worked_days')
                 contract = dict_ctx.get('contract') or (slip.contract_id if slip else False)
-                if worked_days and contract and hasattr(worked_days, 'UNPAID') and worked_days.UNPAID:
+                if worked_days and contract and hasattr(worked_days, 'UNPAID') and worked_days.UNPAID and not getattr(contract, 'pay_by_attendance', False) and not getattr(contract, 'enable_attendance_threshold', True):
                     unpaid_hrs = float(getattr(worked_days.UNPAID, 'number_of_hours', 0.0) or 0.0)
                     unpaid_days = float(getattr(worked_days.UNPAID, 'number_of_days', 0.0) or 0.0)
                     if unpaid_hrs > 0.0 and hasattr(contract, 'get_period_shortage_rate'):
@@ -216,6 +217,44 @@ class ProfessionalTaxService(BaseStatutoryService):
             target_gender = self.slab_service.resolve_employee_gender(target_emp)
 
         return slip, target_emp, target_salary, target_date, target_company, target_gender
+
+    def get_fy_pt_already_deducted(self, employee, eval_date, current_slip=None) -> float:
+        """
+        Calculates cumulative Professional Tax already deducted for the employee
+        in the current Indian Financial Year (April 1 to March 31) up to eval_date.
+        Excludes the current payslip to avoid duplicate counting.
+        """
+        if not employee or not eval_date:
+            return 0.0
+
+        if isinstance(eval_date, str):
+            eval_date = fields.Date.from_string(eval_date)
+        if not eval_date:
+            eval_date = fields.Date.today()
+
+        fy_start = date(eval_date.year, 4, 1) if eval_date.month >= 4 else date(eval_date.year - 1, 4, 1)
+
+        domain = [
+            ('employee_id', '=', employee.id),
+            ('state', 'in', ('verify', 'done', 'paid')),
+            ('date_from', '>=', fy_start),
+            ('date_from', '<=', eval_date),
+        ]
+        curr_id = getattr(current_slip, 'id', False)
+        if current_slip and isinstance(curr_id, int):
+            domain.append(('id', '!=', curr_id))
+
+        slips = self.env['hr.payslip'].search(domain)
+        if not slips:
+            return 0.0
+
+        total_pt = 0.0
+        for s in slips:
+            for line in s.line_ids:
+                if line.code in ('PT', 'HDS_IN_PT') or getattr(line.category_id, 'code', '') == 'PT':
+                    total_pt += abs(line.total or 0.0)
+
+        return float(total_pt)
 
     def compute_pt(self, payslip=None, employee=None, salary=0.0, eval_date=None, company=None, gender=None, localdict=None, state=None, is_simulation=False):
         """
@@ -310,7 +349,7 @@ class ProfessionalTaxService(BaseStatutoryService):
 
             # 3. Wage Aggregation Basis Resolution (Monthly vs Half-Yearly vs Quarterly)
             salary_basis = strategy.calculate_wage_basis(
-                self.env, emp, date_eval, current_slip=slip, current_slip_gross=sal, company=comp, period_schedule=period_sched
+                self.env, emp, date_eval, current_slip=slip, current_slip_gross=sal, company=comp, period_schedule=period_sched, is_simulation=is_simulation
             )
             audit.attach_input("salary_basis", salary_basis)
 
@@ -354,6 +393,26 @@ class ProfessionalTaxService(BaseStatutoryService):
             )
             _logger.debug("Statutory PT Liability: %s | Current Payroll Deduction: %s", period_liability, final_deduction)
 
+            # 5b. Constitutional Statutory Cap Guard (Article 276(2) Constitution of India: Max ₹2,500/year)
+            if not is_simulation and emp and final_deduction > 0.0:
+                ytd_pt = self.get_fy_pt_already_deducted(emp, date_eval, current_slip=slip)
+                statutory_cap = 2500.0
+                available_cap = max(0.0, statutory_cap - ytd_pt)
+                if final_deduction > available_cap:
+                    shortfall = round(final_deduction - available_cap, 2)
+                    audit.attach_parameter("pt_capped_annual_ceiling", True)
+                    audit.attach_parameter("pt_annual_cap_shortfall", shortfall)
+                    audit.attach_parameter("original_pt_deduction_before_annual_cap", final_deduction)
+                    audit.log_message(
+                        f"PT deduction capped from ₹{final_deduction} to ₹{available_cap} "
+                        f"by Article 276(2) Constitution of India statutory annual ceiling of ₹2,500 (YTD Paid: ₹{ytd_pt})."
+                    )
+                    _logger.info(
+                        "Employee '%s' PT deduction capped from ₹%s to ₹%s by Article 276(2) annual ceiling of ₹2,500 (YTD Paid: ₹%s)",
+                        emp.name, final_deduction, available_cap, ytd_pt
+                    )
+                    final_deduction = available_cap
+
             # 6. Net Pay Guard: PT capped at GROSS + DED (categories in localdict)
             # Skipped when is_simulation or categories are missing
             if not is_simulation and localdict and 'categories' in localdict:
@@ -369,8 +428,8 @@ class ProfessionalTaxService(BaseStatutoryService):
                 except (ValueError, TypeError):
                     gross_amt, ded_amt = 0.0, 0.0
 
-                # Note: DED is signed negative in Odoo payroll localdict
-                net_available = max(0.0, round(gross_amt + ded_amt, 2))
+                # Note: In Odoo payroll localdict DED is typically negative; ensure safe subtraction regardless of sign
+                net_available = max(0.0, round(gross_amt - abs(ded_amt), 2)) if ded_amt > 0 else max(0.0, round(gross_amt + ded_amt, 2))
                 audit.attach_parameter("guard_gross", gross_amt)
                 audit.attach_parameter("guard_ded", ded_amt)
                 audit.attach_parameter("guard_net_available", net_available)
@@ -433,3 +492,48 @@ class ProfessionalTaxService(BaseStatutoryService):
             eval_date=eval_date, company=company, gender=gender, localdict=localdict
         )
         return res.amount
+
+    def compute_pt_reconciliation_for_exit(self, employee, last_working_day=None):
+        """
+        Calculates statutory Professional Tax reconciliation on employee exit / final settlement.
+        Follows state statutory acts:
+        1. For monthly states: computes PT due on exit month earned wage, minus any PT deducted on exit month slips.
+        2. For half-yearly states (Kerala, Tamil Nadu, etc.): computes statutory slab liability on cumulative
+           gross earned in the current half-year, minus PT already deducted in preceding payslips of that half-year.
+        Returns dict with keys:
+            'pt_net_payable': float,
+            'period_liability': float,
+            'pt_already_deducted': float,
+            'state_name': str,
+            'description': str
+        """
+        if not employee:
+            return {'pt_net_payable': 0.0, 'period_liability': 0.0, 'pt_already_deducted': 0.0, 'description': ''}
+
+        lwd = last_working_day or fields.Date.today()
+        if isinstance(lwd, str):
+            lwd = fields.Date.from_string(lwd)
+
+        pt_res = self.compute_pt(
+            employee=employee,
+            eval_date=lwd,
+            company=employee.company_id,
+            is_simulation=True
+        )
+
+        period_liability = float(getattr(pt_res, 'period_liability', 0.0) or pt_res.amount or 0.0)
+        already_deducted = self.get_fy_pt_already_deducted(employee, lwd)
+
+        net_payable = max(0.0, round(period_liability - already_deducted, 2)) if period_liability > 0.0 else 0.0
+        state_name = pt_res.state.name if pt_res.state else 'Unknown'
+
+        desc = f"Statutory PT reconciliation for {state_name}: Period liability {period_liability:.2f} less prior deductions {already_deducted:.2f}."
+
+        return {
+            'pt_net_payable': net_payable,
+            'period_liability': period_liability,
+            'pt_already_deducted': already_deducted,
+            'state_name': state_name,
+            'description': desc,
+        }
+

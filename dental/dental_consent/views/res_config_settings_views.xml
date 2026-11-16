@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="res_config_settings_view_form_inherit_dental_consent" model="ir.ui.view">
+        <field name="name">res.config.settings.view.form.inherit.dental.consent</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="dental_base.res_config_settings_view_form_inherit_dental"/>
+        <field name="arch" type="xml">
+            <setting id="dental_require_consent_setting" position="after">
+                <setting id="dental_consent_age_of_majority_setting"
+                         help="Patients younger than this need a parent or legal guardian to sign treatment consents">
+                    <div class="d-flex align-items-center">
+                        <field name="dental_consent_age_of_majority" class="oe_inline me-2"/>
+                        <span>years</span>
+                    </div>
+                </setting>
+            </setting>
+        </field>
+    </record>
+</odoo>

@@ -21,6 +21,12 @@ class KnowledgeArticleMember(models.Model):
         ondelete='cascade',
     )
     permission = fields.Selection([
+        ('none', 'No Access'),
         ('read', 'Can Read'),
-        ('write', 'Can Write'),
-    ], string='Permission', default='read', required=True)
+        ('write', 'Can Edit'),
+    ], string='Permission', default='write', required=True)
+
+    _article_partner_uniq = models.Constraint(
+        'UNIQUE(article_id, partner_id)',
+        'A person can only be a member of an article once.',
+    )

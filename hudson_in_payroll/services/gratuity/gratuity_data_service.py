@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 from datetime import date
 from dateutil.relativedelta import relativedelta
+# pyrefly: ignore [missing-import]
 from odoo import fields
-from odoo.tools.translate import _
+from odoo.tools.translate import _# pyrefly: ignore [missing-import]
 import logging
 
 _logger = logging.getLogger(__name__)
@@ -124,15 +125,21 @@ class GratuityDataService:
         joining_date = self._resolve_joining_date(employee, resolved_contract)
         resolved_sep_date = self._resolve_separation_date(employee, resolved_contract, separation_date, payslip)
 
-        # 3. Calculate Service Duration
-        duration_info = self._calculate_service_duration(joining_date, resolved_sep_date)
-
-        # 4. Retrieve Last Drawn Salary Components (Basic + DA)
-        salary_info = self._retrieve_last_drawn_salary(employee, resolved_contract, payslip)
-
-        # 5. Resolve Rule Parameters
+        # 3. Resolve Rule Parameters first to know statutory minimum service years
         ref_date = calc_date or resolved_sep_date or fields.Date.today()
         params = self._resolve_rule_parameters(ref_date)
+        min_service_years = params.get('min_service_years', 5.0)
+
+        # 4. Calculate Service Duration (Section 4(1) continuous service guard on Section 4(2) rounding)
+        duration_info = self._calculate_service_duration(
+            joining_date,
+            resolved_sep_date,
+            min_service_years=min_service_years,
+            is_death_or_disablement=is_death_or_disablement
+        )
+
+        # 5. Retrieve Last Drawn Salary Components (Basic + DA)
+        salary_info = self._retrieve_last_drawn_salary(employee, resolved_contract, payslip)
 
         # 6. Construct Data Transfer Object
         return GratuityCalculationData(
@@ -149,13 +156,15 @@ class GratuityDataService:
             wage_base=salary_info['wage_base'],
             days_multiplier=params['days_multiplier'],
             month_divisor=params['month_divisor'],
-            min_service_years=params['min_service_years'],
+            min_service_years=min_service_years,
             statutory_ceiling=params['statutory_ceiling'],
             is_death_or_disablement=is_death_or_disablement
         )
 
     def _resolve_active_contract(self, employee):
         """Finds the most relevant contract for the employee."""
+        if getattr(employee, 'version_id', False):
+            return employee.version_id
         contracts = self.env['hr.version'].search([
             ('employee_id', '=', employee.id)
         ], order='id desc', limit=1)
@@ -188,20 +197,25 @@ class GratuityDataService:
             return fields.Date.from_string(payslip.date_to)
         return fields.Date.today()
 
-    def _calculate_service_duration(self, joining_date, separation_date):
+    def _calculate_service_duration(self, joining_date, separation_date, min_service_years=5.0, is_death_or_disablement=False):
         """
-        Calculates service duration and completed service years under Payment of Gratuity Act 1972 Sec 4(2).
-        Rule: > 6 months in a fraction year counts as 1 full completed year.
+        Calculates service duration and completed service years under Payment of Gratuity Act 1972.
+        - Section 4(1): Requires 5 full continuous years of service (waived for death/disablement).
+        - Section 4(2): > 6 months in a fraction year counts as 1 full completed year ONLY AFTER
+          the employee has completed mandatory 5 years of service or under death/disablement waiver.
         """
         if not joining_date or not separation_date or separation_date < joining_date:
             return {'total_years': 0, 'remaining_months': 0, 'remaining_days': 0, 'completed_years': 0}
 
-        rdelta = relativedelta(separation_date, joining_date)
+        # Inclusive end date: separation date is worked and paid under statutory rules
+        end_date = separation_date + relativedelta(days=1)
+        rdelta = relativedelta(end_date, joining_date)
         total_years = max(0, rdelta.years)
         remaining_months = max(0, rdelta.months)
         remaining_days = max(0, rdelta.days)
 
-        if remaining_months > 6 or (remaining_months == 6 and remaining_days > 0):
+        is_eligible_for_rounding = (total_years >= min_service_years) or is_death_or_disablement
+        if is_eligible_for_rounding and (remaining_months > 6 or (remaining_months == 6 and remaining_days > 0)):
             completed_years = total_years + 1
         else:
             completed_years = total_years
@@ -216,18 +230,19 @@ class GratuityDataService:
     def _retrieve_last_drawn_salary(self, employee, contract=None, payslip=None):
         """
         Retrieves last drawn Basic Salary and Dearness Allowance (DA).
-        Extracts from contract or payslip lines.
+        Prioritizes unprorated contract wage rate under Payment of Gratuity Act 1972 Section 4(2).
+        Falls back to payslip lines only if contract values are missing or zero.
         """
         basic = 0.0
         da = 0.0
 
-        # Method A: Extract from Contract Breakdown
+        # Method A: Extract unprorated rate of wages from Contract Breakdown (Primary Statutory Source)
         if contract:
             basic = float(getattr(contract, 'basic_salary', 0.0) or getattr(contract, 'wage', 0.0) or 0.0)
             da = float(getattr(contract, 'da', 0.0) or getattr(contract, 'da_amount', 0.0) or 0.0)
 
-        # Method B: Extract from Payslip Lines if contract values missing or payslip provided
-        if payslip and getattr(payslip, 'line_ids', None):
+        # Method B: Fallback to Payslip Lines ONLY if contract wage base is missing or zero
+        if (basic + da) <= 0.0 and payslip and getattr(payslip, 'line_ids', None):
             line_basic = payslip.line_ids.filtered(lambda l: l.code == 'BASIC')
             if line_basic:
                 basic = float(line_basic[0].total)

@@ -1,0 +1,1028 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-name="custom_barcode_scanner.LineScanScreen" owl="1">
+        <div class="h-100 d-flex flex-column bg-view">
+            
+            <!-- MAIN SCREEN -->
+            <t t-if="!this.state.showSettings and !this.state.showAddProduct and !this.state.showInfo and !this.state.showAllocation">
+                <!-- Top Bar -->
+                <div class="d-flex justify-content-between align-items-center px-3 py-2 border-bottom" style="background-color: var(--o-barcode-view-bg); min-height: 56px;">
+                    <div class="d-flex align-items-center">
+                        <button class="btn btn-light border-0 px-2 py-1 me-3 text-dark bg-view shadow-sm" t-on-click="this.saveAndGoBack" style="border: 1px solid var(--o-barcode-border) !important;">
+                            <i class="oi" data-icon="chevron_left"/>
+                        </button>
+                        <div class="d-flex flex-column cursor-pointer" t-on-click="this.toggleInfo" style="cursor: pointer;">
+                            <div class="fw-bold text-dark text-decoration-underline" style="font-size: 0.95rem;">
+                                <t t-if="this.props.batchId and this.state.picking">
+                                    <i class="oi me-1" data-icon="stacks" style="color: #017e84;"/><t t-out="this.state.picking.name"/>
+                                </t>
+                                <t t-elif="this.state.picking" t-out="this.state.picking.name"/>
+                                <t t-elif="this.props.pickingId === 'inventory'">Physical Inventory</t>
+                                <t t-else="">Loading...</t>
+                            </div>
+                            <div class="text-muted small d-flex align-items-center" style="font-size: 0.75rem;">
+                                <t t-if="this.props.batchId and this.state.picking and this.state.picking.pickings">
+                                    <i class="oi me-1" data-icon="swap_horiz"/>
+                                    <t t-out="this.state.picking.pickings.length"/> transfer(s) in batch
+                                </t>
+                                <t t-elif="this.props.pickingId !== 'inventory' and !this.isNewMO">
+                                    <i class="oi me-1" data-icon="account_circle"/> 
+                                    <t t-if="this.state.picking and this.state.picking.partner_id" t-out="this.state.picking.partner_id[1]"/>
+                                    <t t-else="">Contact</t>
+                                </t>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="d-flex align-items-center">
+                        <button t-attf-class="btn border-0 px-2 me-1 shadow-sm {{ this.state.showCamera ? 'btn-success o_barcode_text_light' : 'btn-light text-muted bg-view' }}" t-on-click="this.toggleCamera">
+                            <i class="oi fs-5" data-icon="barcode"/>
+                        </button>
+                        <button class="btn btn-light border-0 px-2 text-muted bg-view" t-on-click="this.toggleSettings">
+                            <i class="oi fs-5" data-icon="settings"/>
+                        </button>
+                    </div>
+                </div>
+
+            <!-- Camera View -->
+            <t t-if="this.state.showCamera">
+                <div class="w-100 position-relative d-flex flex-column align-items-center justify-content-center overflow-hidden" style="height: 350px; background-color: #000;">
+                    
+                    <!-- Video Element (Full Width) -->
+                    <video t-ref="this.videoRef" class="w-100 h-100 position-absolute" style="object-fit: cover; z-index: 0;" autoplay="1" playsinline="1" muted="1"/>
+                    
+                    <!-- Reticle Box with Dark Box Shadow Overlay -->
+                    <div class="position-relative d-flex justify-content-center align-items-center o_barcode_scanner_reticle" style="width: 280px; height: 180px;">
+                        
+                        <!-- Laser Animation -->
+                        <div class="o_barcode_laser"></div>
+                        
+                        <!-- 4 Corner Accents -->
+                        <div class="o_barcode_reticle_corner border-top border-start" style="top: 0; left: 0; border-width: 3px !important;"></div>
+                        <div class="o_barcode_reticle_corner border-top border-end" style="top: 0; right: 0; border-width: 3px !important;"></div>
+                        <div class="o_barcode_reticle_corner border-bottom border-start" style="bottom: 0; left: 0; border-width: 3px !important;"></div>
+                        <div class="o_barcode_reticle_corner border-bottom border-end" style="bottom: 0; right: 0; border-width: 3px !important;"></div>
+                        
+                        <div class="position-absolute o_barcode_text_light" style="bottom: 15px; font-size: 0.85rem; opacity: 0.8; font-weight: 500;">
+                            Point camera at barcode...
+                        </div>
+                    </div>
+
+                    <!-- Label -->
+                    <div class="position-absolute top-0 w-100 o_barcode_text_light text-center py-3" style="background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent); font-size: 1.1rem; font-weight: bold; z-index: 2; letter-spacing: 0.5px;">
+                        <i class="oi me-2" data-icon="photo_camera"/> Scan a product
+                    </div>
+                </div>
+            </t>
+
+            <!-- Active Source Location Banner -->
+            <t t-if="this.state.activeSourceLocation">
+                <div class="o_barcode_text_light text-center py-2" style="background-color: #017e84; font-size: 0.9rem; font-weight: 500;">
+                    <i class="oi me-2" data-icon="location_on"/> Picking from: <t t-out="this.state.activeSourceLocation.display_name"/>
+                </div>
+            </t>
+
+            <!-- Dark Banner (Fallback when Camera is Off) -->
+            <t t-if="!this.state.showCamera and (!this.state.picking or (this.state.picking.state !== 'done' and this.state.picking.state !== 'cancel'))">
+                <div class="o_barcode_text_light text-center py-2" style="background-color: #2C3E50; font-size: 0.85rem;">
+                    <t t-if="this.props.pickingId === 'inventory'">
+                        <i class="oi me-2" data-icon="login"/> Scan a location
+                    </t>
+                    <t t-elif="this.isNewMO">
+                        <i class="oi me-2" data-icon="sell"/> Scan a product
+                    </t>
+                    <t t-elif="this.isMO and this.state.byProductMode">
+                        <i class="oi me-2" data-icon="sell"/> Scan a by-product
+                    </t>
+                    <t t-elif="this.isMO">
+                        <i class="oi me-2" data-icon="sell"/> Scan a component
+                    </t>
+                    <t t-else="">
+                        <i class="oi me-2" data-icon="sell"/> Scan a product or location
+                    </t>
+                </div>
+            </t>
+
+            <!-- Done / Cancelled State Banner -->
+            <t t-if="this.state.picking and (this.state.picking.state === 'done' || this.state.picking.state === 'cancel')">
+                <div class="d-flex flex-column align-items-center justify-content-center o_barcode_text_light w-100" style="background-color: #2C3E50; padding: 3rem 1rem;">
+                    <i class="oi oi-3x mb-3" data-icon="warning"/>
+                    <h5 class="mb-0">
+                        <t t-if="this.state.picking.state === 'done'" t-out="this.props.batchId ? 'This batch is already done' : 'This picking is already done'"/>
+                        <t t-else="">This picking is cancelled</t>
+                    </h5>
+                </div>
+                <!-- Empty white space below -->
+                <div class="flex-grow-1 bg-view"></div>
+                
+                <!-- Return Button at the bottom -->
+                <t t-if="this.state.picking.state === 'done'">
+                    <div class="bg-view border-top p-2 d-flex">
+                        <button class="btn btn-light border flex-grow-1 fw-bold text-dark p-3" style="font-size: 0.85rem; background-color: var(--o-barcode-subtle-bg);" t-on-click="this.createReturn">
+                            Return Products
+                        </button>
+                    </div>
+                </t>
+            </t>
+
+            <!-- Main Content Area -->
+            <t t-if="!this.state.picking or (this.state.picking.state !== 'done' and this.state.picking.state !== 'cancel')">
+            <div class="flex-grow-1 overflow-auto" style="background-color: var(--o-barcode-muted-bg);">
+                <t t-if="this.state.lines.length === 0 and !this.isNewMO">
+                    <div class="p-4 text-center text-muted">No lines found. Scan a product to add one.</div>
+                </t>
+                <!-- Register By-Products mode (Odoo Online): only the by-products of the MO -->
+                <div t-if="this.isMO and this.state.byProductMode" class="o_barcode_byproducts_header text-dark p-2 fw-bold bg-view border-bottom" style="font-size: 0.85rem;">
+                    By-Products
+                    <div t-if="this.byproductLines.length === 0" class="fw-normal text-muted mt-1">Scan a product or use "Add By-Product" to register a by-product.</div>
+                </div>
+                <t t-if="this.isMO and !this.isNewMO and !this.state.byProductMode">
+                    <div class="text-dark p-2 fw-bold bg-view border-bottom" style="font-size: 0.85rem;">Producing</div>
+                    <t t-foreach="this.producingLines" t-as="line" t-key="line.id">
+                        <div class="border d-flex flex-column p-2 mb-2 shadow-sm" style="background-color: var(--o-barcode-purple-tint) !important; border-color: #a8729a !important; border-width: 2px !important;">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div class="d-flex flex-column">
+                                    <div class="fw-bold text-dark" style="font-size: 1.1rem;"><t t-out="this.getProductCode(line.product_id.display_name) || line.product_id.display_name"/></div>
+                                    <div class="text-muted mb-1" style="font-size: 0.9rem;" t-if="this.getProductCode(line.product_id.display_name)"><t t-out="this.getProductName(line.product_id.display_name)"/></div>
+                                </div>
+                                <div class="d-flex gap-2">
+                                    <button class="btn btn-light border bg-view p-1 d-flex align-items-center justify-content-center shadow-sm" style="width: 36px; height: 36px; border-radius: 4px;" t-on-click="() => this.editLine(line.id)">
+                                        <i class="oi text-dark" data-icon="edit"/>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-end mt-2">
+                                <div class="d-flex align-items-baseline">
+                                    <span class="fw-bold text-dark" style="font-size: 1.6rem;">
+                                        <t t-out="line.quantity"/> <t t-if="line.product_uom_qty"> / <t t-out="line.product_uom_qty"/></t>
+                                    </span>
+                                    <span class="ms-1 text-dark small" style="font-size: 0.8rem;"><t t-out="this.getLineUomName(line)"/></span>
+                                </div>
+                                <div class="d-flex gap-1">
+                                    <t t-set="remaining" t-value="line.product_uom_qty ? line.product_uom_qty - line.quantity : 1"/>
+                                    <t t-if="remaining > 0">
+                                        <button class="btn shadow-none fw-bold o_barcode_text_light border-0" style="background-color: #714B67; min-width: 40px; height: 32px; border-radius: 4px; font-size: 0.9rem;" t-on-click="() => this.addQuantity(line, remaining)">
+                                            +<t t-out="remaining"/>
+                                        </button>
+                                    </t>
+                                </div>
+                            </div>
+                            <!-- package of the finished product (Put in Pack), like Odoo Online -->
+                            <div t-if="line.result_package_id" class="mt-1">
+                                <span class="badge rounded-pill o_barcode_producing_package" style="background-color: #343a40; color: #FFF; font-size: 0.75rem; padding: 0.4em 0.8em;">
+                                    <t t-out="line.result_package_id.path || line.result_package_id.name || line.result_package_id[1] || line.result_package_id.display_name"/>
+                                </span>
+                            </div>
+                        </div>
+                    </t>
+                    <div class="o_barcode_text_light p-2 fw-bold mt-2" style="font-size: 0.85rem; background-color: #87929e;">
+                        <i class="oi me-1" data-icon="location_on"/> <t t-out="this.state.picking.location_id ? this.state.picking.location_id[1] : 'WH/Stock'"/>
+                    </div>
+                </t>
+
+                <t t-foreach="this.displayedLines" t-as="line" t-key="line.id">
+                    <div class="border d-flex flex-column p-2 mb-2 position-relative" style="background-color: var(--o-barcode-teal-tint) !important; border-color: #017e84 !important; border-width: 2px !important;">
+                        <!-- Batch: colour stripe of the transfer this line belongs to (Odoo Online style) -->
+                        <div t-if="this.pickingColor(line)" class="o_barcode_picking_stripe" t-att-style="'position: absolute; left: 0; top: 0; bottom: 0; width: 6px; background-color: ' + this.pickingColor(line) + ';'"/>
+                        <!-- Top Row -->
+                        <div class="d-flex justify-content-between align-items-start">
+                            <!-- Info -->
+                            <div class="d-flex flex-column">
+                                <div class="fw-bold text-dark" style="font-size: 1.1rem;"><t t-out="this.getProductCode(line.product_id.display_name) || line.product_id.display_name"/></div>
+                                <div class="text-dark mb-1" style="font-size: 0.9rem;" t-if="this.getProductCode(line.product_id.display_name)"><t t-out="this.getProductName(line.product_id.display_name)"/></div>
+                                <div class="text-muted small" style="font-style: italic;">
+                                    <i class="oi me-1" data-icon="location_on"/> <t t-out="line.location_id ? (line.location_id.display_name || line.location_id[1]) : (this.state.picking.location_id ? this.state.picking.location_id[1] : 'WH/Stock')"/>
+                                </div>
+                                <!-- destination: not for Count Inventory (nothing is moved) -->
+                                <div class="text-muted small" style="font-style: italic;" t-if="this.props.pickingId !== 'inventory'">
+                                    <i class="oi me-1" data-icon="login"/> <t t-out="line.location_dest_id ? (line.location_dest_id.display_name || line.location_dest_id[1]) : 'WH/Input'"/>
+                                </div>
+                                <div class="text-info small fw-bold mt-1" t-if="line.lot_id">
+                                    <i class="oi me-1" data-icon="barcode"/> 
+                                    <t t-if="Array.isArray(line.lot_id)"><t t-out="line.lot_id[1]"/></t>
+                                    <t t-else=""><t t-out="line.lot_id"/></t>
+                                </div>
+                                <div class="text-dark small fw-bold mt-1" t-if="line.package_id or line.result_package_id">
+                                    <i class="oi me-1" data-icon="package_2"/>
+                                    <t t-if="line.package_id">
+                                        <t t-out="line.package_id.path || line.package_id.name || line.package_id[1] || line.package_id.display_name"/>
+                                    </t>
+                                    <t t-if="line.package_id and line.result_package_id"> <i class="oi mx-1" data-icon="arrow_forward"/> </t>
+                                    <t t-elif="!line.package_id and line.result_package_id"> <i class="oi me-1" data-icon="arrow_forward"/> </t>
+                                    <t t-if="line.result_package_id">
+                                        <t t-out="line.result_package_id.path || line.result_package_id.name || line.result_package_id[1] || line.result_package_id.display_name"/>
+                                    </t>
+                                </div>
+                                <!-- Batch: Transfer Badge — shows which individual picking this line belongs to -->
+                                <div class="mt-1" t-if="line.picking_id and line.picking_id.name">
+                                    <span class="badge fw-bold" style="background-color: var(--o-barcode-info-tint); color: #017e84; border: 1px solid var(--o-barcode-info-border); font-size: 0.75rem; border-radius: 4px; padding: 2px 7px;">
+                                        <i class="oi me-1" data-icon="swap_horiz"/>
+                                        <t t-out="line.picking_id.name"/>
+                                    </span>
+                                </div>
+                            </div>
+                            <!-- Icons -->
+                            <div class="d-flex gap-2">
+                                <div class="border bg-view p-1 d-flex align-items-center justify-content-center shadow-sm" style="width: 36px; height: 36px; border-radius: 4px;">
+                                    <img t-attf-src="/web/image/product.product/{{line.product_id.id}}/image_128" style="max-width: 100%; max-height: 100%;" alt="Product"/>
+                                </div>
+                                <button class="btn btn-light border bg-view p-1 d-flex align-items-center justify-content-center shadow-sm" style="width: 36px; height: 36px; border-radius: 4px;" t-on-click="() => this.editLine(line.id)">
+                                    <i class="oi text-dark" data-icon="edit"/>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Bottom Row -->
+                        <div class="d-flex justify-content-between align-items-end mt-3">
+                            <!-- Quantity -->
+                            <div class="d-flex align-items-baseline">
+                                <span class="fw-bold text-dark" style="font-size: 1.6rem;">
+                                    <t t-if="this.props.pickingId === 'inventory'">
+                                        <t t-if="!line.inventory_quantity_set">?</t>
+                                        <t t-else=""><t t-out="line.quantity"/></t>
+                                    </t>
+                                    <t t-else="">
+                                        <t t-out="line.quantity"/> <t t-if="line.product_uom_qty"> / <t t-out="line.product_uom_qty"/></t>
+                                    </t>
+                                </span>
+                                <span class="ms-1 text-dark small" style="font-size: 0.8rem;"><t t-out="this.getLineUomName(line)"/></span>
+                            </div>
+                            <!-- Actions -->
+                            <div class="d-flex gap-1">
+                                <button class="btn btn-danger p-1 d-flex align-items-center justify-content-center shadow-none me-2" style="width: 32px; height: 32px; border-radius: 4px; background-color: #d9534f; border-color: #d43f3a;" t-on-click="() => this.removeLine(line.id)">
+                                    <i class="oi" data-icon="delete"/>
+                                </button>
+                                
+                                <t t-if="this.props.pickingId !== 'inventory'">
+                                    <button class="btn btn-light border bg-view p-1 d-flex align-items-center justify-content-center shadow-none fw-bold text-dark me-1" style="width: 32px; height: 32px; border-radius: 4px; font-size: 0.9rem;" t-on-click="() => this.addQuantity(line, -1)">
+                                        -1
+                                    </button>
+                                    <t t-set="remaining" t-value="line.product_uom_qty ? line.product_uom_qty - line.quantity : 1"/>
+                                    <t t-if="remaining > 0">
+                                        <button class="btn btn-light border bg-view p-1 d-flex align-items-center justify-content-center shadow-none fw-bold text-dark" style="min-width: 32px; height: 32px; border-radius: 4px; font-size: 0.9rem; padding-left: 6px; padding-right: 6px;" t-on-click="() => this.addQuantity(line, remaining)">
+                                            +<t t-out="remaining"/>
+                                        </button>
+                                    </t>
+                                    <!-- by-products can be over-produced (Odoo): +1 stays available -->
+                                    <t t-elif="line.is_byproduct">
+                                        <button class="btn btn-light border bg-view p-1 d-flex align-items-center justify-content-center shadow-none fw-bold text-dark o_barcode_byproduct_plus_one" style="min-width: 32px; height: 32px; border-radius: 4px; font-size: 0.9rem; padding-left: 6px; padding-right: 6px;" t-on-click="() => this.addQuantity(line, 1)">
+                                            +1
+                                        </button>
+                                    </t>
+                                </t>
+                                <t t-else="">
+                                    <button class="btn btn-light border bg-view p-1 d-flex align-items-center justify-content-center shadow-none fw-bold text-dark" style="min-width: 32px; height: 32px; border-radius: 4px; font-size: 0.9rem; padding-left: 6px; padding-right: 6px;" t-on-click="() => this.addQuantity(line, 1)">
+                                        +1
+                                    </button>
+                                </t>
+                            </div>
+                        </div>
+                    </div>
+                </t>
+            </div>
+
+            <!-- Bottom Bar -->
+            <div class="bg-view border-top p-2 d-flex gap-2">
+                <t t-if="this.props.pickingId === 'inventory'">
+                    <button class="btn btn-light border flex-grow-1 fw-bold text-dark p-3" style="font-size: 0.85rem; background-color: var(--o-barcode-subtle-bg);" t-on-click="this.toggleAddProduct">
+                        Add Product
+                    </button>
+                    <button class="btn btn-light border flex-grow-1 fw-bold text-dark p-3" style="font-size: 0.85rem; background-color: var(--o-barcode-subtle-bg);" t-on-click="this.validate">
+                        Confirm (<t t-out="this.state.lines.length"/>)
+                    </button>
+                </t>
+                <t t-else="">
+                    <t t-if="this.isMO and this.state.byProductMode">
+                    <button class="btn btn-light border flex-grow-1 fw-bold text-dark p-3 o_barcode_add_byproduct" style="font-size: 0.85rem; background-color: var(--o-barcode-subtle-bg);" t-on-click="this.toggleAddProduct">
+                        Add By-Product
+                    </button>
+                    <button class="btn btn-light border flex-grow-1 fw-bold text-dark p-3 o_barcode_byproducts_back" style="font-size: 0.85rem; background-color: var(--o-barcode-subtle-bg);" t-on-click="this.toggleByProductMode">
+                        Back
+                    </button>
+                    </t>
+                    <t t-else="">
+                    <button class="btn btn-light border flex-grow-1 fw-bold text-dark p-3 o_barcode_add_line" style="font-size: 0.85rem; background-color: var(--o-barcode-subtle-bg);" t-on-click="this.toggleAddProduct">
+                        <!-- Odoo Online: a new MO first asks for the product to produce, then for components -->
+                        <t t-if="this.isMO and !this.isNewMO">Add Component</t>
+                        <t t-else="">Add Product</t>
+                    </button>
+                    <button t-if="this.state.canPutInPack" class="btn btn-light border flex-grow-1 fw-bold text-dark p-3 o_barcode_put_in_pack" style="font-size: 0.85rem; background-color: var(--o-barcode-subtle-bg);" t-att-disabled="this.isNewMO" t-on-click="this.putInPack">
+                        Put In Pack
+                    </button>
+                    <button t-if="!this.state.picking or !this.state.picking.quality_check_todo" class="btn btn-light border flex-grow-1 fw-bold text-dark p-3" style="font-size: 0.85rem; background-color: var(--o-barcode-subtle-bg);" t-att-disabled="this.isNewMO" t-on-click="this.validate">
+                        <t t-if="this.isMO">Produce</t>
+                        <t t-else="">Validate</t>
+                    </button>
+                    <button t-if="this.state.picking and this.state.picking.quality_check_todo" class="btn btn-success flex-grow-1 fw-bold o_barcode_text_light p-3" style="font-size: 0.85rem;" t-on-click="this.openQualityChecks">
+                        QUALITY CHECKS
+                    </button>
+                    <!-- Manufacturing > Settings > By-Products enabled only (Odoo Online) -->
+                    <button t-if="this.showByProductButton" class="btn btn-light border flex-grow-1 fw-bold text-dark p-3 o_barcode_register_byproducts" style="font-size: 0.85rem; background-color: var(--o-barcode-subtle-bg);" t-on-click="this.toggleByProductMode">
+                        Register By-Products
+                    </button>
+                    </t>
+                </t>
+            </div>
+            
+            <!-- Lot Dialog -->
+            <t t-if="this.state.showLotDialog">
+                <LotDialog product="this.state.pendingLotProduct" onApply.bind="this.onApplyLot" onCancel.bind="this.onCancelLot" />
+            </t>
+
+            <!-- Backorder Modal -->
+            <t t-if="this.state.showBackorderModal">
+                <div class="position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center" style="background-color: rgba(0,0,0,0.5); z-index: 1050;">
+                    <div class="bg-view rounded shadow-lg" style="width: 90%; max-width: 600px; color: var(--o-barcode-text);">
+                        <!-- Header -->
+                        <div class="d-flex justify-content-between align-items-center p-3 border-bottom">
+                            <h5 class="mb-0 fw-bold">Incomplete Transfer</h5>
+                            <button class="btn border-0 text-dark shadow-none" t-on-click="this.closeBackorderModal">
+                                <i class="oi" data-icon="close"/>
+                            </button>
+                        </div>
+                        <!-- Body -->
+                        <div class="p-4" style="max-height: 60vh; overflow-y: auto;">
+                            <p class="text-muted">You have processed less products than the initial demand.</p>
+                            <p class="text-muted mb-4">Create a backorder if you expect to process the remaining products later. Do not create a backorder if you will not process the remaining products.</p>
+                            
+                            <table class="table table-borderless table-sm">
+                                <thead>
+                                    <tr class="border-bottom">
+                                        <th>Product</th>
+                                        <th class="text-center">Done / To Do</th>
+                                        <th class="text-end">Backorder</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <t t-foreach="this.state.lines.filter(l => l.quantity &lt; l.product_uom_qty)" t-as="line" t-key="line.id">
+                                        <tr>
+                                            <td class="align-middle"><t t-out="line.product_id.display_name"/></td>
+                                            <td class="text-center align-middle text-warning"><t t-out="line.quantity"/> / <t t-out="line.product_uom_qty"/> Units</td>
+                                            <td class="text-end align-middle"><t t-out="line.product_uom_qty - line.quantity"/> Units</td>
+                                        </tr>
+                                    </t>
+                                </tbody>
+                            </table>
+                        </div>
+                        <!-- Footer -->
+                        <div class="d-flex p-3 border-top gap-2 bg-light rounded-bottom">
+                            <button class="btn o_barcode_text_light fw-bold shadow-sm" style="background-color: #017e84;" t-on-click="this.createBackorder">Create Backorder</button>
+                            <button class="btn o_barcode_text_light fw-bold shadow-sm" style="background-color: #dc3545;" t-on-click="this.noBackorder">No Backorder</button>
+                            <button class="btn btn-light border fw-bold text-dark shadow-sm" t-on-click="this.closeBackorderModal">Discard</button>
+                        </div>
+                    </div>
+                </div>
+            </t>
+
+            <!-- Confirm Inventory Modal -->
+            <t t-if="this.state.showConfirmInventoryModal">
+                <div class="position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center" style="background-color: rgba(0,0,0,0.5); z-index: 1050;">
+                    <div class="bg-view rounded shadow-lg" style="width: 90%; max-width: 500px; color: var(--o-barcode-text);">
+                        <!-- Header -->
+                        <div class="d-flex justify-content-between align-items-center p-3 border-bottom">
+                            <h5 class="mb-0 fw-bold">Confirm Inventory Adjustment</h5>
+                            <button class="btn border-0 text-dark shadow-none" t-on-click="this.closeConfirmModal">
+                                <i class="oi" data-icon="close"/>
+                            </button>
+                        </div>
+                        <!-- Body -->
+                        <div class="p-4">
+                            <div class="mb-3">
+                                <label class="small mb-1 fw-bold text-muted">Inventory Reason</label>
+                                <input type="text" class="form-control shadow-none bg-transparent text-dark border-0 border-bottom border-secondary rounded-0 px-0" 
+                                    t-att-value="this.state.inventoryReason" t-on-input="(e) => this.state.inventoryReason = e.target.value" />
+                            </div>
+                        </div>
+                        <!-- Footer -->
+                        <div class="p-3 d-flex gap-2">
+                            <button class="btn o_barcode_text_light fw-bold shadow-none" style="background-color: #017e84;" t-on-click="() => this.applyInventory(true)">Apply Now</button>
+                            <button class="btn o_barcode_text_light fw-bold shadow-none" style="background-color: #017e84;" t-on-click="() => this.applyInventory(false)">Wait a Review</button>
+                            <button class="btn btn-secondary fw-bold shadow-none" t-on-click="this.closeConfirmModal">Discard</button>
+                        </div>
+                    </div>
+                </div>
+            </t>
+            
+            </t>
+            </t> <!-- END MAIN SCREEN -->
+
+            <!-- INFO SCREEN (Custom Enterprise-Style UI) -->
+            <t t-if="this.state.showInfo">
+                <!-- Header -->
+                <div class="d-flex justify-content-between align-items-center px-3 py-2 border-bottom shadow-sm" style="background-color: var(--o-barcode-view-bg); min-height: 56px; z-index: 10; flex-shrink: 0;">
+                    <div class="d-flex align-items-center">
+                        <button class="btn btn-light border-0 px-2 py-1 me-3 text-dark bg-view" t-on-click="this.toggleInfo" style="border: 1px solid var(--o-barcode-border) !important;">
+                            <i class="oi" data-icon="chevron_left"/>
+                        </button>
+                        <div class="d-flex flex-column">
+                            <div class="fw-bold text-dark" style="font-size: 0.95rem;">
+                                <t t-if="this.state.picking" t-out="this.state.picking.name"/>
+                                <t t-elif="this.props.pickingId === 'inventory'">Physical Inventory</t>
+                            </div>
+                            <div class="text-muted small d-flex align-items-center" style="font-size: 0.75rem;">
+                                <i class="oi me-1" data-icon="account_circle"/> 
+                                <t t-if="this.state.picking and this.state.picking.partner_id" t-out="this.state.picking.partner_id.display_name"/>
+                                <t t-else="">Contact</t>
+                            </div>
+                        </div>
+                    </div>
+                    <button class="btn border-0 text-dark bg-view fs-5" t-on-click="this.toggleInfo">
+                        <i class="oi" data-icon="close"/>
+                    </button>
+                </div>
+
+                <!-- Form Content (Includes Details and Real Chatter) -->
+                <div class="flex-grow-1 overflow-auto bg-view d-flex flex-column" style="font-size: 0.85rem;">
+                    <!-- Details Form (Custom) -->
+                    <div class="p-4 flex-shrink-0">
+                        <!-- Action Buttons -->
+                        <div class="row mb-4" t-if="this.state.picking and this.state.picking.show_allocation">
+                            <div class="col-12">
+                                <button class="btn o_barcode_text_light fw-bold d-flex align-items-center shadow-sm" style="background-color: #714B67; font-size: 0.85rem;" t-on-click="this.openAllocation">
+                                    <i class="oi me-2" data-icon="format_align_justify"/> Allocation
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="row mb-3 align-items-center">
+                            <div class="col-3 text-muted">Contact <i class="oi text-info ms-1" data-icon="help"/></div>
+                            <div class="col-9 text-dark"><t t-if="this.state.picking and this.state.picking.partner_id" t-out="this.state.picking.partner_id.display_name"/></div>
+                        </div>
+                        <div class="row mb-3 align-items-center">
+                            <div class="col-3 text-muted">Scheduled Date <i class="oi text-info ms-1" data-icon="help"/></div>
+                            <div class="col-9 text-dark">
+                                <t t-if="this.state.picking and this.state.picking.scheduled_date" t-out="this.formatDate(this.state.picking.scheduled_date)"/>
+                            </div>
+                        </div>
+                        <div class="row mb-3 align-items-center">
+                            <div class="col-3 text-muted">Source Document <i class="oi text-info ms-1" data-icon="help"/></div>
+                            <div class="col-9 text-dark">
+                                <t t-if="this.state.picking and this.state.picking.origin" t-out="this.state.picking.origin"/>
+                            </div>
+                        </div>
+                        <div class="row mb-3 align-items-center">
+                            <div class="col-3 text-muted">Status <i class="oi text-info ms-1" data-icon="help"/></div>
+                            <div class="col-9 text-dark">
+                                <t t-if="this.state.picking" t-out="this.formatStatus(this.state.picking.state)"/>
+                            </div>
+                        </div>
+                        <div class="row mb-3 align-items-center">
+                            <div class="col-3 text-muted">Priority <i class="oi text-info ms-1" data-icon="help"/></div>
+                            <div class="col-9 text-dark">
+                                <t t-if="this.state.picking and this.state.picking.priority" t-out="this.formatPriority(this.state.picking.priority)"/>
+                            </div>
+                        </div>
+                        <div class="row mb-4 align-items-center border-bottom pb-2">
+                            <div class="col-3 text-muted">Source Location <i class="oi text-info ms-1" data-icon="help"/></div>
+                            <div class="col-9 d-flex justify-content-between text-dark">
+                                <span><t t-if="this.state.picking and this.state.picking.location_id" t-out="this.state.picking.location_id.display_name"/></span>
+                                <i class="oi text-muted" data-icon="arrow_forward"/>
+                            </div>
+                        </div>
+                        <div class="row mb-4 align-items-center">
+                            <div class="col-3 text-muted">Company <i class="oi text-info ms-1" data-icon="help"/></div>
+                            <div class="col-9" style="color: #017e84;">
+                                <t t-if="this.state.picking and this.state.picking.company_id" t-out="this.state.picking.company_id.name"/>
+                            </div>
+                        </div>
+                        
+                        <!-- Stock Moves -->
+                        <div class="row mb-2">
+                            <div class="col-3 text-muted">Stock Moves <i class="oi text-info ms-1" data-icon="help"/></div>
+                            <div class="col-9">
+                                <!-- Moves List -->
+                                <t t-if="this.state.lines and this.state.lines.length > 0">
+                                    <div class="border rounded p-0" style="background-color: var(--o-barcode-subtle-bg);">
+                                        <t t-foreach="this.state.lines" t-as="line" t-key="line.id">
+                                            <div class="d-flex justify-content-between p-2 border-bottom border-light cursor-pointer" t-on-click="() => this.openMoveRecord(line)">
+                                                <div class="d-flex flex-column">
+                                                    <span class="fw-bold text-dark"><t t-out="line.product_id.display_name"/></span>
+                                                    <span class="text-muted small" t-if="line.lot_id or line.package_id">
+                                                        <t t-if="line.lot_id">
+                                                            <t t-if="Array.isArray(line.lot_id)"><t t-out="line.lot_id[1]"/></t>
+                                                            <t t-else=""><t t-out="line.lot_id"/></t>
+                                                        </t>
+                                                        <t t-if="line.lot_id and line.package_id"> | </t>
+                                                        <t t-if="line.package_id">
+                                                            <i class="oi me-1" data-icon="package_2"/>
+                                                            <t t-out="line.package_id.path || line.package_id.name || line.package_id[1] || line.package_id.display_name"/>
+                                                        </t>
+                                                        <t t-if="line.package_id and line.result_package_id"> <i class="oi mx-1" data-icon="arrow_forward"/> </t>
+                                                        <t t-elif="!line.package_id and line.result_package_id"> <i class="oi me-1" data-icon="package_2"/><i class="oi me-1" data-icon="arrow_forward"/> </t>
+                                                        <t t-if="line.result_package_id">
+                                                            <t t-out="line.result_package_id.path || line.result_package_id.name || line.result_package_id[1] || line.result_package_id.display_name"/>
+                                                        </t>
+                                                    </span>
+                                                </div>
+                                                <div class="d-flex flex-column text-end">
+                                                    <span class="fw-bold"><t t-out="line.product_uom_qty ? line.product_uom_qty.toFixed(2) : line.quantity.toFixed(2)"/></span>
+                                                    <span class="text-dark small mt-auto">Available</span>
+                                                </div>
+                                            </div>
+                                        </t>
+                                    </div>
+                                </t>
+                                <t t-else="">
+                                    <div class="text-muted fst-italic p-2 border rounded">No moves found.</div>
+                                </t>
+                            </div>
+                        </div>
+                    </div>
+                
+                    <!-- Real Odoo Chatter (Using View component but hiding form fields via CSS) -->
+                    <style>
+                        .chatter-only-view .o_form_sheet_bg { display: none !important; }
+                        .chatter-only-view .o_form_statusbar { display: none !important; }
+                        .chatter-only-view .o_form_view_container { padding: 0 !important; }
+                    </style>
+                    <div class="chatter-only-view flex-grow-1">
+                        <t t-if="this.state.picking">
+                            <View type="'form'" resModel="'stock.picking'" resId="this.state.picking.id" display="{ controlPanel: false }" />
+                        </t>
+                    </div>
+                </div>
+
+                <!-- Footer Buttons -->
+                <div class="d-flex justify-content-between p-2 border-top bg-view gap-2 shadow-lg" style="z-index: 10; flex-shrink: 0;">
+                    <button class="btn btn-light flex-grow-1 fw-bold text-dark py-3 shadow-none" style="background-color: var(--o-barcode-muted-bg); border: 1px solid var(--o-barcode-border);" t-on-click="this.toggleInfo">
+                        Discard
+                    </button>
+                    <button class="btn flex-grow-1 fw-bold o_barcode_text_light py-3 shadow-none" style="background-color: #714B67;" t-on-click="this.toggleInfo">
+                        Confirm
+                    </button>
+                </div>
+            </t> <!-- END INFO SCREEN -->
+
+            <!-- SETTINGS SCREEN -->
+            <t t-if="this.state.showSettings">
+                <!-- Top Bar (Settings) -->
+                <div class="d-flex justify-content-between align-items-center px-3 py-2 border-bottom" style="background-color: var(--o-barcode-view-bg); min-height: 56px;">
+                    <div class="d-flex align-items-center">
+                        <button class="btn btn-light border-0 px-2 py-1 me-3 text-dark bg-view shadow-sm" t-on-click="this.toggleSettings" style="border: 1px solid var(--o-barcode-border) !important;">
+                            <i class="oi" data-icon="chevron_left"/>
+                        </button>
+                        <div class="d-flex flex-column">
+                            <div class="fw-bold text-dark" style="font-size: 0.95rem;">
+                                <t t-if="this.state.picking" t-out="this.state.picking.name"/>
+                                <t t-elif="this.props.pickingId === 'inventory'">Physical Inventory</t>
+                                <t t-else="">Loading...</t>
+                            </div>
+                            <div class="text-muted small d-flex align-items-center" style="font-size: 0.75rem;">
+                                <t t-if="this.props.pickingId !== 'inventory'">
+                                    <i class="oi me-1" data-icon="account_circle"/> 
+                                    <t t-if="this.state.picking and this.state.picking.partner_id" t-out="this.state.picking.partner_id[1]"/>
+                                    <t t-else="">Contact</t>
+                                </t>
+                            </div>
+                        </div>
+                    </div>
+                    <button class="btn btn-light border-0 px-2 text-dark bg-view" t-on-click="this.toggleSettings">
+                        <i class="oi fs-5" data-icon="close"/>
+                    </button>
+                </div>
+
+                <!-- Settings Content Area -->
+                <div class="flex-grow-1 overflow-auto bg-view p-2">
+                    <t t-if="this.props.pickingId === 'inventory'">
+                        <!-- Manual Barcode Input -->
+                        <div class="d-flex mb-3 mt-1">
+                            <input type="text" class="form-control rounded-0 rounded-start border-end-0 shadow-none" style="border-color: #017e84;" placeholder="Enter a barcode..." t-att-value="this.state.manualBarcode" t-on-input="(e) => this.state.manualBarcode = e.target.value" t-on-keydown="this.applyManualBarcodeEvent"/>
+                            <button class="btn border rounded-0 rounded-end px-4 text-dark shadow-none" style="background-color: var(--o-barcode-view-bg); border-color: #017e84 !important;" t-on-click="this.applyManualBarcode">Apply</button>
+                        </div>
+                        
+                        <!-- Count Entire Locations Checkbox -->
+                        <div class="mb-4">
+                            <button class="btn text-dark w-100 border py-2 d-flex align-items-center justify-content-center shadow-none" style="background-color: var(--o-barcode-muted-bg); font-size: 0.9rem;" t-on-click="this.toggleCountEntire">
+                                <input type="checkbox" class="form-check-input mt-0 me-2 shadow-none" t-att-checked="this.state.countEntire" style="pointer-events: none;"/> Count Entire Locations
+                            </button>
+                        </div>
+
+                        <!-- Print Section -->
+                        <div class="position-relative text-center my-3">
+                            <hr class="text-muted m-0" style="opacity: 0.2;"/>
+                            <span class="bg-view px-2 text-muted small position-absolute top-50 start-50 translate-middle">
+                                <i class="oi me-1" data-icon="print"/> Print
+                            </span>
+                        </div>
+                        
+                        <div class="d-flex flex-column gap-2 mb-4">
+                            <button class="btn text-dark border py-2 shadow-none" style="background-color: var(--o-barcode-muted-bg); font-size: 0.9rem;">Print Inventory</button>
+                        </div>
+                    </t>
+                    <t t-else="">
+                        <!-- Manual Barcode Input -->
+                        <div class="d-flex mb-3 mt-1">
+                            <input type="text" class="form-control rounded-0 rounded-start border-end-0" placeholder="Enter a barcode..." t-att-value="this.state.manualBarcode" t-on-input="(e) => this.state.manualBarcode = e.target.value" t-on-keydown="this.applyManualBarcodeEvent"/>
+                            <button class="btn btn-light border rounded-0 rounded-end px-4 text-dark" style="background-color: var(--o-barcode-subtle-bg);" t-on-click="this.applyManualBarcode">Apply</button>
+                        </div>
+
+                        <!-- Print Section -->
+                        <div class="position-relative text-center my-3">
+                            <hr class="text-muted m-0" style="opacity: 0.2;"/>
+                            <span class="bg-view px-2 text-muted small position-absolute top-50 start-50 translate-middle">
+                                <i class="oi me-1" data-icon="print"/> Print
+                            </span>
+                        </div>
+                        
+                        <div class="d-flex flex-column gap-2 mb-4">
+                            <button class="btn text-dark fw-bold border py-2" style="background-color: var(--o-barcode-muted-bg);" t-on-click="() => this.printReport('stock.action_report_picking')">Print Picking Operations</button>
+                            <button class="btn text-dark fw-bold border py-2" style="background-color: var(--o-barcode-muted-bg);" t-on-click="() => this.printReport('stock.action_report_delivery')">Print Delivery Slip</button>
+                            <button class="btn text-dark fw-bold border py-2" style="background-color: var(--o-barcode-muted-bg);" t-on-click="this.printBarcodes">Print Barcodes</button>
+                        </div>
+
+                        <!-- Operations Section -->
+                        <div class="position-relative text-center my-3 mt-4">
+                            <hr class="text-muted m-0" style="opacity: 0.2;"/>
+                            <span class="bg-view px-2 text-muted small position-absolute top-50 start-50 translate-middle">
+                                Operations
+                            </span>
+                        </div>
+                        
+                        <div class="d-flex flex-column gap-2">
+                            <button class="btn o_barcode_text_light fw-bold py-2" style="background-color: #d9534f; border-color: #d43f3a;" t-on-click="this.openQualityChecksBackend">Quality Check</button>
+                            <button class="btn o_barcode_text_light fw-bold py-2" style="background-color: #d9534f; border-color: #d43f3a;">Scrap</button>
+                            <button class="btn o_barcode_text_light fw-bold py-2" style="background-color: #d9534f; border-color: #d43f3a;">
+                                <i class="oi me-1" data-icon="lock"/> Cancel Transfer
+                            </button>
+                        </div>
+                    </t>
+                </div>
+            </t> <!-- END SETTINGS SCREEN -->
+
+            <!-- ADD PRODUCT SCREEN -->
+            <t t-if="this.state.showAddProduct">
+                <!-- Top Bar (Add Product) -->
+                <div class="d-flex justify-content-between align-items-center px-3 py-2 border-bottom" style="background-color: var(--o-barcode-view-bg); min-height: 56px;">
+                    <div class="d-flex align-items-center">
+                        <button class="btn btn-light px-2 py-1 me-3 text-dark bg-view" t-on-click="this.toggleAddProduct" style="border: 1px solid var(--o-barcode-border) !important; border-radius: 4px;">
+                            <i class="oi" data-icon="chevron_left"/>
+                        </button>
+                        <div class="d-flex flex-column">
+                            <div class="fw-bold text-dark" style="font-size: 1rem;">
+                                <t t-if="this.state.picking" t-out="this.state.picking.name"/>
+                                <t t-elif="this.props.pickingId === 'inventory'">Physical Inventory</t>
+                                <t t-else="">Loading...</t>
+                            </div>
+                            <div class="text-muted small d-flex align-items-center" style="font-size: 0.75rem;">
+                                <t t-if="this.props.pickingId !== 'inventory'">
+                                    <i class="oi me-1" data-icon="account_circle"/> 
+                                    <t t-if="this.state.picking and this.state.picking.partner_id" t-out="this.state.picking.partner_id[1]"/>
+                                    <t t-else="">Contact</t>
+                                </t>
+                            </div>
+                        </div>
+                    </div>
+                    <button class="btn btn-light border-0 px-2 text-dark bg-view" t-on-click="this.toggleAddProduct">
+                        <i class="oi fs-5" data-icon="close"/>
+                    </button>
+                </div>
+
+                <!-- Add Product Content Area -->
+                <div class="flex-grow-1 overflow-auto bg-view p-3">
+                    
+                    <!-- Selected Product Header -->
+                    <div t-if="this.state.addProductSelected" class="d-flex justify-content-between mb-4">
+                        <div class="d-flex flex-column mt-1">
+                            <div class="text-muted small mb-1"><i class="oi me-1" data-icon="label"/> <t t-out="this.state.addProductSelected.default_code || ''"/></div>
+                            <div class="fw-bold fs-4 cursor-pointer text-decoration-underline-hover" style="color: #017e84;" t-on-click="this.openProductPage"><t t-out="this.state.addProductSelected.display_name"/></div>
+                            <div class="text-muted small mt-1">[<t t-out="this.state.addProductSelected.barcode || 'No Barcode'"/>]</div>
+                        </div>
+                        <img t-attf-src="/web/image/product.product/{{this.state.addProductSelected.id}}/image_256" class="border rounded bg-view p-1 shadow-sm" style="width: 80px; height: 80px; object-fit: contain; border-color: var(--o-barcode-border);" alt="Product Image"/>
+                    </div>
+
+                    <!-- Product Input (Only if not selected) -->
+                    <div t-if="!this.state.addProductSelected" class="mb-4 position-relative d-flex align-items-center" t-on-mouseleave="this.closeDropdowns">
+                        <div class="flex-grow-1 position-relative">
+                            <input type="text" 
+                                t-attf-class="form-control shadow-none {{ this.state.addProductSearchResults.length > 0 ? 'border border-bottom-0' : 'border' }}" 
+                                t-att-placeholder="this.isInventoryForm ? 'Product' : 'Search Product...'"
+                                t-att-value="this.state.addProductSearchStr" 
+                                t-on-input="this.onProductSearchInput"
+                                t-on-focus="this.onProductFocus"
+                                style="border-color: var(--o-barcode-border); font-size: 0.95rem; border-bottom-left-radius: 0; border-bottom-right-radius: 0;"/>
+                                
+                            <!-- Dropdown Results -->
+                            <div t-if="this.state.addProductSearchResults.length > 0" class="position-absolute w-100 bg-view border border-top-0" style="max-height: 250px; overflow-y: auto; z-index: 1000; top: 100%; border-color: var(--o-barcode-border); border-bottom-left-radius: 0.375rem; border-bottom-right-radius: 0.375rem;">
+                                <t t-foreach="this.state.addProductSearchResults" t-as="product" t-key="product.id">
+                                    <div class="px-2 py-1 cursor-pointer text-dark" style="font-size: 0.9rem;" t-on-click="() => this.selectProduct(product)" onmouseover="this.classList.add('bg-light')" onmouseout="this.classList.remove('bg-light')">
+                                        <span class="text-dark"><t t-out="product.display_name"/></span>
+                                    </div>
+                                </t>
+                                <div class="px-2 py-1 cursor-pointer" style="font-size: 0.9rem; color: #017e84;" t-on-click="() => this.openSearchMore('product')">Search more...</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Quantity Inputs -->
+                    <style>
+                        .no-spin-button::-webkit-inner-spin-button, 
+                        .no-spin-button::-webkit-outer-spin-button { 
+                            -webkit-appearance: none; 
+                            margin: 0; 
+                        }
+                        .no-spin-button {
+                            -moz-appearance: textfield;
+                        }
+                    </style>
+                    <div class="d-flex align-items-center mb-3 gap-3">
+                        <input type="number" 
+                            t-attf-class="form-control text-end shadow-none no-spin-button {{ this.isInventoryForm ? 'o_barcode_inventory_qty' : 'fs-3 py-2' }}" 
+                            t-att-value="this.state.addProductQty" 
+                            t-on-input="this.onAddProductQtyInput" 
+                            style="border-color: var(--o-barcode-border); flex: 3; border-radius: 4px;"/>
+                        
+                        <div class="position-relative" style="flex: 1;" t-if="this.addFormFields.uom" t-on-mouseleave="this.closeDropdowns">
+                            <input type="text" class="form-control text-start shadow-none text-dark px-3 py-2 fs-4 o_barcode_uom_input"
+                                style="border-color: var(--o-barcode-border); background-color: var(--o-barcode-view-bg); border-radius: 4px;"
+                                placeholder="Units"
+                                t-att-value="this.state.addProductUomSearchStr"
+                                t-on-input="this.onUomSearchInput"
+                                t-on-focus="this.onUomFocus"/>
+                            <!-- Dropdown Results -->
+                            <div t-if="this.state.showUomDropdown and this.state.addProductUomSearchResults.length > 0" class="position-absolute w-100 bg-view border o_barcode_uom_dropdown" style="max-height: 200px; overflow-y: auto; z-index: 1000; top: 100%; border-color: var(--o-barcode-border); border-radius: 4px;">
+                                <t t-foreach="this.state.addProductUomSearchResults" t-as="uom" t-key="uom.id">
+                                    <div class="px-2 py-1 cursor-pointer text-dark" style="font-size: 0.9rem;" t-on-click="() => this.selectUom(uom)" onmouseover="this.classList.add('bg-light')" onmouseout="this.classList.remove('bg-light')">
+                                        <span class="text-dark"><t t-out="uom.name"/></span>
+                                    </div>
+                                </t>
+                                <div class="px-2 py-1 cursor-pointer" style="font-size: 0.9rem; color: #017e84;" t-on-click="() => this.openSearchMore('uom')">Search more...</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Quantity Buttons -->
+                    <div t-if="this.isInventoryForm" class="d-flex mb-4 gap-2 o_barcode_inventory_qty_buttons">
+                        <button class="btn flex-fill fw-bold shadow-none" t-on-click="() => this.setAddProductQty(0)">0</button>
+                        <button class="btn flex-fill fw-bold shadow-none" t-on-click="() => this.setAddProductQty(-1)">-1</button>
+                        <button class="btn flex-fill fw-bold shadow-none" t-on-click="() => this.setAddProductQty(1)">+1</button>
+                    </div>
+                    <div t-else="" class="d-flex mb-4 gap-1">
+                        <button class="btn btn-light flex-grow-1 fw-bold shadow-none" style="background-color: var(--o-barcode-muted-bg); border-color: var(--o-barcode-border); color: var(--o-barcode-text-muted);" t-on-click="() => this.setAddProductQty(0)">0</button>
+                        <button class="btn btn-light flex-grow-1 fw-bold shadow-none" style="background-color: var(--o-barcode-muted-bg); border-color: var(--o-barcode-border); color: var(--o-barcode-text-muted);" t-on-click="() => this.setAddProductQty(-1)">-1</button>
+                        <button t-if="this.dynamicAddButtonValue > 1" class="btn btn-light flex-grow-1 fw-bold shadow-none" style="background-color: var(--o-barcode-muted-bg); border-color: var(--o-barcode-border); color: var(--o-barcode-text-muted);" t-on-click="() => this.setAddProductQty(1)">+1</button>
+                        <button class="btn flex-grow-1 fw-bold shadow-none" t-attf-style="background-color: {{ this.dynamicAddButtonValue >= 1 ? '#28a745' : 'var(--o-barcode-muted-bg)' }}; border-color: {{ this.dynamicAddButtonValue >= 1 ? '#28a745' : '#dee2e6' }}; color: {{ this.dynamicAddButtonValue >= 1 ? 'white' : 'var(--o-barcode-text-muted)' }};" t-on-click="() => this.setAddProductQty(this.dynamicAddButtonValue)">
+                            +<t t-out="this.dynamicAddButtonValue"/>
+                        </button>
+                    </div>
+
+                    <!-- Lot / Serial Number Input -->
+                    <div class="mb-3 position-relative" t-if="this.state.addProductSelected and (this.state.addProductSelected.tracking === 'serial' || this.state.addProductSelected.tracking === 'lot')">
+                        <label class="text-muted small mb-1 fw-bold">
+                            <i class="oi me-1" data-icon="barcode"/> 
+                            <t t-if="this.state.addProductSelected.tracking === 'serial'">Serial Number</t>
+                            <t t-else="">Lot Number</t>
+                        </label>
+                        <input type="text" class="form-control shadow-none border" style="border-color: var(--o-barcode-border); font-size: 0.95rem;" 
+                            placeholder="Serial/Lot Number" 
+                            t-att-value="this.state.addProductLotName" 
+                            t-on-input="(e) => this.state.addProductLotName = e.target.value"/>
+                    </div>
+
+                    <!-- New MO: where the produced goods go (read-only, from the operation type), like Odoo Online -->
+                    <div t-if="this.isNewMO and this.state.picking and this.state.picking.location_dest_id" class="mb-3 o_barcode_new_mo_dest">
+                        <label class="text-muted small mb-1 fw-bold"><i class="oi me-1" data-icon="location_on"/> Destination Location <span class="text-info ms-1 cursor-pointer" title="The location where the produced goods will be stored (from the operation type).">?</span></label>
+                        <div class="text-dark" style="font-size: 1rem;" t-out="this.state.picking.location_dest_id[1]"/>
+                    </div>
+
+                    <!-- Destination Location -->
+                    <div class="mb-3 position-relative" t-if="this.addFormFields.destLocation" t-on-mouseleave="this.closeDropdowns">
+                        <label class="text-muted small mb-1 fw-bold"><i class="oi me-1" data-icon="location_on"/> Destination Location <span class="text-info ms-1 cursor-pointer" title="The location where the product is being moved to.">?</span></label>
+                        <input type="text" 
+                            t-attf-class="form-control shadow-none {{ this.state.addProductDestLocSearchResults.length > 0 ? 'border border-bottom-0' : 'border' }}" 
+                            style="border-color: var(--o-barcode-border); font-size: 0.95rem; border-bottom-left-radius: 0; border-bottom-right-radius: 0;"
+                            t-att-value="this.state.addProductDestLocSearchStr" 
+                            t-on-input="this.onDestLocSearchInput"
+                            t-on-focus="this.onDestLocFocus"/>
+                            
+                        <!-- Dropdown Results -->
+                        <div t-if="this.state.addProductDestLocSearchResults.length > 0" class="position-absolute w-100 bg-view border border-top-0" style="max-height: 200px; overflow-y: auto; z-index: 1000; top: 100%; border-color: var(--o-barcode-border); border-bottom-left-radius: 0.375rem; border-bottom-right-radius: 0.375rem;">
+                            <t t-foreach="this.state.addProductDestLocSearchResults" t-as="loc" t-key="loc.id">
+                                <div class="px-2 py-1 cursor-pointer text-dark" style="font-size: 0.9rem;" t-on-click="() => this.selectDestLoc(loc)" onmouseover="this.classList.add('bg-light')" onmouseout="this.classList.remove('bg-light')">
+                                    <span class="text-dark"><t t-out="loc.display_name"/></span>
+                                </div>
+                            </t>
+                            <div class="px-2 py-1 cursor-pointer" style="font-size: 0.9rem; color: #017e84;" t-on-click="() => this.openSearchMore('dest_loc')">Search more...</div>
+                        </div>
+                    </div>
+
+                    <!-- Source Package -->
+                    <div class="mb-3 position-relative" t-if="this.addFormFields.sourcePackage" t-on-mouseleave="this.closeDropdowns">
+                        <label class="text-muted small mb-1 fw-bold"><i class="oi me-1" data-icon="archive"/> <t t-if="this.isInventoryForm">Package</t><t t-else="">Source Package</t> <span class="text-info ms-1 cursor-pointer" title="The package from which the product is being moved.">?</span></label>
+                        <input type="text" 
+                            t-attf-class="form-control shadow-none {{ this.state.showSourcePackageDropdown ? 'border border-bottom-0' : 'border' }}" 
+                            style="border-color: var(--o-barcode-border); font-size: 0.95rem; border-bottom-left-radius: 0; border-bottom-right-radius: 0;"
+                            placeholder="Source Package"
+                            t-att-value="this.state.addProductSourcePackageSearchStr" 
+                            t-on-input="this.onSourcePackageSearchInput"
+                            t-on-focus="this.onSourcePackageFocus"/>
+                        
+                        <!-- Dropdown Results -->
+                        <div t-if="this.state.showSourcePackageDropdown" class="position-absolute w-100 bg-view border border-top-0" style="max-height: 200px; overflow-y: auto; z-index: 1000; top: 100%; border-color: var(--o-barcode-border); border-bottom-left-radius: 0.375rem; border-bottom-right-radius: 0.375rem;">
+                            <t t-foreach="this.state.addProductSourcePackageSearchResults" t-as="pkg" t-key="pkg.id">
+                                <div class="px-2 py-1 cursor-pointer text-dark" style="font-size: 0.9rem;" t-on-click="() => this.selectSourcePackage(pkg)" onmouseover="this.classList.add('bg-light')" onmouseout="this.classList.remove('bg-light')">
+                                    <span class="text-dark"><t t-out="pkg.name"/></span>
+                                </div>
+                            </t>
+                            
+                            <div t-if="this.state.addProductSourcePackageSearchStr and !this.state.addProductSourcePackageSearchResults.find(p => p.name === this.state.addProductSourcePackageSearchStr)" 
+                                 class="px-2 py-1 cursor-pointer fw-bold" style="font-size: 0.9rem; color: #017e84;" 
+                                 t-on-click="() => this.selectSourcePackage({id: false, name: this.state.addProductSourcePackageSearchStr})"
+                                 onmouseover="this.classList.add('bg-light')" onmouseout="this.classList.remove('bg-light')">
+                                Create "<t t-out="this.state.addProductSourcePackageSearchStr"/>"
+                            </div>
+                            
+                            <div class="px-2 py-1 cursor-pointer" style="font-size: 0.9rem; color: #017e84;" t-on-click="() => this.openSearchMore('source_package')">Search more...</div>
+                        </div>
+                    </div>
+
+                    <!-- Owner (Inventory > Settings > Consignment), like Odoo Online -->
+                    <div class="mb-3 position-relative o_barcode_owner_field" t-if="this.addFormFields.owner" t-on-mouseleave="this.closeDropdowns">
+                        <label class="text-muted small mb-1 fw-bold"><i class="oi me-1" data-icon="person"/> Owner <span class="text-info ms-1 cursor-pointer" title="When set, the component is consumed from stock owned by this partner (consignment).">?</span></label>
+                        <input type="text"
+                            t-attf-class="form-control shadow-none {{ this.state.showOwnerDropdown ? 'border border-bottom-0' : 'border' }}"
+                            style="border-color: var(--o-barcode-border); font-size: 0.95rem;"
+                            placeholder="Owner"
+                            t-att-value="this.state.addProductOwnerSearchStr"
+                            t-on-input="this.onOwnerSearchInput"
+                            t-on-focus="this.onOwnerFocus"/>
+                        <div t-if="this.state.showOwnerDropdown" class="position-absolute w-100 bg-view border border-top-0" style="max-height: 260px; overflow-y: auto; z-index: 1000; top: 100%; border-color: var(--o-barcode-border); border-bottom-left-radius: 0.375rem; border-bottom-right-radius: 0.375rem;">
+                            <t t-foreach="this.state.addProductOwnerSearchResults" t-as="partner" t-key="partner.id">
+                                <div class="px-2 py-1 cursor-pointer text-dark" style="font-size: 0.9rem;" t-on-click="() => this.selectOwner(partner)" onmouseover="this.classList.add('bg-light')" onmouseout="this.classList.remove('bg-light')">
+                                    <span class="text-dark"><t t-out="partner.display_name"/></span>
+                                </div>
+                            </t>
+                            <div class="px-2 py-1 cursor-pointer" style="font-size: 0.9rem; color: #017e84;" t-on-click="() => this.openSearchMore('owner')">Search more...</div>
+                        </div>
+                    </div>
+
+                    <!-- Destination Package -->
+                    <div class="mb-3 position-relative" t-if="this.addFormFields.destPackages" t-on-mouseleave="this.closeDropdowns">
+                        <label class="text-muted small mb-1 fw-bold"><i class="oi me-1" data-icon="archive"/> Destination Package <span class="text-info ms-1 cursor-pointer" title="The package in which the product will be placed.">?</span></label>
+                        <input type="text" 
+                            t-attf-class="form-control shadow-none {{ this.state.showDestPackageDropdown ? 'border border-bottom-0' : 'border' }}" 
+                            style="border-color: var(--o-barcode-border); font-size: 0.95rem; border-bottom-left-radius: 0; border-bottom-right-radius: 0;"
+                            placeholder="Destination Package"
+                            t-att-value="this.state.addProductDestPackageSearchStr" 
+                            t-on-input="this.onDestPackageSearchInput"
+                            t-on-focus="this.onDestPackageFocus"/>
+                        
+                        <!-- Dropdown Results -->
+                        <div t-if="this.state.showDestPackageDropdown" class="position-absolute w-100 bg-view border border-top-0" style="max-height: 200px; overflow-y: auto; z-index: 1000; top: 100%; border-color: var(--o-barcode-border); border-bottom-left-radius: 0.375rem; border-bottom-right-radius: 0.375rem;">
+                            <t t-foreach="this.state.addProductDestPackageSearchResults" t-as="pkg" t-key="pkg.id">
+                                <div class="px-2 py-1 cursor-pointer text-dark" style="font-size: 0.9rem;" t-on-click="() => this.selectDestPackage(pkg)" onmouseover="this.classList.add('bg-light')" onmouseout="this.classList.remove('bg-light')">
+                                    <span class="text-dark"><t t-out="pkg.name"/></span>
+                                </div>
+                            </t>
+                            
+                            <div t-if="this.state.addProductDestPackageSearchStr and !this.state.addProductDestPackageSearchResults.find(p => p.name === this.state.addProductDestPackageSearchStr)" 
+                                 class="px-2 py-1 cursor-pointer fw-bold" style="font-size: 0.9rem; color: #017e84;" 
+                                 t-on-click="() => this.selectDestPackage({id: false, name: this.state.addProductDestPackageSearchStr})"
+                                 onmouseover="this.classList.add('bg-light')" onmouseout="this.classList.remove('bg-light')">
+                                Create "<t t-out="this.state.addProductDestPackageSearchStr"/>"
+                            </div>
+                            
+                            <div class="px-2 py-1 cursor-pointer" style="font-size: 0.9rem; color: #017e84;" t-on-click="() => this.openSearchMore('dest_package')">Search more...</div>
+                        </div>
+                    </div>
+
+                    <!-- Destination Container Package -->
+                    <div class="mb-3 position-relative" t-if="this.addFormFields.destPackages" t-on-mouseleave="this.closeDropdowns">
+                        <label class="text-muted small mb-1 fw-bold"><i class="oi me-1" data-icon="stacks"/> Destination Container Package <span class="text-info ms-1 cursor-pointer" title="The parent container or package associated with the destination package, such as a pallet.">?</span></label>
+                        <input type="text" 
+                            t-attf-class="form-control shadow-none {{ this.state.showDestContainerDropdown ? 'border border-bottom-0' : 'border' }}" 
+                            style="border-color: var(--o-barcode-border); font-size: 0.95rem; border-bottom-left-radius: 0; border-bottom-right-radius: 0;"
+                            placeholder="Destination Container Package"
+                            t-att-value="this.state.addProductDestContainerPackageSearchStr" 
+                            t-on-input="this.onDestContainerSearchInput"
+                            t-on-focus="this.onDestContainerFocus"/>
+                        
+                        <!-- Dropdown Results -->
+                        <div t-if="this.state.showDestContainerDropdown" class="position-absolute w-100 bg-view border border-top-0" style="max-height: 200px; overflow-y: auto; z-index: 1000; top: 100%; border-color: var(--o-barcode-border); border-bottom-left-radius: 0.375rem; border-bottom-right-radius: 0.375rem;">
+                            <t t-foreach="this.state.addProductDestContainerPackageSearchResults" t-as="pkg" t-key="pkg.id">
+                                <div class="px-2 py-1 cursor-pointer text-dark" style="font-size: 0.9rem;" t-on-click="() => this.selectDestContainer(pkg)" onmouseover="this.classList.add('bg-light')" onmouseout="this.classList.remove('bg-light')">
+                                    <span class="text-dark"><t t-out="pkg.name"/></span>
+                                </div>
+                            </t>
+                            
+                            <div t-if="this.state.addProductDestContainerPackageSearchStr and !this.state.addProductDestContainerPackageSearchResults.find(p => p.name === this.state.addProductDestContainerPackageSearchStr)" 
+                                 class="px-2 py-1 cursor-pointer fw-bold" style="font-size: 0.9rem; color: #017e84;" 
+                                 t-on-click="() => this.selectDestContainer({id: false, name: this.state.addProductDestContainerPackageSearchStr})"
+                                 onmouseover="this.classList.add('bg-light')" onmouseout="this.classList.remove('bg-light')">
+                                Create "<t t-out="this.state.addProductDestContainerPackageSearchStr"/>"
+                            </div>
+                            
+                            <div class="px-2 py-1 cursor-pointer" style="font-size: 0.9rem; color: #017e84;" t-on-click="() => this.openSearchMore('dest_container')">Search more...</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Bottom Bar (Add Product) -->
+                <div class="bg-view p-2 d-flex gap-2">
+                    <button class="btn flex-grow-1 fw-bold text-dark py-3 shadow-none border-0 rounded" style="font-size: 0.95rem; background-color: var(--o-barcode-muted-bg);" t-on-click="this.toggleAddProduct">
+                        Discard
+                    </button>
+                    <button class="btn o_barcode_text_light flex-grow-1 fw-bold py-3 shadow-none border-0 rounded" style="font-size: 0.95rem; background-color: #714B67;" t-on-click="this.confirmAddProduct">
+                        Confirm
+                    </button>
+                </div>
+            </t> <!-- END ADD PRODUCT SCREEN -->
+
+            <!-- ALLOCATION SCREEN (Custom Enterprise Style) -->
+            <t t-if="this.state.showAllocation">
+                <!-- Header / Top Bar -->
+                <div class="d-flex justify-content-between align-items-center px-3 py-2 border-bottom shadow-sm" style="background-color: var(--o-barcode-view-bg); min-height: 56px; z-index: 10; flex-shrink: 0;">
+                    <div class="d-flex align-items-center">
+                        <button class="btn btn-light border-0 px-2 py-1 me-3 text-dark bg-view" t-on-click="this.closeAllocation" style="border: 1px solid var(--o-barcode-border) !important;">
+                            <i class="oi" data-icon="chevron_left"/>
+                        </button>
+                        <div class="d-flex flex-column">
+                            <div class="fw-bold" style="color: #017e84; font-size: 1.25rem;">
+                                <t t-if="this.state.picking" t-out="this.state.picking.name"/>
+                            </div>
+                        </div>
+                    </div>
+                    <button class="btn border-0 text-dark bg-view fs-5" t-on-click="this.closeAllocation">
+                        <i class="oi" data-icon="close"/>
+                    </button>
+                </div>
+                
+                <div class="bg-view px-3 py-2 border-bottom d-flex gap-2 align-items-center" style="z-index: 10; flex-shrink: 0;">
+                    <button class="btn o_barcode_text_light fw-bold shadow-sm px-3 py-1" style="background-color: #714B67; font-size: 0.85rem;" t-on-click="this.printReport">Print</button>
+                    <button class="btn btn-light border fw-bold text-dark px-3 py-1 shadow-sm" style="font-size: 0.85rem; background-color: var(--o-barcode-subtle-bg);" t-on-click="this.assignAll">Assign All</button>
+                    <button class="btn btn-light border fw-bold text-dark px-3 py-1 shadow-sm" style="font-size: 0.85rem; background-color: var(--o-barcode-subtle-bg);" t-on-click="this.printLabels">Print Labels</button>
+                </div>
+
+                <!-- Main Allocation Content -->
+                <div class="flex-grow-1 overflow-auto bg-light p-3" style="font-size: 0.85rem;">
+                    <!-- Table Header -->
+                    <div class="row fw-bold text-muted mb-2 px-2" style="font-size: 0.8rem;">
+                        <div class="col-4">Available</div>
+                        <div class="col-2 text-center">Quantity</div>
+                        <div class="col-3 text-center">Reserved</div>
+                        <div class="col-3">For</div>
+                    </div>
+
+                    <t t-if="this.state.processedAllocations and this.state.processedAllocations.length > 0">
+                        <t t-foreach="this.state.processedAllocations" t-as="prod" t-key="prod.product.id">
+                            <!-- Card for each product line -->
+                            <div class="bg-view border rounded shadow-sm mb-3">
+                                <div class="row m-0 p-0 align-items-stretch">
+                                    <!-- Left Side: Product Info -->
+                                    <div class="col-4 p-3 border-end d-flex flex-column justify-content-center align-items-center bg-view rounded-start">
+                                        <div class="fw-bold text-dark mb-2 text-center" style="font-size: 0.95rem;">
+                                            <t t-out="prod.product.display_name"/>
+                                            <i class="oi text-info ms-1" data-icon="show_chart"/>
+                                        </div>
+                                        <div class="fw-bold text-dark fs-6">
+                                            <t t-out="prod.totalAvailable"/> Units
+                                        </div>
+                                    </div>
+
+                                    <!-- Right Side: Allocations -->
+                                    <div class="col-8 p-0 bg-view rounded-end">
+                                        <t t-if="prod.allocations and prod.allocations.length > 0">
+                                            <t t-foreach="prod.allocations" t-as="alloc" t-key="alloc.index">
+                                                <div class="row m-0 p-3 align-items-center border-bottom">
+                                                    <!-- Quantity -->
+                                                    <div class="col-3 text-center text-success fw-bold">
+                                                        <t t-out="alloc.quantity"/> Units
+                                                    </div>
+                                                    <!-- Reserved Toggle Switch -->
+                                                    <div class="col-3 text-center">
+                                                        <div class="form-check form-switch d-inline-block">
+                                                            <input class="form-check-input" type="checkbox" t-att-checked="alloc.is_assigned ? 'checked' : undefined" style="cursor: pointer;" t-on-change="() => this.toggleAllocation(alloc)"/>
+                                                        </div>
+                                                        <!-- Show Print Label when assigned -->
+                                                        <div t-if="alloc.is_assigned" class="mt-1">
+                                                            <button class="btn btn-sm btn-outline-secondary py-0" style="font-size: 0.75rem;" t-on-click="() => this.printAllocationLabel(alloc)">
+                                                                <i class="oi" data-icon="print"/> Print
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                    <!-- For (Destination) -->
+                                                    <div class="col-5 text-info" style="color: #017e84 !important;">
+                                                        <t t-out="alloc.dest_name"/>
+                                                    </div>
+                                                </div>
+                                            </t>
+                                        </t>
+                                        <t t-else="">
+                                            <div class="p-4 text-dark text-start" style="font-size: 0.85rem;">
+                                                No allocation need found.
+                                            </div>
+                                        </t>
+                                    </div>
+                                </div>
+                            </div>
+                        </t>
+                    </t>
+                    <t t-else="">
+                        <div class="bg-view border rounded shadow-sm p-4 text-dark text-center fw-bold fs-5">
+                            No allocation need found.
+                        </div>
+                    </t>
+                </div>
+            </t> <!-- END ALLOCATION SCREEN -->
+
+        </div>
+    </t>
+</templates>

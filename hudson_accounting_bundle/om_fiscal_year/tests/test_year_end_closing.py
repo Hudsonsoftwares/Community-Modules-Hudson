@@ -218,3 +218,60 @@ class TestYearEndClosing(AccountTestInvoicingCommon):
         found = self.env['account.fiscal.year'].with_user(user).search([])
         self.assertIn(self.fy_2025, found)
         self.assertNotIn(fy_other, found)
+
+    def test_previous_closing_dated_in_the_closed_year(self):
+        """ The earnings already transferred are not transferred again by the closing of the next year, whatever
+        the date of the earlier closing entry. """
+        fy_2026 = self._create_fiscal_year(2026)
+        self._create_invoice_for_year('out_invoice', 50.0, '2026-02-01')
+        self._close(self.fy_2025, date=date(2025, 12, 31))
+        self.assertEqual(self.fy_2025.closing_move_id.date, date(2025, 12, 31))
+        wizard = self.env['account.fiscal.year.closing'].with_context(default_fiscal_year_id=fy_2026.id).create({
+            'retained_earnings_account_id': self.retained_earnings.id,
+        })
+        self.assertEqual(wizard.earnings, 50.0)
+        wizard.action_close()
+        self.assertEqual(self._balance(self.retained_earnings, '2027-01-01'), -650.0)
+
+    def test_status_only_changes_through_the_buttons(self):
+        accountant = new_test_user(self.env, login='fy_accountant_2', groups='account.group_account_user')
+        with self.assertRaises(UserError):
+            self.fy_2025.with_user(accountant).write({'state': 'closed'})
+        with self.assertRaises(UserError):
+            self.fy_2025.write({'state': 'closed'})
+        self.assertEqual(self.fy_2025.state, 'open')
+        self._close(self.fy_2025, lock=False)
+        with self.assertRaises(UserError):
+            self.fy_2025.write({'state': 'open'})
+        with self.assertRaises(UserError):
+            self.fy_2025.write({'closing_move_id': False})
+
+
+@tagged('post_install', '-at_install')
+class TestChangeLockDate(AccountTestInvoicingCommon):
+
+    def test_lock_dates_of_the_selected_company(self):
+        company_a = self.env.company
+        company_b = self.setup_other_company()['company']
+        self.env.user.company_ids |= company_b
+        company_a.write({'sale_lock_date': date(2025, 3, 31), 'fiscalyear_lock_date': date(2025, 1, 31)})
+        company_b.write({'sale_lock_date': False, 'fiscalyear_lock_date': date(2024, 12, 31)})
+
+        with Form(self.env['change.lock.date']) as wizard_form:
+            self.assertEqual(wizard_form.company_id, company_a)
+            self.assertEqual(wizard_form.sale_lock_date, date(2025, 3, 31))
+            # changing the company reloads its lock dates
+            wizard_form.company_id = company_b
+            self.assertFalse(wizard_form.sale_lock_date)
+            self.assertEqual(wizard_form.fiscalyear_lock_date, date(2024, 12, 31))
+            wizard_form.purchase_lock_date = date(2024, 6, 30)
+        wizard_form.record.update_lock_date()
+
+        self.assertRecordValues(company_b, [{
+            'sale_lock_date': False, 'purchase_lock_date': date(2024, 6, 30),
+            'fiscalyear_lock_date': date(2024, 12, 31), 'hard_lock_date': False,
+        }])
+        self.assertRecordValues(company_a, [{
+            'sale_lock_date': date(2025, 3, 31), 'fiscalyear_lock_date': date(2025, 1, 31),
+            'purchase_lock_date': False,
+        }])

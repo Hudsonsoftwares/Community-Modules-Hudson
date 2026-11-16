@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 import logging
 from datetime import date
-from odoo import api, fields, models, _
-from odoo.exceptions import UserError
+from odoo import api, fields, models, _# pyrefly: ignore [missing-import]
+from odoo.exceptions import UserError, ValidationError# pyrefly: ignore [missing-import]
 
 _logger = logging.getLogger(__name__)
 
@@ -10,6 +10,45 @@ _logger = logging.getLogger(__name__)
 class HrEmployee(models.Model):
     _inherit = 'hr.employee'
 
+    hds_in_payment_mode = fields.Many2one(
+        'hds.payment.mode',
+        string="Payment Mode",
+        domain="['|', ('company_id', '=', False), ('company_id', '=', company_id)]",
+        tracking=True,
+        help="Preferred mode of salary payment for this employee. "
+             "Configured in Payroll Settings → Payment Modes.",
+    )
+
+    @api.constrains('hds_in_payment_mode', 'company_id')
+    def _check_hds_in_payment_mode_company(self):
+        for emp in self:
+            if emp.hds_in_payment_mode and emp.company_id and emp.hds_in_payment_mode.company_id:
+                if emp.hds_in_payment_mode.company_id != emp.company_id:
+                    raise ValidationError(_(
+                        "The payment mode '%(mode)s' belongs to %(mode_company)s and cannot be used for an employee in %(emp_company)s.",
+                        mode=emp.hds_in_payment_mode.name,
+                        mode_company=emp.hds_in_payment_mode.company_id.name,
+                        emp_company=emp.company_id.name,
+                    ))
+
+    def _hds_payroll_version(self, date_from=False, date_to=False):
+        """Contract version of the payslips of a period: the version in force at the end of the
+        period (a salary revision creates a version from the 1st of its month), else the
+        employee's current version."""
+        self.ensure_one()
+        date = fields.Date.to_date(date_to or date_from)
+        if date:
+            version = self._get_version(date)
+            if version:
+                return version
+        return self.version_id
+
+    salary_adjustment_ids = fields.One2many(
+        'hr.salary.adjustment',
+        'employee_id',
+        string='Payslip Adjustments',
+        groups='hudson_payroll_base.group_payroll_user',
+    )
     last_contract_expiry_notified_date = fields.Date(
         string='Last Contract Expiry Notified Date',
         copy=False,
@@ -31,6 +70,37 @@ class HrEmployee(models.Model):
         compute='_compute_expiry_display_dates',
         help="Resolved expiration date of employee work permit."
     )
+    currency_id = fields.Many2one(
+        'res.currency',
+        related='company_id.currency_id',
+        string='Currency',
+        readonly=True
+    )
+    contract_wage = fields.Monetary(
+        string='Wage',
+        currency_field='currency_id',
+        compute='_compute_contract_wage',
+        help="Contract Wage / Basic salary of the employee for payroll."
+    )
+    review_status = fields.Char(
+        string='Review',
+        compute='_compute_review_status',
+        default='Reviewed',
+        help="Review status for payroll processing."
+    )
+
+    def _compute_contract_wage(self):
+        for emp in self:
+            wage = 0.0
+            if hasattr(emp, 'version_id') and emp.version_id:
+                wage = float(getattr(emp.version_id, 'wage', 0.0) or getattr(emp.version_id, 'basic_salary', 0.0) or 0.0)
+            elif hasattr(emp, 'contract_id') and emp.contract_id:
+                wage = float(getattr(emp.contract_id, 'wage', 0.0) or getattr(emp.contract_id, 'basic_salary', 0.0) or 0.0)
+            emp.contract_wage = wage
+
+    def _compute_review_status(self):
+        for emp in self:
+            emp.review_status = 'Reviewed'
 
     def _compute_expiry_display_dates(self):
         for emp in self:
@@ -360,3 +430,38 @@ class HrEmployee(models.Model):
                 _logger.info("Work permit expiry alert email sent to HR users: %s", hr_emails)
             except Exception as e:
                 _logger.warning("Failed sending work permit expiry HR alert email for %s: %s", self.name, e)
+
+    def _has_field_access(self, field, operation):
+        has_access = super()._has_field_access(field, operation)
+        if not has_access:
+            return False
+        if operation == 'read' and not self.env.su and not self.browse().has_access('read'):
+            # In Odoo 20, standard users without direct read access to hr.employee
+            # are only permitted to read public profile fields defined on hr.employee.public.
+            # Filtering here prevents the ORM prefetcher from bundling private fields into fetch(),
+            # which would otherwise trigger an AccessError when standard users access public fields
+            # (e.g. in Time Off overview, calendar, leaves, and allocations).
+            # The delegate field (version_id) stays readable, as in standard Odoo:
+            # public fields stored on hr.version (job_title, resource_calendar_id...)
+            # are read through it, e.g. by the Planning schedule. Private values
+            # stay protected: they are not public fields and hr.version needs HR rights.
+            return field.name in self.env['hr.employee.public']._fields or field.name in self._inherits.values()
+        return True
+
+    def fetch(self, field_names=None):
+        if self.browse().has_access('read') or self.env.su:
+            return super().fetch(field_names)
+        public_fields = self.env['hr.employee.public']._fields
+        if field_names is not None:
+            field_names = [f for f in field_names if f in public_fields]
+        return super().fetch(field_names)
+
+    @api.model
+    def search_fetch(self, domain, field_names=None, offset=0, limit=None, order=None):
+        if self.has_access('read') or self.env.su:
+            return super().search_fetch(domain, field_names, offset, limit, order)
+        public_fields = self.env['hr.employee.public']._fields
+        if field_names is not None:
+            field_names = [f for f in field_names if f in public_fields]
+        return super().search_fetch(domain, field_names, offset, limit, order)
+

@@ -9,7 +9,7 @@ import { AttendanceGanttRenderer } from "./attendance_gantt_renderer";
 export const attendanceGanttView = {
     type: "gantt",
     display_name: "Gantt",
-    icon: "oi oi-view-gantt",
+    icon: "view_timeline",
     multiRecord: true,
     searchMenuTypes: ["filter", "favorite"],
 

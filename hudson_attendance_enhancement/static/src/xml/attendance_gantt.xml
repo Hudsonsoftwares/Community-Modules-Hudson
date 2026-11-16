@@ -3,21 +3,21 @@
 
     <!-- Gantt View Controller Template -->
     <t t-name="hudson_attendance_enhancement.AttendanceGanttController">
-        <div t-attf-class="o_attendance_gantt_view {{ state.isFullscreen ? 'o_attendance_gantt_fullscreen' : '' }} {{ props.className }}" t-ref="root">
-            <Layout className="'d-flex flex-column h-100'" display="props.display">
+        <div t-attf-class="o_attendance_gantt_view {{ this.state.isFullscreen ? 'o_attendance_gantt_fullscreen' : '' }} {{ this.props.className }}" t-ref="this.rootRef">
+            <Layout className="'d-flex flex-column h-100'" display="this.props.display">
                 <t t-set-slot="control-panel-additional-actions">
                     <CogMenu/>
                 </t>
-                <t t-set-slot="layout-buttons">
+                <t t-set-slot="control-panel-buttons">
                     <button class="btn btn-primary o_gantt_button_new" type="button" t-on-click="() => this.createAttendance()">
                         New
                     </button>
                 </t>
-                <t t-set-slot="layout-actions">
-                    <SearchBar toggler="searchBarToggler"/>
+                <t t-set-slot="control-panel-actions">
+                    <SearchBar toggler="this.searchBarToggler"/>
                 </t>
                 <t t-set-slot="control-panel-navigation-additional">
-                    <t t-component="searchBarToggler.component" t-props="searchBarToggler.props"/>
+                    <t t-component="this.searchBarToggler.component" t-props="this.searchBarToggler.props"/>
                 </t>
 
                 <!-- Sub-header Toolbar -->
@@ -25,17 +25,17 @@
                     <!-- Period Navigation -->
                     <div class="btn-group">
                         <button class="btn btn-sm btn-outline-secondary" title="Previous Period" t-on-click="() => this.onDateNav('previous')">
-                            <i class="oi oi-arrow-left"/>
+                            <i class="oi" data-icon="arrow_back"/>
                         </button>
                         <button class="btn btn-sm btn-outline-secondary" title="Next Period" t-on-click="() => this.onDateNav('next')">
-                            <i class="oi oi-arrow-right"/>
+                            <i class="oi" data-icon="arrow_forward"/>
                         </button>
                     </div>
 
                     <!-- Scale Selector Dropdown -->
                     <Dropdown class="'d-inline-block'">
                         <button class="btn btn-sm btn-outline-secondary dropdown-toggle">
-                            <t t-out="currentScaleLabel"/>
+                            <t t-out="this.currentScaleLabel"/>
                         </button>
                         <t t-set-slot="content">
                             <DropdownItem onSelected="() => this.onScaleSelect('day')">Day</DropdownItem>
@@ -50,24 +50,24 @@
                     </button>
 
                     <!-- Fullscreen Toggle -->
-                    <button class="btn btn-sm btn-outline-secondary ms-1" title="Toggle Fullscreen" t-on-click="toggleFullscreen">
-                        <i class="fa fa-arrows-alt"/>
+                    <button class="btn btn-sm btn-outline-secondary ms-1" title="Toggle Fullscreen" t-on-click="this.toggleFullscreen">
+                        <i class="oi" t-att-data-icon="this.state.isFullscreen ? 'fullscreen_exit' : 'expand_content'"/>
                     </button>
                 </div>
 
                 <!-- Date Title Bar -->
                 <div class="o_attendance_gantt_title_bar d-flex align-items-center">
-                    <span class="ps-2 text-dark font-weight-bold" t-out="model.dateTitle"/>
+                    <span class="ps-2 text-dark font-weight-bold" t-out="this.model.dateTitle"/>
                 </div>
 
                 <!-- Content Area / Renderer -->
                 <div class="o_attendance_gantt_content">
-                    <t t-component="props.Renderer"
-                        model="model"
-                        onBarClick.bind="openAttendance"
-                        onTimeRangeSelected.bind="openCreateWithRange"
-                        onEmployeeClick.bind="openEmployee"
-                        onExtendAttendance.bind="onExtendAttendance"
+                    <t t-component="this.props.Renderer"
+                        model="this.model"
+                        onBarClick.bind="this.openAttendance"
+                        onTimeRangeSelected.bind="this.openCreateWithRange"
+                        onEmployeeClick.bind="this.openEmployee"
+                        onExtendAttendance.bind="this.onExtendAttendance"
                     />
                 </div>
             </Layout>
@@ -83,7 +83,7 @@
                     Days
                 </div>
                 <div class="o_attendance_gantt_slots_row">
-                    <t t-foreach="props.model.slots" t-as="slot" t-key="slot.index">
+                    <t t-foreach="this.props.model.slots" t-as="slot" t-key="slot.index">
                         <div t-attf-class="o_attendance_gantt_header_slot {{ slot.isCurrent ? 'current_slot' : '' }} {{ slot.isWeekend ? 'weekend_slot' : '' }}">
                             <t t-out="slot.label"/>
                         </div>
@@ -93,7 +93,7 @@
 
             <!-- Employee Rows -->
             <div class="o_attendance_gantt_body">
-                <t t-foreach="props.model.processedRows" t-as="row" t-key="row.employee.id">
+                <t t-foreach="this.props.model.processedRows" t-as="row" t-key="row.employee.id">
                     <div class="o_attendance_gantt_row">
                         <!-- Left: Employee Avatar & Name (Clickable link to employee profile) -->
                         <div t-attf-class="o_attendance_gantt_side_col o_attendance_gantt_employee_cell {{ row.hasOvertime ? 'has_overtime_row' : '' }}"
@@ -132,7 +132,7 @@
                              t-on-mousedown="(ev) => this.onTrackMouseDown(row, ev)">
                             <!-- Background Grid Columns -->
                             <div class="o_attendance_gantt_grid_bg">
-                                <t t-foreach="props.model.slots" t-as="slot" t-key="slot.index">
+                                <t t-foreach="this.props.model.slots" t-as="slot" t-key="slot.index">
                                     <div t-attf-class="o_attendance_gantt_col_bg {{ slot.isCurrent ? 'current_slot' : '' }} {{ slot.isWeekend ? 'weekend_slot' : '' }}"/>
                                 </t>
                             </div>
@@ -140,10 +140,10 @@
                             <!-- Attendance Bars & Selection Layer -->
                             <div class="o_attendance_gantt_bars_layer">
                                 <t t-foreach="row.bars" t-as="bar" t-key="bar.id">
-                                    <t t-set="isResizingThis" t-value="state.resizingBar.active and state.resizingBar.barId === bar.id"/>
+                                    <t t-set="isResizingThis" t-value="this.state.resizingBar.active and this.state.resizingBar.barId === bar.id"/>
                                     <div t-attf-class="o_attendance_gantt_bar {{ bar.isActive ? 'is_active' : 'is_checked_out' }} {{ bar.isAllOvertime ? 'is_all_overtime' : '' }} {{ bar.hasOvertime ? 'has_overtime' : '' }} {{ bar.isWfh ? 'is_wfh' : '' }} {{ isResizingThis ? 'is_resizing' : '' }}"
-                                         t-attf-style="left: {{ isResizingThis ? state.resizingBar.left : bar.left }}%; width: {{ isResizingThis ? state.resizingBar.width : bar.width }}%; {{ bar.barStyle || '' }}"
-                                         t-att-title="isResizingThis ? state.resizingBar.label : bar.tooltip"
+                                         t-attf-style="left: {{ isResizingThis ? this.state.resizingBar.left : bar.left }}%; width: {{ isResizingThis ? this.state.resizingBar.width : bar.width }}%; {{ bar.barStyle || '' }}"
+                                         t-att-title="isResizingThis ? this.state.resizingBar.label : bar.tooltip"
                                          t-on-click="(ev) => this.onBarClick(bar.id, ev)">
                                         <!-- Left handle to adjust start time -->
                                         <div class="o_attendance_gantt_bar_handle_start"
@@ -158,7 +158,7 @@
                                             />
                                         </t>
                                         <!-- Bar Label -->
-                                        <span class="o_attendance_gantt_bar_text" t-out="isResizingThis ? state.resizingBar.label : bar.label"/>
+                                        <span class="o_attendance_gantt_bar_text" t-out="isResizingThis ? this.state.resizingBar.label : bar.label"/>
                                         <!-- Right handle to extend attendance -->
                                         <div class="o_attendance_gantt_bar_handle_end"
                                              title="Drag to extend attendance (two-way arrow)"
@@ -168,10 +168,10 @@
                                 </t>
 
                                 <!-- Drag Selection Preview Box -->
-                                <t t-if="state.dragSelection.active and state.dragSelection.employeeId === row.employee.id">
+                                <t t-if="this.state.dragSelection.active and this.state.dragSelection.employeeId === row.employee.id">
                                     <div class="o_attendance_gantt_selection_preview"
-                                         t-attf-style="left: {{ state.dragSelection.left }}%; width: {{ state.dragSelection.width }}%;">
-                                        <span class="o_attendance_gantt_selection_label" t-out="state.dragSelection.label"/>
+                                         t-attf-style="left: {{ this.state.dragSelection.left }}%; width: {{ this.state.dragSelection.width }}%;">
+                                        <span class="o_attendance_gantt_selection_label" t-out="this.state.dragSelection.label"/>
                                     </div>
                                 </t>
                             </div>

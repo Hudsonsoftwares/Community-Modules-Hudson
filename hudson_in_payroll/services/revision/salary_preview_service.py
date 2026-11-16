@@ -93,8 +93,9 @@ class SalaryPreviewService(BaseStatutoryService):
         period_service = ESICContributionPeriodService(self.env)
         is_esic_covered = period_service.is_covered_for_contribution_period(employee, eval_date=effective_date)
 
+        esic_ceiling_cur = period_service.get_parameter('hds_in_esic_pwd_wage_ceiling', date=effective_date, as_decimal=False) if getattr(employee, 'hds_in_is_pwd', False) else period_service.get_parameter('hds_in_esic_wage_ceiling', date=effective_date, as_decimal=False)
         old_esic_app = bool(company.hds_in_esic_applicable and employee.hds_in_esic_applicable and is_esic_covered)
-        new_esic_app = bool(company.hds_in_esic_applicable and employee.hds_in_esic_applicable and is_esic_covered)
+        new_esic_app = bool(company.hds_in_esic_applicable and employee.hds_in_esic_applicable and (revised_wage <= esic_ceiling_cur if esic_ceiling_cur else True))
 
         old_ee_esic = old_esic_service.compute_esic_employee(old_sim_payslip) if old_esic_app else 0.0
         new_ee_esic = new_esic_service.compute_esic_employee(new_sim_payslip) if new_esic_app else 0.0

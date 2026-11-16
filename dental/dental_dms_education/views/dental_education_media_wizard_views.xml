@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_dental_education_media_wizard_form" model="ir.ui.view">
+        <field name="name">dental.education.media.wizard.form</field>
+        <field name="model">dental.education.media.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Add Education Media">
+                <group>
+                    <group>
+                        <field name="file" filename="file_name"/>
+                        <field name="file_name" invisible="1"/>
+                        <field name="name" placeholder="e.g. What to expect during a root canal"/>
+                        <field name="topic_id" options="{'no_create': True}"/>
+                        <field name="media_type"/>
+                        <field name="purpose"/>
+                    </group>
+                    <group>
+                        <field name="lang_id" options="{'no_create': True}"/>
+                        <field name="master_id" options="{'no_create': True}"/>
+                        <field name="duration"/>
+                        <field name="thumbnail" widget="image" options="{'size': [160, 90]}"/>
+                    </group>
+                </group>
+                <group>
+                    <field name="product_ids" widget="many2many_tags" options="{'no_create': True}"/>
+                    <field name="description"/>
+                </group>
+                <footer>
+                    <button name="action_add" type="object" string="Add to Library" class="btn-primary" data-hotkey="q"/>
+                    <button string="Cancel" special="cancel" data-hotkey="x"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_dental_education_media_wizard" model="ir.actions.act_window">
+        <field name="name">Add Education Media</field>
+        <field name="res_model">dental.education.media.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+</odoo>

@@ -1,6 +1,8 @@
-# -*- coding: utf-8 -*-
-from odoo import api, fields, models, _
-from odoo.exceptions import ValidationError
+import json
+# pyrefly: ignore [missing-import]
+from markupsafe import Markup
+# pyrefly: ignore [missing-import]
+from odoo import api, fields, models
 from ..services.tds.other_income_aggregation_service import OtherIncomeAggregationService
 
 
@@ -19,6 +21,23 @@ class TdsEmployeeIncomeDeclaration(models.Model):
     _sql_constraints = [
         ('emp_fy_inc_uniq', 'unique(employee_id, financial_year_id)',
          'An employee can have only one Income Declaration record per Financial Year!')
+    ]
+
+    _INCOME_AUDIT_FIELDS = [
+        'savings_bank_interest',
+        'fixed_deposit_interest',
+        'dividend_income',
+        'other_sources_income',
+        'total_other_sources_income',
+        'annual_let_out_rent',
+        'municipal_taxes_paid',
+        'let_out_interest_paid',
+        'net_house_property_income_loss',
+        'prev_employer_taxable_gross',
+        'prev_employer_tds',
+        'prev_employer_pt',
+        'prev_employer_pf',
+        'state',
     ]
 
     name = fields.Char(
@@ -203,6 +222,23 @@ class TdsEmployeeIncomeDeclaration(models.Model):
         ('approved', 'Approved'),
         ('rejected', 'Rejected'),
     ], string="Status", default='draft', required=True)
+    regime_code = fields.Selection([
+        ('new', 'New Tax Regime'),
+        ('old', 'Old Tax Regime'),
+    ], string="Tax Regime", compute='_compute_regime_code', store=False)
+
+    @api.depends('employee_id', 'financial_year_id')
+    def _compute_regime_code(self):
+        for rec in self:
+            regime = 'new'
+            if rec.employee_id and rec.financial_year_id:
+                reg_rec = self.env['tds.employee.tax.regime'].search([
+                    ('employee_id', '=', rec.employee_id.id),
+                    ('financial_year_id', '=', rec.financial_year_id.id)
+                ], limit=1)
+                if reg_rec and reg_rec.regime_type:
+                    regime = reg_rec.regime_type
+            rec.regime_code = regime
 
     attachment_ids = fields.Many2many(
         'ir.attachment',
@@ -286,3 +322,92 @@ class TdsEmployeeIncomeDeclaration(models.Model):
 
     def action_reset_to_draft(self):
         self.write({'state': 'draft'})
+
+    def write(self, vals):
+        if self.env.context.get('no_tds_audit'):
+            return super().write(vals)
+
+        tracked = [f for f in self._INCOME_AUDIT_FIELDS if hasattr(self, f)]
+        old_state = {}
+        for rec in self:
+            old_dict = {}
+            for f in tracked:
+                old_dict[f] = getattr(rec, f, None)
+            old_state[rec.id] = old_dict
+
+        res = super().write(vals)
+
+        if 'hds.in.payroll.audit' in self.env:
+            for rec in self:
+                if not rec.employee_id:
+                    continue
+                rec_old = old_state.get(rec.id, {})
+                old_diff = {}
+                new_diff = {}
+                for f in tracked:
+                    old_v = rec_old.get(f)
+                    new_v = getattr(rec, f, None)
+                    if isinstance(old_v, (int, float)) and isinstance(new_v, (int, float)):
+                        if round(float(old_v or 0.0), 2) != round(float(new_v or 0.0), 2):
+                            old_diff[f] = float(old_v or 0.0)
+                            new_diff[f] = float(new_v or 0.0)
+                    elif old_v != new_v:
+                        if old_v or new_v:
+                            old_diff[f] = old_v
+                            new_diff[f] = new_v
+
+                if new_diff:
+                    calc_date = fields.Date.today()
+                    self.env['hds.in.payroll.audit'].sudo().create({
+                        'employee_id': rec.employee_id.id,
+                        'company_id': rec.company_id.id or self.env.company.id,
+                        'user_id': self.env.uid,
+                        'statutory_module': 'tds',
+                        'rule_code': 'TDS_OTHER_INCOME',
+                        'calculation_type': 'tax_declaration',
+                        'calculation_date': calc_date,
+                        'inputs_json': json.dumps(old_diff, default=str),
+                        'outputs_json': json.dumps(new_diff, default=str),
+                        'status': 'success',
+                    })
+                    audit_model = self.env['hds.in.payroll.audit']
+                    label_map = {
+                        'savings_bank_interest': 'Savings Account Interest',
+                        'fixed_deposit_interest': 'Fixed Deposit Interest',
+                        'dividend_income': 'Dividend Income',
+                        'other_sources_income': 'Other Miscellaneous Income',
+                        'total_other_sources_income': 'Total Other Sources Income',
+                        'annual_let_out_rent': 'Gross Annual Rent (Let-Out Property)',
+                        'municipal_taxes_paid': 'Municipal Taxes Paid',
+                        'let_out_interest_paid': 'Housing Loan Interest (Let-Out Property)',
+                        'net_house_property_income_loss': 'Net Property Income / Loss',
+                        'prev_employer_taxable_gross': 'Previous Employer Taxable Salary',
+                        'prev_employer_tds': 'Previous Employer TDS Deducted',
+                        'prev_employer_pt': 'Previous Employer PT Deducted',
+                        'prev_employer_pf': 'Previous Employer EPF',
+                        'state': 'Income Declaration Status',
+                    }
+                    diff_html_parts = []
+                    for k in self._INCOME_AUDIT_FIELDS:
+                        if k in new_diff:
+                            old_f = audit_model._format_audit_value(k, old_diff.get(k))
+                            new_f = audit_model._format_audit_value(k, new_diff.get(k))
+                            lbl = label_map.get(k, k.replace('_', ' ').title())
+                            diff_html_parts.append(
+                                f'<div style="line-height: 1.45; margin-bottom: 1px;">'
+                                f'<span style="color: #212529;">{old_f}</span>'
+                                f'<span style="color: #495057;"> → </span>'
+                                f'<b style="color: #008784;">{new_f}</b>'
+                                f' <span style="color: #6c757d; font-style: italic;">({lbl})</span>'
+                                f'</div>'
+                            )
+                    if diff_html_parts and rec.employee_id and hasattr(rec.employee_id, 'message_post'):
+                        today_str = fields.Date.today().strftime('%b %d, %Y').replace(' 0', ' ')
+                        fy_str = rec.financial_year_id.name if rec.financial_year_id else ''
+                        emp_body = (
+                            f'<div style="font-weight: 600; margin-bottom: 2px;">Other Income &amp; House Property Update ({fy_str}):</div>'
+                            f'<div style="color: #008784; font-weight: bold; margin-bottom: 3px;">→ As of {today_str}</div>'
+                            + ''.join(diff_html_parts)
+                        )
+                        rec.employee_id.message_post(body=Markup(emp_body), subtype_xmlid='mail.mt_note')
+        return res

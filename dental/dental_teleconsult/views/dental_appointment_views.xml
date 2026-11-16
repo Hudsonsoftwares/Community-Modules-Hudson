@@ -1,0 +1,208 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_dental_appointment_form_teleconsult" model="ir.ui.view">
+        <field name="name">dental.appointment.form.teleconsult</field>
+        <field name="model">dental.appointment</field>
+        <field name="inherit_id" ref="dental_appointment.view_dental_appointment_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//header/field[@name='state']" position="before">
+                <field name="teleconsult_state" invisible="1"/>
+                <button name="action_teleconsult_admit" string="Admit Patient" type="object" class="oe_highlight"
+                        icon="person_add" invisible="teleconsult_state != 'waiting'"
+                        groups="dental_base.group_dental_dentist,dental_base.group_dental_assistant,dental_base.group_dental_admin"/>
+                <button name="action_teleconsult_join" string="Join Video Room" type="object" icon="videocam"
+                        invisible="consultation_mode != 'online' or teleconsult_state not in ('scheduled', 'waiting', 'in_call')"
+                        groups="dental_base.group_dental_dentist,dental_base.group_dental_assistant,dental_base.group_dental_admin"/>
+                <button name="action_teleconsult_invite" string="Invite Colleague" type="object" icon="person_add"
+                        invisible="teleconsult_state not in ('waiting', 'in_call')"
+                        groups="dental_base.group_dental_dentist,dental_base.group_dental_assistant,dental_base.group_dental_admin"/>
+                <button name="action_teleconsult_end" string="End Online Consultation" type="object" icon="stop"
+                        invisible="teleconsult_state not in ('waiting', 'in_call')"
+                        confirm="End the video consultation? The patient will be removed from the room."
+                        groups="dental_base.group_dental_dentist,dental_base.group_dental_assistant,dental_base.group_dental_admin"/>
+            </xpath>
+
+            <xpath expr="//div[@name='button_box']" position="before">
+                <div class="alert alert-info d-flex align-items-center justify-content-between p-3 mb-3 border-0 rounded-3"
+                     role="status" invisible="teleconsult_state != 'waiting'">
+                    <div>
+                        <i class="oi me-2" data-icon="videocam" title="Online consultation"/>
+                        <strong>Patient is in the online waiting room</strong> since
+                        <field name="teleconsult_waiting_since" readonly="1" class="fw-bold"/>
+                        <span invisible="not teleconsult_upload_count and not teleconsult_patient_notes">
+                            · the patient shared a description/files (see the Online Consultation tab)
+                        </span>
+                        <field name="teleconsult_upload_count" invisible="1"/>
+                    </div>
+                    <button name="action_teleconsult_admit" string="Admit Patient" type="object" class="btn btn-sm btn-primary"
+                            groups="dental_base.group_dental_dentist,dental_base.group_dental_assistant,dental_base.group_dental_admin"/>
+                </div>
+                <div class="alert alert-warning p-3 mb-3 border-0 rounded-3" role="status"
+                     invisible="consultation_mode != 'online' or teleconsult_payment_state != 'due' or state in ('pending', 'completed', 'cancelled', 'no_show')">
+                    <i class="oi me-2" data-icon="warning" title="Payment due"/>
+                    The patient has not paid the online consultation fee yet, so they cannot enter the waiting room.
+                </div>
+            </xpath>
+
+            <xpath expr="//field[@name='appointment_type_id']" position="after">
+                <field name="consultation_mode" widget="radio" options="{'horizontal': true}"
+                       readonly="state in ('in_consultation', 'completed', 'cancelled', 'no_show')"/>
+            </xpath>
+
+            <xpath expr="//notebook" position="inside">
+                <page string="Online Consultation" name="teleconsult" invisible="consultation_mode != 'online'">
+                    <div class="text-muted mb-3" invisible="teleconsult_state">
+                        The video room and the patient's join link are created when the appointment is confirmed.
+                    </div>
+                    <group string="Shared by the Patient" invisible="not teleconsult_patient_notes and not teleconsult_upload_ids"
+                           groups="dental_base.group_dental_dentist,dental_base.group_dental_assistant,dental_base.group_dental_admin">
+                        <field name="teleconsult_patient_notes" nolabel="1" colspan="2" invisible="not teleconsult_patient_notes"/>
+                        <field name="teleconsult_upload_ids" widget="many2many_binary" nolabel="1" colspan="2" readonly="1"/>
+                    </group>
+                    <group string="Visit Summary for the Patient" invisible="not teleconsult_started_at"
+                           groups="dental_base.group_dental_dentist,dental_base.group_dental_assistant,dental_base.group_dental_admin">
+                        <field name="teleconsult_outcome" widget="badges_selection"/>
+                        <field name="teleconsult_summary" colspan="2"
+                               placeholder="Findings explained simply, home-care instructions, medicines, warning signs, next steps..."/>
+                        <field name="teleconsult_prescription_ids" widget="many2many_tags" invisible="not teleconsult_prescription_ids"/>
+                        <field name="teleconsult_summary_sent_at" invisible="not teleconsult_summary_sent_at"/>
+                        <field name="teleconsult_summary_attachment_id" invisible="not teleconsult_summary_attachment_id"/>
+                        <div colspan="2">
+                            <button name="action_teleconsult_send_summary" type="object" icon="send"
+                                    string="Send Visit Summary" class="btn-primary"
+                                    invisible="teleconsult_summary_sent_at"/>
+                            <button name="action_teleconsult_send_summary" type="object" icon="send"
+                                    string="Resend Updated Summary" class="btn-secondary"
+                                    invisible="not teleconsult_summary_sent_at"/>
+                        </div>
+                    </group>
+                    <group invisible="not teleconsult_state">
+                        <group string="Video Room">
+                            <field name="teleconsult_state" widget="badge"
+                                   decoration-info="teleconsult_state == 'scheduled'"
+                                   decoration-warning="teleconsult_state == 'waiting'"
+                                   decoration-success="teleconsult_state == 'in_call'"
+                                   decoration-muted="teleconsult_state in ('ended', 'closed')"/>
+                            <field name="teleconsult_join_url" widget="CopyClipboardChar"
+                                   groups="dental_base.group_dental_receptionist,dental_base.group_dental_dentist,dental_base.group_dental_manager,dental_base.group_dental_admin"/>
+                            <field name="teleconsult_start_display"/>
+                            <field name="teleconsult_channel_id" groups="base.group_system"/>
+                            <div colspan="2" invisible="state not in ('confirmed', 'checked_in', 'in_consultation')">
+                                <button name="action_teleconsult_send_link" string="Send New Join Link" type="object"
+                                        class="btn-link p-0" icon="send"
+                                        confirm="A new link will be emailed to the patient; the previous link stops working."
+                                        groups="dental_base.group_dental_receptionist,dental_base.group_dental_dentist,dental_base.group_dental_manager,dental_base.group_dental_admin"/>
+                                <button name="action_teleconsult_reopen" string="Reopen Room" type="object"
+                                        class="btn-link p-0 ms-3" icon="play_arrow" invisible="teleconsult_state != 'ended'"
+                                        groups="dental_base.group_dental_dentist,dental_base.group_dental_assistant,dental_base.group_dental_admin"/>
+                            </div>
+                        </group>
+                        <group string="Payment">
+                            <field name="teleconsult_payment_state" widget="badge"
+                                   decoration-success="teleconsult_payment_state in ('paid', 'waived', 'not_required')"
+                                   decoration-danger="teleconsult_payment_state == 'due'"/>
+                            <field name="teleconsult_invoice_id" groups="account.group_account_invoice"/>
+                            <field name="teleconsult_payment_url" widget="CopyClipboardChar"
+                                   invisible="not teleconsult_payment_url"/>
+                            <div colspan="2" invisible="teleconsult_payment_state != 'due'">
+                                <button name="action_teleconsult_request_payment" string="Create Payment Request" type="object"
+                                        class="btn-link p-0" icon="payments" invisible="teleconsult_payment_url"
+                                        groups="dental_base.group_dental_receptionist,dental_base.group_dental_manager,dental_base.group_dental_admin"/>
+                                <button name="action_teleconsult_waive_payment" string="Waive Fee" type="object"
+                                        class="btn-link p-0 ms-3" icon="block"
+                                        confirm="Let the patient join without paying the consultation fee?"
+                                        groups="dental_base.group_dental_manager,dental_base.group_dental_admin"/>
+                            </div>
+                        </group>
+                        <group string="Session">
+                            <field name="teleconsult_waiting_since"/>
+                            <field name="teleconsult_started_at"/>
+                            <field name="teleconsult_ended_at"/>
+                            <field name="teleconsult_duration" invisible="not teleconsult_started_at"/>
+                            <field name="teleconsult_colleague_ids" widget="many2many_tags"
+                                   invisible="not teleconsult_colleague_ids"/>
+                            <field name="teleconsult_recording_count" invisible="1"/>
+                            <div colspan="2" invisible="not teleconsult_recording_count" groups="dental_base.group_dental_dentist,dental_base.group_dental_assistant,dental_base.group_dental_admin">
+                                <button name="action_teleconsult_recordings" type="object" icon="play_arrow"
+                                        class="btn-link p-0" string="Call Recordings"/>
+                            </div>
+                        </group>
+                        <group string="Patient Access &amp; Consent">
+                            <field name="teleconsult_partner_id" invisible="not teleconsult_partner_id"/>
+                            <field name="teleconsult_guest_id" invisible="not teleconsult_guest_id"/>
+                            <field name="teleconsult_consent_at"/>
+                            <field name="teleconsult_consent_method" invisible="not teleconsult_consent_at"/>
+                            <field name="teleconsult_consent_ip" invisible="not teleconsult_consent_ip"/>
+                            <field name="teleconsult_recording_consent"/>
+                            <field name="teleconsult_consent_attachment_id" invisible="not teleconsult_consent_attachment_id"/>
+                            <field name="teleconsult_failed_verifications" invisible="not teleconsult_failed_verifications"/>
+                        </group>
+                    </group>
+                </page>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- An online patient is started with "Admit Patient" (enters the call and starts the visit) -->
+    <record id="view_dental_appointment_form_teleconsult_start" model="ir.ui.view">
+        <field name="name">dental.appointment.form.teleconsult.start</field>
+        <field name="model">dental.appointment</field>
+        <field name="inherit_id" ref="dental_appointment.view_dental_appointment_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//header/button[@name='action_start_consultation']" position="attributes">
+                <attribute name="invisible">state != 'checked_in' or (consultation_mode == 'online' and teleconsult_state in ('scheduled', 'waiting'))</attribute>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_dental_appointment_queue_tree_teleconsult" model="ir.ui.view">
+        <field name="name">dental.appointment.queue.list.teleconsult</field>
+        <field name="model">dental.appointment</field>
+        <field name="inherit_id" ref="dental_appointment.view_dental_appointment_queue_tree"/>
+        <field name="arch" type="xml">
+            <xpath expr="//button[@name='action_start_consultation']" position="attributes">
+                <attribute name="invisible">state != 'checked_in' or consultation_mode == 'online'</attribute>
+            </xpath>
+            <xpath expr="//button[@name='action_start_consultation']" position="after">
+                <field name="consultation_mode" column_invisible="1"/>
+                <field name="teleconsult_state" optional="show" string="Online" widget="badge"
+                       decoration-warning="teleconsult_state == 'waiting'"
+                       decoration-success="teleconsult_state == 'in_call'"/>
+                <button name="action_teleconsult_admit" string="Admit" type="object" class="oe_highlight"
+                        icon="videocam" invisible="teleconsult_state != 'waiting'"
+                        groups="dental_base.group_dental_dentist,dental_base.group_dental_assistant,dental_base.group_dental_admin"/>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_dental_appointment_tree_teleconsult" model="ir.ui.view">
+        <field name="name">dental.appointment.list.teleconsult</field>
+        <field name="model">dental.appointment</field>
+        <field name="inherit_id" ref="dental_appointment.view_dental_appointment_tree"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='state']" position="before">
+                <field name="consultation_mode" optional="show"/>
+                <field name="teleconsult_state" optional="hide" widget="badge"
+                       decoration-warning="teleconsult_state == 'waiting'"
+                       decoration-success="teleconsult_state == 'in_call'"/>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_dental_appointment_search_teleconsult" model="ir.ui.view">
+        <field name="name">dental.appointment.search.teleconsult</field>
+        <field name="model">dental.appointment</field>
+        <field name="inherit_id" ref="dental_appointment.view_dental_appointment_search"/>
+        <field name="arch" type="xml">
+            <xpath expr="//filter[@name='upcoming']" position="after">
+                <separator/>
+                <filter string="Online Consultations" name="online" domain="[('consultation_mode', '=', 'online')]"/>
+                <filter string="Waiting Online" name="waiting_online" domain="[('teleconsult_state', '=', 'waiting')]"/>
+                <filter string="In Video Call" name="in_call" domain="[('teleconsult_state', '=', 'in_call')]"/>
+            </xpath>
+            <xpath expr="//filter[@name='group_type']" position="after">
+                <filter string="Consultation Mode" name="group_consultation_mode" context="{'group_by': 'consultation_mode'}"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>

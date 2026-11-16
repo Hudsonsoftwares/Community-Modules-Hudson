@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
+# pyrefly: ignore [missing-import]
 from odoo import api, fields, models, _
+# pyrefly: ignore [missing-import]
 from odoo.exceptions import ValidationError
 
 MONTH_SELECTION = [
@@ -43,6 +45,15 @@ class PtStateSlab(models.Model):
                 WHERE gender IS NULL
                   AND state_id IN (SELECT id FROM res_country_state WHERE code = 'MH')
                   AND salary_from < 25000;
+            """)
+            cr.execute("""
+                UPDATE pt_state_slab
+                SET company_id = NULL
+                WHERE id IN (
+                    SELECT res_id FROM ir_model_data
+                    WHERE model = 'pt.state.slab'
+                      AND module = 'hudson_in_payroll'
+                );
             """)
         except Exception:
             pass
@@ -143,7 +154,7 @@ class PtStateSlab(models.Model):
     company_id = fields.Many2one(
         'res.company',
         string="Company",
-        default=lambda self: self.env.company,
+        default=False,
         help="Optional company for multi-company isolation. Leave blank for global state applicability."
     )
 

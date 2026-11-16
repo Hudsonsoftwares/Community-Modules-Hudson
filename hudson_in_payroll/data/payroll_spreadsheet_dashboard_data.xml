@@ -1,17 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-
+    <!-- Former dashboard group. The Payroll dashboard now lives in the standard Human Resources group
+         (module hudson_payroll_spreadsheet_dashboard). Odoo does not allow deleting a dashboard group
+         that has an XML ID, so the record stays; without dashboards it is not shown in the Dashboards app. -->
     <record id="spreadsheet_dashboard_group_hr_payroll" model="spreadsheet.dashboard.group">
         <field name="name">Human Resources</field>
         <field name="sequence">30</field>
     </record>
-
-    <record id="spreadsheet_dashboard_payroll" model="spreadsheet.dashboard">
-        <field name="name">Payroll</field>
-        <field name="spreadsheet_binary_data" type="base64" file="hudson_in_payroll/data/files/payroll_dashboard.json"/>
-        <field name="dashboard_group_id" ref="spreadsheet_dashboard_group_hr_payroll"/>
-        <field name="sequence">10</field>
-        <field name="is_published">True</field>
-    </record>
-
 </odoo>

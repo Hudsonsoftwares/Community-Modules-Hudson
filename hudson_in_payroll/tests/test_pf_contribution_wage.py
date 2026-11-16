@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-from odoo.tests import common
-from odoo import fields
+from odoo.tests import common# pyrefly: ignore [missing-import]
+from odoo import fields# pyrefly: ignore [missing-import]
 
 
 class TestPfContributionWage(common.TransactionCase):
@@ -43,7 +43,7 @@ class TestPfContributionWage(common.TransactionCase):
             self.RuleParameterValue.create({
                 'parameter_id': self.pf_ceiling_param.id,
                 'date_from': '2014-09-01',
-                'parameter_value': '15000',
+                'parameter_value': '25000',
             })
 
     def _create_payslip_with_lines(self, employee, basic_amount, date_to='2026-04-30'):
@@ -81,14 +81,14 @@ class TestPfContributionWage(common.TransactionCase):
         self.assertEqual(payslip.hds_in_get_pf_contribution_wage(), 8800.0)
 
     def test_scenario_b_wage_above_ceiling(self):
-        """Scenario B: Wage above ceiling (Actual PF Wage = ₹20,000, Ceiling = ₹15,000, statutory_ceiling) -> ₹15,000"""
+        """Scenario B: Wage above ceiling (Actual PF Wage = ₹30,000, Ceiling = ₹25,000, statutory_ceiling) -> ₹25,000"""
         employee = self.Employee.create({
             'name': 'Employee Scenario B',
             'hds_in_pf_contribution_basis': 'statutory_ceiling',
         })
-        payslip = self._create_payslip_with_lines(employee, 20000.0)
-        self.assertEqual(payslip.hds_in_get_actual_pf_wage(), 20000.0)
-        self.assertEqual(payslip.hds_in_get_pf_contribution_wage(), 15000.0)
+        payslip = self._create_payslip_with_lines(employee, 30000.0)
+        self.assertEqual(payslip.hds_in_get_actual_pf_wage(), 30000.0)
+        self.assertEqual(payslip.hds_in_get_pf_contribution_wage(), 25000.0)
 
     def test_scenario_c_uncapped_contribution(self):
         """Scenario C: Uncapped contribution (Actual PF Wage = ₹20,000, Basis = actual_pf_wage) -> ₹20,000"""
@@ -101,14 +101,14 @@ class TestPfContributionWage(common.TransactionCase):
         self.assertEqual(payslip.hds_in_get_pf_contribution_wage(), 20000.0)
 
     def test_scenario_d_wage_at_ceiling(self):
-        """Scenario D: Wage exactly at ceiling (Actual PF Wage = ₹15,000, Ceiling = ₹15,000, statutory_ceiling) -> ₹15,000"""
+        """Scenario D: Wage exactly at ceiling (Actual PF Wage = ₹25,000, Ceiling = ₹25,000, statutory_ceiling) -> ₹25,000"""
         employee = self.Employee.create({
             'name': 'Employee Scenario D',
             'hds_in_pf_contribution_basis': 'statutory_ceiling',
         })
-        payslip = self._create_payslip_with_lines(employee, 15000.0)
-        self.assertEqual(payslip.hds_in_get_actual_pf_wage(), 15000.0)
-        self.assertEqual(payslip.hds_in_get_pf_contribution_wage(), 15000.0)
+        payslip = self._create_payslip_with_lines(employee, 25000.0)
+        self.assertEqual(payslip.hds_in_get_actual_pf_wage(), 25000.0)
+        self.assertEqual(payslip.hds_in_get_pf_contribution_wage(), 25000.0)
 
     def test_scenario_e_zero_and_negative_wage(self):
         """Scenario E: Zero and negative wage handling -> PF Contribution Wage must be 0.0"""
@@ -163,11 +163,11 @@ class TestPfContributionWage(common.TransactionCase):
         payslip.compute_sheet()
 
         line_map = {line.code: line.total for line in payslip.line_ids}
-        # Actual PF Wage salary rule must remain ₹20,000 (uncapped)
-        self.assertEqual(line_map.get('PF_WAGE'), 20000.0, "PF_WAGE salary rule must represent Actual PF Wage (uncapped).")
-        # Contribution calculations internally use PF Contribution Wage (₹15,000)
-        self.assertEqual(payslip.hds_in_get_pf_contribution_wage(), 15000.0, "PF Contribution Wage must be capped at ₹15,000.")
-        self.assertEqual(line_map.get('EPF'), -1800.0, "EPF deduction must be 12% of contribution wage ₹15,000 = -₹1,800.")
+        # Actual PF Wage salary rule must remain ₹30,000 (uncapped)
+        self.assertEqual(line_map.get('PF_WAGE'), 30000.0, "PF_WAGE salary rule must represent Actual PF Wage (uncapped).")
+        # Contribution calculations internally use PF Contribution Wage (₹25,000)
+        self.assertEqual(payslip.hds_in_get_pf_contribution_wage(), 25000.0, "PF Contribution Wage must be capped at ₹25,000.")
+        self.assertEqual(line_map.get('EPF'), -3000.0, "EPF deduction must be 12% of contribution wage ₹25,000 = -₹3,000.")
 
     def test_scenario_h_backward_compatibility_legacy_basis(self):
         """Scenario H: Legacy contribution basis values ('statutory_restricted' and 'actual_basic') function identically."""
@@ -176,8 +176,8 @@ class TestPfContributionWage(common.TransactionCase):
             'name': 'Legacy Capped Employee',
             'hds_in_pf_contribution_basis': 'statutory_restricted',
         })
-        payslip_leg_capped = self._create_payslip_with_lines(emp_leg_capped, 22000.0)
-        self.assertEqual(payslip_leg_capped.hds_in_get_pf_contribution_wage(), 15000.0)
+        payslip_leg_capped = self._create_payslip_with_lines(emp_leg_capped, 30000.0)
+        self.assertEqual(payslip_leg_capped.hds_in_get_pf_contribution_wage(), 25000.0)
 
         # 2. Legacy actual_basic
         emp_leg_uncapped = self.Employee.create({
@@ -193,9 +193,9 @@ class TestPfContributionWage(common.TransactionCase):
             'name': 'Parameter Test Employee',
             'hds_in_pf_contribution_basis': 'statutory_ceiling',
         })
-        payslip = self._create_payslip_with_lines(employee, 20000.0, date_to='2026-05-31')
+        payslip = self._create_payslip_with_lines(employee, 30000.0, date_to='2026-05-31')
         ceiling_from_param = self.env['hr.rule.parameter'].get_pf_parameter('PF_WAGE_CEILING', date=payslip.date_to)
-        self.assertEqual(ceiling_from_param, 15000.0, "Parameter system must supply the ₹15,000 ceiling")
+        self.assertEqual(ceiling_from_param, 25000.0, "Parameter system must supply the ₹25,000 ceiling")
         self.assertEqual(payslip.hds_in_get_pf_contribution_wage(), ceiling_from_param)
 
     def test_scenario_j_inflight_localdict_execution(self):
@@ -215,18 +215,18 @@ class TestPfContributionWage(common.TransactionCase):
                 self.total = total
 
         localdict = {
-            'BASIC': 25000.0,
+            'BASIC': 30000.0,
             'rules': {
-                'BASIC': RuleValue(25000.0),
+                'BASIC': RuleValue(30000.0),
             }
         }
         res_capped = payslip.hds_in_get_pf_contribution_wage(localdict=localdict)
-        self.assertEqual(res_capped, 15000.0)
+        self.assertEqual(res_capped, 25000.0)
 
         # Toggle to uncapped actual_pf_wage
         employee.hds_in_pf_contribution_basis = 'actual_pf_wage'
         res_uncapped = payslip.hds_in_get_pf_contribution_wage(localdict=localdict)
-        self.assertEqual(res_uncapped, 25000.0)
+        self.assertEqual(res_uncapped, 30000.0)
 
     def test_scenario_k_backward_compatible_aliases(self):
         """Scenario K: Backward compatible alias methods get_pf_contribution_wage and get_pf_eligible_wage."""
@@ -234,6 +234,6 @@ class TestPfContributionWage(common.TransactionCase):
             'name': 'Alias Employee',
             'hds_in_pf_contribution_basis': 'statutory_ceiling',
         })
-        payslip = self._create_payslip_with_lines(employee, 18000.0)
-        self.assertEqual(payslip.get_pf_eligible_wage(), 18000.0)
-        self.assertEqual(payslip.get_pf_contribution_wage(), 15000.0)
+        payslip = self._create_payslip_with_lines(employee, 30000.0)
+        self.assertEqual(payslip.get_pf_eligible_wage(), 30000.0)
+        self.assertEqual(payslip.get_pf_contribution_wage(), 25000.0)

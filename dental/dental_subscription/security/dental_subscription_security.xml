@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        "Dental Memberships" privilege row (Settings > Users, under the Dental Clinic heading):
+
+          Membership Desk     sells memberships/packages, manages members, collects payments,
+                              sees benefits. Implies Hudson Subscriptions / User.
+          Membership Manager  configures membership products, benefit rules and plans, closes
+                              contracts, opens the membership dashboard. Implies Hudson
+                              Subscriptions / Administrator.
+
+        Default mapping onto the existing dental roles (adjust per user if needed):
+          Receptionist         -> Membership Desk   (front desk sells and bills)
+          Clinic Manager       -> Membership Desk   (+ dashboard, see get_dental_subscription_dashboard)
+          Dental Administrator -> Membership Manager
+          Dentist / Assistant  -> nothing: they only see membership summaries on appointments.
+    -->
+    <record model="res.groups.privilege" id="res_groups_privilege_dental_membership">
+        <field name="name">Dental Memberships</field>
+        <field name="sequence">14</field>
+        <field name="category_id" ref="dental_base.module_category_dental_clinic"/>
+    </record>
+
+    <record id="group_membership_user" model="res.groups">
+        <field name="name">Membership Desk</field>
+        <field name="privilege_id" ref="res_groups_privilege_dental_membership"/>
+        <field name="implied_ids" eval="[(4, ref('base.group_user')), (4, ref('hudson_subscriptions.group_subscription_user'))]"/>
+        <field name="comment">Sells dental memberships, family memberships, preventive packages, maintenance and installment plans; manages covered members and follows payments.</field>
+    </record>
+
+    <record id="group_membership_manager" model="res.groups">
+        <field name="name">Membership Manager</field>
+        <field name="privilege_id" ref="res_groups_privilege_dental_membership"/>
+        <field name="implied_ids" eval="[(4, ref('group_membership_user')), (4, ref('hudson_subscriptions.group_subscription_manager'))]"/>
+        <field name="comment">Configures membership products, benefit rules and recurring plans; closes contracts; opens the membership dashboard.</field>
+    </record>
+
+    <record id="dental_base.group_dental_receptionist" model="res.groups">
+        <field name="implied_ids" eval="[(4, ref('dental_subscription.group_membership_user'))]"/>
+    </record>
+    <record id="dental_base.group_dental_manager" model="res.groups">
+        <field name="implied_ids" eval="[(4, ref('dental_subscription.group_membership_user'))]"/>
+    </record>
+    <record id="dental_base.group_dental_admin" model="res.groups">
+        <field name="implied_ids" eval="[(4, ref('dental_subscription.group_membership_manager'))]"/>
+    </record>
+</odoo>

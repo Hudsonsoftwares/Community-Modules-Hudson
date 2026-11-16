@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-name="Barcode.LandingScreen" owl="1">
+        <div class="o_barcode_landing_container d-flex justify-content-center align-items-center h-100">
+            <div class="o_barcode_landing_card bg-view shadow-sm rounded d-flex flex-column" style="width: 100%; max-width: 600px; overflow: hidden;">
+                
+                <!-- Main Landing View -->
+                <t t-if="!this.state.showCamera">
+                    <div class="p-4">
+                        <div class="o_landing_header d-flex justify-content-between align-items-center mb-3">
+                    <h3 class="mb-0 d-flex align-items-center fs-5 fw-bold" style="color: var(--o-barcode-text-muted);">
+                        <button type="button" class="btn btn-link p-0 me-3 text-muted lh-1 o_barcode_apps_btn" title="Home Menu" aria-label="Home Menu" t-on-click="this.goToAppsHome"><i class="oi oi-lg" data-icon="apps"/></button> Barcode Scanner
+                    </h3>
+                    <button class="btn btn-sm btn-light border fw-bold text-muted" style="background-color: var(--o-barcode-subtle-bg);" t-on-click="this.installPwa">Install</button>
+                </div>
+                
+                <div class="alert alert-info d-flex justify-content-between align-items-center mb-4 py-2 px-3" role="alert" style="background-color: var(--o-barcode-info-bg); border-color: var(--o-barcode-info-bg); color: var(--o-barcode-info-text); border-radius: 4px;">
+                    <span style="font-size: 0.9rem;">Print the <a href="#" class="alert-link text-decoration-none" t-on-click="this.downloadDemoDataSheet">demo data sheet</a> to test, or <a href="#" class="alert-link text-decoration-none" t-on-click="this.downloadOperationBarcodes">barcodes</a> for operations.</span>
+                    <button type="button" class="btn-close ms-2" data-bs-dismiss="alert" aria-label="Close" style="font-size: 0.75rem;"></button>
+                </div>
+
+                <div class="o_landing_barcode_graphic text-center mb-4 position-relative cursor-pointer" t-on-click="this.openCamera">
+                    <!-- Pure CSS/SVG Barcode Graphic -->
+                    <svg width="240" height="120" viewBox="0 0 240 120" xmlns="http://www.w3.org/2000/svg">
+                        <!-- Bars -->
+                        <rect x="20" y="10" width="4" height="80" fill="#6c5b7b" />
+                        <rect x="30" y="10" width="8" height="100" fill="#6c5b7b" />
+                        <rect x="44" y="10" width="12" height="80" fill="#6c5b7b" />
+                        <rect x="62" y="10" width="4" height="100" fill="#6c5b7b" />
+                        <rect x="70" y="10" width="10" height="80" fill="#6c5b7b" />
+                        <rect x="86" y="10" width="16" height="100" fill="#6c5b7b" />
+                        <rect x="110" y="10" width="4" height="80" fill="#6c5b7b" />
+                        <rect x="120" y="10" width="8" height="100" fill="#6c5b7b" />
+                        <rect x="134" y="10" width="6" height="80" fill="#6c5b7b" />
+                        <rect x="146" y="10" width="16" height="100" fill="#6c5b7b" />
+                        <rect x="168" y="10" width="8" height="80" fill="#6c5b7b" />
+                        <rect x="182" y="10" width="12" height="100" fill="#6c5b7b" />
+                        <rect x="200" y="10" width="4" height="80" fill="#6c5b7b" />
+                        <rect x="210" y="10" width="14" height="100" fill="#6c5b7b" />
+                        
+                        <!-- Red laser line -->
+                        <line x1="5" y1="60" x2="235" y2="60" stroke="#ff4d4d" stroke-width="2" />
+                        
+                        <!-- Little dots at the bottom of shorter bars -->
+                        <rect x="20" y="96" width="4" height="6" fill="#6c5b7b" />
+                        <rect x="44" y="96" width="12" height="6" fill="#6c5b7b" />
+                        <rect x="70" y="96" width="10" height="6" fill="#6c5b7b" />
+                        <rect x="110" y="96" width="4" height="6" fill="#6c5b7b" />
+                        <rect x="134" y="96" width="6" height="6" fill="#6c5b7b" />
+                        <rect x="168" y="96" width="8" height="6" fill="#6c5b7b" />
+                        <rect x="200" y="96" width="4" height="6" fill="#6c5b7b" />
+                    </svg>
+                    <div class="text-muted mt-2 small">Scan or tap</div>
+                </div>
+
+                <ul class="o_landing_instructions text-start mb-4 ps-3" style="font-size: 0.85rem; line-height: 1.6; color: var(--o-barcode-text-muted);">
+                    <li>Scan a <strong>product</strong> or its <strong>packaging</strong> to locate it</li>
+                    <li>Scan a <strong>tracking number</strong> to find a transfer</li>
+                    <li>Scan a <strong>picking</strong> to open it</li>
+                    <li>Scan a <strong>location</strong> to initiate a transfer</li>
+                    <li>Scan an <strong>operation type</strong> to start it</li>
+                </ul>
+
+                <div class="d-grid gap-2">
+                    <button class="btn fw-bold o_barcode_text_light py-2" style="background-color: #714B67; font-size: 0.95rem;" t-on-click="this.props.onOperationsClick">Operations</button>
+                    <button t-attf-class="btn fw-bold py-2 {{ this.state.pendingInventoryCount > 0 ? 'o_barcode_text_light' : '' }}" t-attf-style="background-color: {{ this.state.pendingInventoryCount > 0 ? '#17a2b8' : 'var(--o-barcode-muted-bg)' }}; color: {{ this.state.pendingInventoryCount > 0 ? 'white' : 'var(--o-barcode-text-muted)' }}; font-size: 0.95rem; border: none;" t-on-click="this.props.onInventoryClick">
+                        Count Inventory
+                        <t t-if="this.state.pendingInventoryCount > 0">
+                            <span class="badge rounded-circle ms-2 shadow-sm" style="background-color: var(--o-barcode-view-bg); color: #17a2b8; padding: 0.25rem 0.45rem; font-size: 0.85rem;"><t t-out="this.state.pendingInventoryCount"/></span>
+                        </t>
+                    </button>
+                </div>
+            </div>
+        </t>
+                <!-- Camera Overlay View -->
+                <t t-else="">
+                    <div class="o_camera_header d-flex align-items-center p-3 border-bottom bg-view">
+                        <button class="btn btn-link p-0 text-dark me-3 text-decoration-none" t-on-click="this.closeCamera">
+                            <i class="oi oi-lg" data-icon="arrow_back"/>
+                        </button>
+                        <h5 class="mb-0 fw-bold">Barcode Scanner</h5>
+                    </div>
+                    
+                    <!-- Simulating the video feed background from screenshot -->
+                    <div class="o_camera_body position-relative flex-grow-1" style="min-height: 400px; display: flex; justify-content: center; align-items: center; background: #2c2c2c; overflow: hidden;">
+                        
+                        <video t-ref="this.videoRef" class="position-absolute w-100 h-100" style="object-fit: cover;" autoplay="autoplay" playsinline="playsinline" muted="muted"></video>
+                        
+                        <!-- The semi-transparent overlay with a clear cutout in the middle using massive box-shadow -->
+                        <div class="position-absolute border o_barcode_border_light" style="width: 70%; height: 35%; max-width: 400px; max-height: 150px; background: transparent; box-shadow: 0 0 0 2000px rgba(0,0,0,0.65); pointer-events: none;">
+                            <!-- Crop icon on bottom right corner -->
+                            <div class="position-absolute bg-view rounded-circle d-flex justify-content-center align-items-center shadow-sm" style="bottom: -12px; right: -12px; width: 24px; height: 24px;">
+                                <i class="oi text-dark" data-icon="crop" style="font-size: 0.7rem; transform: rotate(90deg);"/>
+                            </div>
+                        </div>
+                    </div>
+
+                    
+                    <div class="o_camera_footer p-3 border-top bg-view">
+                        <div class="input-group">
+                            <input type="text" class="form-control" placeholder="Enter a barcode..." t-att-value="this.state.manualBarcode" t-on-input="(ev) => this.state.manualBarcode = ev.target.value"/>
+                            <button class="btn btn-outline-secondary text-dark border-start-0" style="background-color: var(--o-barcode-subtle-bg);" type="button" t-on-click="this.applyManualBarcode">Apply</button>
+                        </div>
+                    </div>
+                </t>
+                
+            </div>
+        </div>
+    </t>
+</templates>

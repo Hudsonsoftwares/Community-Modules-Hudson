@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_dental_second_opinion_form_inherit_discuss" model="ir.ui.view">
+        <field name="name">dental.second.opinion.form.inherit.discuss</field>
+        <field name="model">dental.second.opinion</field>
+        <field name="inherit_id" ref="dental_second_opinion.view_dental_second_opinion_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//header" position="inside">
+                <button name="action_open_referral_channel" string="Referral Chat" type="object"
+                        class="btn-outline-primary" icon="fa-comments"
+                        invisible="state in ('draft', 'cancelled')"/>
+            </xpath>
+
+            <xpath expr="//div[hasclass('oe_title')]" position="before">
+                <div class="oe_button_box" name="button_box">
+                    <button name="action_open_referral_channel" type="object" class="oe_stat_button" icon="fa-comments">
+                        <field name="discuss_channel_count" widget="statinfo" string="Referral Chat"/>
+                    </button>
+                </div>
+            </xpath>
+        </field>
+    </record>
+</odoo>
+

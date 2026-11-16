@@ -1,19 +1,21 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <odoo>
-    <data>
 
-        <!-- Top-level menu item -->
-        <menuitem id="menu_hudson_ai_root"
-                  name="Hudson AI"
-                  sequence="5"
-                  web_icon="hudson_ai,static/description/icon.png"/>
+    <!-- Users chat with the AI from the "Ask AI" button in the top bar and from
+         the chatter; this app is for administrators. -->
+    <menuitem id="menu_hudson_ai_root"
+              name="Hudson AI"
+              sequence="5"
+              groups="base.group_system"
+              web_icon="hudson_ai,static/description/icon.png"/>
 
-        <!-- Configuration sub-menu -->
-        <menuitem id="menu_hudson_ai_config"
-                  name="Configuration"
-                  parent="menu_hudson_ai_root"
-                  action="action_hudson_ai_config"
-                  sequence="10"/>
+    <menuitem id="menu_hudson_ai_settings" name="Settings" parent="menu_hudson_ai_root"
+              action="action_hudson_ai_settings" sequence="10"/>
+    <menuitem id="menu_hudson_ai_usage" name="Usage" parent="menu_hudson_ai_root"
+              action="action_hudson_ai_usage" sequence="20"/>
+    <menuitem id="menu_hudson_ai_clients" name="Gateway Clients" parent="menu_hudson_ai_root"
+              action="action_hudson_ai_client" sequence="30"/>
+    <menuitem id="menu_hudson_ai_access_rules" name="Access Rules" parent="menu_hudson_ai_root"
+              action="action_hudson_ai_access_rule" sequence="40"/>
 
-    </data>
 </odoo>

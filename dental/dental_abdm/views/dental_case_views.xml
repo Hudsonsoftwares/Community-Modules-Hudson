@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Case form > Actions (cog) menu, following the dental_core toolbar convention -->
+    <record id="action_server_dental_case_abdm_preview" model="ir.actions.server">
+        <field name="name">ABDM: Preview Health Records</field>
+        <field name="model_id" ref="dental_core.model_dental_case"/>
+        <field name="binding_model_id" ref="dental_core.model_dental_case"/>
+        <field name="binding_view_types">form</field>
+        <field name="group_ids" eval="[(4, ref('abdm_base.group_abdm_user'))]"/>
+        <field name="state">code</field>
+        <field name="code">action = record.action_abdm_preview_records()</field>
+    </record>
+
+    <record id="action_server_dental_case_abdm_link" model="ir.actions.server">
+        <field name="name">ABDM: Link Case to ABHA</field>
+        <field name="model_id" ref="dental_core.model_dental_case"/>
+        <field name="binding_model_id" ref="dental_core.model_dental_case"/>
+        <field name="binding_view_types">form,list</field>
+        <field name="group_ids" eval="[(4, ref('abdm_base.group_abdm_user'))]"/>
+        <field name="state">code</field>
+        <field name="code">action = records.action_abdm_link()</field>
+    </record>
+</odoo>

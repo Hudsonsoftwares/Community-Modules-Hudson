@@ -11,3 +11,6 @@ from . import dental_pharmacy_dispense_line
 from . import account_move
 from . import dental_case
 from . import pharmacy_dashboard
+from . import res_company
+from . import sale_order
+from . import dental_patient_history

@@ -1,0 +1,17 @@
+id,name,model_id,group_id/id,operation,domain
+access_dental_consent_template_user,dental.consent.template.user,dental.consent.template,base.group_user,r,
+access_dental_consent_template_manager,dental.consent.template.manager,dental.consent.template,dental_base.group_dental_manager,crud,
+dental_consent_template_company_rule,Dental consent form: company isolation,dental.consent.template,,crud,"['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]"
+access_dental_consent_dentist,dental.consent.dentist,dental.consent,dental_base.group_dental_dentist,cru,
+access_dental_consent_assistant,dental.consent.assistant,dental.consent,dental_base.group_dental_assistant,ru,
+access_dental_consent_receptionist,dental.consent.receptionist,dental.consent,dental_base.group_dental_receptionist,ru,
+access_dental_consent_manager,dental.consent.manager,dental.consent,dental_base.group_dental_manager,crud,
+dental_consent_company_rule,Dental consent: company isolation,dental.consent,,crud,"['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]"
+access_dental_consent_sign_wizard_dentist,dental.consent.sign.wizard.dentist,dental.consent.sign.wizard,dental_base.group_dental_dentist,crud,
+access_dental_consent_sign_wizard_assistant,dental.consent.sign.wizard.assistant,dental.consent.sign.wizard,dental_base.group_dental_assistant,crud,
+access_dental_consent_sign_wizard_receptionist,dental.consent.sign.wizard.receptionist,dental.consent.sign.wizard,dental_base.group_dental_receptionist,crud,
+access_dental_consent_sign_wizard_manager,dental.consent.sign.wizard.manager,dental.consent.sign.wizard,dental_base.group_dental_manager,crud,
+access_dental_consent_revoke_wizard_dentist,dental.consent.revoke.wizard.dentist,dental.consent.revoke.wizard,dental_base.group_dental_dentist,crud,
+access_dental_consent_revoke_wizard_assistant,dental.consent.revoke.wizard.assistant,dental.consent.revoke.wizard,dental_base.group_dental_assistant,crud,
+access_dental_consent_revoke_wizard_receptionist,dental.consent.revoke.wizard.receptionist,dental.consent.revoke.wizard,dental_base.group_dental_receptionist,crud,
+access_dental_consent_revoke_wizard_manager,dental.consent.revoke.wizard.manager,dental.consent.revoke.wizard,dental_base.group_dental_manager,crud,

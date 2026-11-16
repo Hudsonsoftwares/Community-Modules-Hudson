@@ -13,6 +13,7 @@ class DentalPharmacyDispenseLine(models.Model):
         ondelete='cascade',
         index=True
     )
+    company_id = fields.Many2one(related='dispense_id.company_id', store=True, index=True, string='Branch')
     prescription_line_id = fields.Many2one(
         'dental.prescription.line',
         string='Prescribed Item',

@@ -37,7 +37,8 @@ class AbstractPTPeriodicityStrategy(ABC):
         current_slip=None,
         current_slip_gross=0.0,
         company=None,
-        period_schedule=None
+        period_schedule=None,
+        is_simulation=False
     ) -> float:
         """Aggregates salary basis across period window."""
         pass
@@ -158,10 +159,15 @@ class AbstractPTPeriodicityStrategy(ABC):
             period_schedule.state_id if period_schedule else False,
             company=company or (employee.company_id if employee else False),
             eval_date=prior_eval_date
-        ) or period_schedule
+        )
         prior_start_d, prior_end_d = sched_service.resolve_period_window(
             schedule=prior_sched, eval_date=prior_eval_date, periodicity=self.get_periodicity_code()
         )
+
+        # STRICT BOUNDARY GUARD: Prior period must strictly end before the current period starts.
+        # This prevents circular lookup of current-cycle earnings if schedule resolution fails.
+        if not prior_start_d or not prior_end_d or prior_end_d >= start_d:
+            return (0.0, 0.0) if return_interim else 0.0
 
         # Aggregate prior period earned wages
         agg_service = PayrollWageAggregationService(env)
@@ -182,7 +188,7 @@ class AbstractPTPeriodicityStrategy(ABC):
                 return (0.0, 0.0) if return_interim else 0.0
 
         # Resolve prior period statutory slab and liability
-        state = prior_sched.state_id if (prior_sched and prior_sched.state_id) else False
+        state = prior_sched.state_id if (prior_sched and prior_sched.state_id) else (period_schedule.state_id if period_schedule else False)
         if not state:
             from ..payroll.work_location_service import PayrollWorkLocationService
             state = PayrollWorkLocationService(env).get_work_state(employee)
@@ -342,7 +348,8 @@ class MonthlyPTStrategy(AbstractPTPeriodicityStrategy):
         current_slip=None,
         current_slip_gross=0.0,
         company=None,
-        period_schedule=None
+        period_schedule=None,
+        is_simulation=False
     ) -> float:
         return float(current_slip_gross or 0.0)
 
@@ -382,8 +389,11 @@ class HalfYearlyPTStrategy(AbstractPTPeriodicityStrategy):
         current_slip=None,
         current_slip_gross=0.0,
         company=None,
-        period_schedule=None
+        period_schedule=None,
+        is_simulation=False
     ) -> float:
+        if is_simulation:
+            return float(current_slip_gross or 0.0) * 6.0
         if period_schedule:
             from .pt_period_config_service import PTPeriodScheduleService
             sched_service = PTPeriodScheduleService(env)
@@ -435,8 +445,11 @@ class QuarterlyPTStrategy(AbstractPTPeriodicityStrategy):
         current_slip=None,
         current_slip_gross=0.0,
         company=None,
-        period_schedule=None
+        period_schedule=None,
+        is_simulation=False
     ) -> float:
+        if is_simulation:
+            return float(current_slip_gross or 0.0) * 3.0
         if period_schedule:
             from .pt_period_config_service import PTPeriodScheduleService
             sched_service = PTPeriodScheduleService(env)
@@ -482,8 +495,11 @@ class AnnualPTStrategy(AbstractPTPeriodicityStrategy):
         current_slip=None,
         current_slip_gross=0.0,
         company=None,
-        period_schedule=None
+        period_schedule=None,
+        is_simulation=False
     ) -> float:
+        if is_simulation:
+            return float(current_slip_gross or 0.0) * 12.0
         if period_schedule:
             from .pt_period_config_service import PTPeriodScheduleService
             sched_service = PTPeriodScheduleService(env)

@@ -1,12 +1,14 @@
 # -*- coding: utf-8 -*-
-from odoo import models, fields, api, _
-from odoo.exceptions import ValidationError, UserError
+from odoo import models, fields, api, _, Command
+from odoo.exceptions import AccessError, ValidationError, UserError
+from odoo.tools import html2plaintext
 
 class DentalPrescription(models.Model):
     _name = 'dental.prescription'
     _description = 'Dental Clinical Prescription'
     _inherit = ['mail.thread', 'mail.activity.mixin']
     _order = 'prescription_date desc, id desc'
+    _check_company_auto = True
 
     name = fields.Char(
         string='Prescription Number',
@@ -48,6 +50,15 @@ class DentalPrescription(models.Model):
         related='patient_id.allergies',
         readonly=True
     )
+    # Drives the allergy banner: an empty HTML editor value ("<p><br></p>") must not show an empty alert
+    patient_allergy_status = fields.Selection(related='patient_id.allergy_status', string='Allergy Status')
+    patient_allergies_text = fields.Char(string='Known Allergies', compute='_compute_patient_allergies_text')
+
+    @api.depends('patient_id.allergies')
+    def _compute_patient_allergies_text(self):
+        for rx in self:
+            text = html2plaintext(rx.patient_id.allergies or '').strip() if rx.patient_id.allergies else ''
+            rx.patient_allergies_text = ' '.join(text.split()) or False
     dentist_id = fields.Many2one(
         'hr.employee',
         string='Prescribing Dentist',
@@ -77,13 +88,15 @@ class DentalPrescription(models.Model):
         string='Dental Case',
         domain="[('patient_id', '=', patient_id)]",
         tracking=True,
-        index=True
+        index=True,
+        check_company=True,
     )
     appointment_id = fields.Many2one(
         'dental.appointment',
         string='Related Appointment',
         domain="[('patient_id', '=', patient_id)]",
-        tracking=True
+        tracking=True,
+        check_company=True,
     )
     prescription_date = fields.Date(
         string='Prescription Date',
@@ -105,6 +118,12 @@ class DentalPrescription(models.Model):
         string='Clinical Advice / Special Instructions',
         help='Advice given to patient regarding diet, rest, hygiene, or warnings.'
     )
+    medication_summary = fields.Text(
+        string='Medicines',
+        compute='_compute_medication_summary',
+        help='One line per prescribed medicine with dose, frequency, duration and quantity.'
+    )
+    medicine_count = fields.Integer(string='Number of Medicines', compute='_compute_medication_summary')
     has_allergy_warning = fields.Boolean(
         string='Has Allergy Warning',
         compute='_compute_allergy_warning'
@@ -113,9 +132,19 @@ class DentalPrescription(models.Model):
         string='Allergy Warning Message',
         compute='_compute_allergy_warning'
     )
+    stock_alert_count = fields.Integer(
+        string='Stock Alerts',
+        compute='_compute_stock_alert_summary',
+        help='Number of prescribed medicines that are out of stock or short in the pharmacy.'
+    )
+    stock_alert_message = fields.Char(
+        string='Stock Alert',
+        compute='_compute_stock_alert_summary'
+    )
     state = fields.Selection([
         ('draft', 'Draft'),
-        ('confirmed', 'Confirmed'),
+        ('confirmed', 'Sent to Pharmacy'),
+        ('issued', 'Issued to Patient'),
         ('partially_dispensed', 'Partially Dispensed'),
         ('fully_dispensed', 'Fully Dispensed'),
         ('cancelled', 'Cancelled')
@@ -132,6 +161,16 @@ class DentalPrescription(models.Model):
         'prescription_id',
         string='Dispensing Records'
     )
+    fulfillment = fields.Selection([
+        ('pharmacy', 'In-house Pharmacy'),
+        ('patient', 'Patient (outside pharmacy)'),
+    ], string='Medicines Supplied By', readonly=True, copy=False, tracking=True,
+        help='Set when the prescription is confirmed: dispensed and billed by the in-house pharmacy, '
+             'or handed to the patient to buy outside (not billed by the clinic).')
+    branch_has_pharmacy = fields.Boolean(related='company_id.dental_has_pharmacy', string='Branch Has Pharmacy')
+    issued_date = fields.Datetime(string='Issued to Patient On', readonly=True, copy=False)
+    sale_order_id = fields.Many2one('sale.order', string='Sales Order', readonly=True, copy=False, index='btree_not_null',
+                                    help='Medicine order for the pharmacy. Shows stock availability; nothing is reserved or blocked.')
     company_id = fields.Many2one(
         'res.company',
         string='Clinic Branch',
@@ -217,6 +256,52 @@ class DentalPrescription(models.Model):
         for rx in self:
             rx.dispense_count = len(rx.dispense_ids)
 
+    @api.depends('line_ids.medicine_id', 'line_ids.dose', 'line_ids.frequency', 'line_ids.duration',
+                 'line_ids.quantity', 'line_ids.instructions')
+    def _compute_medication_summary(self):
+        """One line per medicine, e.g. 'Amoxicillin 500 mg: 1 tab, Three times daily (TDS / TID), 5 days, qty 15 (After meals)'."""
+        for rx in self:
+            rows = []
+            for line in rx.line_ids:
+                name = line.medicine_id.display_name or _('Medicine')
+                if line.strength and line.strength not in name:
+                    name = f"{name} {line.strength}"
+                details = [line.dose, line.frequency_label,
+                           line.duration and _('%s days', line.duration),
+                           line.quantity and _('qty %s', f"{line.quantity:g}")]
+                row = f"{name}: {', '.join(d for d in details if d)}"
+                if line.instructions:
+                    row += f" ({line.instructions})"
+                rows.append(row)
+            rx.medication_summary = '\n'.join(rows) or False
+            rx.medicine_count = len(rx.line_ids)
+
+    def action_open_prescription(self):
+        """Open the prescription on its own page (from the case's prescription history)."""
+        self.ensure_one()
+        return {
+            'name': self.name,
+            'type': 'ir.actions.act_window',
+            'res_model': 'dental.prescription',
+            'res_id': self.id,
+            'view_mode': 'form',
+            'target': 'current',
+        }
+
+    @api.depends('line_ids.stock_alert', 'line_ids.medicine_id')
+    def _compute_stock_alert_summary(self):
+        for rx in self:
+            short = rx.line_ids.filtered(lambda l: l.stock_alert in ('out', 'insufficient'))
+            low = rx.line_ids.filtered(lambda l: l.stock_alert == 'low')
+            rx.stock_alert_count = len(short)
+            parts = []
+            if short:
+                parts.append(_('Not available / short: %s', ', '.join(
+                    '%s (%s)' % (l.medicine_id.name, l.stock_alert_note) for l in short)))
+            if low:
+                parts.append(_('Running low: %s', ', '.join(low.mapped('medicine_id.name'))))
+            rx.stock_alert_message = ' | '.join(parts) or False
+
     def _compute_invoice_count(self):
         for rx in self:
             invoices = rx.dispense_ids.mapped('invoice_id').filtered(lambda inv: inv)
@@ -276,6 +361,22 @@ class DentalPrescription(models.Model):
             if lines:
                 self.line_ids = lines
 
+    @api.onchange('case_id')
+    def _onchange_case_id(self):
+        case = self.case_id
+        if not case:
+            return
+        if case.company_id:
+            # A prescription belongs to the branch of its case
+            self.company_id = case.company_id
+        if case.patient_id:
+            self.patient_id = case.patient_id
+        if not self.dentist_id and case.doctor_id:
+            # Case doctor is hr.employee.public; prescriptions use hr.employee (same ids)
+            self.dentist_id = self.env['hr.employee'].browse(case.doctor_id.id)
+        if not self.appointment_id and case.appointment_id:
+            self.appointment_id = case.appointment_id
+
     @api.onchange('patient_id')
     def _onchange_patient_id(self):
         if self.patient_id and self.case_id and self.case_id.patient_id != self.patient_id:
@@ -286,23 +387,191 @@ class DentalPrescription(models.Model):
         for line in self.line_ids:
             line._onchange_medicine_id()
 
-    def action_confirm(self):
+    # ---------------------------------------------------------
+    # Sending a finished prescription: two explicit options
+    #   1. to the in-house pharmacy (sales order queue, or the POS pharmacy counter)
+    #   2. to the patient: issued and emailed as a PDF, bought at any pharmacy
+    # ---------------------------------------------------------
+    def _check_ready_to_send(self):
+        if not self.env.user.has_groups('dental_base.group_dental_dentist,dental_base.group_dental_manager,'
+                                        'dental_base.group_dental_admin'):
+            raise ValidationError(_("Only dentists and clinic managers are authorized to confirm clinical prescriptions."))
         for record in self:
-            # Security verification
-            if not (self.env.user.has_group('dental_base.group_dental_dentist') or
-                    self.env.user.has_group('dental_base.group_dental_manager') or
-                    self.env.user.has_group('dental_base.group_dental_admin')):
-                raise ValidationError(_("Only dentists and clinic managers are authorized to confirm clinical prescriptions."))
-
+            if record.state != 'draft':
+                raise UserError(_("Prescription %s was already sent.", record.name))
             if not record.line_ids:
                 raise ValidationError(_("Please add at least one medicine before confirming the prescription."))
-
             for line in record.line_ids:
                 if line.quantity <= 0:
                     raise ValidationError(_("Prescribed quantity for %s must be greater than zero.") % line.medicine_id.display_name)
 
-            record.state = 'confirmed'
-            record.message_post(body=_("Prescription confirmed by %s.") % self.env.user.name)
+    def _pharmacy_destination_label(self):
+        """Where 'Send to Pharmacy' puts the prescription (the POS bridge names its counter)."""
+        return _("the pharmacy queue")
+
+    def action_send_to_pharmacy(self):
+        """Option 1: the in-house pharmacy dispenses and bills the medicines."""
+        self._check_ready_to_send()
+        for record in self:
+            if not record.company_id.dental_has_pharmacy:
+                raise UserError(_("%s has no in-house pharmacy. Send the prescription to the patient instead, "
+                                  "or switch the pharmacy on in Clinic Configuration.", record.company_id.name))
+            record.write({'state': 'confirmed', 'fulfillment': 'pharmacy'})
+            order = record._create_sale_order()
+            if order:
+                body = _("Prescription sent by %(user)s to the pharmacy for dispensing (sales order %(so)s).",
+                         user=self.env.user.name, so=order.name)
+            else:
+                body = _("Prescription sent by %(user)s to %(where)s for dispensing.",
+                         user=self.env.user.name, where=record._pharmacy_destination_label())
+            record.message_post(body=body)
+        return True
+
+    def action_send_to_patient(self):
+        """Option 2: email the prescription PDF to the patient.
+
+        A draft is issued first (the patient buys the medicines outside, nothing is billed);
+        a prescription already sent or issued is simply emailed again as a copy.
+        """
+        drafts = self.filtered(lambda rx: rx.state == 'draft')
+        if drafts:
+            drafts._check_ready_to_send()
+        self._check_can_hand_over()
+        if any(rx.state == 'cancelled' for rx in self):
+            raise UserError(_("A cancelled prescription cannot be sent."))
+        no_email = self.filtered(lambda rx: not rx.patient_id.email)
+        if drafts:
+            drafts._issue_to_patient(reason=_("Issued to the patient by %s.", self.env.user.name), send=False)
+        sent = (self - no_email)._send_to_patient()
+        if no_email:
+            no_email.sudo().message_post(body=_("Patient has no email address: print the prescription and hand it over."))
+            return self._hand_over_notification(
+                _("%s has no email address. Add it on the patient, or print the prescription.",
+                  ', '.join(no_email.patient_id.mapped('name'))), 'warning')
+        return self._hand_over_notification(
+            _("Prescription emailed to %s.", ', '.join(sent.patient_id.mapped('email'))))
+
+    def action_confirm(self):
+        """Automatic release (e.g. when the consultation is completed): to the pharmacy when the
+        branch has one, otherwise issued and emailed to the patient."""
+        with_pharmacy = self.filtered(lambda rx: rx.company_id.dental_has_pharmacy)
+        if with_pharmacy:
+            with_pharmacy.action_send_to_pharmacy()
+        without = self - with_pharmacy
+        if without:
+            without._check_ready_to_send()
+            for record in without:
+                record._issue_to_patient(reason=_("%s has no in-house pharmacy.", record.company_id.name))
+        return True
+
+    # ---------------------------------------------------------
+    # Reuse: repeat an earlier prescription, save as template
+    # ---------------------------------------------------------
+    def _prepare_copy_line_vals(self):
+        return [{
+            'medicine_id': line.medicine_id.id,
+            'dose': line.dose,
+            'route': line.route,
+            'frequency': line.frequency,
+            'duration': line.duration,
+            'quantity': line.quantity,
+            'instructions': line.instructions,
+        } for line in self.line_ids if line.medicine_id]
+
+    def action_repeat_prescription(self):
+        """Copy this prescription's medicines into today's prescription of the open case."""
+        self.ensure_one()
+        case = self.env['dental.case'].browse(self.env.context.get('dental_rx_case_id') or self.case_id.id).exists()
+        if not case:
+            raise UserError(_("Open the patient's consultation to repeat this prescription."))
+        if case.patient_id != self.patient_id:
+            raise UserError(_("This prescription belongs to another patient."))
+        rx = case._get_visit_prescription()
+        if rx == self:
+            raise UserError(_("This is today's prescription already."))
+        rx.write({
+            'line_ids': [Command.create(vals) for vals in self._prepare_copy_line_vals()],
+            'diagnosis': rx.diagnosis or self.diagnosis,
+            'clinical_notes': rx.clinical_notes or self.clinical_notes,
+        })
+        return self._hand_over_notification(_("Medicines of %s added to today's prescription.", self.name))
+
+    def action_save_as_template(self):
+        """Open a new prescription template prefilled with these medicines."""
+        self.ensure_one()
+        if not self.line_ids:
+            raise UserError(_("Add medicines before saving the prescription as a template."))
+        return {
+            'name': _('Save as Prescription Template'),
+            'type': 'ir.actions.act_window',
+            'res_model': 'dental.prescription.template',
+            'view_mode': 'form',
+            'views': [(self.env.ref('dental_pharmacy.view_dental_prescription_template_form').id, 'form')],
+            'target': 'new',
+            'context': {
+                'default_name': self.diagnosis or _('My template'),
+                'default_indication': self.diagnosis,
+                'default_notes': self.clinical_notes,
+                'default_line_ids': [Command.create(vals) for vals in self._prepare_copy_line_vals()],
+            },
+        }
+
+    # ---------------------------------------------------------
+    # Issue to patient (no in-house pharmacy, or patient buys outside)
+    # ---------------------------------------------------------
+    def _check_can_hand_over(self):
+        user = self.env.user
+        if not user.has_groups('dental_base.group_dental_dentist,dental_base.group_dental_receptionist,'
+                               'dental_base.group_dental_manager,dental_pharmacy.group_dental_pharmacist'):
+            raise AccessError(_("You are not allowed to issue prescriptions to patients."))
+        # Only prescriptions the user can actually see (branch / record rules)
+        self.check_access('read')
+
+    def _issue_to_patient(self, reason=None, send=True):
+        """Hand the prescription to the patient: no pharmacy dispensing, no medicine billing."""
+        for rx in self.sudo():
+            rx.write({'state': 'issued', 'fulfillment': 'patient', 'issued_date': fields.Datetime.now()})
+            rx._cancel_sale_order()
+            note = _("Prescription issued to the patient to buy the medicines outside. "
+                     "Medicines are not billed by the clinic; the front desk bills the visit only.")
+            if reason:
+                note = "%s %s" % (reason, note)
+            rx.message_post(body=note)
+            if send:
+                rx._send_to_patient()
+
+    def _send_to_patient(self, template=None):
+        """Email the prescription PDF when the patient has an email; otherwise ask the desk to print it."""
+        template = template or self.env.ref('dental_pharmacy.mail_template_prescription_patient', raise_if_not_found=False)
+        sent = self.env['dental.prescription']
+        for rx in self.sudo():
+            if template and rx.patient_id.email:
+                rx.message_post_with_source(template, message_type='comment', subtype_xmlid='mail.mt_comment',
+                                            partner_ids=rx.patient_id.ids)
+                sent |= rx
+            else:
+                rx.message_post(body=_("Patient has no email address: print the prescription and hand it over at the front desk."))
+        return sent
+
+    def action_issue_to_patient(self):
+        """Patient prefers to buy outside (or the pharmacy cannot supply): take it out of the pharmacy queue."""
+        self._check_can_hand_over()
+        for rx in self:
+            if rx.state != 'confirmed' or rx.total_dispensed_qty > 0:
+                raise UserError(_("Only prescriptions waiting at the pharmacy with nothing dispensed yet can be issued to the patient (%s).", rx.name))
+        self._issue_to_patient(reason=_("Issued to the patient by %s.", self.env.user.name))
+        return self._hand_over_notification(_("Prescription issued to the patient."))
+
+    def action_print_for_patient(self):
+        self._check_can_hand_over()
+        return self.env.ref('dental_pharmacy.action_report_dental_prescription').report_action(self)
+
+    def _hand_over_notification(self, message, kind='success'):
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'display_notification',
+            'params': {'type': kind, 'message': message, 'next': {'type': 'ir.actions.client', 'tag': 'soft_reload'}},
+        }
 
     def action_cancel(self):
         for record in self:
@@ -310,6 +579,7 @@ class DentalPrescription(models.Model):
                 raise UserError(_("Cannot cancel prescription %s because medicines have already been dispensed. "
                                   "Authorized returns must be processed in the Dispensing module first.") % record.name)
             record.state = 'cancelled'
+            record._cancel_sale_order()
             record.message_post(body=_("Prescription cancelled by %s.") % self.env.user.name)
 
     def action_draft(self):
@@ -317,6 +587,74 @@ class DentalPrescription(models.Model):
             if record.total_dispensed_qty > 0:
                 raise UserError(_("Cannot reset to draft because medications have already been dispensed."))
             record.state = 'draft'
+            # A fresh quotation is created on the next confirmation, with the corrected medicines
+            record._cancel_sale_order()
+
+    # ---------------------------------------------------------
+    # Sales order: the commercial side of the prescription
+    # ---------------------------------------------------------
+    def _prepare_sale_order_vals(self):
+        self.ensure_one()
+        return {
+            'partner_id': self.patient_id.id,
+            'company_id': self.company_id.id,
+            'origin': self.name,
+            'client_order_ref': self.name,
+            'dental_prescription_id': self.id,
+            'note': self.diagnosis or False,
+            'order_line': [(0, 0, {
+                'product_id': line.medicine_id.id,
+                'product_uom_qty': line.quantity,
+                'dental_prescription_line_id': line.id,
+            }) for line in self.line_ids if line.medicine_id],
+        }
+
+    def _create_sale_order(self):
+        """Quotation for the prescribed medicines.
+
+        It is informational, not a hard link: nothing is reserved, stock is never checked
+        or blocked, and the pharmacy dispenses from it. Its lines show the forecast stock.
+        """
+        self.ensure_one()
+        if self.sale_order_id and self.sale_order_id.state != 'cancel':
+            return self.sale_order_id
+        # Prescribers have no sales rights; the order is created on their behalf
+        order = self.env['sale.order'].sudo().with_company(self.company_id).create(self._prepare_sale_order_vals())
+        self.sudo().sale_order_id = order
+        return order
+
+    def _cancel_sale_order(self):
+        """Drop the quotation while nothing was delivered or invoiced from it."""
+        for rx in self.sudo():
+            order = rx.sale_order_id
+            if not order or order.state == 'cancel':
+                continue
+            if any(line.qty_delivered or line.qty_invoiced for line in order.order_line):
+                rx.message_post(body=_("Sales order %s already has deliveries or invoices and was kept.", order.name))
+                continue
+            order._action_cancel()
+            rx.message_post(body=_("Sales order %s cancelled.", order.name))
+
+    def _confirm_sale_order_for_dispense(self):
+        """Confirm the quotation when the pharmacy dispenses. The pharmacy's own transfer is the
+        delivery, so no extra delivery order is generated (skip_procurement)."""
+        self.ensure_one()
+        order = self.sale_order_id.sudo()
+        if not order or order.state == 'cancel':
+            order = self._create_sale_order().sudo()
+        if order.state in ('draft', 'sent'):
+            order.with_context(skip_procurement=True).action_confirm()
+        return order
+
+    def action_view_sale_order(self):
+        self.ensure_one()
+        return {
+            'name': _('Sales Order'),
+            'type': 'ir.actions.act_window',
+            'res_model': 'sale.order',
+            'view_mode': 'form',
+            'res_id': self.sale_order_id.id,
+        }
 
     def _update_dispensing_state(self):
         for rx in self:

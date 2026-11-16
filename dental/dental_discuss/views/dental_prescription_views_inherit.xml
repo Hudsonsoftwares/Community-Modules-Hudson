@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_dental_prescription_form_inherit_discuss" model="ir.ui.view">
+        <field name="name">dental.prescription.form.inherit.discuss</field>
+        <field name="model">dental.prescription</field>
+        <field name="inherit_id" ref="dental_pharmacy.view_dental_prescription_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//header" position="inside">
+                <button name="action_open_pharmacy_channel" string="Discuss with Pharmacy" type="object"
+                        class="btn-outline-primary" icon="fa-comments"
+                        invisible="state == 'cancelled'"/>
+            </xpath>
+
+            <xpath expr="//div[@name='button_box']" position="inside">
+                <button name="action_open_pharmacy_channel" type="object" class="oe_stat_button" icon="fa-comments">
+                    <field name="discuss_channel_count" widget="statinfo" string="Rx Chat"/>
+                </button>
+            </xpath>
+        </field>
+    </record>
+</odoo>
+

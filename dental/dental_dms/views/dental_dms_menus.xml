@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- ========================================================================= -->
+    <!-- 1. DENTAL CLINIC OVERSIGHT APP (menu_dental_root)                          -->
+    <!-- ========================================================================= -->
+    <menuitem id="menu_dental_documents_root"
+              name="Documents"
+              parent="dental_base.menu_dental_root"
+              sequence="45"
+              groups="dental_base.group_dental_dentist,dental_base.group_dental_assistant,dental_base.group_dental_receptionist,dental_base.group_dental_manager,dental_base.group_dental_admin"
+              active="False"/>
+
+    <menuitem id="menu_dental_documents_folders"
+              name="Document Folders"
+              parent="menu_dental_documents_root"
+              action="dms.action_dms_directory"
+              sequence="5"/>
+    <menuitem id="menu_dental_document_center"
+              name="All Dental Documents"
+              parent="menu_dental_documents_root"
+              action="action_dental_document_center"
+              sequence="10"/>
+    <menuitem id="menu_dental_documents_imaging"
+              name="X-Rays &amp; Imaging"
+              parent="menu_dental_documents_root"
+              action="action_dental_documents_imaging"
+              sequence="20"
+              groups="dental_base.group_dental_dentist,dental_base.group_dental_assistant,dental_base.group_dental_receptionist,dental_base.group_dental_manager,dental_base.group_dental_admin"/>
+    <menuitem id="menu_dental_documents_clinical"
+              name="Clinical &amp; Lab Reports"
+              parent="menu_dental_documents_root"
+              action="action_dental_documents_clinical"
+              sequence="30"
+              groups="dental_base.group_dental_dentist,dental_base.group_dental_assistant,dental_base.group_dental_manager,dental_base.group_dental_admin"/>
+    <menuitem id="menu_dental_documents_consent"
+              name="Signed Consent Forms"
+              parent="menu_dental_documents_root"
+              action="action_dental_documents_consent"
+              sequence="40"/>
+    <menuitem id="menu_dental_documents_billing"
+              name="Invoices &amp; Billing"
+              parent="menu_dental_documents_root"
+              action="action_dental_documents_billing"
+              sequence="50"
+              groups="dental_base.group_dental_receptionist,dental_base.group_dental_manager,dental_base.group_dental_admin,account.group_account_invoice"/>
+    <menuitem id="menu_dental_documents_staff_admin"
+              name="Staff, Purchase &amp; Administration"
+              parent="menu_dental_documents_root"
+              action="action_dental_documents_staff_admin"
+              sequence="60"
+              groups="dental_base.group_dental_manager,dental_base.group_dental_admin,hr.group_hr_user"/>
+
+    <!-- ========================================================================= -->
+    <!-- 2. DENTIST WORKSPACE (menu_dental_dentist_workspace)                      -->
+    <!-- ========================================================================= -->
+    <menuitem id="menu_dentist_ws_documents_root"
+              name="Documents"
+              parent="dental_core.menu_dental_dentist_workspace"
+              sequence="65"
+              groups="dental_base.group_dental_dentist,dental_base.group_dental_manager,dental_base.group_dental_admin"
+              active="False"/>
+
+    <menuitem id="menu_dentist_ws_docs_all"
+              name="All Patient Documents"
+              parent="menu_dentist_ws_documents_root"
+              action="action_dental_document_center"
+              sequence="10"/>
+    <menuitem id="menu_dentist_ws_docs_imaging"
+              name="X-Rays &amp; Imaging"
+              parent="menu_dentist_ws_documents_root"
+              action="action_dental_documents_imaging"
+              sequence="20"/>
+    <menuitem id="menu_dentist_ws_docs_clinical"
+              name="Clinical &amp; Lab Reports"
+              parent="menu_dentist_ws_documents_root"
+              action="action_dental_documents_clinical"
+              sequence="30"/>
+    <menuitem id="menu_dentist_ws_docs_consent"
+              name="Signed Consent Forms"
+              parent="menu_dentist_ws_documents_root"
+              action="action_dental_documents_consent"
+              sequence="40"/>
+    <menuitem id="menu_dentist_ws_docs_folders"
+              name="Document Folders"
+              parent="menu_dentist_ws_documents_root"
+              action="dms.action_dms_directory"
+              sequence="50"/>
+
+    <!-- 3. RECEPTION DESK: no Documents tab (removed on request). -->
+
+    <!-- ========================================================================= -->
+    <!-- 4. EXISTING DOCUMENT MODULE APP (main_menu_dms)                          -->
+    <!-- ========================================================================= -->
+    <menuitem id="menu_dms_workspace_directories"
+              name="Document Folders"
+              parent="dms_enterprise_features.menu_dms_my_documents_root"
+              action="dms.action_dms_directory"
+              sequence="1"/>
+
+    <menuitem id="menu_dms_dental_documents"
+              name="Dental Hospital Documents"
+              parent="dms_enterprise_features.menu_dms_my_documents_root"
+              action="action_dental_document_center"
+              sequence="5"/>
+
+    <record id="dms.menu_dms_file" model="ir.ui.menu">
+        <field name="active" eval="True"/>
+        <field name="parent_id" ref="dms_enterprise_features.menu_dms_my_documents_root"/>
+        <field name="sequence" eval="20"/>
+    </record>
+</odoo>

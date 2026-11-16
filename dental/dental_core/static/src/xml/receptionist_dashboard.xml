@@ -40,61 +40,129 @@
                                type="text" 
                                class="search-input" 
                                placeholder="Search patient by name, phone or token..." 
-                               t-att-value="this.state.searchQuery" 
-                               t-on-input="(ev) => this.onSearchChange(ev)"/>
-                        <span class="shortcut-badge">Ctrl + K</span>
+                               autocomplete="off"
+                               t-att-value="this.state.searchQuery"
+                               t-on-input="(ev) => this.onSearchChange(ev)"
+                               t-on-keydown="(ev) => this.onSearchKeyDown(ev)"
+                               t-on-focus="() => this.onSearchFocus()"
+                               t-on-blur="() => this.onSearchBlur()"/>
+                        <span t-if="this.state.searchQuery" class="search-clear-btn" title="Clear search"
+                              t-on-mousedown.prevent="() => this.clearSearch()">×</span>
+                        <span t-else="" class="shortcut-badge">Ctrl + K</span>
+                    </div>
+
+                    <!-- Live patient results (whole clinic, not just today's lists) -->
+                    <div t-if="this.state.showPatientResults and this.state.searchQuery.trim().length >= 2"
+                         class="patient-search-dropdown">
+                        <div t-if="this.state.patientSearching and !this.state.patientResults.length" class="psd-empty">
+                            Searching patients…
+                        </div>
+                        <div t-elif="!this.state.patientResults.length" class="psd-empty">
+                            No registered patient matches "<t t-out="this.state.searchQuery.trim()"/>".
+                            <a href="#" t-on-mousedown.prevent="() => this.openNewPatient()">Register new patient</a>
+                        </div>
+                        <t t-else="">
+                            <div t-foreach="this.state.patientResults" t-as="p" t-key="p.id"
+                                 class="psd-item" t-on-mousedown.prevent="() => this.openPatient(p.id)">
+                                <div class="d-flex align-items-center justify-content-between">
+                                    <div class="flex-grow-1 min-w-0">
+                                        <div class="psd-name">
+                                            <t t-out="p.name"/>
+                                            <span t-if="p.dental_patient_id" class="psd-code"><t t-out="p.dental_patient_id"/></span>
+                                        </div>
+                                        <div class="psd-meta">
+                                            <t t-if="p.phone"><t t-out="p.phone"/></t>
+                                            <t t-if="p.phone and p.email"> · </t>
+                                            <t t-if="p.email"><t t-out="p.email"/></t>
+                                            <t t-if="p.age"> · <t t-out="p.age"/> yrs</t>
+                                        </div>
+                                    </div>
+                                    <button class="btn-psd-idcard ms-2" title="Print Patient ID Card"
+                                            t-on-mousedown.stop.prevent="() => this.printPatientIdCard(p.id)">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                            <rect x="2" y="4" width="20" height="16" rx="2"/>
+                                            <line x1="6" y1="8" x2="10" y2="8"/>
+                                            <line x1="6" y1="12" x2="12" y2="12"/>
+                                            <circle cx="16" cy="11" r="2.5"/>
+                                        </svg>
+                                        <span>ID Card</span>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="psd-footer" t-on-mousedown.prevent="() => this.openPatientSearchList()">
+                                View all matching patients →
+                            </div>
+                        </t>
                     </div>
                 </div>
 
-                <div class="header-actions">
-                    <div class="notification-btn" title="Live Queue Alerts">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#475569" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-                            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-                        </svg>
-                        <span class="notif-badge"/>
+            </div>
+
+            <!-- Compact Maintenance Alerts box (click to expand all equipment alerts) -->
+            <div t-if="this.equipmentAlertCount > 0" class="equip-alert-box-wrap mb-3">
+                <div t-attf-class="equip-alert-box {{this.state.scrapped_equipment.length ? 'is-critical' : 'is-warning'}}"
+                     t-on-click="() => this.toggleEquipmentAlerts()">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+                    </svg>
+                    <span class="eab-label">Maintenance Alerts</span>
+                    <span class="eab-count"><t t-out="this.equipmentAlertCount"/></span>
+                    <span t-attf-class="eab-chevron {{this.state.showEquipmentAlerts ? 'open' : ''}}">▾</span>
+                </div>
+
+                <div t-if="this.state.showEquipmentAlerts" class="equip-alert-panel">
+                    <div class="eap-head">
+                        <strong>Maintenance Alerts (<t t-out="this.equipmentAlertCount"/>)</strong>
+                        <span class="eap-close" t-on-click.stop="() => this.toggleEquipmentAlerts()">×</span>
                     </div>
-                    <div class="user-profile-pill">
-                        <div class="user-avatar-circle">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0284c7" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-                                <circle cx="12" cy="7" r="4"/>
-                            </svg>
-                        </div>
-                        <span class="user-name-text"><t t-out="this.userName"/></span>
-                        <span class="user-chevron">
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                                <polyline points="6 9 12 15 18 9"/>
-                            </svg>
-                        </span>
+                    <div class="eap-body">
+                        <t t-foreach="this.state.scrapped_equipment" t-as="seq" t-key="'s' + seq.id">
+                            <div class="eap-item">
+                                <span class="eap-dot red"/>
+                                <div class="eap-info">
+                                    <div class="eap-name"><t t-out="seq.name"/></div>
+                                    <div class="eap-meta">
+                                        <t t-out="seq.category_name"/>
+                                        <t t-if="seq.serial_no"> · S/N <t t-out="seq.serial_no"/></t>
+                                        <t t-if="seq.affected_appointments_count > 0">
+                                            · <span class="eap-affected"><t t-out="seq.affected_appointments_count"/> appt(s) affected</span>
+                                        </t>
+                                    </div>
+                                </div>
+                                <span class="eap-tag red">Scrapped</span>
+                            </div>
+                        </t>
+                        <t t-foreach="this.state.maintenance_equipment" t-as="me" t-key="'m' + me.id">
+                            <div class="eap-item">
+                                <span class="eap-dot amber"/>
+                                <div class="eap-info">
+                                    <div class="eap-name"><t t-out="me.name"/></div>
+                                    <div class="eap-meta"><t t-out="me.stage_name"/></div>
+                                </div>
+                                <span class="eap-tag amber">Maintenance</span>
+                            </div>
+                        </t>
+                        <t t-foreach="this.otherUnavailableEquipment" t-as="ue" t-key="'u' + ue.id">
+                            <div class="eap-item">
+                                <span class="eap-dot grey"/>
+                                <div class="eap-info">
+                                    <div class="eap-name"><t t-out="ue.name"/></div>
+                                </div>
+                                <span class="eap-tag grey">Out of Service</span>
+                            </div>
+                        </t>
+                    </div>
+                    <div class="eap-actions">
+                        <t t-if="this.state.scrapped_equipment.length">
+                            <button class="btn btn-sm btn-danger" t-on-click="() => this.openAffectedAppointments()">Affected Appointments</button>
+                            <button class="btn btn-sm btn-outline-danger" t-on-click="() => this.openReassignAppointments()">Reassign Chairs</button>
+                            <button class="btn btn-sm btn-outline-secondary" t-on-click="() => this.openScrappedEquipmentList()">Scrapped List</button>
+                        </t>
+                        <button class="btn btn-sm btn-outline-secondary" t-on-click="() => this.openUnavailableEquipmentList()">Out-of-Service List</button>
+                        <button class="btn btn-sm btn-outline-primary" t-on-click="() => this.openReportEquipmentIssue()">Report Issue</button>
                     </div>
                 </div>
             </div>
-
-            <!-- Equipment Maintenance Alert Strip (Visible if any equipment is out of service) -->
-            <t t-if="this.state.unavailable_equipment and this.state.unavailable_equipment.length > 0">
-                <div class="reception-equipment-alert-strip" t-on-click="() => this.openUnavailableEquipmentList()">
-                    <div class="alert-strip-left">
-                        <div class="alert-icon-circle">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2.3">
-                                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-                                <line x1="12" y1="9" x2="12" y2="13"/>
-                                <line x1="12" y1="17" x2="12.01" y2="17"/>
-                            </svg>
-                        </div>
-                        <div class="alert-strip-text">
-                            <span class="alert-title">Equipment Notice:</span>
-                            <span class="alert-desc">
-                                <t t-out="this.state.unavailable_equipment.length"/> equipment unit(s) under maintenance / out of service:
-                                <strong><t t-out="this.state.unavailable_equipment.map(e => e.name).join(', ')"/></strong>
-                            </span>
-                        </div>
-                    </div>
-                    <div class="alert-strip-right">
-                        <span class="alert-link-text">View Out-of-Service List &gt;</span>
-                    </div>
-                </div>
-            </t>
 
             <!-- Top Grid Layout: Hero Banner (62%) + Right Stats (38%) -->
             <div class="reception-top-grid">
@@ -119,7 +187,7 @@
                     </div>
 
                     <!-- 2. Checked In -->
-                    <div class="floating-hero-pill pos-checked-in" t-on-click="() => this.openWaitingQueue()">
+                    <div class="floating-hero-pill pos-checked-in" t-on-click="() => this.openCheckedInPatients()">
                         <div class="pill-icon-box green">
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                                 <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
@@ -341,7 +409,7 @@
                             </svg>
                         </button>
 
-                        <button class="action-btn-custom btn-checkin" t-on-click="() => this.openWaitingQueue()">
+                        <button t-if="this.state.canCheckIn" class="action-btn-custom btn-checkin" t-on-click="() => this.openCheckedInPatients()">
                             <div class="btn-left">
                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                                     <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
@@ -375,6 +443,21 @@
                                     <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
                                 </svg>
                                 <span>Report Issue</span>
+                            </div>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="9 18 15 12 9 6"/>
+                            </svg>
+                        </button>
+
+                        <button class="action-btn-custom btn-eod" t-on-click="() => this.openEndOfDaySummary()" title="End of Day Payment Summary &amp; Reconciliation">
+                            <div class="btn-left">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                    <rect x="2" y="4" width="20" height="16" rx="2"/>
+                                    <line x1="6" y1="8" x2="18" y2="8"/>
+                                    <line x1="6" y1="12" x2="12" y2="12"/>
+                                    <circle cx="16" cy="14" r="2"/>
+                                </svg>
+                                <span>End of Day Summary</span>
                             </div>
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                                 <polyline points="9 18 15 12 9 6"/>
@@ -512,7 +595,16 @@
                                         </span>
                                     </td>
                                     <td>
-                                        <span class="appointment-text"><t t-out="item.appointment_info"/></span>
+                                        <div class="d-flex flex-column align-items-start gap-1">
+                                            <span class="appointment-text"><t t-out="item.appointment_info"/></span>
+                                            <t t-if="item.has_equipment_conflict">
+                                                <span t-attf-class="badge-equipment-conflict {{item.is_scrapped_conflict ? 'badge-scrapped' : 'badge-maintenance'}}"
+                                                      t-att-title="item.equipment_conflict_reason">
+                                                    <t t-if="item.is_scrapped_conflict">⚠️ Scrapped Unit</t>
+                                                    <t t-else="">⚠️ Maintenance Conflict</t>
+                                                </span>
+                                            </t>
+                                        </div>
                                     </td>
                                     <td>
                                         <span t-attf-class="status-pill {{item.badge_class}}">
@@ -527,15 +619,28 @@
                                                     t-on-click="() => this.callPatient(item)">
                                                 Call Now
                                             </button>
-                                            <button t-elif="item.action_type == 'check_in'" 
+                                            <button t-elif="item.action_type == 'check_in' and this.state.canCheckIn" 
                                                     class="btn-table-outline" 
                                                     t-on-click="() => this.checkInPatient(item.id)">
                                                 Check In
                                             </button>
-                                            <button t-else="" 
-                                                    class="btn-table-outline" 
+                                            <span t-elif="item.action_type == 'check_in'" class="text-muted small">
+                                                Scheduled
+                                            </span>
+                                            <!-- Starting the consultation is for doctors only (incl. receptionists who are also dentists) -->
+                                            <button t-elif="item.action_type == 'start_visit' and this.state.canStartConsultation"
+                                                    class="btn-table-outline"
                                                     t-on-click="() => this.startVisit(item.id)">
-                                                Start Visit
+                                                <t t-out="item.action_label == 'In Visit' ? 'Open Visit' : 'Start Visit'"/>
+                                            </button>
+                                            <span t-elif="item.action_type == 'start_visit'" class="text-muted small"
+                                                  t-att-title="item.action_label == 'In Visit' ? 'The doctor is seeing this patient' : 'Waiting for the doctor to call the patient in'">
+                                                <t t-out="item.action_label == 'In Visit' ? 'With doctor' : 'Waiting for doctor'"/>
+                                            </span>
+                                            <button t-else=""
+                                                    class="btn-table-outline"
+                                                    t-on-click="() => this.openAppointment(item.id)">
+                                                Open
                                             </button>
                                             <span class="grip-icon" title="Queue Position">
                                                 <svg width="12" height="16" viewBox="0 0 12 16" fill="#cbd5e1">

@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_dental_treatment_plan_form_installment" model="ir.ui.view">
+        <field name="name">dental.treatment.plan.form.installment</field>
+        <field name="model">dental.treatment.plan</field>
+        <field name="inherit_id" ref="dental_core.view_dental_treatment_plan_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//header/field[@name='state']" position="before">
+                <field name="is_dental_financed" invisible="1"/>
+                <button name="action_dental_finance_installments" type="object" string="Finance with Installments"
+                        class="btn-secondary" groups="dental_subscription.group_membership_user"
+                        invisible="is_dental_financed or state in ('draft', 'completed', 'cancelled')"/>
+            </xpath>
+            <xpath expr="//div[@name='button_box']" position="inside">
+                <button name="action_dental_view_installments" type="object" class="oe_stat_button" icon="fa-credit-card"
+                        groups="dental_subscription.group_membership_user"
+                        invisible="not dental_installment_count">
+                    <field name="dental_installment_count" widget="statinfo" string="Installments"/>
+                </button>
+            </xpath>
+            <xpath expr="//div[@name='button_box']" position="after">
+                <div class="alert alert-info py-1 mb-2" role="status" invisible="not is_dental_financed">
+                    <i class="fa fa-credit-card me-1"/>
+                    Financed by an installment plan: the sessions of this plan are billed at zero.
+                </div>
+            </xpath>
+        </field>
+    </record>
+</odoo>

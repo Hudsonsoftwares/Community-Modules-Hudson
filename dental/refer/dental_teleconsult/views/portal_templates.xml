@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <template id="portal_breadcrumbs_teleconsultations" inherit_id="portal.portal_breadcrumbs" priority="40"
+              name="Portal layout: online consultations">
+        <xpath expr="//ol[hasclass('o_portal_submenu')]" position="inside">
+            <li t-if="page_name == 'teleconsultations'" class="breadcrumb-item active">Online Consultations</li>
+        </xpath>
+    </template>
+
+    <template id="portal_my_teleconsultations" name="My Online Consultations">
+        <t t-call="portal.portal_layout">
+            <t t-set="breadcrumbs_searchbar" t-value="True"/>
+            <t t-call="portal.portal_searchbar">
+                <t t-set="title">Online Consultations</t>
+            </t>
+            <div t-if="not appointments" class="alert alert-info mt-3">
+                You have no online consultations yet.
+            </div>
+            <t t-if="appointments" t-call="portal.portal_table">
+                <thead>
+                    <tr>
+                        <th>Reference</th>
+                        <th>Date &amp; Time</th>
+                        <th>Dentist</th>
+                        <th>Patient</th>
+                        <th class="text-end">Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr t-foreach="appointments" t-as="appt">
+                        <td t-out="appt.name"/>
+                        <td t-out="appt.teleconsult_start_display"/>
+                        <td>Dr. <t t-out="appt.doctor_id.name"/></td>
+                        <td t-out="appt.patient_id.name"/>
+                        <td class="text-end">
+                            <t t-set="can_join" t-value="appt.teleconsult_state in ('scheduled', 'waiting', 'in_call') and appt.state != 'completed' and appt.teleconsult_access_token"/>
+                            <a t-if="can_join and appt.teleconsult_payment_state == 'due' and appt.teleconsult_payment_url"
+                               t-att-href="appt.teleconsult_payment_url" class="btn btn-sm btn-outline-primary me-1">Pay fee</a>
+                            <a t-if="can_join" t-att-href="'/dental/teleconsult/%s' % appt.teleconsult_access_token"
+                               class="btn btn-sm btn-primary">Join</a>
+                            <span t-elif="appt.teleconsult_state == 'ended' or appt.state == 'completed'" class="badge text-bg-success">Completed</span>
+                            <span t-else="" class="badge text-bg-secondary">Closed</span>
+                        </td>
+                    </tr>
+                </tbody>
+            </t>
+        </t>
+    </template>
+</odoo>

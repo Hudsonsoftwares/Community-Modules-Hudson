@@ -15,7 +15,8 @@
         <field name="parent_id" ref="dental_base.menu_dental_root"/>
         <field name="sequence" eval="40"/>
         <field name="group_ids" eval="[(6, 0, [ref('dental_base.group_dental_dentist'), ref('dental_base.group_dental_manager'), ref('dental_base.group_dental_admin')])]"/>
-        <field name="active" eval="True"/>
+        <!-- Hidden from the Dental Clinic app: available from its own module -->
+        <field name="active" eval="False"/>
     </record>
 
     <!-- Action for Clinical X-rays & Diagnostic Imaging -->
@@ -97,4 +98,12 @@
         action="action_dental_diagnosis"
         sequence="60"
         groups="dental_base.group_dental_admin"/>
+
+    <menuitem
+        id="menu_dental_treatment_stage"
+        name="Treatment Stages"
+        parent="dental_base.menu_dental_configuration"
+        action="action_dental_treatment_stage"
+        sequence="70"
+        groups="dental_base.group_dental_manager,dental_base.group_dental_admin"/>
 </odoo>

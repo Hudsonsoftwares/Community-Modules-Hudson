@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     'name': 'Hudson PLM',
-    'version': '20.0.1.1.1',
+    'version': '20.0.1.1.2',
     'category': 'Manufacturing/Product Lifecycle Management',
     'summary': 'Manage Engineering Change Orders and Product Versions',
     'description': """

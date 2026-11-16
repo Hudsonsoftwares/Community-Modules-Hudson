@@ -1,10 +1,13 @@
 # -*- coding: utf-8 -*-
 import base64
 import io
+# pyrefly: ignore [missing-import]
 from odoo import api, fields, models, _
+# pyrefly: ignore [missing-import]
 from odoo.exceptions import UserError
 
 try:
+    # pyrefly: ignore [missing-import]
     import xlsxwriter
 except ImportError:
     xlsxwriter = None
@@ -76,11 +79,26 @@ class HdsPfCeilingExceptionWizard(models.TransientModel):
         if xlsxwriter:
             workbook = xlsxwriter.Workbook(output, {'in_memory': True})
             sheet = workbook.add_worksheet('Ceiling Exceptions')
+            sheet.set_column(0, 0, 26)  # Employee
+            sheet.set_column(1, 1, 20)  # Contribution Basis
+            sheet.set_column(2, 2, 18)  # Actual PF Wage
+            sheet.set_column(3, 3, 18)  # Statutory Ceiling
+            sheet.set_column(4, 4, 24)  # Excess Wage over Ceiling
+            sheet.set_column(5, 5, 22)  # PF Wage Capped / Used
 
-            header_fmt = workbook.add_format({'bold': True, 'bg_color': '#C00000', 'font_color': '#FFFFFF', 'border': 1})
-            num_fmt = workbook.add_format({'num_format': '#,##0.00', 'border': 1})
-            text_fmt = workbook.add_format({'border': 1})
+            header_fmt = workbook.add_format({
+                'bold': True,
+                'bg_color': '#C00000',
+                'font_color': '#FFFFFF',
+                'border': 1,
+                'align': 'center',
+                'valign': 'vcenter',
+                'text_wrap': True,
+            })
+            num_fmt = workbook.add_format({'num_format': '#,##0.00', 'border': 1, 'align': 'right', 'valign': 'vcenter'})
+            text_fmt = workbook.add_format({'border': 1, 'align': 'left', 'valign': 'vcenter'})
 
+            sheet.set_row(0, 26)
             headers = ['Employee', 'Contribution Basis', 'Actual PF Wage', 'Statutory Ceiling', 'Excess Wage over Ceiling', 'PF Wage Capped / Used']
             for col_idx, text in enumerate(headers):
                 sheet.write(0, col_idx, text, header_fmt)
@@ -99,17 +117,22 @@ class HdsPfCeilingExceptionWizard(models.TransientModel):
         else:
             xlsx_content = b"Excel export requires xlsxwriter library."
 
+        try:
+            # pyrefly: ignore [missing-import]
+            from odoo.tools import BinaryBytes
+            file_data = BinaryBytes(xlsx_content, filename=xlsx_filename)
+        except Exception:
+            file_data = base64.b64encode(xlsx_content).decode('utf-8')
+
         self.write({
             'state': 'generated',
-            'xlsx_file': base64.b64encode(xlsx_content),
+            'xlsx_file': file_data,
             'xlsx_filename': xlsx_filename,
             'exception_count': len(rows),
         })
 
         return {
-            'type': 'ir.actions.act_window',
-            'res_model': self._name,
-            'res_id': self.id,
-            'view_mode': 'form',
-            'target': 'current',
+            'type': 'ir.actions.act_url',
+            'url': f'/web/content/?model={self._name}&id={self.id}&field=xlsx_file&filename_field=xlsx_filename&download=true',
+            'target': 'self',
         }

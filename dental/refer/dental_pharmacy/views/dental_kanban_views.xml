@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Kanban cards: title + status on top, patient/people in the middle, date/amount in the footer -->
+
+    <record id="view_dental_medicine_category_kanban" model="ir.ui.view">
+        <field name="name">dental.medicine.category.kanban</field>
+        <field name="model">dental.medicine.category</field>
+        <field name="arch" type="xml">
+            <kanban class="o_kanban_mobile" sample="1">
+                <templates>
+                    <t t-name="card">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <field name="name" class="fw-bold fs-6"/>
+                            <field name="code" class="badge text-bg-light" invisible="not code"/>
+                        </div>
+                        <field name="description" class="text-muted small"/>
+                        <footer class="pt-1 small">
+                            <span><field name="medicine_count"/> medicine(s)</span>
+                        </footer>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+
+    <record id="view_dental_pharmacy_dispense_kanban" model="ir.ui.view">
+        <field name="name">dental.pharmacy.dispense.kanban</field>
+        <field name="model">dental.pharmacy.dispense</field>
+        <field name="arch" type="xml">
+            <kanban class="o_kanban_mobile" sample="1">
+                <templates>
+                    <t t-name="card">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <field name="patient_id" class="fw-bold fs-6"/>
+                            <field name="state" widget="badge"/>
+                        </div>
+                        <div class="text-muted small"><field name="name"/> <span invisible="not prescription_id">· <field name="prescription_id"/></span></div>
+                        <div class="small"><field name="sale_type"/></div>
+                        <footer class="pt-1">
+                            <span class="small"><field name="dispense_date"/></span>
+                            <field name="amount_total" widget="monetary" class="ms-auto fw-bold"/>
+                            <field name="currency_id" invisible="1"/>
+                        </footer>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+
+    <record id="view_dental_prescription_template_kanban" model="ir.ui.view">
+        <field name="name">dental.prescription.template.kanban</field>
+        <field name="model">dental.prescription.template</field>
+        <field name="arch" type="xml">
+            <kanban class="o_kanban_mobile" sample="1">
+                <templates>
+                    <t t-name="card">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <field name="name" class="fw-bold fs-6"/>
+                            <field name="code" class="badge text-bg-light" invisible="not code"/>
+                        </div>
+                        <field name="indication" class="text-muted small"/>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+</odoo>

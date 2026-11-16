@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Filtered Actions for Menu Items -->
+    <record id="action_dental_clinical_consultations" model="ir.actions.act_window">
+        <field name="name">Clinical Peer Consultations</field>
+        <field name="res_model">discuss.channel</field>
+        <field name="view_mode">kanban,list,form</field>
+        <field name="domain">[('dental_channel_type', '=', 'clinical')]</field>
+        <field name="context">{'default_dental_channel_type': 'clinical', 'default_is_confidential_phi': True}</field>
+    </record>
+
+    <record id="action_dental_reception_coordination" model="ir.actions.act_window">
+        <field name="name">Front Desk Coordination</field>
+        <field name="res_model">discuss.channel</field>
+        <field name="view_mode">kanban,list,form</field>
+        <field name="domain">[('dental_channel_type', '=', 'coordination')]</field>
+        <field name="context">{'default_dental_channel_type': 'coordination', 'default_dental_department': 'reception'}</field>
+    </record>
+
+    <record id="action_dental_lab_pharmacy_channels" model="ir.actions.act_window">
+        <field name="name">Lab &amp; Pharmacy Discussions</field>
+        <field name="res_model">discuss.channel</field>
+        <field name="view_mode">kanban,list,form</field>
+        <field name="domain">[('dental_channel_type', 'in', ('lab', 'pharmacy'))]</field>
+    </record>
+
+    <record id="action_dental_announcements" model="ir.actions.act_window">
+        <field name="name">Clinic Announcements</field>
+        <field name="res_model">discuss.channel</field>
+        <field name="view_mode">kanban,list,form</field>
+        <field name="domain">[('dental_channel_type', '=', 'announcement')]</field>
+        <field name="context">{'default_dental_channel_type': 'announcement', 'default_is_readonly': True}</field>
+    </record>
+
+    <!-- Menu Items under Dental Clinic Root Menu -->
+    <record id="menu_dental_communication_root" model="ir.ui.menu">
+        <field name="name">Communication &amp; Channels</field>
+        <field name="parent_id" ref="dental_base.menu_dental_root"/>
+        <field name="sequence" eval="35"/>
+    </record>
+
+    <record id="menu_dental_all_channels" model="ir.ui.menu">
+        <field name="name">All Dental Channels</field>
+        <field name="parent_id" ref="menu_dental_communication_root"/>
+        <field name="action" ref="action_dental_discuss_channels"/>
+        <field name="sequence" eval="10"/>
+    </record>
+
+    <record id="menu_dental_clinical_consults" model="ir.ui.menu">
+        <field name="name">Clinical Consultations</field>
+        <field name="parent_id" ref="menu_dental_communication_root"/>
+        <field name="action" ref="action_dental_clinical_consultations"/>
+        <field name="sequence" eval="20"/>
+        <field name="group_ids" eval="[(6, 0, [ref('dental_base.group_dental_dentist'), ref('dental_base.group_dental_manager'), ref('dental_base.group_dental_admin')])]"/>
+    </record>
+
+    <record id="menu_dental_reception_alerts" model="ir.ui.menu">
+        <field name="name">Front Desk Coordination</field>
+        <field name="parent_id" ref="menu_dental_communication_root"/>
+        <field name="action" ref="action_dental_reception_coordination"/>
+        <field name="sequence" eval="30"/>
+    </record>
+
+    <record id="menu_dental_lab_pharmacy" model="ir.ui.menu">
+        <field name="name">Lab &amp; Pharmacy Chats</field>
+        <field name="parent_id" ref="menu_dental_communication_root"/>
+        <field name="action" ref="action_dental_lab_pharmacy_channels"/>
+        <field name="sequence" eval="40"/>
+    </record>
+
+    <record id="menu_dental_announcements" model="ir.ui.menu">
+        <field name="name">Clinic Announcements</field>
+        <field name="parent_id" ref="menu_dental_communication_root"/>
+        <field name="action" ref="action_dental_announcements"/>
+        <field name="sequence" eval="50"/>
+    </record>
+
+    <!-- Direct shortcut to Discuss workspace from within Dental suite -->
+    <record id="menu_dental_discuss_shortcut" model="ir.ui.menu">
+        <field name="name">Open Discuss App</field>
+        <field name="parent_id" ref="menu_dental_communication_root"/>
+        <field name="action" ref="mail.action_discuss"/>
+        <field name="sequence" eval="90"/>
+    </record>
+</odoo>
+

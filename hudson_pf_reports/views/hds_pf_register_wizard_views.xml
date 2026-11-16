@@ -34,7 +34,7 @@
                     <group string="Period &amp; Filters" invisible="state != 'draft'">
                         <group>
                             <field name="month" required="1"/>
-                            <field name="year" required="1"/>
+                            <field name="year" required="1" options="{'enable_formatting': False, 'format': False}"/>
                             <field name="company_id" groups="base.group_multi_company" required="1"/>
                         </group>
                         <group>
@@ -142,7 +142,7 @@
                                     </div>
                                     <div class="col-md-3 col-sm-6 mb-2">
                                         <div class="text-muted small fw-bold">Payroll Year</div>
-                                        <div class="fs-6 text-dark fw-bold"><field name="year" readonly="1"/></div>
+                                        <div class="fs-6 text-dark fw-bold"><field name="year" readonly="1" options="{'enable_formatting': False, 'format': False}"/></div>
                                     </div>
                                     <div class="col-md-3 col-sm-6 mb-2">
                                         <div class="text-muted small fw-bold">Company</div>
@@ -297,14 +297,17 @@
             <list string="PF Register / Statement History Log">
                 <field name="name"/>
                 <field name="month" optional="show"/>
-                <field name="year" optional="show"/>
+                <field name="year" optional="show" options="{'enable_formatting': False, 'format': False}"/>
                 <field name="employee_id" optional="show"/>
-                <field name="company_id" groups="base.group_multi_company" optional="hide"/>
+                <field name="company_id" groups="base.group_multi_company" optional="show"/>
                 <field name="record_count" optional="show"/>
                 <field name="total_pf_wages" optional="show"/>
                 <field name="total_employee_epf" optional="show"/>
                 <field name="total_employer_cost" optional="show"/>
-                <field name="state" optional="show"/>
+                <field name="state" widget="badge"
+                       decoration-info="state == 'draft'"
+                       decoration-success="state == 'generated'"
+                       optional="show"/>
             </list>
         </field>
     </record>

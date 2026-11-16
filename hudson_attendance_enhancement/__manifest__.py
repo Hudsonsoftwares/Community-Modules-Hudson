@@ -1,6 +1,6 @@
 {
     'name': 'Hudson Attendance Enhancement',
-    'version': '1.0',
+    'version': '20.0.1.2',
     'category': 'Human Resources/Attendance',
     'summary': 'Photo check-in/out, Radius Punching & Work From Home Live Tracking',
     'description': """
@@ -29,12 +29,10 @@ Hudson Attendance Enhancement
             'hudson_attendance_enhancement/static/src/css/location_map_widget.css',
             'hudson_attendance_enhancement/static/src/css/wfh_live_map.css',
             'hudson_attendance_enhancement/static/src/css/attendance_gantt.css',
-            'hudson_attendance_enhancement/static/src/xml/camera_dialog.xml',
             'hudson_attendance_enhancement/static/src/xml/location_map_widget.xml',
             'hudson_attendance_enhancement/static/src/xml/wfh_live_map.xml',
             'hudson_attendance_enhancement/static/src/xml/employee_home_map_picker.xml',
             'hudson_attendance_enhancement/static/src/xml/attendance_gantt.xml',
-            'hudson_attendance_enhancement/static/src/js/camera_dialog.js',
             'hudson_attendance_enhancement/static/src/js/attendance_menu_patch.js',
             'hudson_attendance_enhancement/static/src/js/location_map_widget.js',
             'hudson_attendance_enhancement/static/src/js/employee_home_map_picker.js',
@@ -47,8 +45,6 @@ Hudson Attendance Enhancement
             'hudson_attendance_enhancement/static/src/js/attendance_gantt_view.js',
         ],
         'hr_attendance.assets_public_attendance': [
-            'hudson_attendance_enhancement/static/src/xml/camera_dialog.xml',
-            'hudson_attendance_enhancement/static/src/js/camera_dialog.js',
             'hudson_attendance_enhancement/static/src/js/kiosk_patch.js',
         ],
     },

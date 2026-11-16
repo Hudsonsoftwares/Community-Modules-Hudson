@@ -2,7 +2,7 @@
 
 {
     'name': 'Planning',
-    'version': '20.0.1.13.0',
+    'version': '20.0.1.15.0',
     'category': 'Human Resources/Planning',
     'sequence': 56,
     'summary': 'Manage shifts, planning roles, and assignments',
@@ -56,6 +56,7 @@ A planning management module for Odoo 19 that provides:
             'hudson_planning/static/src/views/fs_schedule/fs_schedule_view.js',
             'hudson_planning/static/src/views/fs_schedule/fs_schedule_view.xml',
             'hudson_planning/static/src/views/fs_schedule/fs_schedule_view.scss',
+            'hudson_planning/static/src/views/fs_calendar/fs_calendar_view.js',
             'hudson_planning/static/src/views/fs_map/fs_map_view.js',
             'hudson_planning/static/src/views/fs_map/fs_map_view.xml',
             'hudson_planning/static/src/views/fs_map/fs_map_view.scss',

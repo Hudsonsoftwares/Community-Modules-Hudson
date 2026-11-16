@@ -27,6 +27,12 @@ class HdsInSalaryRevision(models.Model):
         readonly=True,
         ondelete='restrict'
     )
+    employee_code = fields.Char(
+        string="Employee Code",
+        related='employee_id.registration_number',
+        store=True,
+        readonly=True
+    )
     contract_id = fields.Many2one(
         'hr.version',
         string="Active Contract",
@@ -81,6 +87,12 @@ class HdsInSalaryRevision(models.Model):
     increase_amount = fields.Float(
         string="Increase Amount (₹)",
         readonly=True
+    )
+    extra_amount = fields.Monetary(
+        string="Extra Amount",
+        currency_field='currency_id',
+        readonly=True,
+        help="Fixed amount added on top of the increase rate."
     )
 
     # Salary Comparison

@@ -1,6 +1,9 @@
 # -*- coding: utf-8 -*-
+# pyrefly: ignore [missing-import]
 from odoo.tests import common, tagged
+# pyrefly: ignore [missing-import]
 from odoo.exceptions import UserError
+# pyrefly: ignore [missing-import]
 from odoo import fields
 
 
@@ -17,16 +20,24 @@ class TestBonusManagement(common.TransactionCase):
             'company_id': self.company.id,
         })
 
-        # Create test contract
-        self.contract = self.env['hr.version'].create({
-            'name': 'Bonus Test Contract',
-            'employee_id': self.employee.id,
-            'wage': 50000.0,
-            'basic_salary': 25000.0,
-            'state': 'open',
-            'company_id': self.company.id,
-            'date_start': fields.Date.today().replace(day=1),
-        })
+        # Set up contract / version
+        if hasattr(self.employee, 'version_id') and self.employee.version_id:
+            self.contract = self.employee.version_id
+            self.contract.write({
+                'name': 'Bonus Test Contract',
+                'wage': 50000.0,
+                'basic_salary': 25000.0,
+                'date_start': fields.Date.today().replace(day=1),
+            })
+        else:
+            self.contract = self.env['hr.version'].create({
+                'name': 'Bonus Test Contract',
+                'employee_id': self.employee.id,
+                'wage': 50000.0,
+                'basic_salary': 25000.0,
+                'company_id': self.company.id,
+                'date_start': fields.Date.today().replace(day=1),
+            })
 
     def test_01_bonus_creation_and_fixed_generation(self):
         """Test creating bonus document and generating fixed bonus lines."""
@@ -152,19 +163,19 @@ class TestBonusManagement(common.TransactionCase):
         self.assertEqual(bonus.line_ids[0].payslip_id, payslip)
         self.assertEqual(bonus.payslip_count, 1)
 
-    def test_06_bonus_deduction_configuration(self):
-        """Test company level bonus deduction flags."""
-        self.company.write({
-            'hds_in_bonus_apply_tds': True,
-            'hds_in_bonus_apply_pf': False,
-            'hds_in_bonus_apply_esi': False,
-            'hds_in_bonus_apply_pt': False,
+    def test_06_bonus_rule_configuration(self):
+        """Test rule level bonus configuration flags (Is Bonus, Exclude Notice, Apply TDS)."""
+        rule = self.env['hr.salary.rule'].create({
+            'name': 'Test Custom Bonus Rule',
+            'code': 'TEST_BONUS',
+            'struct_id': self.env.ref('hudson_payroll_base.structure_base').id,
+            'category_id': self.env.ref('hudson_payroll_base.rule_category_alw').id,
+            'sequence': 20,
+            'hds_in_is_bonus': True,
+            'hds_in_exclude_notice_period': True,
+            'hds_in_apply_tds': True,
         })
+        self.assertTrue(rule.hds_in_is_bonus)
+        self.assertTrue(rule.hds_in_exclude_notice_period)
+        self.assertTrue(rule.hds_in_apply_tds)
         self.assertTrue(self.company.hds_in_bonus_apply_tds)
-        self.assertFalse(self.company.hds_in_bonus_apply_pf)
-
-        config = self.env['res.config.settings'].create({
-            'hds_in_bonus_apply_pf': True,
-        })
-        config.execute()
-        self.assertTrue(self.company.hds_in_bonus_apply_pf)

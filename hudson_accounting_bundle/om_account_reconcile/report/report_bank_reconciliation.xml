@@ -108,7 +108,7 @@
                                                     <td><span t-out="line.move_id.name"/></td>
                                                     <td><span t-out="line.partner_id.display_name"/></td>
                                                     <td class="text-end text-nowrap">
-                                                        <span t-out="line.amount_residual" t-options="{'widget': 'monetary', 'display_currency': currency}"/>
+                                                        <span t-out="section['residuals'].get(line.id, line.amount_residual)" t-options="{'widget': 'monetary', 'display_currency': currency}"/>
                                                     </td>
                                                 </tr>
                                             </tbody>

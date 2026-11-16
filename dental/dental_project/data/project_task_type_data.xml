@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+    <!-- Board columns of every treatment plan; each card on the board is one phase of the plan -->
+    <record id="task_stage_planned" model="project.task.type">
+        <field name="name">Planned</field>
+        <field name="sequence">1</field>
+        <field name="dental_board_state">planned</field>
+    </record>
+    <record id="task_stage_in_progress" model="project.task.type">
+        <field name="name">In Progress</field>
+        <field name="sequence">2</field>
+        <field name="dental_board_state">in_progress</field>
+    </record>
+    <record id="task_stage_done" model="project.task.type">
+        <field name="name">Done</field>
+        <field name="sequence">3</field>
+        <field name="dental_board_state">done</field>
+        <field name="fold" eval="False"/>
+    </record>
+</odoo>

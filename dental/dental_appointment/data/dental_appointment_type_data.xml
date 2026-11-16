@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <!-- 1. Emergency Dental Consultation -->
+        <record id="appointment_type_emergency" model="dental.appointment.type">
+            <field name="name">Emergency Dental Consultation</field>
+            <field name="duration">30.0</field>
+            <field name="price">75.0</field>
+            <field name="color">1</field>
+            <field name="icon">fa-ambulance</field>
+            <field name="description">Urgent appointment for patients with acute toothache, severe pain, dental trauma, facial swelling, broken teeth, or oral bleeding requiring immediate diagnosis and relief.</field>
+            <field name="active">True</field>
+        </record>
+
+        <!-- 2. Comprehensive Oral Examination -->
+        <record id="appointment_type_comprehensive_exam" model="dental.appointment.type">
+            <field name="name">Comprehensive Oral Examination</field>
+            <field name="duration">45.0</field>
+            <field name="price">65.0</field>
+            <field name="color">4</field>
+            <field name="icon">fa-stethoscope</field>
+            <field name="description">Complete oral health examination including visual tooth inspection, periodontal screening, bite assessment, soft tissue and oral cancer check, and treatment planning.</field>
+            <field name="active">True</field>
+        </record>
+
+        <!-- 3. Routine Dental Check-up -->
+        <record id="appointment_type_routine_checkup" model="dental.appointment.type">
+            <field name="name">Routine Dental Check-up</field>
+            <field name="duration">30.0</field>
+            <field name="price">45.0</field>
+            <field name="color">7</field>
+            <field name="icon">fa-calendar-check-o</field>
+            <field name="description">Periodic 6-month preventive check-up for existing patients to assess ongoing oral hygiene, monitor previous restorations, and detect cavities early.</field>
+            <field name="active">True</field>
+        </record>
+
+        <!-- 4. Teeth Cleaning & Polishing (Prophylaxis) -->
+        <record id="appointment_type_cleaning_scaling" model="dental.appointment.type">
+            <field name="name">Teeth Cleaning &amp; Polishing</field>
+            <field name="duration">45.0</field>
+            <field name="price">95.0</field>
+            <field name="color">10</field>
+            <field name="icon">fa-shield</field>
+            <field name="description">Professional dental prophylaxis using ultrasonic scaling to remove calculus (tartar) and stubborn plaque deposits, followed by polishing and fluoride application.</field>
+            <field name="active">True</field>
+        </record>
+
+        <!-- 5. Pediatric Dental Check-up -->
+        <record id="appointment_type_pediatric_checkup" model="dental.appointment.type">
+            <field name="name">Pediatric Dental Check-up</field>
+            <field name="duration">30.0</field>
+            <field name="price">50.0</field>
+            <field name="color">2</field>
+            <field name="icon">fa-child</field>
+            <field name="description">Gentle, child-oriented dental assessment evaluating tooth development, bite eruption, oral hygiene guidance for parents, and preventive fluoride varnish.</field>
+            <field name="active">True</field>
+        </record>
+
+        <!-- 6. Root Canal Consultation & Evaluation -->
+        <record id="appointment_type_root_canal_consultation" model="dental.appointment.type">
+            <field name="name">Root Canal Consultation &amp; Evaluation</field>
+            <field name="duration">45.0</field>
+            <field name="price">110.0</field>
+            <field name="color">5</field>
+            <field name="icon">fa-heartbeat</field>
+            <field name="description">Diagnostic assessment for deeply infected, sensitive, or decayed tooth pulp, including vitality testing, percussion tests, and root canal therapy planning.</field>
+            <field name="active">True</field>
+        </record>
+
+        <!-- 7. Cosmetic Consultation & Smile Makeover -->
+        <record id="appointment_type_cosmetic_whitening" model="dental.appointment.type">
+            <field name="name">Cosmetic Consultation &amp; Smile Makeover</field>
+            <field name="duration">30.0</field>
+            <field name="price">80.0</field>
+            <field name="color">9</field>
+            <field name="icon">fa-magic</field>
+            <field name="description">Aesthetic dental consultation exploring teeth whitening (in-chair laser or custom trays), porcelain veneers, composite bonding, and comprehensive smile enhancement.</field>
+            <field name="active">True</field>
+        </record>
+
+        <!-- 8. Orthodontic & Clear Aligner Consultation -->
+        <record id="appointment_type_orthodontic_consultation" model="dental.appointment.type">
+            <field name="name">Orthodontic &amp; Clear Aligner Consultation</field>
+            <field name="duration">45.0</field>
+            <field name="price">85.0</field>
+            <field name="color">8</field>
+            <field name="icon">fa-sliders</field>
+            <field name="description">Comprehensive alignment and bite evaluation for clear aligners or fixed braces to correct crowding, gaps, overbites, or misaligned teeth.</field>
+            <field name="active">True</field>
+        </record>
+
+        <!-- 9. Tooth Extraction & Oral Surgery Consultation -->
+        <record id="appointment_type_extraction_surgery" model="dental.appointment.type">
+            <field name="name">Tooth Extraction &amp; Oral Surgery Consultation</field>
+            <field name="duration">45.0</field>
+            <field name="price">100.0</field>
+            <field name="color">6</field>
+            <field name="icon">fa-user-md</field>
+            <field name="description">Clinical evaluation for simple and surgical extractions, impacted wisdom tooth assessment, pre-prosthetic bone contouring, and surgical planning.</field>
+            <field name="active">True</field>
+        </record>
+
+        <!-- 10. Dental Implant Consultation -->
+        <record id="appointment_type_implant_consultation" model="dental.appointment.type">
+            <field name="name">Dental Implant Consultation</field>
+            <field name="duration">45.0</field>
+            <field name="price">90.0</field>
+            <field name="color">11</field>
+            <field name="icon">fa-anchor</field>
+            <field name="description">Evaluation of missing teeth, bone ridge assessment, and surgical consultation for dental implant placement, implant-supported bridges, or all-on-4 restorations.</field>
+            <field name="active">True</field>
+        </record>
+
+        <!-- 11. Periodontal Gum Assessment -->
+        <record id="appointment_type_periodontal_assessment" model="dental.appointment.type">
+            <field name="name">Periodontal Gum Assessment</field>
+            <field name="duration">45.0</field>
+            <field name="price">75.0</field>
+            <field name="color">6</field>
+            <field name="icon">fa-tint</field>
+            <field name="description">Detailed periodontal pocket depth measurement, bleeding index, diagnostic assessment of gingivitis or periodontitis, and deep scaling (scaling and root planing) planning.</field>
+            <field name="active">True</field>
+        </record>
+
+        <!-- 12. Post-Treatment Review & Suture Removal -->
+        <record id="appointment_type_post_op_followup" model="dental.appointment.type">
+            <field name="name">Post-Treatment Review &amp; Suture Removal</field>
+            <field name="duration">15.0</field>
+            <field name="price">0.0</field>
+            <field name="color">3</field>
+            <field name="icon">fa-check-circle-o</field>
+            <field name="description">Quick postoperative healing checkup, crown/filling bite adjustment, wound evaluation, and suture removal following surgical or endodontic procedures.</field>
+            <field name="active">True</field>
+        </record>
+    </data>
+</odoo>

@@ -30,21 +30,13 @@
                         </div>
                     </div>
                 </div>
-                <div class="o_sign_cp_divider"/>
-                <!-- Same buttons as the save/discard indicator of form views -->
-                <div class="d-flex align-items-center gap-1">
-                    <button type="button" class="o_form_button_save btn btn-light p-1"
-                            data-tooltip="Save manually" aria-label="Save manually"
-                            t-att-disabled="!this.state.template or this.state.saving"
-                            t-on-click="() => this.onSaveClick()">
-                        <i class="oi oi-fw" data-icon="cloud_upload"/>
-                    </button>
-                    <button type="button" class="o_form_button_cancel btn btn-light p-1"
-                            data-tooltip="Close" aria-label="Close"
-                            t-on-click="() => this.onBack()">
-                        <i class="oi oi-fw" data-icon="close"/>
-                    </button>
-                </div>
+                <!-- Odoo's save / discard buttons of form views: only shown with unsaved changes
+                     (always for a draft uploaded in Documents, saved as a template) -->
+                <FormStatusIndicator t-if="this.state.template"
+                                     isDirty="this.state.dirty"
+                                     isNew="this.isUnsavedDraft"
+                                     save="() => this.onSaveClick()"
+                                     discard="() => this.discardChanges()"/>
 
                 <!-- Tags -->
                 <t t-call="hudson_sign.SignTagsField"/>

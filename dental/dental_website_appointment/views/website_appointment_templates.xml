@@ -366,8 +366,8 @@
                                                     <path d="M120 32C53.7 32 0 85.7 0 152c0 47.9 28.1 89.2 68.8 108.4 17.6 8.3 30.5 23.3 36.3 41.9l43.2 138.3c7.5 24.1 29.8 40.5 55 40.5 28.2 0 52-20.9 55.6-48.9L272 320h-32l13.1 112.2c3.6 28 27.4 48.9 55.6 48.9 25.3 0 47.5-16.4 55-40.5l43.2-138.3c5.8-18.6 18.7-33.6 36.3-41.9C483.9 241.2 512 199.9 512 152 512 85.7 458.3 32 392 32c-38.6 0-73 18.2-94.8 46.5L256 128l-41.2-49.5C193 50.2 158.6 32 120 32z"/>
                                                 </svg>
                                             </div>
-                                            <h5 class="fw-bold mb-1" style="color: #334155; font-size: 1.05rem;"><t t-esc="atype.name"/></h5>
-                                            <p class="mb-0 fst-italic" style="color: #64748b; font-size: 0.88rem;"><t t-esc="dur_val"/> minutes</p>
+                                            <h5 class="fw-bold mb-1" style="color: #334155; font-size: 1.05rem;"><t t-out="atype.name"/></h5>
+                                            <p class="mb-0 fst-italic" style="color: #64748b; font-size: 0.88rem;"><t t-out="dur_val"/> minutes</p>
                                         </div>
                                     </div>
                                 </t>
@@ -416,7 +416,7 @@
                                                 <path d="M256 0C114.6 0 0 114.6 0 256s114.6 256 256 256s256-114.6 256-256S397.4 0 256 0zm0 96c44.2 0 80 35.8 80 80s-35.8 80-80 80s-80-35.8-80-80s35.8-80 80-80zm0 336c-59.7 0-113.3-27.4-148.7-70.6C122.3 325.2 157.7 304 197.6 304h116.8c39.9 0 75.3 21.2 90.3 57.4C369.3 404.6 315.7 432 256 432z"/>
                                             </svg>
                                         </div>
-                                        <h5 class="fw-bold mb-0" style="color: #334155;"><t t-esc="doc.name"/></h5>
+                                        <h5 class="fw-bold mb-0" style="color: #334155;"><t t-out="doc.name"/></h5>
                                     </div>
                                 </div>
                             </t>
@@ -956,6 +956,8 @@
                         duration_minutes: flowState.serviceDuration
                     }
                 };
+                // Extension point: add-ons may add booking values (e.g. the online consultation mode)
+                document.dispatchEvent(new CustomEvent('dental:booking-submit', { detail: payload.params }));
 
                 fetch('/dental/book_appointment', {
                     method: 'POST',
@@ -980,6 +982,8 @@
                             if (p) p.classList.add('d-none');
                         }
                         document.getElementById('pane_step_success').classList.remove('d-none');
+                        // Extension point: add-ons may adapt the success screen to the server result
+                        document.dispatchEvent(new CustomEvent('dental:booking-success', { detail: result }));
                     } else {
                         errAlert.textContent = result.error || 'Failed to complete appointment. Please verify your details.';
                         errAlert.classList.remove('d-none');

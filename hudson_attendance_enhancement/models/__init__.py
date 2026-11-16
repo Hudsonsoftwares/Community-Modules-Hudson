@@ -5,3 +5,4 @@ from . import hr_attendance
 from . import hr_employee
 from . import hr_employee_location_log
 from . import ir_ui_view
+from . import ir_http

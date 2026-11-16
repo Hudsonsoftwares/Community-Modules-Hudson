@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_partner_form_dental_abdm" model="ir.ui.view">
+        <field name="name">res.partner.form.dental.abdm</field>
+        <field name="model">res.partner</field>
+        <field name="inherit_id" ref="dental_patient.view_partner_form_dental"/>
+        <field name="arch" type="xml">
+            <xpath expr="//header" position="inside">
+                <button name="action_abdm_abha_wizard" type="object" class="btn-secondary"
+                        icon="badge" string="Create / Verify ABHA"
+                        groups="abdm_base.group_abdm_user"
+                        invisible="not is_dental_patient or not id or abha_number"/>
+            </xpath>
+            <xpath expr="//h2[field[@name='dental_patient_id']]" position="after">
+                <div class="text-muted" invisible="not abha_number">
+                    ABHA <field name="abha_number" readonly="1" class="fw-bold"/>
+                    <span invisible="not abha_address"> · <field name="abha_address" readonly="1"/></span>
+                </div>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_partner_tree_dental_abdm" model="ir.ui.view">
+        <field name="name">res.partner.list.dental.abdm</field>
+        <field name="model">res.partner</field>
+        <field name="inherit_id" ref="dental_patient.view_partner_tree_dental"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='name']" position="after">
+                <field name="abha_number" optional="show"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>

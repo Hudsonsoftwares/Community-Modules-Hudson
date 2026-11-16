@@ -41,7 +41,7 @@ class MonthlyTDSDistributionService(BaseStatutoryService):
     3. Current Month TDS = Remaining Liability / Remaining Payroll Periods (including current period)
     """
 
-    def calculate_monthly_tds(self, employee, financial_year, total_annual_tax_liability, eval_date=None):
+    def calculate_monthly_tds(self, employee, financial_year, total_annual_tax_liability, eval_date=None, payslip=None):
         """
         Calculates monthly TDS withholding for the current payslip evaluation period.
 
@@ -49,6 +49,7 @@ class MonthlyTDSDistributionService(BaseStatutoryService):
         :param financial_year: tds.financial.year record
         :param total_annual_tax_liability: float (Total projected annual tax liability after cess)
         :param eval_date: Date (optional)
+        :param payslip: hr.payslip record (optional)
         :return: MonthlyTDSDistributionResult
         """
         _logger.warning("""[TDS_DEBUG_TRACE][DISTRIBUTION_SERVICE_ENTER_REAL]
@@ -59,7 +60,7 @@ payslip_id=%s
 current_month=%s""",
             os.path.abspath(__file__),
             employee.id if employee else 'N/A',
-            'N/A',
+            payslip.id if payslip else 'N/A',
             eval_date if eval_date else 'N/A'
         )
         _logger.warning("""[TDS_DEBUG_TRACE][DISTRIBUTION_SERVICE_ENTER]
@@ -73,7 +74,7 @@ balance_tax=N/A
 distribution_months=N/A""",
             os.path.abspath(__file__),
             employee.id if employee else 'N/A',
-            'N/A',
+            payslip.id if payslip else 'N/A',
             eval_date if eval_date else 'N/A',
             total_annual_tax_liability
         )
@@ -99,7 +100,7 @@ distribution_months=N/A""",
 
             # 3. Resolve Remaining Payroll Periods via PayrollPeriodService
             period_svc = PayrollPeriodService(self.env)
-            remaining_periods = period_svc.calculate_remaining_periods(employee, financial_year, eval_date=eval_date)
+            remaining_periods = period_svc.calculate_remaining_periods(employee, financial_year, eval_date=eval_date, payslip=payslip)
 
             # 4. Determine Remaining Annual Liability (with Zero Floor)
             total_tds_paid_so_far = ytd_tds_deducted + prev_employer_tds
@@ -299,7 +300,25 @@ january_allocation=%s""",
                     is_same_tax = abs(stored_annual_tax - current_annual_tax) < 0.01
                     is_same_m_tds = abs(stored_m_tds - fresh_m_tds) < 0.01
 
-                    schedule_reused = is_same_tax and is_same_m_tds
+                    struct_code = (getattr(payslip.struct_id, 'code', '') or '').upper() if payslip and payslip.struct_id else ''
+                    struct_name = (getattr(payslip.struct_id, 'name', '') or '').upper() if payslip and payslip.struct_id else ''
+                    is_settlement_slip = bool(
+                        payslip and (
+                            struct_code in ('FINAL_SETTLEMENT_STRUCT', 'FINAL_SETT', 'FINAL_SETTLEMENT')
+                            or 'SETTLEMENT' in struct_code
+                            or 'SETTLEMENT' in struct_name
+                            or 'FINAL' in struct_name
+                            or self.env.context.get('is_final_settlement')
+                            or ('final.settlement' in self.env and (
+                                self.env['final.settlement'].search_count([('payslip_id', '=', payslip.id), ('state', '!=', 'cancel')])
+                            ))
+                        )
+                    )
+                    if not is_settlement_slip and employee and 'final.settlement' in self.env and eval_date:
+                        is_settlement_slip = bool(self.env['final.settlement'].search_count([
+                            ('employee_id', '=', employee.id), ('state', '!=', 'cancel'), ('last_working_day', '<=', eval_date)
+                        ]))
+                    schedule_reused = (not is_settlement_slip) and is_same_tax and is_same_m_tds
 
                     if schedule_reused:
                         current_month_tds = stored_m_tds

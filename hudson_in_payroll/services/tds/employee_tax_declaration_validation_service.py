@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import logging
 from dateutil.relativedelta import relativedelta
+# pyrefly: ignore [missing-import]
 from odoo import fields
 from ..base import BaseStatutoryService
 from .tds_parameter_service import TdsParameterService
@@ -128,27 +129,39 @@ class EmployeeTaxDeclarationValidationService(BaseStatutoryService):
             # 2. OLD REGIME & SHARED CATEGORY STATUTORY VALIDATION
             # -----------------------------------------------------------------
             is_post_proof = declaration_record.state in ('proof_verified', 'approved')
+            is_proof_phase = declaration_record.state in ('proof_under_review', 'proof_verified', 'approved')
             line.is_regime_permitted = True
-            base_claim = line.approved_amount if (is_post_proof and line.approved_amount is not None and line.approved_amount > 0) else declared_val
-            approved_val = min(declared_val, base_claim)
+            manual_appr = (
+                float(getattr(line, 'tax_firm_approved_amount', 0.0) or 0.0)
+                or float(getattr(line, 'approved_amount', 0.0) or 0.0)
+                or float(getattr(line, 'verified_amount', 0.0) or 0.0)
+            )
+            has_manual_approval = is_proof_phase and manual_appr > 0.0
+            base_claim = min(declared_val, manual_appr) if has_manual_approval else declared_val
+            target_claim = base_claim if is_proof_phase else declared_val
+            approved_val = target_claim
             val_status = 'valid'
             val_remarks = "Statutory deduction verified and valid."
 
             if cat in ('80c', 'nps_employee'):
                 # Group ceiling enforcement across multiple 80C / 80CCD(1) lines
                 remaining_80c_cap = max(0.0, max_80c_ceiling - accumulated_80c)
-                if declared_val > remaining_80c_cap:
+                if target_claim > remaining_80c_cap:
                     approved_val = remaining_80c_cap
                     val_status = 'exceeds_limit'
                     val_remarks = f"Section 80C / 80CCD(1) cumulative claim capped at statutory limit of ₹{max_80c_ceiling:,.2f}."
+                else:
+                    approved_val = target_claim
                 accumulated_80c += approved_val
 
             elif cat == '80ccd1b':
-                ceiling = tds_param_svc.get_80ccd1b_limit(eval_date=eval_date)
-                if declared_val > ceiling:
+                ceiling = tds_param_svc.get_80ccd1b_limit(eval_date=eval_date) or 50000.0
+                if target_claim > ceiling:
                     approved_val = ceiling
                     val_status = 'exceeds_limit'
                     val_remarks = f"Section 80CCD(1B) additional NPS claim capped at statutory limit of ₹{ceiling:,.2f}."
+                else:
+                    approved_val = target_claim
 
             elif cat == '80d_self':
                 emp_is_senior = (
@@ -161,13 +174,12 @@ class EmployeeTaxDeclarationValidationService(BaseStatutoryService):
                     )
                 )
                 ceiling = tds_param_svc.get_80d_limit(is_senior=emp_is_senior, is_parents=False, eval_date=eval_date) or 25000.0
-                remaining_self_cap = max(0.0, ceiling - accumulated_80c) # cap check
-                if declared_val > ceiling:
+                if target_claim > ceiling:
                     approved_val = ceiling
                     val_status = 'exceeds_limit'
                     val_remarks = f"Section 80D (Self {'Senior Citizen' if emp_is_senior else 'Non-Senior'}) claim capped at statutory limit of ₹{ceiling:,.2f}."
                 else:
-                    approved_val = declared_val
+                    approved_val = target_claim
 
             elif cat == '80d_parents':
                 parent_is_senior = (
@@ -176,12 +188,12 @@ class EmployeeTaxDeclarationValidationService(BaseStatutoryService):
                     or (declaration_record.employee_id and bool(getattr(declaration_record.employee_id, 'hds_in_decl_80d_parents_is_senior', False)))
                 )
                 ceiling = tds_param_svc.get_80d_limit(is_senior=parent_is_senior, is_parents=True, eval_date=eval_date) or 25000.0
-                if declared_val > ceiling:
+                if target_claim > ceiling:
                     approved_val = ceiling
                     val_status = 'exceeds_limit'
                     val_remarks = f"Section 80D (Parents {'Senior Citizen' if parent_is_senior else 'Non-Senior'}) claim capped at statutory limit of ₹{ceiling:,.2f}."
                 else:
-                    approved_val = declared_val
+                    approved_val = target_claim
 
             elif cat == '80d_preventive':
                 preventive_sublimit = tds_param_svc.get_parameter('80D_PREVENTIVE_CHECKUP_LIMIT', eval_date=eval_date) or 5000.0
@@ -194,10 +206,14 @@ class EmployeeTaxDeclarationValidationService(BaseStatutoryService):
 
                 # 1. Self Medical Insurance lines already declared in this declaration
                 self_insurance_lines = declaration_record.declaration_line_ids.filtered(lambda l: l.category == '80d_self')
-                declared_self_ins = sum(l.declared_amount for l in self_insurance_lines)
+                declared_self_ins = sum(
+                    (float(l.tax_firm_approved_amount or 0.0) or float(l.approved_amount or 0.0) or float(l.declared_amount or 0.0))
+                    if is_proof_phase else float(l.declared_amount or 0.0)
+                    for l in self_insurance_lines
+                )
 
                 # 2. Apply preventive sub-limit (₹5,000 max)
-                allowed_preventive_sublimit = min(declared_val, preventive_sublimit)
+                allowed_preventive_sublimit = min(target_claim, preventive_sublimit)
 
                 # 3. Combined Self & Family bucket amount
                 combined_bucket_raw = declared_self_ins + allowed_preventive_sublimit
@@ -210,7 +226,7 @@ class EmployeeTaxDeclarationValidationService(BaseStatutoryService):
                 remaining_overall_cap = max(0.0, overall_self_ceiling - declared_self_ins)
                 approved_val = min(allowed_preventive_sublimit, remaining_overall_cap)
 
-                if declared_val > preventive_sublimit or combined_bucket_raw > overall_self_ceiling:
+                if target_claim > preventive_sublimit or combined_bucket_raw > overall_self_ceiling:
                     val_status = 'exceeds_limit'
                     val_remarks = (
                         f"Section 80D Preventive Check-up capped at ₹{approved_val:,.2f} "
@@ -229,9 +245,9 @@ class EmployeeTaxDeclarationValidationService(BaseStatutoryService):
                     "Eligible Deduction          : ₹%s\n"
                     "Excess Amount               : ₹%s\n"
                     "========================================",
-                    f"{declared_self_ins:,.2f}", f"{declared_val:,.2f}", f"{combined_bucket_raw:,.2f}",
+                    f"{declared_self_ins:,.2f}", f"{target_claim:,.2f}", f"{combined_bucket_raw:,.2f}",
                     f"{preventive_sublimit:,.2f}", f"{overall_self_ceiling:,.2f}",
-                    f"{eligible_bucket_deduction:,.2f}", f"{excess_amount_bucket:,.2f}" if 'excess_amount_bucket' in locals() else f"{excess_bucket_amount:,.2f}"
+                    f"{eligible_bucket_deduction:,.2f}", f"{excess_bucket_amount:,.2f}"
                 )
 
             elif cat == '80tta':
@@ -253,11 +269,13 @@ class EmployeeTaxDeclarationValidationService(BaseStatutoryService):
                     is_compliant = False
                     error_messages.append(f"Section 80TTA / 80TTB: {val_remarks}")
                 else:
-                    ceiling = tds_param_svc.get_parameter('80TTA_MAX_LIMIT', eval_date=eval_date)
-                    if declared_val > ceiling:
+                    ceiling = tds_param_svc.get_parameter('80TTA_MAX_LIMIT', eval_date=eval_date) or 10000.0
+                    if target_claim > ceiling:
                         approved_val = ceiling
                         val_status = 'exceeds_limit'
                         val_remarks = f"Section 80TTA Savings Interest claim capped at statutory limit of ₹{ceiling:,.2f}."
+                    else:
+                        approved_val = target_claim
 
             elif cat == '80ttb':
                 is_emp_senior = self._is_employee_senior_citizen_in_fy(
@@ -273,18 +291,21 @@ class EmployeeTaxDeclarationValidationService(BaseStatutoryService):
                     error_messages.append(f"Section 80TTB: {val_remarks}")
                 elif '80tta' in declared_categories and is_emp_senior:
                     # If both exist and employee is senior, 80TTB is valid, but 80TTA above gets rejected
-                    ceiling = tds_param_svc.get_parameter('80TTB_MAX_LIMIT', eval_date=eval_date)
-                    if declared_val > ceiling:
+                    ceiling = tds_param_svc.get_parameter('80TTB_MAX_LIMIT', eval_date=eval_date) or 50000.0
+                    if target_claim > ceiling:
                         approved_val = ceiling
                         val_status = 'exceeds_limit'
                         val_remarks = f"Section 80TTB Senior Citizen Deposit Interest claim capped at statutory limit of ₹{ceiling:,.2f}."
+                    else:
+                        approved_val = target_claim
                 else:
-                    ceiling = tds_param_svc.get_parameter('80TTB_MAX_LIMIT', eval_date=eval_date)
-                    if declared_val > ceiling:
+                    ceiling = tds_param_svc.get_parameter('80TTB_MAX_LIMIT', eval_date=eval_date) or 50000.0
+                    if target_claim > ceiling:
                         approved_val = ceiling
                         val_status = 'exceeds_limit'
                         val_remarks = f"Section 80TTB Senior Citizen Deposit Interest claim capped at statutory limit of ₹{ceiling:,.2f}."
-
+                    else:
+                        approved_val = target_claim
 
             elif cat == '80dd':
                 from .section_80dd_deduction_service import Section80DDDeductionService
@@ -300,7 +321,6 @@ class EmployeeTaxDeclarationValidationService(BaseStatutoryService):
                     approved_val = dd_res.allowed_deduction
                     val_status = 'valid' if dd_res.is_eligible else 'ineligible_regime'
                     val_remarks = dd_res.remarks
-
 
             elif cat == '80gg':
                 from .section_80gg_deduction_service import Section80GGDeductionService
@@ -318,14 +338,16 @@ class EmployeeTaxDeclarationValidationService(BaseStatutoryService):
                     val_remarks = gg_res.remarks
 
             elif cat == '24b':
-                ceiling = tds_param_svc.get_home_loan_interest_limit(eval_date=eval_date)
-                if declared_val > ceiling:
+                ceiling = tds_param_svc.get_home_loan_interest_limit(eval_date=eval_date) or 200000.0
+                if target_claim > ceiling:
                     approved_val = ceiling
                     val_status = 'exceeds_limit'
                     val_remarks = f"Section 24(b) Self-Occupied Housing Interest claim capped at ₹{ceiling:,.2f}."
+                else:
+                    approved_val = target_claim
 
             elif cat == '80eea':
-                if declared_val <= 0.0:
+                if target_claim <= 0.0:
                     approved_val = 0.0
                     val_status = 'valid'
                     val_remarks = "No Section 80EEA deduction claimed."
@@ -333,7 +355,7 @@ class EmployeeTaxDeclarationValidationService(BaseStatutoryService):
                     # Validate against declaration_record if it has 80EEA fields, or search home_loans
                     res = None
                     if getattr(declaration_record, 'decl_80eea_loan_sanction_date', False):
-                        res = eea_svc.validate_eligibility(declaration_record, eval_date=eval_date, claimed_interest_amount=declared_val)
+                        res = eea_svc.validate_eligibility(declaration_record, eval_date=eval_date, claimed_interest_amount=target_claim)
                     else:
                         home_loans = self.env['tds.employee.home.loan'].search([
                             ('employee_id', '=', declaration_record.employee_id.id),
@@ -341,11 +363,11 @@ class EmployeeTaxDeclarationValidationService(BaseStatutoryService):
                             ('claimed_interest_amount', '>', 0)
                         ], limit=1)
                         if home_loans:
-                            res = eea_svc.validate_eligibility(home_loans, eval_date=eval_date, claimed_interest_amount=declared_val)
+                            res = eea_svc.validate_eligibility(home_loans, eval_date=eval_date, claimed_interest_amount=target_claim)
 
                     if res and res.is_eligible:
-                        approved_val = min(declared_val, res.allowed_deduction)
-                        val_status = 'valid' if declared_val <= res.allowed_deduction else 'exceeds_limit'
+                        approved_val = min(target_claim, res.allowed_deduction)
+                        val_status = 'valid' if target_claim <= res.allowed_deduction else 'exceeds_limit'
                         val_remarks = res.remarks
                     elif res:
                         approved_val = 0.0
@@ -363,31 +385,36 @@ class EmployeeTaxDeclarationValidationService(BaseStatutoryService):
             elif cat == 'hra':
                 # Landlord PAN Validation Rule (CBDT Circular): Mandatory if annual rent exceeds ₹1,00,000 p.a.
                 landlord_pan = getattr(line.declaration_id, 'decl_hra_landlord_pan', False) or getattr(line, 'landlord_pan', False)
-                if declared_val > 100000.0 and not landlord_pan:
+                if target_claim > 100000.0 and not landlord_pan:
                     val_remarks = "Landlord PAN is mandatory under CBDT circulars for annual rent claims exceeding ₹1,00,000 p.a. Please provide Landlord PAN."
                     val_status = 'pending_proof'
                     approved_val = 100000.0
                 else:
-                    val_remarks = f"HRA Rent Declaration of ₹{declared_val:,.2f} verified. Exemption calculation delegated to Section10HraExemptionService during payslip computation."
+                    val_remarks = f"HRA Rent Declaration of ₹{target_claim:,.2f} verified. Exemption calculation delegated to Section10HraExemptionService during payslip computation."
                     val_status = 'valid'
+                    approved_val = target_claim
 
             elif cat == 'children_edu':
                 # Statutory Ceiling: ₹100 per month per child for max 2 children (₹2,400 p.a.)
                 monthly_limit = tds_param_svc.get_parameter('CHILDREN_EDU_ALLOWANCE_MONTHLY', eval_date=eval_date) or 100.0
                 ceiling = monthly_limit * 12 * 2  # Max 2 children
-                if declared_val > ceiling:
+                if target_claim > ceiling:
                     approved_val = ceiling
                     val_status = 'exceeds_limit'
                     val_remarks = f"Children Education Allowance exemption capped at statutory ceiling of ₹{ceiling:,.2f} (₹{monthly_limit:.0f}/month x 12 months x max 2 children)."
+                else:
+                    approved_val = target_claim
 
             elif cat == 'hostel':
                 # Statutory Ceiling: ₹300 per month per child for max 2 children (₹7,200 p.a.)
                 monthly_limit = tds_param_svc.get_parameter('HOSTEL_ALLOWANCE_MONTHLY', eval_date=eval_date) or 300.0
                 ceiling = monthly_limit * 12 * 2  # Max 2 children
-                if declared_val > ceiling:
+                if target_claim > ceiling:
                     approved_val = ceiling
                     val_status = 'exceeds_limit'
                     val_remarks = f"Hostel Expenditure Allowance exemption capped at statutory ceiling of ₹{ceiling:,.2f} (₹{monthly_limit:.0f}/month x 12 months x max 2 children)."
+                else:
+                    approved_val = target_claim
 
             elif cat == 'lta':
                 # Delegate to Section10LtaExemptionService
@@ -395,27 +422,30 @@ class EmployeeTaxDeclarationValidationService(BaseStatutoryService):
                 lta_svc = Section10LtaExemptionService(self.env)
                 lta_res = lta_svc.validate_and_calculate(
                     employee_id=declaration_record.employee_id.id,
-                    declared_fare=declared_val,
+                    declared_fare=target_claim,
                     eval_date=eval_date
                 )
                 approved_val = lta_res.exempt_amount
-                val_status = 'valid' if lta_res.is_eligible and declared_val == approved_val else ('exceeds_limit' if lta_res.is_eligible else 'ineligible_regime')
+                val_status = 'valid' if lta_res.is_eligible and target_claim == approved_val else ('exceeds_limit' if lta_res.is_eligible else 'ineligible_regime')
                 val_remarks = lta_res.remarks
 
             elif cat == 'leave_encashment':
-                ceiling = tds_param_svc.get_leave_encashment_ceiling(eval_date=eval_date)
-                if declared_val > ceiling:
+                ceiling = tds_param_svc.get_leave_encashment_ceiling(eval_date=eval_date) or 2500000.0
+                if target_claim > ceiling:
                     approved_val = ceiling
                     val_status = 'exceeds_limit'
                     val_remarks = f"Leave Encashment Exemption capped at statutory ceiling of ₹{ceiling:,.2f}."
-
+                else:
+                    approved_val = target_claim
 
             elif cat == 'vrs':
-                ceiling = tds_param_svc.get_parameter('VRS_EXEMPTION_CEILING', eval_date=eval_date)
-                if declared_val > ceiling:
+                ceiling = tds_param_svc.get_parameter('VRS_EXEMPTION_CEILING', eval_date=eval_date) or 500000.0
+                if target_claim > ceiling:
                     approved_val = ceiling
                     val_status = 'exceeds_limit'
                     val_remarks = f"VRS Compensation Exemption capped at statutory ceiling of ₹{ceiling:,.2f}."
+                else:
+                    approved_val = target_claim
 
             elif cat == '80g':
                 eff_cat = getattr(line, 'decl_80g_category', False) or getattr(declaration_record, 'decl_80g_category', False)
@@ -456,14 +486,19 @@ class EmployeeTaxDeclarationValidationService(BaseStatutoryService):
                 final_approved = approved_val
                 action_str = "APPROVED_AMOUNT_PERSISTED"
                 reason_str = "HR proof verification completed; approved amount persisted."
-            else:
-                final_approved = 0.0
-                if existing_approved > 0.0:
-                    action_str = "RESET_PRE_PROOF_APPROVAL"
-                    reason_str = "PRE-PROOF state — HR approval not completed; resetting stale approved amount to 0.0."
+            elif declaration_record.state in ('proof_under_review', 'proof_submitted'):
+                if has_manual_approval:
+                    final_approved = approved_val
+                    action_str = "PROOF_REVIEW_APPROVED_SAVED"
+                    reason_str = "Proof review in progress; manually entered approved amount validated and preserved."
                 else:
-                    action_str = "PRESERVE_PRE_PROOF_ZERO"
-                    reason_str = "PRE-PROOF state — HR approval not completed."
+                    final_approved = 0.0
+                    action_str = "AWAITING_PROOF_REVIEW"
+                    reason_str = "Proof under review; awaiting HR/tax firm verification input."
+            else:
+                final_approved = approved_val
+                action_str = "PRE_PROOF_CAPPED_VALIDATION"
+                reason_str = "Pre-proof validation: statutory capping evaluated."
 
             _logger.warning(
                 "\n=========================================================\n"
@@ -486,6 +521,7 @@ class EmployeeTaxDeclarationValidationService(BaseStatutoryService):
             line.sudo().write({
                 'is_regime_permitted': True,
                 'approved_amount': final_approved,
+                'tax_firm_approved_amount': final_approved,
                 'validation_status': val_status,
                 'validation_remarks': val_remarks,
             })

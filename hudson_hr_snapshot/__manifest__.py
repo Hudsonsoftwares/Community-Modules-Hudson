@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     'name': 'Hudson HR Snapshot',
-    'version': '20.0.1.0.2',
+    'version': '19.0.1.0.2',
     'category': 'Human Resources/Payroll',
     'summary': 'Freezes employee, contract, statutory, and attendance details upon payslip confirmation.',
     'description': """
@@ -20,7 +20,7 @@ data even after live employee or contract records are updated.
     ],
     'data': [
         'security/hds_hr_snapshot_security.xml',
-        'security/ir.access.csv',
+        'security/ir.model.access.csv',
         'views/hds_hr_snapshot_views.xml',
         'views/hr_payslip_views.xml',
     ],

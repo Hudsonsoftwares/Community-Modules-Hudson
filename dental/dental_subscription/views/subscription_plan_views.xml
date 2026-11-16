@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_sale_subscription_plan_form_dental" model="ir.ui.view">
+        <field name="name">sale.subscription.plan.form.dental</field>
+        <field name="model">sale.subscription.plan</field>
+        <field name="inherit_id" ref="hudson_subscriptions.view_sale_subscription_plan_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='invoice_mail_template_id']" position="after">
+                <label for="dental_expiry_reminder_days" string="Dental Expiry Reminder"/>
+                <div class="o_row">
+                    <field name="dental_expiry_reminder_days" class="oe_inline"/>
+                    <span>days before end date</span>
+                </div>
+                <label for="dental_overdue_reminder_days" string="Dental Payment Reminder"/>
+                <div class="o_row">
+                    <field name="dental_overdue_reminder_days" class="oe_inline"/>
+                    <span>days between reminders</span>
+                </div>
+            </xpath>
+        </field>
+    </record>
+</odoo>

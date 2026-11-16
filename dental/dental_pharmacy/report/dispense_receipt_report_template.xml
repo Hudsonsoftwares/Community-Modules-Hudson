@@ -9,31 +9,31 @@
                         <div class="row pb-3 mb-3 border-bottom align-items-center">
                             <div class="col-7">
                                 <h3 class="fw-bold text-success mb-1">
-                                    <span t-esc="doc.company_id.name"/> - Dental Pharmacy
+                                    <span t-out="doc.company_id.name"/> - Dental Pharmacy
                                 </h3>
                                 <div class="text-muted small">
                                     Pharmacy Dispensing &amp; Batch Verification Receipt
                                 </div>
                             </div>
                             <div class="col-5 text-end">
-                                <h4 class="fw-bold mb-0 text-dark"><span t-esc="doc.name"/></h4>
-                                <div class="text-muted small">Dispensed On: <span t-esc="doc.dispense_date"/></div>
-                                <div class="text-muted small">Rx Ref: <span t-esc="doc.prescription_id.name"/></div>
+                                <h4 class="fw-bold mb-0 text-dark"><span t-out="doc.name"/></h4>
+                                <div class="text-muted small">Dispensed On: <span t-out="doc.dispense_date"/></div>
+                                <div class="text-muted small">Rx Ref: <span t-out="doc.prescription_id.name"/></div>
                             </div>
                         </div>
 
                         <!-- Details Grid -->
                         <div class="row p-3 mb-4 rounded bg-light border">
                             <div class="col-6">
-                                <div><strong>Patient Name:</strong> <span class="fw-bold" t-esc="doc.patient_id.name"/></div>
-                                <div><strong>Patient ID:</strong> <span t-esc="doc.patient_dental_id or 'N/A'"/></div>
-                                <div><strong>Prescribing Doctor:</strong> <span t-esc="doc.dentist_id.name or 'N/A'"/></div>
+                                <div><strong>Patient Name:</strong> <span class="fw-bold" t-out="doc.patient_id.name"/></div>
+                                <div><strong>Patient ID:</strong> <span t-out="doc.patient_dental_id or 'N/A'"/></div>
+                                <div><strong>Prescribing Doctor:</strong> <span t-out="doc.dentist_id.name or 'N/A'"/></div>
                             </div>
                             <div class="col-6 text-end">
-                                <div><strong>Dispensing Pharmacist:</strong> <span t-esc="doc.pharmacist_id.name"/></div>
-                                <div><strong>Stock Location:</strong> <span t-esc="doc.location_id.complete_name"/></div>
+                                <div><strong>Dispensing Pharmacist:</strong> <span t-out="doc.pharmacist_id.name"/></div>
+                                <div><strong>Stock Location:</strong> <span t-out="doc.location_id.complete_name"/></div>
                                 <div t-if="doc.invoice_id">
-                                    <strong>Invoice Ref:</strong> <span class="badge text-bg-primary" t-esc="doc.invoice_id.name"/>
+                                    <strong>Invoice Ref:</strong> <span class="badge text-bg-primary" t-out="doc.invoice_id.name"/>
                                 </div>
                             </div>
                         </div>
@@ -55,25 +55,25 @@
                             <tbody>
                                 <t t-set="idx" t-value="1"/>
                                 <tr t-foreach="doc.line_ids" t-as="line">
-                                    <td class="text-center" t-esc="idx"/>
+                                    <td class="text-center" t-out="idx"/>
                                     <td>
-                                        <div class="fw-bold" t-esc="line.medicine_id.name"/>
-                                        <div class="text-muted small" t-if="line.strength"><span t-esc="line.strength"/></div>
+                                        <div class="fw-bold" t-out="line.medicine_id.name"/>
+                                        <div class="text-muted small" t-if="line.strength"><span t-out="line.strength"/></div>
                                     </td>
                                     <td class="text-center fw-bold text-primary">
-                                        <span t-esc="line.lot_id.name or 'N/A'"/>
+                                        <span t-out="line.lot_id.name or 'N/A'"/>
                                     </td>
                                     <td class="text-center">
-                                        <span t-esc="line.lot_expiry_date or 'N/A'"/>
+                                        <span t-out="line.lot_expiry_date or 'N/A'"/>
                                     </td>
                                     <td class="text-center fw-bold">
-                                        <span t-esc="line.qty_to_dispense"/>
+                                        <span t-out="line.qty_to_dispense"/>
                                     </td>
                                     <td class="text-end">
-                                        <span t-esc="line.unit_price" t-options="{'widget': 'monetary', 'display_currency': doc.currency_id}"/>
+                                        <span t-out="line.unit_price" t-options="{'widget': 'monetary', 'display_currency': doc.currency_id}"/>
                                     </td>
                                     <td class="text-end fw-bold">
-                                        <span t-esc="line.subtotal" t-options="{'widget': 'monetary', 'display_currency': doc.currency_id}"/>
+                                        <span t-out="line.subtotal" t-options="{'widget': 'monetary', 'display_currency': doc.currency_id}"/>
                                     </td>
                                     <t t-set="idx" t-value="idx + 1"/>
                                 </tr>
@@ -85,16 +85,16 @@
                             <div class="col-7">
                                 <div t-if="doc.notes" class="p-2 border rounded bg-white small">
                                     <strong>Counseling &amp; Storage Notes:</strong>
-                                    <div t-esc="doc.notes"/>
+                                    <div t-out="doc.notes"/>
                                 </div>
                             </div>
                             <div class="col-5">
                                 <div class="p-3 bg-light border rounded text-end">
                                     <div class="fs-5 fw-bold text-success">
-                                        Total Amount: <span t-esc="doc.amount_total" t-options="{'widget': 'monetary', 'display_currency': doc.currency_id}"/>
+                                        Total Amount: <span t-out="doc.amount_total" t-options="{'widget': 'monetary', 'display_currency': doc.currency_id}"/>
                                     </div>
                                     <div class="small text-muted mt-1">
-                                        Status: <b><span t-esc="dict(doc._fields['state'].selection).get(doc.state, '')"/></b>
+                                        Status: <b><span t-out="dict(doc._fields['state'].selection).get(doc.state, '')"/></b>
                                     </div>
                                 </div>
                             </div>

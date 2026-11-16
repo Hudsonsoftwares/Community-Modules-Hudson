@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Clinic Configuration: clinical operations, billing and dashboard floor plan of this clinic -->
+    <record id="view_res_company_dental_configuration_core" model="ir.ui.view">
+        <field name="name">res.company.dental.configuration.core</field>
+        <field name="model">res.company</field>
+        <field name="inherit_id" ref="dental_base.view_res_company_dental_configuration"/>
+        <field name="arch" type="xml">
+            <xpath expr="//group[@name='operations_main']" position="after">
+                <group>
+                    <group string="Patient Billing" name="operations_billing">
+                        <field name="dental_auto_invoice"/>
+                        <field name="dental_consultation_product_id" options="{'no_create': True}"
+                               placeholder="Consultation (catalog default)"/>
+                    </group>
+                    <group string="Dashboard Floor Plan" name="operations_floor_plan">
+                        <field name="dental_floor_plan_image" widget="image" class="oe_avatar"
+                               options="{'size': [240, 135]}"/>
+                        <div colspan="2" class="text-muted small">
+                            Rooms and live elements are arranged on the Dental Clinic dashboard (Edit Layout).
+                            The image is optional and is shown behind the rooms.
+                        </div>
+                    </group>
+                </group>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- Clinic Branch Form: core operational fields -->
+    <record id="view_res_company_dental_branch_core" model="ir.ui.view">
+        <field name="name">res.company.dental.branch.form.core</field>
+        <field name="model">res.company</field>
+        <field name="inherit_id" ref="dental_base.view_dental_clinic_branch_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//group[@name='operations_clinic']" position="inside">
+                <field name="dental_chair_count"/>
+            </xpath>
+            <xpath expr="//group[@name='operations_main']" position="after">
+                <group>
+                    <group string="Patient Billing" name="operations_billing">
+                        <field name="dental_auto_invoice"/>
+                        <field name="dental_consultation_product_id" options="{'no_create': True}"
+                               placeholder="Consultation (catalog default)"/>
+                    </group>
+                </group>
+            </xpath>
+        </field>
+    </record>
+</odoo>

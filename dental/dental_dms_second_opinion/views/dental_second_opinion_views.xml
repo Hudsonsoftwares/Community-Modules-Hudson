@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_dental_second_opinion_form_dental_dms" model="ir.ui.view">
+        <field name="name">dental.second.opinion.form.dental.dms</field>
+        <field name="model">dental.second.opinion</field>
+        <field name="inherit_id" ref="dental_second_opinion.view_dental_second_opinion_form"/>
+        <field name="priority">90</field>
+        <field name="arch" type="xml">
+            <xpath expr="//sheet/*[1]" position="before">
+                <div class="oe_button_box" name="button_box">
+                    <button name="action_dental_documents" type="object" class="oe_stat_button" icon="fa-folder-open">
+                        <field name="dental_document_count" widget="statinfo" string="Documents"/>
+                    </button>
+                    <button name="action_dental_add_document" type="object" class="oe_stat_button" icon="fa-upload"
+                            string="Add Report"/>
+                </div>
+            </xpath>
+        </field>
+    </record>
+</odoo>

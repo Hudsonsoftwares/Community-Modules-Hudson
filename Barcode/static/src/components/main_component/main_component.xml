@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-name="custom_barcode_scanner.MainComponent" owl="1">
+        <div class="o_barcode_client_action">
+            <div class="o_barcode_content p-0" t-attf-class="{{ this.state.currentScreen === 'landing' ? 'o_landing_background' : '' }}">
+                <LandingScreen t-if="this.state.currentScreen === 'landing'"
+                    onOperationsClick.bind="this.goToHome"
+                    onInventoryClick.bind="this.goToInventory"
+                    onPickingClick.bind="this.goToLineScan"
+                    onPickingTypeClick.bind="this.goToPickingList" />
+
+                <HomeScreen t-if="this.state.currentScreen === 'home'"
+                    onTypeClick.bind="this.goToPickingList"
+                    onBack.bind="this.goToLanding" />
+
+                <PickingListScreen t-if="this.state.currentScreen === 'picking_list'"
+                    pickingTypeId="this.state.pickingTypeId"
+                    onPickingClick.bind="this.goToLineScan"
+                    onBatchClick.bind="this.goToBatchScan"
+                    onBack.bind="this.goToHome" />
+
+                <LineScanScreen t-if="this.state.currentScreen === 'line_scan'"
+                    t-key="this.state.pickingId"
+                    pickingId="this.state.pickingId"
+                    pickingTypeId="this.state.pickingTypeId"
+                    openPicking.bind="this.goToLineScan"
+                    onBack.bind="this.goBackFromLineScan" />
+
+                <!-- Batch Transfer screens -->
+
+                <LineScanScreen t-if="this.state.currentScreen === 'batch_scan'"
+                    pickingId="this.state.pickingId"
+                    pickingTypeId="this.state.pickingTypeId"
+                    batchId="this.state.batchId"
+                    batchName="this.state.batchName"
+                    onBack.bind="this.goBackFromBatchScan" />
+            </div>
+        </div>
+    </t>
+</templates>

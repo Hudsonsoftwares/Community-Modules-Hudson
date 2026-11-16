@@ -3,11 +3,11 @@ import base64
 import calendar
 import io
 from datetime import date
-from odoo import api, fields, models, _
-from odoo.exceptions import UserError
+from odoo import api, fields, models, _# pyrefly: ignore [missing-import]
+from odoo.exceptions import UserError# pyrefly: ignore [missing-import]
 
 try:
-    import xlsxwriter
+    import xlsxwriter# pyrefly: ignore [missing-import]
 except ImportError:
     xlsxwriter = None
 
@@ -18,9 +18,16 @@ MONTH_NAMES = [
 ]
 
 
-class HdsYearlySalaryEmployeeWizard(os_model := models.TransientModel):
+class HdsYearlySalaryEmployeeWizard(models.Model):
     _name = 'hds.yearly.salary.employee.wizard'
-    _description = 'Yearly Salary by Employee Wizard'
+    _description = 'Yearly Salary by Employee Report'
+    _order = 'id desc'
+
+    name = fields.Char(string='Report Name', compute='_compute_name', store=True)
+    state = fields.Selection([
+        ('draft', 'Draft'),
+        ('generated', 'Generated'),
+    ], string='State', default='draft')
 
     year = fields.Selection(
         selection=lambda self: [(str(y), str(y)) for y in range(2020, 2031)],
@@ -28,6 +35,12 @@ class HdsYearlySalaryEmployeeWizard(os_model := models.TransientModel):
         default=lambda self: str(date.today().year),
         required=True
     )
+
+    @api.depends('year', 'department_id')
+    def _compute_name(self):
+        for rec in self:
+            dept_str = f" ({rec.department_id.name})" if rec.department_id else ""
+            rec.name = f"Yearly Salary by Employee / {rec.year}{dept_str}" if rec.year else "Yearly Salary by Employee"
 
     department_id = fields.Many2one(
         'hr.department',
@@ -47,6 +60,42 @@ class HdsYearlySalaryEmployeeWizard(os_model := models.TransientModel):
         string='Employees'
     )
 
+    available_employee_ids = fields.Many2many(
+        'hr.employee',
+        compute='_compute_available_employee_ids',
+        string='Available Employees'
+    )
+
+    @api.depends('company_id', 'department_id', 'job_id')
+    def _compute_available_employee_ids(self):
+        for rec in self:
+            domain = [('company_id', '=', rec.company_id.id)]
+            if rec.department_id:
+                domain.append(('department_id', '=', rec.department_id.id))
+            if rec.job_id:
+                domain.append(('job_id', '=', rec.job_id.id))
+            rec.available_employee_ids = self.env['hr.employee'].search(domain)
+
+    @api.onchange('department_id')
+    def _onchange_department_id(self):
+        if self.department_id and self.job_id and self.job_id.department_id and self.job_id.department_id != self.department_id:
+            self.job_id = False
+        if self.employee_ids:
+            self.employee_ids = self.employee_ids.filtered(
+                lambda e: (not self.department_id or e.department_id == self.department_id) and
+                          (not self.job_id or e.job_id == self.job_id)
+            )
+
+    @api.onchange('job_id')
+    def _onchange_job_id(self):
+        if self.job_id and self.job_id.department_id and not self.department_id:
+            self.department_id = self.job_id.department_id
+        if self.employee_ids:
+            self.employee_ids = self.employee_ids.filtered(
+                lambda e: (not self.department_id or e.department_id == self.department_id) and
+                          (not self.job_id or e.job_id == self.job_id)
+            )
+
     company_id = fields.Many2one(
         'res.company',
         string='Company',
@@ -55,14 +104,18 @@ class HdsYearlySalaryEmployeeWizard(os_model := models.TransientModel):
     )
 
     payslip_state = fields.Selection([
-        ('paid', 'Paid Only'),
         ('confirmed', 'Confirmed & Paid (Done, Paid)'),
-        ('done', 'Done Only'),
         ('all', 'All States (Draft, Verify, Done, Paid)'),
-    ], string='Payslip Status', default='paid', required=True)
+    ], string='Payslip Status', default='confirmed', required=True)
 
     xlsx_file = fields.Binary(string='Excel Report (.xlsx)', readonly=True)
     xlsx_filename = fields.Char(string='Excel Filename', readonly=True)
+
+    record_count = fields.Integer(string='Employees Covered', readonly=True)
+    total_annual_gross = fields.Float(string='Total Annual Gross', readonly=True)
+    total_annual_deductions = fields.Float(string='Total Annual Deductions', readonly=True)
+    total_annual_net = fields.Float(string='Total Annual Net Pay', readonly=True)
+    total_annual_cost = fields.Float(string='Total Annual CTC', readonly=True)
 
     def _get_target_employees(self):
         self.ensure_one()
@@ -127,7 +180,13 @@ class HdsYearlySalaryEmployeeWizard(os_model := models.TransientModel):
         summary_rows = []
         detail_rows = []
         emp_data_map = {}
+        employee_reports = []
         annual_totals = [0.0] * 16  # 12 months Net + 4 annual totals
+        month_abbrs = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sept', 'Oct', 'Nov', 'Dec']
+        sym = self.company_id.currency_id.symbol or '₹'
+
+        def _cur_fmt(val):
+            return f"{sym} {val:,.2f}"
 
         for emp in employees:
             emp_ref = getattr(emp, 'registration_number', False) or getattr(emp, 'emp_id', False) or f"EMP{emp.id:04d}"
@@ -254,7 +313,9 @@ class HdsYearlySalaryEmployeeWizard(os_model := models.TransientModel):
                 pf_er_eps = comp_map.get('EPS', 0.0)
                 pf_er_share = comp_map.get('EPF_SHARE', 0.0)
                 if pf_er_base > 0 and pf_er_eps == 0.0 and pf_er_share == 0.0:
-                    pf_er_eps = round(min(pf_er_base / 0.12, 15000.0) * 0.0833, 2)
+                    eval_date = target_slip.date_to or target_slip.date_from or fields.Date.today()
+                    eps_ceiling = self.env['hr.rule.parameter'].get_pf_parameter('EPS_WAGE_CEILING', date=eval_date) or 25000.0
+                    pf_er_eps = round(min(pf_er_base / 0.12, eps_ceiling) * 0.0833, 2)
                     pf_er_share = round(pf_er_base - pf_er_eps, 2)
 
                 pf_er_admin = (
@@ -360,12 +421,109 @@ class HdsYearlySalaryEmployeeWizard(os_model := models.TransientModel):
             })
             emp_data_map[emp.id] = (emp, emp_ref, emp_months, ann_gross, ann_ded, ann_net, ann_ctc)
 
+            # Per-employee vertical month breakdown matching statutory report theme
+            emp_month_rows = []
+            e_tot_basic = 0.0
+            e_tot_hra = 0.0
+            e_tot_alw = 0.0
+            e_tot_gross = 0.0
+            e_tot_pf = 0.0
+            e_tot_esi = 0.0
+            e_tot_pt = 0.0
+            e_tot_tds = 0.0
+            e_tot_ded = 0.0
+            e_tot_net = 0.0
+
+            for m_idx in range(1, 13):
+                m_info = emp_months.get(m_idx)
+                m_label = month_abbrs[m_idx - 1]
+                if m_info:
+                    b = m_info.get('basic', 0.0)
+                    h = m_info.get('hra', 0.0)
+                    alw = m_info.get('allowances', 0.0) + m_info.get('other_earnings', 0.0)
+                    g = m_info.get('gross', 0.0)
+                    pf = m_info.get('pf_ee', 0.0)
+                    esi = m_info.get('esi_ee', 0.0)
+                    pt = m_info.get('pt', 0.0)
+                    tds = m_info.get('tds', 0.0) + m_info.get('other_deductions', 0.0) + m_info.get('lwf_ee', 0.0)
+                    ded = m_info.get('total_deductions', 0.0)
+                    net = m_info.get('net_pay', 0.0)
+                else:
+                    b = h = alw = g = pf = esi = pt = tds = ded = net = 0.0
+
+                e_tot_basic += b
+                e_tot_hra += h
+                e_tot_alw += alw
+                e_tot_gross += g
+                e_tot_pf += pf
+                e_tot_esi += esi
+                e_tot_pt += pt
+                e_tot_tds += tds
+                e_tot_ded += ded
+                e_tot_net += net
+
+                emp_month_rows.append({
+                    'month': m_label,
+                    'basic': b,
+                    'basic_str': _cur_fmt(b),
+                    'hra': h,
+                    'hra_str': _cur_fmt(h),
+                    'allowances': alw,
+                    'allowances_str': _cur_fmt(alw),
+                    'gross': g,
+                    'gross_str': _cur_fmt(g),
+                    'pf': pf,
+                    'pf_str': _cur_fmt(pf),
+                    'esi': esi,
+                    'esi_str': _cur_fmt(esi),
+                    'pt': pt,
+                    'pt_str': _cur_fmt(pt),
+                    'tds': tds,
+                    'tds_str': _cur_fmt(tds),
+                    'deductions': ded,
+                    'deductions_str': _cur_fmt(ded),
+                    'net': net,
+                    'net_str': _cur_fmt(net),
+                })
+
+            employee_reports.append({
+                'emp_id': emp.id,
+                'name': emp.name or '',
+                'code': getattr(emp, 'registration_number', False) or getattr(emp, 'emp_id', False) or '',
+                'job': emp.job_id.name if emp.job_id else '',
+                'department': emp.department_id.name if emp.department_id else '',
+                'month_rows': emp_month_rows,
+                'total': {
+                    'basic': e_tot_basic,
+                    'basic_str': _cur_fmt(e_tot_basic),
+                    'hra': e_tot_hra,
+                    'hra_str': _cur_fmt(e_tot_hra),
+                    'allowances': e_tot_alw,
+                    'allowances_str': _cur_fmt(e_tot_alw),
+                    'gross': e_tot_gross,
+                    'gross_str': _cur_fmt(e_tot_gross),
+                    'pf': e_tot_pf,
+                    'pf_str': _cur_fmt(e_tot_pf),
+                    'esi': e_tot_esi,
+                    'esi_str': _cur_fmt(e_tot_esi),
+                    'pt': e_tot_pt,
+                    'pt_str': _cur_fmt(e_tot_pt),
+                    'tds': e_tot_tds,
+                    'tds_str': _cur_fmt(e_tot_tds),
+                    'deductions': e_tot_ded,
+                    'deductions_str': _cur_fmt(e_tot_ded),
+                    'net': e_tot_net,
+                    'net_str': _cur_fmt(e_tot_net),
+                }
+            })
+
         return {
             'employees': employees,
             'summary_rows': summary_rows,
             'annual_totals': [round(t, 2) for t in annual_totals],
             'detail_rows': detail_rows,
             'emp_data_map': emp_data_map,
+            'employee_reports': employee_reports,
         }
 
     def action_print_pdf(self):
@@ -373,6 +531,14 @@ class HdsYearlySalaryEmployeeWizard(os_model := models.TransientModel):
         data = self._get_yearly_data()
         if not data.get('summary_rows'):
             raise UserError(_("No payslips found for the selected criteria in %s.") % self.year)
+        self.write({
+            'state': 'generated',
+            'record_count': len(data['summary_rows']),
+            'total_annual_gross': round(data['annual_totals'][12], 2),
+            'total_annual_deductions': round(data['annual_totals'][13], 2),
+            'total_annual_net': round(data['annual_totals'][14], 2),
+            'total_annual_cost': round(data['annual_totals'][15], 2),
+        })
         return self.env.ref('hudson_in_payroll.action_report_yearly_salary_employee').report_action(self)
 
     def action_print_xlsx(self):
@@ -410,6 +576,14 @@ class HdsYearlySalaryEmployeeWizard(os_model := models.TransientModel):
             sheet_sum.write(0, 0, f"YEARLY SALARY SUMMARY BY EMPLOYEE — {self.year}", title_fmt)
             sheet_sum.write(1, 0, f"Company: {self.company_id.name} | Generated: {fields.Date.today()}", sub_title_fmt)
 
+            # Explicit column widths to prevent ### overflow on currency amounts and long names
+            sheet_sum.set_column(0, 0, 12)       # Emp Ref
+            sheet_sum.set_column(1, 1, 24)       # Employee Name
+            sheet_sum.set_column(2, 2, 20)       # Department
+            sheet_sum.set_column(3, 3, 20)       # Job Position
+            sheet_sum.set_column(4, 15, 15)      # Monthly Net Pays (Jan - Dec)
+            sheet_sum.set_column(16, 19, 18)     # Annual Gross, Deductions, Net Pay, CTC
+
             sum_headers = ['Emp Ref', 'Employee Name', 'Department', 'Job Position'] + MONTH_NAMES + ['Annual Gross', 'Annual Deductions', 'Annual Net Pay', 'Annual CTC']
             for col_idx, h_text in enumerate(sum_headers):
                 fmt = hdr_main_fmt if col_idx < 4 else (hdr_tot_fmt if col_idx >= 16 else hdr_month_fmt)
@@ -439,6 +613,20 @@ class HdsYearlySalaryEmployeeWizard(os_model := models.TransientModel):
             # SHEET 2: Month-by-Month Component Breakdown Details
             sheet_dtl = workbook.add_worksheet('Detailed Breakdown')
             sheet_dtl.write(0, 0, f"YEARLY SALARY DETAILED BREAKDOWN — {self.year}", title_fmt)
+
+            # Explicit column widths to prevent ### overflow on currency amounts and long names
+            sheet_dtl.set_column(0, 0, 12)       # Emp Ref
+            sheet_dtl.set_column(1, 1, 24)       # Employee Name
+            sheet_dtl.set_column(2, 2, 20)       # Department
+            sheet_dtl.set_column(3, 3, 12)       # Month
+            sheet_dtl.set_column(4, 4, 22)       # Salary Structure
+            sheet_dtl.set_column(5, 8, 15)       # Basic, HRA, Allowances, Other Earnings
+            sheet_dtl.set_column(9, 9, 18)       # Gross Salary
+            sheet_dtl.set_column(10, 15, 15)     # EE PF, EE ESI, PT, LWF, TDS, Other Ded.
+            sheet_dtl.set_column(16, 17, 18)     # Total Deductions, Net Pay
+            sheet_dtl.set_column(18, 21, 18)     # Employer EPS, EPF Share, Admin & Total PF
+            sheet_dtl.set_column(22, 24, 16)     # Employer ESI, LWF, Other Contrib.
+            sheet_dtl.set_column(25, 25, 20)     # Total Employer Cost (CTC)
 
             dtl_headers = [
                 'Emp Ref', 'Employee Name', 'Department', 'Month', 'Salary Structure',
@@ -492,9 +680,21 @@ class HdsYearlySalaryEmployeeWizard(os_model := models.TransientModel):
         else:
             xlsx_content = b"Excel export requires xlsxwriter library."
 
+        try:
+            from odoo.tools import BinaryBytes# pyrefly: ignore [missing-import]
+            file_data = BinaryBytes(xlsx_content, filename=filename)
+        except Exception:
+            file_data = base64.b64encode(xlsx_content).decode('utf-8')
+
         self.write({
-            'xlsx_file': base64.b64encode(xlsx_content),
+            'state': 'generated',
+            'xlsx_file': file_data,
             'xlsx_filename': filename,
+            'record_count': len(yearly_data.get('summary_rows', [])),
+            'total_annual_gross': round(yearly_data['annual_totals'][12], 2),
+            'total_annual_deductions': round(yearly_data['annual_totals'][13], 2),
+            'total_annual_net': round(yearly_data['annual_totals'][14], 2),
+            'total_annual_cost': round(yearly_data['annual_totals'][15], 2),
         })
 
         return {
@@ -502,3 +702,16 @@ class HdsYearlySalaryEmployeeWizard(os_model := models.TransientModel):
             'url': f'/web/content/?model={self._name}&id={self.id}&field=xlsx_file&filename_field=xlsx_filename&download=true',
             'target': 'self',
         }
+
+    action_export_xlsx = action_print_xlsx
+
+    def action_download_xlsx(self):
+        self.ensure_one()
+        if not self.xlsx_file:
+            return self.action_print_xlsx()
+        return {
+            'type': 'ir.actions.act_url',
+            'url': f'/web/content/?model={self._name}&id={self.id}&field=xlsx_file&filename_field=xlsx_filename&download=true',
+            'target': 'self',
+        }
+

@@ -6,11 +6,13 @@ class TestPtCompanyConfig(TransactionCase):
 
     def setUp(self):
         super(TestPtCompanyConfig, self).setUp()
+        self.state = self.env['res.country.state'].search([], limit=1)
         self.company = self.env['res.company'].create({
             'name': 'Test PT Company',
             'hds_in_enable_professional_tax': False,
             'hds_in_professional_tax_registration_no': False,
         })
+        self.company.partner_id.write({'state_id': self.state.id})
 
     def test_01_pt_default_configuration(self):
         """Test default values for Professional Tax company configuration fields."""

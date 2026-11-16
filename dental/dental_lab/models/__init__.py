@@ -9,3 +9,4 @@ from . import dental_lab_order_line
 from . import dental_lab_dispatch
 from . import dental_lab_receipt
 from . import dental_lab_dashboard
+from . import dental_patient_history

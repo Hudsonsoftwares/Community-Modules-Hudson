@@ -11,6 +11,9 @@
                     <block title="Clinic &amp; Branch Setup" name="dental_branch_settings">
                         <setting id="dental_enable_multi_branch_setting" help="Enable multi-branch clinics and branch-level separation">
                             <field name="dental_enable_multi_branch"/>
+                            <div class="mt-2" invisible="not dental_enable_multi_branch">
+                                <button name="%(dental_base.action_dental_clinic_branches)d" icon="oi-arrow-right" type="action" string="Manage Clinic Branches" class="btn-link"/>
+                            </div>
                         </setting>
                     </block>
                     <block title="Clinical Standards &amp; Odontogram" name="dental_clinical_settings">

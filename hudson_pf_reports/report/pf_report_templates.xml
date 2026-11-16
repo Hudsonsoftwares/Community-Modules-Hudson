@@ -126,12 +126,12 @@
                                 <td style="width: 65%; vertical-align: middle;">
                                     <div style="font-size: 14px; font-weight: bold; color: #1F4E78; text-transform: uppercase;">
                                         <t t-if="o.report_type == 'epf_summary'">EPF MONTHLY SUMMARY STATEMENT</t>
-                                        <t t-else="">EPFO ELECTRONIC CHALLAN CUM RETURN (ECR) REPORT</t>
+                                        <t t-else="">EPF STATEMENT <span t-out="o._get_month_label().upper()"/></t>
                                     </div>
                                     <div style="font-size: 9px; color: #555555; margin-top: 2px;">
-                                        <strong>Company / Establishment:</strong> <span t-out="data['est_name']"/> |
-                                        <strong>Est. ID / Code:</strong> <span t-out="data['est_id'] or 'N/A'"/> |
-                                        <strong>Wage Month:</strong> <span t-out="o._get_month_label()"/>
+                                        <strong>Name of Establishment:</strong> <span t-out="data['est_name']"/> |
+                                        <strong>Establishment ID:</strong> <span t-out="data['est_id'] or '-'"/> |
+                                        <strong>Total Members:</strong> <span t-out="data['record_count']"/>
                                     </div>
                                 </td>
                                 <td style="width: 35%; text-align: right; vertical-align: middle;">
@@ -149,19 +149,19 @@
                     <t t-if="o.report_type != 'epf_summary'">
                         <table style="width: 100%; border-collapse: collapse; margin-top: 6px; table-layout: fixed;">
                             <thead>
-                                <tr style="background-color: #1F4E78; color: #ffffff; font-size: 7.5px; font-weight: bold; text-align: center;">
-                                    <th style="width: 3%; padding: 4px 2px; border: 0.5px solid #dcdcdc;">#</th>
-                                    <th style="width: 11%; padding: 4px 2px; border: 0.5px solid #dcdcdc;">UAN</th>
-                                    <th style="width: 16%; padding: 4px 2px; border: 0.5px solid #dcdcdc; text-align: left;">Member Name</th>
-                                    <th style="width: 8%; padding: 4px 2px; border: 0.5px solid #dcdcdc;">Gross Wages</th>
-                                    <th style="width: 8%; padding: 4px 2px; border: 0.5px solid #dcdcdc;">EPF Wages</th>
-                                    <th style="width: 8%; padding: 4px 2px; border: 0.5px solid #dcdcdc;">EPS Wages</th>
-                                    <th style="width: 8%; padding: 4px 2px; border: 0.5px solid #dcdcdc;">EDLI Wages</th>
-                                    <th style="width: 8%; padding: 4px 2px; border: 0.5px solid #dcdcdc; background-color: #2E75B6;">EE EPF (12%)</th>
-                                    <th style="width: 8%; padding: 4px 2px; border: 0.5px solid #dcdcdc; background-color: #4B6F96;">EPS (8.33%)</th>
-                                    <th style="width: 8%; padding: 4px 2px; border: 0.5px solid #dcdcdc; background-color: #4B6F96;">ER EPF (3.67%)</th>
-                                    <th style="width: 4%; padding: 4px 2px; border: 0.5px solid #dcdcdc;">NCP</th>
-                                    <th style="width: 8%; padding: 4px 2px; border: 0.5px solid #dcdcdc; background-color: #1E4620;">Total Remitted</th>
+                                <tr style="background-color: #D9D9D9; color: #000000; font-size: 7.5px; font-weight: bold; text-align: center;">
+                                    <th style="width: 4%; padding: 4px 2px; border: 0.5px solid #b0b0b0;">SI NO</th>
+                                    <th style="width: 11%; padding: 4px 2px; border: 0.5px solid #b0b0b0;">UAN</th>
+                                    <th style="width: 15%; padding: 4px 2px; border: 0.5px solid #b0b0b0; text-align: left;">MEMBER NAME</th>
+                                    <th style="width: 8%; padding: 4px 2px; border: 0.5px solid #b0b0b0;">GROSS WAGES</th>
+                                    <th style="width: 8%; padding: 4px 2px; border: 0.5px solid #b0b0b0;">EPF WAGES</th>
+                                    <th style="width: 8%; padding: 4px 2px; border: 0.5px solid #b0b0b0;">EPS WAGES</th>
+                                    <th style="width: 8%; padding: 4px 2px; border: 0.5px solid #b0b0b0;">EDLI WAGES</th>
+                                    <th style="width: 9%; padding: 4px 2px; border: 0.5px solid #b0b0b0;">EPF CONTRIBUTION REMITTED</th>
+                                    <th style="width: 9%; padding: 4px 2px; border: 0.5px solid #b0b0b0;">EPS CONTRIBUTION REMITTED</th>
+                                    <th style="width: 9%; padding: 4px 2px; border: 0.5px solid #b0b0b0;">EPF EPS DIFFERENCE REMITTED</th>
+                                    <th style="width: 5%; padding: 4px 2px; border: 0.5px solid #b0b0b0;">NCP DAYS</th>
+                                    <th style="width: 6%; padding: 4px 2px; border: 0.5px solid #b0b0b0;">REFUND OF ADVANCES</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -174,27 +174,25 @@
                                     <td style="text-align: right; padding: 3px 2px;"><span t-out="'{:,.2f}'.format(r['epf_wages'])"/></td>
                                     <td style="text-align: right; padding: 3px 2px;"><span t-out="'{:,.2f}'.format(r['eps_wages'])"/></td>
                                     <td style="text-align: right; padding: 3px 2px;"><span t-out="'{:,.2f}'.format(r['edli_wages'])"/></td>
-                                    <td style="text-align: right; padding: 3px 2px; font-weight: bold; background-color: #F2F7FA;"><span t-out="'{:,.2f}'.format(r['ee_epf'])"/></td>
-                                    <td style="text-align: right; padding: 3px 2px; background-color: #F5F7FA;"><span t-out="'{:,.2f}'.format(r['er_eps'])"/></td>
-                                    <td style="text-align: right; padding: 3px 2px; background-color: #F5F7FA;"><span t-out="'{:,.2f}'.format(r['er_epf'])"/></td>
+                                    <td style="text-align: right; padding: 3px 2px; font-weight: bold;"><span t-out="'{:,.2f}'.format(r['ee_epf'])"/></td>
+                                    <td style="text-align: right; padding: 3px 2px;"><span t-out="'{:,.2f}'.format(r['er_eps'])"/></td>
+                                    <td style="text-align: right; padding: 3px 2px;"><span t-out="'{:,.2f}'.format(r['er_epf'])"/></td>
                                     <td style="text-align: center; padding: 3px 2px;"><span t-out="r['ncp_days']"/></td>
-                                    <td style="text-align: right; padding: 3px 2px; font-weight: bold; background-color: #EAF2E8; color: #1e4620;">
-                                        <span t-out="'{:,.2f}'.format(r['ee_epf'] + r['er_epf'] + r['er_eps'])"/>
-                                    </td>
+                                    <td style="text-align: center; padding: 3px 2px;"><span t-out="r['refund']"/></td>
                                     <t t-set="idx" t-value="idx + 1"/>
                                 </tr>
                                 <!-- Totals Row -->
                                 <tr style="background-color: #EBF1F5; font-weight: bold; font-size: 7.5px; border-top: 1.5px solid #1F4E78; border-bottom: 1.5px solid #1F4E78;">
                                     <td colspan="3" style="text-align: center; padding: 4px 2px;">TOTAL (<span t-out="data['record_count']"/> MEMBERS)</td>
-                                    <td style="text-align: right; padding: 4px 2px;">-</td>
+                                    <td style="text-align: right; padding: 4px 2px;"><span t-out="'{:,.2f}'.format(data.get('tot_gross_wages', 0.0))"/></td>
                                     <td style="text-align: right; padding: 4px 2px;"><span t-out="'{:,.2f}'.format(data['tot_wages'])"/></td>
-                                    <td style="text-align: right; padding: 4px 2px;">-</td>
-                                    <td style="text-align: right; padding: 4px 2px;">-</td>
-                                    <td style="text-align: right; padding: 4px 2px; color: #2E75B6;"><span t-out="'{:,.2f}'.format(data['tot_ee_epf'])"/></td>
+                                    <td style="text-align: right; padding: 4px 2px;"><span t-out="'{:,.2f}'.format(data.get('tot_eps_wages', 0.0))"/></td>
+                                    <td style="text-align: right; padding: 4px 2px;"><span t-out="'{:,.2f}'.format(data.get('tot_edli_wages', 0.0))"/></td>
+                                    <td style="text-align: right; padding: 4px 2px;"><span t-out="'{:,.2f}'.format(data['tot_ee_epf'])"/></td>
                                     <td style="text-align: right; padding: 4px 2px;"><span t-out="'{:,.2f}'.format(data['tot_er_eps'])"/></td>
                                     <td style="text-align: right; padding: 4px 2px;"><span t-out="'{:,.2f}'.format(data['tot_er_epf'])"/></td>
                                     <td style="text-align: center; padding: 4px 2px;">-</td>
-                                    <td style="text-align: right; padding: 4px 2px; color: #1E4620;"><span t-out="'{:,.2f}'.format(data['tot_ee_epf'] + data['tot_er_epf'] + data['tot_er_eps'])"/></td>
+                                    <td style="text-align: center; padding: 4px 2px;">0</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -202,52 +200,65 @@
 
                     <!-- Layout 2: EPF Summary Report -->
                     <t t-if="o.report_type == 'epf_summary'">
-                        <table style="width: 100%; border-collapse: collapse; margin-top: 6px; table-layout: fixed;">
+                        <div style="font-weight: bold; font-size: 10px; margin-bottom: 4px;">
+                            <span t-out="o.company_id.name"/> Establishment ID: <span t-out="data['est_id'] or '-'"/>
+                        </div>
+                        <table style="width: 100%; border-collapse: collapse; margin-top: 4px; table-layout: fixed;">
                             <thead>
-                                <tr style="background-color: #1F4E78; color: #ffffff; font-size: 7.5px; font-weight: bold; text-align: center;">
-                                    <th style="width: 6%; padding: 4px 2px; border: 0.5px solid #dcdcdc;">Emp ID</th>
-                                    <th style="width: 14%; padding: 4px 2px; border: 0.5px solid #dcdcdc; text-align: left;">Employee Name</th>
-                                    <th style="width: 11%; padding: 4px 2px; border: 0.5px solid #dcdcdc;">Account No</th>
-                                    <th style="width: 11%; padding: 4px 2px; border: 0.5px solid #dcdcdc;">UAN</th>
-                                    <th style="width: 8%; padding: 4px 2px; border: 0.5px solid #dcdcdc;">PF Wages</th>
-                                    <th style="width: 8%; padding: 4px 2px; border: 0.5px solid #dcdcdc; background-color: #2E75B6;">EE PF</th>
-                                    <th style="width: 6%; padding: 4px 2px; border: 0.5px solid #dcdcdc;">VPF</th>
-                                    <th style="width: 8%; padding: 4px 2px; border: 0.5px solid #dcdcdc;">Total PF</th>
-                                    <th style="width: 8%; padding: 4px 2px; border: 0.5px solid #dcdcdc; background-color: #4B6F96;">EPS</th>
-                                    <th style="width: 6%; padding: 4px 2px; border: 0.5px solid #dcdcdc;">EDLI</th>
-                                    <th style="width: 6%; padding: 4px 2px; border: 0.5px solid #dcdcdc;">Admin</th>
-                                    <th style="width: 8%; padding: 4px 2px; border: 0.5px solid #dcdcdc; background-color: #1E4620;">Total Contrib</th>
+                                <tr style="background-color: #B7CCE4; color: #000000; font-size: 7px; font-weight: bold; text-align: center;">
+                                    <th rowspan="2" style="width: 6%; padding: 4px 1px; border: 0.5px solid #000000;">EMPLOYEE ID</th>
+                                    <th rowspan="2" style="width: 14%; padding: 4px 2px; border: 0.5px solid #000000; text-align: left;">EMPLOYEE NAME</th>
+                                    <th rowspan="2" style="width: 10%; padding: 4px 1px; border: 0.5px solid #000000;">PF ACCOUNT NUMBER</th>
+                                    <th rowspan="2" style="width: 10%; padding: 4px 1px; border: 0.5px solid #000000;">UAN</th>
+                                    <th rowspan="2" style="width: 8%; padding: 4px 1px; border: 0.5px solid #000000;">PF WAGES</th>
+                                    <th colspan="2" style="width: 14%; padding: 4px 1px; border: 0.5px solid #000000;">Employee's Contribution</th>
+                                    <th colspan="4" style="width: 28%; padding: 4px 1px; border: 0.5px solid #000000;">Employer's Contribution</th>
+                                    <th rowspan="2" style="width: 10%; padding: 4px 1px; border: 0.5px solid #000000;">TOTAL CONTRIBUTION</th>
+                                </tr>
+                                <tr style="background-color: #B7CCE4; color: #000000; font-size: 6.5px; font-weight: bold; text-align: center;">
+                                    <th style="width: 7%; padding: 3px 1px; border: 0.5px solid #000000;">PF AMOUNT</th>
+                                    <th style="width: 7%; padding: 3px 1px; border: 0.5px solid #000000;">VPF AMOUNT</th>
+                                    <th style="width: 7%; padding: 3px 1px; border: 0.5px solid #000000;">PF AMOUNT</th>
+                                    <th style="width: 7%; padding: 3px 1px; border: 0.5px solid #000000;">EPS AMOUNT</th>
+                                    <th style="width: 6%; padding: 3px 1px; border: 0.5px solid #000000;">EDLI</th>
+                                    <th style="width: 8%; padding: 3px 1px; border: 0.5px solid #000000;">PF ADMIN CHARGES</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <tr t-foreach="summary_rows" t-as="s" style="border-bottom: 0.5px solid #e0e0e0; font-size: 7px;">
-                                    <td style="text-align: center; padding: 3px 2px;"><span t-out="s['employee_id']"/></td>
+                                    <td style="text-align: center; padding: 3px 1px;"><span t-out="s['employee_id'] or ''"/></td>
                                     <td style="text-align: left; padding: 3px 2px;"><strong><span t-out="s['employee_name']"/></strong></td>
-                                    <td style="text-align: center; padding: 3px 2px; font-family: monospace;"><span t-out="s['account_number'] or '-'"/></td>
-                                    <td style="text-align: center; padding: 3px 2px; font-family: monospace;"><span t-out="s['uan'] or '-'"/></td>
-                                    <td style="text-align: right; padding: 3px 2px;"><span t-out="'{:,.2f}'.format(s['pf_wages'])"/></td>
-                                    <td style="text-align: right; padding: 3px 2px; font-weight: bold; background-color: #F2F7FA;"><span t-out="'{:,.2f}'.format(s['employee_pf_amount'])"/></td>
-                                    <td style="text-align: right; padding: 3px 2px;"><span t-out="'{:,.2f}'.format(s['vpf_amount'])"/></td>
-                                    <td style="text-align: right; padding: 3px 2px;"><span t-out="'{:,.2f}'.format(s['pf_amount'])"/></td>
-                                    <td style="text-align: right; padding: 3px 2px; background-color: #F5F7FA;"><span t-out="'{:,.2f}'.format(s['eps_amount'])"/></td>
-                                    <td style="text-align: right; padding: 3px 2px;"><span t-out="'{:,.2f}'.format(s['edli'])"/></td>
-                                    <td style="text-align: right; padding: 3px 2px;"><span t-out="'{:,.2f}'.format(s['admin_charge'])"/></td>
-                                    <td style="text-align: right; padding: 3px 2px; font-weight: bold; background-color: #EAF2E8; color: #1e4620;"><span t-out="'{:,.2f}'.format(s['total_contribution'])"/></td>
+                                    <td style="text-align: center; padding: 3px 1px; font-family: monospace;"><span t-out="s['account_number'] or ''"/></td>
+                                    <td style="text-align: center; padding: 3px 1px; font-family: monospace;"><span t-out="s['uan'] or ''"/></td>
+                                    <td style="text-align: right; padding: 3px 1px;"><span t-out="'{:,.2f}'.format(s['pf_wages'])"/></td>
+                                    <td style="text-align: right; padding: 3px 1px;"><span t-out="'{:,.2f}'.format(s['employee_pf_amount'])"/></td>
+                                    <td style="text-align: right; padding: 3px 1px;"><span t-out="'{:,.2f}'.format(s['vpf_amount'])"/></td>
+                                    <td style="text-align: right; padding: 3px 1px;"><span t-out="'{:,.2f}'.format(s['pf_amount'])"/></td>
+                                    <td style="text-align: right; padding: 3px 1px;"><span t-out="'{:,.2f}'.format(s['eps_amount'])"/></td>
+                                    <td style="text-align: right; padding: 3px 1px;"><span t-out="'{:,.2f}'.format(s['edli'])"/></td>
+                                    <td style="text-align: right; padding: 3px 1px;"><span t-out="'{:,.2f}'.format(s['admin_charge'])"/></td>
+                                    <td style="text-align: right; padding: 3px 1px; font-weight: bold;"><span t-out="'{:,.2f}'.format(s['total_contribution'])"/></td>
                                 </tr>
                                 <!-- Totals Row -->
-                                <tr style="background-color: #EBF1F5; font-weight: bold; font-size: 7.5px; border-top: 1.5px solid #1F4E78; border-bottom: 1.5px solid #1F4E78;">
-                                    <td colspan="4" style="text-align: center; padding: 4px 2px;">TOTAL (<span t-out="data['record_count']"/> EMPLOYEES)</td>
-                                    <td style="text-align: right; padding: 4px 2px;"><span t-out="'{:,.2f}'.format(data['tot_wages'])"/></td>
-                                    <td style="text-align: right; padding: 4px 2px; color: #2E75B6;"><span t-out="'{:,.2f}'.format(data['tot_ee_epf'])"/></td>
-                                    <td style="text-align: right; padding: 4px 2px;"><span t-out="'{:,.2f}'.format(data['tot_vpf'])"/></td>
-                                    <td style="text-align: right; padding: 4px 2px;"><span t-out="'{:,.2f}'.format(data['tot_ee_epf'] + data['tot_vpf'])"/></td>
-                                    <td style="text-align: right; padding: 4px 2px;"><span t-out="'{:,.2f}'.format(data['tot_er_eps'])"/></td>
-                                    <td style="text-align: right; padding: 4px 2px;"><span t-out="'{:,.2f}'.format(data['tot_edli'])"/></td>
-                                    <td style="text-align: right; padding: 4px 2px;"><span t-out="'{:,.2f}'.format(data['tot_admin'])"/></td>
-                                    <td style="text-align: right; padding: 4px 2px; color: #1E4620;"><span t-out="'{:,.2f}'.format(data['tot_overall_contrib'])"/></td>
+                                <tr style="font-weight: bold; font-size: 7.5px; border-top: 1.5px solid #000000; border-bottom: 1.5px solid #000000;">
+                                    <td style="text-align: center; padding: 4px 1px;">-</td>
+                                    <td style="text-align: left; padding: 4px 2px;">Total Amount</td>
+                                    <td style="text-align: center; padding: 4px 1px;">-</td>
+                                    <td style="text-align: center; padding: 4px 1px;">-</td>
+                                    <td style="text-align: right; padding: 4px 1px;"><span t-out="'{:,.2f}'.format(data['tot_wages'])"/></td>
+                                    <td style="text-align: right; padding: 4px 1px;"><span t-out="'{:,.2f}'.format(data['tot_ee_epf'])"/></td>
+                                    <td style="text-align: right; padding: 4px 1px;"><span t-out="'{:,.2f}'.format(data['tot_vpf'])"/></td>
+                                    <td style="text-align: right; padding: 4px 1px;"><span t-out="'{:,.2f}'.format(data.get('tot_pf_amount', data['tot_ee_epf'] + data['tot_vpf']))"/></td>
+                                    <td style="text-align: right; padding: 4px 1px;"><span t-out="'{:,.2f}'.format(data['tot_er_eps'])"/></td>
+                                    <td style="text-align: right; padding: 4px 1px;"><span t-out="'{:,.2f}'.format(data['tot_edli'])"/></td>
+                                    <td style="text-align: right; padding: 4px 1px;"><span t-out="'{:,.2f}'.format(data['tot_admin'])"/></td>
+                                    <td style="text-align: right; padding: 4px 1px;"><span t-out="'{:,.2f}'.format(data['tot_overall_contrib'])"/></td>
                                 </tr>
                             </tbody>
                         </table>
+                        <div style="font-size: 7.5px; color: #333333; margin-top: 8px;">
+                            Note: According to the EPFO Act, the minimum EPF administrative charges to be paid is Rs. 500.
+                        </div>
                     </t>
 
                     <!-- Statutory Disclaimer Footer -->

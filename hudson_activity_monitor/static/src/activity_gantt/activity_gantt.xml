@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+
+    <t t-name="hudson_activity_monitor.ActivityGantt">
+        <div t-attf-class="o_activity_gantt h-100 {{ this.props.className or '' }}" t-ref="this.rootRef">
+            <Layout className="'o_activity_gantt_layout'" display="this.props.display">
+                <t t-set-slot="control-panel-additional-actions">
+                    <CogMenu/>
+                </t>
+                <t t-set-slot="control-panel-actions">
+                    <SearchBar toggler="this.searchBarToggler"/>
+                </t>
+                <t t-set-slot="control-panel-navigation-additional">
+                    <t t-component="this.searchBarToggler.component" t-props="this.searchBarToggler.props"/>
+                </t>
+
+                <div class="o_ag_main">
+                <div class="o_ag_toolbar">
+                    <div class="btn-group">
+                        <button class="btn btn-secondary btn-sm" title="Previous" t-on-click="() => this.model.navigate('previous')">
+                            <i class="oi" data-icon="arrow_back"/>
+                        </button>
+                        <button class="btn btn-secondary btn-sm" t-on-click="() => this.model.navigate('today')">Today</button>
+                        <button class="btn btn-secondary btn-sm" title="Next" t-on-click="() => this.model.navigate('next')">
+                            <i class="oi" data-icon="arrow_forward"/>
+                        </button>
+                    </div>
+                    <div class="btn-group">
+                        <button t-attf-class="btn btn-sm {{ this.model.scale === 'day' ? 'btn-primary' : 'btn-secondary' }}"
+                                t-on-click="() => this.model.setScale('day')">Day</button>
+                        <button t-attf-class="btn btn-sm {{ this.model.scale === 'week' ? 'btn-primary' : 'btn-secondary' }}"
+                                t-on-click="() => this.model.setScale('week')">Week</button>
+                    </div>
+                    <span class="o_ag_title" t-out="this.model.title"/>
+                    <div class="o_ag_legend">
+                        <div class="btn-group">
+                            <button t-attf-class="btn btn-sm {{ this.model.colorBy === 'state' ? 'btn-primary' : 'btn-secondary' }}"
+                                    t-on-click="() => this.model.setColorBy('state')">Status</button>
+                            <button t-attf-class="btn btn-sm {{ this.model.colorBy === 'category' ? 'btn-primary' : 'btn-secondary' }}"
+                                    t-on-click="() => this.model.setColorBy('category')">Productivity</button>
+                        </div>
+                        <t t-if="this.model.colorBy === 'state'">
+                            <span><i class="o_ag_swatch o_ag_state_active"/>Active</span>
+                        </t>
+                        <t t-else="">
+                            <span><i class="o_ag_swatch o_ag_cat_productive"/>Productive</span>
+                            <span><i class="o_ag_swatch o_ag_cat_neutral"/>Neutral</span>
+                            <span><i class="o_ag_swatch o_ag_cat_unproductive"/>Unproductive</span>
+                        </t>
+                        <span><i class="o_ag_swatch o_ag_state_idle"/>Idle</span>
+                        <span><i class="o_ag_swatch o_ag_state_locked"/>Locked / Away</span>
+                    </div>
+                </div>
+
+                <div class="o_ag_body">
+                    <div class="o_ag_row o_ag_header">
+                        <div class="o_ag_label">Employee</div>
+                        <div class="o_ag_track">
+                            <t t-foreach="this.model.ticks" t-as="tick" t-key="tick.key">
+                                <span class="o_ag_tick" t-attf-style="left: {{ tick.left }}%" t-out="tick.label"/>
+                            </t>
+                        </div>
+                    </div>
+
+                    <div t-if="!this.model.rows.length" class="o_ag_empty">
+                        No activity recorded in this period. Use the arrows to change the day, or pick another employee on the left.
+                    </div>
+
+                    <t t-foreach="this.model.rows" t-as="row" t-key="row.id">
+                        <div class="o_ag_row">
+                            <div class="o_ag_label o_ag_employee" title="Open this employee's activity for the period"
+                                 t-on-click="() => this.openEmployee(row)">
+                                <div class="fw-bold text-truncate" t-out="row.name"/>
+                                <div class="small">
+                                    <span class="text-success">Active <t t-out="this.fmt(row.active)"/></span>
+                                    <span class="text-muted"> · Idle <t t-out="this.fmt(row.idle)"/></span>
+                                </div>
+                                <div class="small text-muted text-truncate" t-att-title="row.topAppsLabel" t-out="row.topAppsLabel"/>
+                            </div>
+                            <div class="o_ag_track">
+                                <t t-foreach="this.model.ticks" t-as="tick" t-key="tick.key">
+                                    <span class="o_ag_grid" t-attf-style="left: {{ tick.left }}%"/>
+                                </t>
+                                <t t-foreach="row.segments" t-as="seg" t-key="seg.id">
+                                    <div t-att-class="this.segmentClass(seg)" t-att-title="seg.tooltip"
+                                         t-attf-style="left: {{ seg.left }}%; width: {{ seg.width }}%"
+                                         t-on-click="() => this.openSegment(row, seg)"/>
+                                </t>
+                                <span t-if="this.model.nowLeft !== null" class="o_ag_now"
+                                      t-attf-style="left: {{ this.model.nowLeft }}%"/>
+                            </div>
+                        </div>
+                    </t>
+                </div>
+                </div>
+            </Layout>
+        </div>
+    </t>
+
+</templates>

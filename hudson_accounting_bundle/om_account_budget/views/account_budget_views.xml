@@ -87,29 +87,44 @@
 
     <!-- Budgets -->
 
+    <record id="action_server_budget_split" model="ir.actions.server">
+        <field name="name">Split by Period</field>
+        <field name="model_id" ref="model_account_budget"/>
+        <field name="binding_model_id" ref="model_account_budget"/>
+        <field name="binding_view_types">form</field>
+        <field name="state">code</field>
+        <field name="code">action = record.action_open_split_wizard()</field>
+    </record>
+
+    <record id="action_server_budget_copy" model="ir.actions.server">
+        <field name="name">Copy to Next Period</field>
+        <field name="model_id" ref="model_account_budget"/>
+        <field name="binding_model_id" ref="model_account_budget"/>
+        <field name="binding_view_types">form</field>
+        <field name="state">code</field>
+        <field name="code">action = record.action_open_copy_wizard()</field>
+    </record>
+
     <record id="view_account_budget_form" model="ir.ui.view">
         <field name="name">account.budget.form</field>
         <field name="model">account.budget</field>
         <field name="arch" type="xml">
             <form string="Budget">
+                <!-- as in Odoo Enterprise; "Split by Period" and "Copy to Next Period" are in the actions menu -->
                 <header>
-                    <button string="Confirm" name="action_budget_confirm" type="object"
-                            invisible="state != 'draft'" class="btn-primary"/>
-                    <button string="Approve" name="action_budget_validate" type="object"
-                            invisible="state != 'confirm'" groups="account.group_account_manager"
-                            class="btn-primary"/>
-                    <button string="Done" name="action_budget_done" type="object"
-                            invisible="state != 'validate'" groups="account.group_account_manager"
+                    <button string="Open" name="action_budget_confirm" type="object"
+                            invisible="state != 'draft'" groups="account.group_account_manager"
                             class="btn-primary"/>
                     <button string="Reset to Draft" name="action_budget_draft" type="object"
-                            invisible="state not in ('confirm', 'cancel')"/>
-                    <button string="Split by Period" name="action_open_split_wizard" type="object"
-                            invisible="state != 'draft' or not line_ids"/>
-                    <button string="Copy to Next Period" name="action_open_copy_wizard" type="object"
-                            invisible="state == 'draft'"/>
+                            invisible="state not in ('validate', 'cancel')" groups="account.group_account_manager"
+                            class="btn-primary"/>
+                    <button string="Revise" name="action_budget_revise" type="object"
+                            invisible="state != 'validate'" groups="account.group_account_manager"/>
+                    <button string="Done" name="action_budget_done" type="object"
+                            invisible="state != 'validate'" groups="account.group_account_manager"/>
                     <button string="Cancel Budget" name="action_budget_cancel" type="object"
-                            invisible="state not in ('confirm', 'validate')" groups="account.group_account_manager"/>
-                    <field name="state" widget="statusbar" statusbar_visible="draft,confirm,validate,done"/>
+                            invisible="state != 'draft'" groups="account.group_account_manager"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,validate,done"/>
                 </header>
                 <sheet string="Budget">
                     <div class="oe_button_box" name="button_box">
@@ -130,6 +145,7 @@
                         <group>
                             <field name="budget_type" widget="radio" options="{'horizontal': true}" readonly="state != 'draft'"/>
                             <field name="user_id" widget="many2one_avatar_user"/>
+                            <field name="parent_id" invisible="not parent_id"/>
                         </group>
                         <group>
                             <field name="date_from" string="Period" widget="daterange" readonly="state != 'draft'"
@@ -223,8 +239,8 @@
                 <field name="activity_ids" widget="list_activity" optional="show"/>
                 <field name="is_over_budget" column_invisible="1"/>
                 <field name="state" widget="badge"
-                       decoration-info="state in ('draft', 'confirm')" decoration-success="state == 'validate'"
-                       decoration-warning="is_over_budget and state == 'validate'" decoration-muted="state in ('done', 'cancel')"/>
+                       decoration-info="state == 'draft'" decoration-success="state == 'validate'"
+                       decoration-warning="is_over_budget and state == 'validate'" decoration-muted="state in ('revised', 'done', 'cancel')"/>
             </list>
         </field>
     </record>
@@ -248,7 +264,7 @@
                                    decoration-primary="budget_type == 'revenue'"
                                    decoration-warning="budget_type == 'expense'"/>
                             <field name="state" widget="label_selection" class="ms-auto"
-                                   options="{'classes': {'draft': 'default', 'confirm': 'info', 'validate': 'success', 'done': 'default', 'cancel': 'danger'}}"/>
+                                   options="{'classes': {'draft': 'default', 'validate': 'success', 'revised': 'warning', 'done': 'default', 'cancel': 'danger'}}"/>
                         </div>
                         <footer>
                             <div>
@@ -281,8 +297,8 @@
                 <filter string="Both" name="both_budgets" domain="[('budget_type', '=', 'both')]"/>
                 <separator/>
                 <filter string="Draft" name="draft" domain="[('state', '=', 'draft')]"/>
-                <filter string="To Approve" name="toapprove" domain="[('state', '=', 'confirm')]"/>
-                <filter string="Validated" name="validated" domain="[('state', '=', 'validate')]"/>
+                <filter string="Open" name="validated" domain="[('state', '=', 'validate')]"/>
+                <filter string="Revised" name="revised" domain="[('state', '=', 'revised')]"/>
                 <separator/>
                 <filter string="Over Budget" name="over_budget" domain="[('is_over_budget', '=', True)]"/>
                 <separator/>

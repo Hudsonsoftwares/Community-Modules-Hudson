@@ -1,6 +1,6 @@
 /** @odoo-module **/
 
-import { Component, useState } from "@odoo/owl";
+import { Component, proxy, t, useProps } from "@odoo/owl";
 
 function formatTime12h(hours, minutes) {
     const period = hours >= 12 && hours < 24 ? "pm" : "am";
@@ -12,16 +12,16 @@ function formatTime12h(hours, minutes) {
 
 export class AttendanceGanttRenderer extends Component {
     static template = "hudson_attendance_enhancement.AttendanceGanttRenderer";
-    static props = {
-        model: Object,
-        onBarClick: Function,
-        onTimeRangeSelected: Function,
-        onEmployeeClick: Function,
-        onExtendAttendance: Function,
-    };
+    props = useProps({
+        model: t.object(),
+        onBarClick: t.function(),
+        onTimeRangeSelected: t.function(),
+        onEmployeeClick: t.function(),
+        onExtendAttendance: t.function(),
+    });
 
     setup() {
-        this.state = useState({
+        this.state = proxy({
             dragSelection: {
                 active: false,
                 employeeId: null,

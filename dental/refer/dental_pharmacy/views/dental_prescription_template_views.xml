@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Prescription Template Form View -->
+    <record id="view_dental_prescription_template_form" model="ir.ui.view">
+        <field name="name">dental.prescription.template.form</field>
+        <field name="model">dental.prescription.template</field>
+        <field name="arch" type="xml">
+            <form string="Prescription Regimen Protocol">
+                <sheet>
+                    <div class="oe_title">
+                        <label for="name" string="Protocol Name"/>
+                        <h1>
+                            <field name="name" placeholder="e.g. Post-Extraction Standard Regimen"/>
+                        </h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="code" placeholder="e.g. POST-EXT"/>
+                            <field name="indication" placeholder="e.g. Post-Surgical Analgesia &amp; Antibiotic Prophylaxis"/>
+                        </group>
+                        <group>
+                            <field name="active" widget="boolean_toggle"/>
+                            <field name="company_id" groups="base.group_multi_company"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Standard Medications">
+                            <field name="line_ids">
+                                <list editable="bottom">
+                                    <field name="medicine_id" options="{'no_create': True}"/>
+                                    <field name="generic_name" optional="show"/>
+                                    <field name="dosage_form" optional="show"/>
+                                    <field name="strength" optional="show"/>
+                                    <field name="dose"/>
+                                    <field name="route"/>
+                                    <field name="frequency"/>
+                                    <field name="duration"/>
+                                    <field name="quantity"/>
+                                    <field name="instructions"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Clinical Advice &amp; Patient Instructions">
+                            <field name="notes" placeholder="Standard advice given to patient regarding diet, ice packs, saline rinses, or rest..."/>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Prescription Template List View -->
+    <record id="view_dental_prescription_template_list" model="ir.ui.view">
+        <field name="name">dental.prescription.template.list</field>
+        <field name="model">dental.prescription.template</field>
+        <field name="arch" type="xml">
+            <list string="Prescription Regimen Protocols">
+                <field name="code"/>
+                <field name="name"/>
+                <field name="indication"/>
+                <field name="company_id" groups="base.group_multi_company"/>
+                <field name="active" widget="boolean_toggle"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- Prescription Template Action -->
+    <record id="action_dental_prescription_template" model="ir.actions.act_window">
+        <field name="name">Prescription Protocols / Templates</field>
+        <field name="res_model">dental.prescription.template</field>
+        <field name="view_mode">kanban,list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Create clinical prescription protocols for routine dental procedures.
+            </p>
+            <p>
+                Dentists can apply standard multi-medicine regimens (such as post-extraction, acute infection, or periodontal care) with 1 click.
+            </p>
+        </field>
+    </record>
+</odoo>

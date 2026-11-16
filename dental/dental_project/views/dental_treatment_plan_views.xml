@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- The plan's page shows its phases (the board's cards) instead of a long list of steps -->
+    <record id="view_dental_treatment_plan_form_project" model="ir.ui.view">
+        <field name="name">dental.treatment.plan.form.project</field>
+        <field name="model">dental.treatment.plan</field>
+        <field name="inherit_id" ref="dental_core.view_dental_treatment_plan_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//header/field[@name='state']" position="before">
+                <button name="action_dental_open_board" type="object" string="Open Board" icon="view_kanban"
+                        groups="dental_base.group_dental_dentist,dental_base.group_dental_manager"/>
+                <button name="action_dental_create_quotation" type="object" string="Create Quotation" icon="sell"
+                        groups="dental_base.group_dental_dentist,dental_base.group_dental_manager"
+                        invisible="not dental_steps_to_quote or state in ('completed', 'cancelled')"/>
+            </xpath>
+            <xpath expr="//div[@name='button_box']" position="inside">
+                <field name="project_id" invisible="1"/>
+                <field name="sale_order_id" invisible="1"/>
+                <field name="dental_steps_to_quote" invisible="1"/>
+                <button name="action_dental_open_board" type="object" class="oe_stat_button" icon="view_kanban">
+                    <div class="o_stat_info">
+                        <field name="step_count" class="o_stat_value"/>
+                        <span class="o_stat_text">Phases</span>
+                    </div>
+                </button>
+                <button name="action_dental_view_sale_order" type="object" class="oe_stat_button" icon="receipt_long"
+                        invisible="not sale_order_id">
+                    <div class="o_stat_info">
+                        <span class="o_stat_value"><field name="sale_order_id" readonly="1" options="{'no_open': True}"/></span>
+                        <span class="o_stat_text"><field name="sale_order_state" readonly="1"/></span>
+                    </div>
+                </button>
+            </xpath>
+            <xpath expr="//div[@name='plan_steps']" position="replace">
+                <div class="o_dental_section_title" name="plan_steps">
+                    <span>Phases</span>
+                    <small class="text-muted">Each phase is a card on the plan's board.</small>
+                    <button name="action_dental_open_board" type="object" string="Open Board" icon="view_kanban"
+                            class="btn btn-sm btn-primary ms-auto"/>
+                </div>
+            </xpath>
+            <xpath expr="//field[@name='line_ids']" position="replace">
+                <field name="dental_phase_ids" nolabel="1" readonly="1">
+                    <list create="0" delete="0" default_order="sequence, id"
+                          decoration-success="state == '1_done'" decoration-muted="state == '1_canceled'">
+                        <field name="name" string="Phase"/>
+                        <field name="dental_treatment_summary" string="Treatments"/>
+                        <field name="dental_progress" widget="progressbar" string="Progress"/>
+                        <field name="stage_id" string="Status"/>
+                        <field name="dental_amount" sum="Total"/>
+                        <field name="dental_currency_id" column_invisible="1"/>
+                        <field name="state" column_invisible="1"/>
+                    </list>
+                </field>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- Sales order: back to its treatment plan -->
+    <record id="view_order_form_dental_plan" model="ir.ui.view">
+        <field name="name">sale.order.form.dental.plan</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="sale.view_order_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//div[@name='button_box']" position="inside">
+                <field name="dental_plan_id" invisible="1"/>
+                <button name="action_dental_open_plan" type="object" class="oe_stat_button" icon="assignment"
+                        invisible="not dental_plan_id">
+                    <div class="o_stat_info"><span class="o_stat_text">Treatment Plan</span></div>
+                </button>
+            </xpath>
+        </field>
+    </record>
+</odoo>

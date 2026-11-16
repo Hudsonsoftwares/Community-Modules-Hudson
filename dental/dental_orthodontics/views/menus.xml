@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <menuitem id="menu_dental_ortho_chart"
+              name="Orthodontic Charts"
+              parent="dental_core.menu_dental_clinical"
+              action="action_dental_ortho_chart"
+              sequence="45"
+              groups="dental_base.group_dental_dentist,dental_base.group_dental_manager,dental_base.group_dental_admin"/>
+    <menuitem id="menu_dentist_ws_ortho_charts"
+              name="Orthodontic Charts"
+              parent="dental_core.menu_dentist_ws_clinical"
+              action="action_dental_ortho_chart"
+              sequence="25"/>
+</odoo>

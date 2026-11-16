@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
+# pyrefly: ignore [missing-import]
 from odoo import api, fields, models, _
+# pyrefly: ignore [missing-import]
 from odoo.exceptions import ValidationError
 
 
@@ -144,6 +146,27 @@ class TdsFinancialYear(models.Model):
             rec.tds_recalculation_from_month = str(cal_m)
 
     @api.model
+    def _distribution_months_from_month(self, month):
+        """Payroll months from the recalculation month to March, the end of the tax year
+        (December -> 4: Dec, Jan, Feb, Mar). Reverse of _compute_tds_recalculation_from_month."""
+        fy_index = (int(month) - 4) % 12 + 1  # April = 1 ... March = 12
+        return 13 - fy_index
+
+    @api.onchange('tds_recalculation_from_month')
+    def _onchange_tds_recalculation_from_month(self):
+        for rec in self:
+            if rec.tds_recalculation_from_month:
+                rec.tds_recalculation_distribution_months = self._distribution_months_from_month(rec.tds_recalculation_from_month)
+
+    @api.model
+    def _sync_recalculation_months(self, vals):
+        """A month saved without its distribution months (e.g. from code) sets them too."""
+        if vals.get('tds_recalculation_from_month') and 'tds_recalculation_distribution_months' not in vals:
+            vals = dict(vals, tds_recalculation_distribution_months=self._distribution_months_from_month(
+                vals['tds_recalculation_from_month']))
+        return vals
+
+    @api.model
     def default_get(self, fields_list):
         res = super(TdsFinancialYear, self).default_get(fields_list)
         # 1. Look for the latest financial year to clone slabs and surcharges from
@@ -176,6 +199,7 @@ class TdsFinancialYear(models.Model):
                     tax_slabs.append((0, 0, {
                         'regime_id': slab.regime_id.id,
                         'regime_code': slab.regime_code,
+                        'age_category': slab.age_category,
                         'sequence': slab.sequence,
                         'income_from': slab.income_from,
                         'income_to': slab.income_to,
@@ -323,7 +347,11 @@ class TdsFinancialYear(models.Model):
         for rec in self:
             if rec.is_closed and 'is_closed' not in vals:
                 raise ValidationError(_("Financial Year '%s' is closed and locked. Reopen the Financial Year to make statutory modifications.") % rec.name)
-        return super(TdsFinancialYear, self).write(vals)
+        return super(TdsFinancialYear, self).write(self._sync_recalculation_months(vals))
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        return super().create([self._sync_recalculation_months(vals) for vals in vals_list])
 
     def action_close_financial_year(self):
         for rec in self:
@@ -346,15 +374,17 @@ class TdsFinancialYear(models.Model):
         return True
 
     def is_proof_submission_active(self, eval_date=None):
-        """Returns True if the proof submission window is active for this financial year."""
+        """Returns True if the proof submission window is active for this financial year based on configured dates."""
         self.ensure_one()
         if self.is_closed:
             return False
-        if self.is_proof_submission_open:
-            return True
         eval_date = eval_date or fields.Date.today()
         if self.proof_submission_start_date and self.proof_submission_end_date:
             return self.proof_submission_start_date <= eval_date <= self.proof_submission_end_date
+        elif self.proof_submission_start_date:
+            return eval_date >= self.proof_submission_start_date
+        elif self.proof_submission_end_date:
+            return eval_date <= self.proof_submission_end_date
         return eval_date.month in (12, 1)  # Default December - January proof submission window
 
 

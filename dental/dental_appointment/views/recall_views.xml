@@ -47,7 +47,7 @@
     <record id="action_dental_recall" model="ir.actions.act_window">
         <field name="name">Recalls</field>
         <field name="res_model">dental.recall</field>
-        <field name="view_mode">list,form</field>
+        <field name="view_mode">kanban,list,form</field>
     </record>
 
     <record id="view_dental_recall_rule_tree" model="ir.ui.view">
@@ -66,6 +66,6 @@
     <record id="action_dental_recall_rule" model="ir.actions.act_window">
         <field name="name">Recall Rules</field>
         <field name="res_model">dental.recall.rule</field>
-        <field name="view_mode">list</field>
+        <field name="view_mode">kanban,list</field>
     </record>
 </odoo>

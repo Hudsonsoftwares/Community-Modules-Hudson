@@ -1,6 +1,6 @@
 {
     'name': 'Hudson Sign',
-    'version': '20.0.1.11.0',
+    'version': '20.0.1.13.0',
     'summary': 'Dedicated module for document signatures',
     'category': 'Document Management',
     'author': 'Hudson Softwares',

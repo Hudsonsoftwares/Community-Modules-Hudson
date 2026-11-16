@@ -183,6 +183,7 @@
                 <field name="name"/>
                 <field name="anomaly_type" widget="badge"/>
                 <field name="employee_id"/>
+                <field name="company_id" groups="base.group_multi_company" optional="show"/>
                 <field name="attendance_id"/>
                 <field name="raw_punch_id"/>
                 <field name="description"/>
@@ -204,6 +205,7 @@
             <list string="Regularization Requests">
                 <field name="create_date" string="Request Date"/>
                 <field name="employee_id"/>
+                <field name="company_id" groups="base.group_multi_company" optional="show"/>
                 <field name="anomaly_id"/>
                 <field name="corrected_check_in"/>
                 <field name="corrected_check_out"/>
@@ -228,6 +230,7 @@
                     <group>
                         <group string="Source &amp; Context">
                             <field name="employee_id" readonly="state != 'draft'"/>
+                            <field name="company_id" groups="base.group_multi_company" readonly="1"/>
                             <field name="anomaly_id" readonly="state != 'draft'"/>
                             <field name="attendance_id" readonly="state != 'draft'"/>
                         </group>

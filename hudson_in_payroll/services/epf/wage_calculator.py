@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import logging
+# pyrefly: ignore [missing-import]
 from odoo import fields
 from ..base import BaseStatutoryService
 
@@ -27,7 +28,7 @@ class EPFWageCalculator(BaseStatutoryService):
     def get_pf_contribution_wage(self, payslip, localdict=None):
         """
         Determines the wage basis for PF contribution.
-        Capped at Statutory PF Wage Ceiling (default ₹15,000) unless:
+        Capped at Statutory PF Wage Ceiling (default ₹25,000) unless:
         - Employee is an International Worker (IW)
         - Contribution basis is set to 'actual_pf_wage' (or legacy 'actual_basic')
 

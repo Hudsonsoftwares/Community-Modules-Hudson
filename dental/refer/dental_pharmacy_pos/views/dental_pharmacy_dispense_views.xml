@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_dental_pharmacy_dispense_form_inherit_pos" model="ir.ui.view">
+        <field name="name">dental.pharmacy.dispense.form.inherit.pos</field>
+        <field name="model">dental.pharmacy.dispense</field>
+        <field name="inherit_id" ref="dental_pharmacy.view_dental_pharmacy_dispense_form"/>
+        <field name="arch" type="xml">
+            <!-- A counter sale is invoiced and refunded at the POS -->
+            <xpath expr="//header/button[@name='action_create_invoice']" position="attributes">
+                <attribute name="invisible">state != 'dispensed' or invoice_id or pos_order_id</attribute>
+            </xpath>
+            <xpath expr="//header/button[@name='action_return']" position="attributes">
+                <attribute name="invisible">state != 'dispensed' or pos_order_id</attribute>
+            </xpath>
+            <xpath expr="//header" position="inside">
+                <button name="action_mark_pos_exception_reviewed" string="Mark Reviewed" type="object" class="btn-secondary"
+                        invisible="not pos_exception or pos_exception_reviewed"
+                        groups="dental_pharmacy.group_dental_pharmacy_manager"/>
+            </xpath>
+            <xpath expr="//div[@name='button_box']" position="inside">
+                <button name="action_view_pos_order" type="object" class="oe_stat_button" icon="point_of_sale"
+                        invisible="not pos_order_id">
+                    <div class="o_stat_info">
+                        <span class="o_stat_text">POS Order</span>
+                        <span class="o_stat_value"><field name="pos_order_id" readonly="1"/></span>
+                    </div>
+                </button>
+            </xpath>
+            <xpath expr="//div[hasclass('oe_title')]" position="before">
+                <div class="alert alert-warning mb-3" role="alert" invisible="not pos_exception or pos_exception_reviewed">
+                    <strong>Counter sale to review:</strong>
+                    <field name="pos_exception_note" class="d-block" readonly="1"/>
+                </div>
+                <field name="pos_exception" invisible="1"/>
+                <field name="pos_exception_reviewed" invisible="1"/>
+            </xpath>
+            <xpath expr="//field[@name='line_ids']/list/field[@name='qty_to_dispense']" position="after">
+                <field name="qty_returned" optional="show" column_invisible="not parent.pos_order_id"/>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_dental_pharmacy_dispense_list_inherit_pos" model="ir.ui.view">
+        <field name="name">dental.pharmacy.dispense.list.inherit.pos</field>
+        <field name="model">dental.pharmacy.dispense</field>
+        <field name="inherit_id" ref="dental_pharmacy.view_dental_pharmacy_dispense_list"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='invoice_id']" position="after">
+                <field name="pos_order_id" optional="show"/>
+                <field name="pos_exception" optional="show" string="Review"/>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_dental_pharmacy_dispense_search_inherit_pos" model="ir.ui.view">
+        <field name="name">dental.pharmacy.dispense.search.inherit.pos</field>
+        <field name="model">dental.pharmacy.dispense</field>
+        <field name="inherit_id" ref="dental_pharmacy.view_dental_pharmacy_dispense_search"/>
+        <field name="arch" type="xml">
+            <xpath expr="//filter[@name='filter_returned']" position="after">
+                <separator/>
+                <filter string="Sold at POS Counter" name="filter_pos" domain="[('pos_order_id', '!=', False)]"/>
+                <filter string="Needs Review" name="filter_pos_exception"
+                        domain="[('pos_exception', '=', True), ('pos_exception_reviewed', '=', False)]"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>

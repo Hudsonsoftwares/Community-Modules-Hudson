@@ -1,45 +1,439 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
+    <!-- Structured clinical examination of one visit. The tabs follow the order of a dental examination:
+         extraoral, intraoral, dental, periodontal, clinical findings, diagnosis, assessment.
+         Extension anchors used by other modules: //form/sheet, //header, //notebook, field clinical_findings. -->
     <record id="view_dental_clinical_examination_form" model="ir.ui.view">
         <field name="name">dental.clinical.examination.form</field>
         <field name="model">dental.clinical.examination</field>
         <field name="arch" type="xml">
-            <form>
+            <form class="o_dental_exam_form o_dc_form">
+                <header>
+                    <button name="action_complete_examination" string="Complete Examination" type="object" class="oe_highlight"
+                            groups="dental_base.group_dental_dentist,dental_base.group_dental_manager"
+                            invisible="state == 'done'"
+                            help="Sign off the examination. Completing the consultation on the case signs it off too."/>
+                    <button name="action_reopen_examination" string="Reopen Examination" type="object" class="btn-secondary"
+                            groups="dental_base.group_dental_dentist,dental_base.group_dental_manager"
+                            invisible="state != 'done'"/>
+                    <field name="state" widget="statusbar"/>
+                </header>
                 <sheet>
-                    <div class="oe_title">
-                        <h1>
-                            <field name="name"/>
-                        </h1>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_open_case" type="object" class="oe_stat_button" icon="arrow_back" invisible="not case_id">
+                            <div class="o_field_widget o_stat_info">
+                                <span class="o_stat_value">Case</span>
+                                <span class="o_stat_text">Consultation</span>
+                            </div>
+                        </button>
                     </div>
-                    <group>
-                        <group>
-                            <field name="patient_id"/>
-                            <field name="case_id"/>
-                            <field name="doctor_id"/>
-                        </group>
-                        <group>
-                            <field name="examination_date"/>
-                        </group>
-                    </group>
+                    <widget name="web_ribbon" title="Signed Off" bg_color="text-bg-success" invisible="state != 'done'"/>
+
+                    <!-- EXAMINATION HEADER: number, status and patient safety, then the facts of the visit -->
+                    <div class="o_dc_hero" name="exam_hero">
+                        <field name="patient_allergy_status" invisible="1"/>
+                        <div class="o_dc_hero_head">
+                            <span class="o_dc_hero_logo"><span class="o_dc_icon o_dc_icon_clipboard"/></span>
+                            <div class="o_dc_hero_titles">
+                                <div class="oe_title">
+                                    <h1><field name="name"/></h1>
+                                </div>
+                                <div class="o_dc_hero_badges">
+                                    <span class="o_dc_chip o_dc_chip_info" invisible="state != 'draft'">
+                                        <i class="oi" data-icon="schedule" title="In progress"/> In Progress
+                                    </span>
+                                    <span class="o_dc_chip o_dc_chip_ok" invisible="state != 'done'">
+                                        <i class="oi" data-icon="check_circle" title="Signed off"/> Signed Off
+                                    </span>
+                                    <span class="o_dc_verified" invisible="state != 'done'">
+                                        by <field name="completed_by_id" readonly="1" class="d-inline" options="{'no_open': True}"/>
+                                        on <field name="completed_date" readonly="1" class="d-inline"/>
+                                    </span>
+                                    <span class="o_dc_chip o_dc_chip_ok" invisible="patient_allergy_status != 'none'">
+                                        <i class="oi" data-icon="check" title="No known allergies"/> No Known Allergies
+                                    </span>
+                                    <span class="o_dc_chip o_dc_chip_danger" invisible="patient_allergy_status != 'known'">
+                                        <i class="oi" data-icon="warning" title="Allergies"/> Allergies Recorded
+                                    </span>
+                                    <span class="o_dc_verified" invisible="not continued_from_id">
+                                        <i class="oi" data-icon="redo" title="Continued"/> Continued from
+                                        <field name="continued_from_id" readonly="1" class="d-inline"
+                                               help="Findings were carried forward from this earlier examination. Review each section and update what changed."/>
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="o_dc_strip">
+                            <div class="o_dc_strip_item o_dc_strip_patient">
+                                <field name="patient_image" widget="image" readonly="1" class="o_dc_avatar"
+                                       invisible="not patient_image" options="{'size': [56, 56]}"/>
+                                <span class="o_dc_avatar_placeholder" invisible="patient_image"><span class="o_dc_icon o_dc_icon_user"/></span>
+                                <div class="o_dc_strip_text">
+                                    <span class="o_dc_strip_label">Patient</span>
+                                    <field name="patient_id" class="o_dc_strip_value fw-bold" readonly="id" options="{'no_create': True}" placeholder="Patient"/>
+                                    <span class="o_dc_strip_sub" invisible="not patient_age and not patient_gender">
+                                        <span invisible="not patient_age"><field name="patient_age" class="d-inline"/> Years</span>
+                                        <span invisible="not patient_age or not patient_gender"> · </span>
+                                        <field name="patient_gender" class="d-inline" invisible="not patient_gender"/>
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="o_dc_strip_item">
+                                <span class="o_dc_icon o_dc_icon_folder o_dc_strip_icon"/>
+                                <div class="o_dc_strip_text">
+                                    <span class="o_dc_strip_label">Case</span>
+                                    <field name="case_id" class="o_dc_strip_value" readonly="id" options="{'no_create': True}"/>
+                                </div>
+                            </div>
+                            <div class="o_dc_strip_item">
+                                <span class="o_dc_icon o_dc_icon_calendar o_dc_strip_icon"/>
+                                <div class="o_dc_strip_text">
+                                    <span class="o_dc_strip_label">Visit</span>
+                                    <field name="appointment_id" class="o_dc_strip_value" domain="[('patient_id', '=', patient_id)]" options="{'no_create': True}"/>
+                                </div>
+                            </div>
+                            <div class="o_dc_strip_item">
+                                <span class="o_dc_icon o_dc_icon_stethoscope o_dc_strip_icon"/>
+                                <div class="o_dc_strip_text">
+                                    <span class="o_dc_strip_label">Doctor</span>
+                                    <field name="doctor_id" class="o_dc_strip_value" options="{'no_create': True}"/>
+                                </div>
+                            </div>
+                            <div class="o_dc_strip_item">
+                                <span class="o_dc_icon o_dc_icon_calendar o_dc_strip_icon"/>
+                                <div class="o_dc_strip_text">
+                                    <span class="o_dc_strip_label">Examination Date</span>
+                                    <field name="examination_date" class="o_dc_strip_value"/>
+                                </div>
+                            </div>
+                            <div class="o_dc_strip_item">
+                                <span class="o_dc_icon o_dc_icon_chart o_dc_strip_icon"/>
+                                <div class="o_dc_strip_text">
+                                    <span class="o_dc_strip_label">Recorded</span>
+                                    <field name="sections_progress" widget="progressbar" class="o_dc_strip_value"/>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Live medical alerts from the patient file -->
+                    <div class="o_dental_exam_alerts o_dental_case_alerts" name="medical_alerts">
+                        <div class="o_dc_alert o_dc_alert_danger" role="alert" invisible="patient_allergy_status != 'known'">
+                            <i class="oi oi-lg" data-icon="warning" title="Allergy"/>
+                            <div class="flex-grow-1 min-w-0">
+                                <strong>Allergies:</strong>
+                                <field name="patient_allergies" readonly="1" class="d-block fw-bold o_dental_alert_html"/>
+                            </div>
+                        </div>
+                        <div class="o_dc_alert o_dc_alert_warning" role="alert"
+                             invisible="patient_allergy_status in ('known', 'none') or not patient_id">
+                            <i class="oi oi-lg" data-icon="help" title="Allergy status unknown"/>
+                            <span><strong>Allergy status not recorded.</strong> Ask the patient before prescribing or treating.</span>
+                        </div>
+                        <div class="o_dc_alert o_dc_alert_warning" role="alert" invisible="not patient_clinical_alerts">
+                            <i class="oi oi-lg" data-icon="cardiology" title="Medical alert"/>
+                            <div class="flex-grow-1 min-w-0">
+                                <strong>Medical alerts:</strong>
+                                <field name="patient_clinical_alerts" readonly="1" class="d-block o_dental_alert_html"/>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- History taken before examining, and how far the examination has got -->
+                    <div class="o_dc_exam_intro">
+                        <div class="o_dc_card o_dc_card_table">
+                            <div class="o_dc_card_head o_dc_card_head_tinted">
+                                <span class="o_dc_card_icon"><span class="o_dc_icon o_dc_icon_notes"/></span>
+                                <span class="o_dc_card_title">Complaint</span>
+                            </div>
+                            <group name="complaint" class="o_dc_rows">
+                                <field name="chief_complaint" placeholder="In the patient's words, e.g. pain in lower left back tooth for 3 days"/>
+                                <field name="presenting_complaint" placeholder="Onset, duration, character, aggravating and relieving factors"/>
+                            </group>
+                        </div>
+                        <div class="o_dc_card">
+                            <div class="o_dc_card_head">
+                                <span class="o_dc_card_icon"><span class="o_dc_icon o_dc_icon_clipboard"/></span>
+                                <span class="o_dc_card_title">Sections Recorded</span>
+                            </div>
+                            <!-- Section progress strip: a tick per section with something recorded -->
+                            <div class="o_dental_exam_steps" name="section_progress">
+                                <span class="o_dental_exam_step" invisible="not extraoral_recorded"><i class="oi oi-filled" data-icon="check_circle" title="Recorded"/> Extraoral</span>
+                                <span class="o_dental_exam_step is-pending" invisible="extraoral_recorded"><i class="oi" data-icon="circle" title="Pending"/> Extraoral</span>
+                                <span class="o_dental_exam_step" invisible="not intraoral_recorded"><i class="oi oi-filled" data-icon="check_circle" title="Recorded"/> Intraoral</span>
+                                <span class="o_dental_exam_step is-pending" invisible="intraoral_recorded"><i class="oi" data-icon="circle" title="Pending"/> Intraoral</span>
+                                <span class="o_dental_exam_step" invisible="not dental_recorded"><i class="oi oi-filled" data-icon="check_circle" title="Recorded"/> Dental</span>
+                                <span class="o_dental_exam_step is-pending" invisible="dental_recorded"><i class="oi" data-icon="circle" title="Pending"/> Dental</span>
+                                <span class="o_dental_exam_step" invisible="not periodontal_recorded"><i class="oi oi-filled" data-icon="check_circle" title="Recorded"/> Periodontal</span>
+                                <span class="o_dental_exam_step is-pending" invisible="periodontal_recorded"><i class="oi" data-icon="circle" title="Pending"/> Periodontal</span>
+                                <span class="o_dental_exam_step" invisible="not findings_recorded"><i class="oi oi-filled" data-icon="check_circle" title="Recorded"/> Findings</span>
+                                <span class="o_dental_exam_step is-pending" invisible="findings_recorded"><i class="oi" data-icon="circle" title="Pending"/> Findings</span>
+                                <span class="o_dental_exam_step" invisible="not diagnosis_recorded"><i class="oi oi-filled" data-icon="check_circle" title="Recorded"/> Diagnosis</span>
+                                <span class="o_dental_exam_step is-pending" invisible="diagnosis_recorded"><i class="oi" data-icon="circle" title="Pending"/> Diagnosis</span>
+                                <span class="o_dental_exam_step" invisible="not assessment_recorded"><i class="oi oi-filled" data-icon="check_circle" title="Recorded"/> Assessment</span>
+                                <span class="o_dental_exam_step is-pending" invisible="assessment_recorded"><i class="oi" data-icon="circle" title="Pending"/> Assessment</span>
+                            </div>
+                        </div>
+                    </div>
+
                     <notebook>
-                        <page string="Complaints &amp; Findings">
+                        <!-- 1. EXTRAORAL -->
+                        <page string="Extraoral" name="extraoral">
                             <group>
-                                <field name="chief_complaint"/>
-                                <field name="presenting_complaint"/>
-                                <field name="clinical_findings"/>
+                                <group string="Face &amp; Lips">
+                                    <field name="eo_facial_symmetry" widget="badges_selection"/>
+                                    <field name="eo_facial_profile" widget="badges_selection"/>
+                                    <field name="eo_lip_competence" widget="badges_selection"/>
+                                    <field name="eo_swelling" widget="boolean_toggle"/>
+                                    <field name="eo_skin" placeholder="e.g. Angular cheilitis, scar left cheek"/>
+                                </group>
+                                <group string="Lymph Nodes &amp; Muscles">
+                                    <field name="eo_lymph_nodes" widget="badges_selection"/>
+                                    <field name="eo_lymph_nodes_detail" invisible="eo_lymph_nodes in (False, 'not_palpable')"
+                                           placeholder="e.g. Left submandibular, 1 cm, firm, mobile"/>
+                                    <field name="eo_muscles" widget="badges_selection"/>
+                                </group>
+                                <group string="Temporomandibular Joint">
+                                    <field name="eo_tmj_status" widget="badges_selection"/>
+                                    <field name="eo_tmj_clicking" widget="boolean_toggle" invisible="eo_tmj_status != 'abnormal'"/>
+                                    <field name="eo_tmj_crepitus" widget="boolean_toggle" invisible="eo_tmj_status != 'abnormal'"/>
+                                    <field name="eo_tmj_pain" widget="boolean_toggle" invisible="eo_tmj_status != 'abnormal'"/>
+                                    <field name="eo_tmj_deviation" widget="boolean_toggle" invisible="eo_tmj_status != 'abnormal'"/>
+                                    <field name="eo_mouth_opening"/>
+                                </group>
+                            </group>
+                            <group>
+                                <field name="eo_notes" placeholder="Other extraoral observations"/>
+                            </group>
+                        </page>
+
+                        <!-- 2. INTRAORAL (soft tissues and hygiene) -->
+                        <page string="Intraoral" name="intraoral">
+                            <group>
+                                <group string="Soft Tissue Screening">
+                                    <field name="io_lips" widget="badges_selection"/>
+                                    <field name="io_buccal_mucosa" widget="badges_selection"/>
+                                    <field name="io_tongue" widget="badges_selection"/>
+                                    <field name="io_floor_of_mouth" widget="badges_selection"/>
+                                    <field name="io_hard_palate" widget="badges_selection"/>
+                                    <field name="io_soft_palate" widget="badges_selection"/>
+                                    <field name="io_oropharynx" widget="badges_selection"/>
+                                    <field name="io_frenum" widget="badges_selection"/>
+                                </group>
+                                <group string="Oral Hygiene">
+                                    <field name="oral_hygiene" widget="badges_selection"/>
+                                    <field name="io_plaque" widget="badges_selection"/>
+                                    <field name="io_calculus" widget="badges_selection"/>
+                                    <field name="io_stains" widget="badges_selection"/>
+                                    <field name="io_saliva" widget="badges_selection"/>
+                                    <field name="io_halitosis" widget="boolean_toggle"/>
+                                </group>
+                            </group>
+                            <group string="Oral Lesions">
+                                <field name="io_lesion_present" widget="boolean_toggle"/>
+                                <field name="io_lesion_description" invisible="not io_lesion_present" required="io_lesion_present"
+                                       placeholder="Site, size, colour, surface, consistency, duration, painful or not"/>
+                                <field name="soft_tissue_findings" placeholder="Describe any abnormal soft tissue finding"/>
+                            </group>
+                        </page>
+
+                        <!-- 3. DENTAL (hard tissues, occlusion, tooth-by-tooth findings) -->
+                        <page string="Dental" name="dental">
+                            <group>
+                                <group string="Dentition &amp; Occlusion">
+                                    <field name="dentition" widget="badges_selection"/>
+                                    <field name="molar_relation" widget="badges_selection"/>
+                                    <field name="overjet"/>
+                                    <field name="overbite"/>
+                                    <field name="crossbite" widget="badges_selection"/>
+                                    <field name="crowding" widget="badges_selection"/>
+                                    <field name="open_bite" widget="boolean_toggle"/>
+                                    <field name="spacing" widget="boolean_toggle"/>
+                                    <field name="tooth_wear" widget="badges_selection"/>
+                                    <field name="occlusion" placeholder="e.g. Canine guidance, premature contact 27"/>
+                                </group>
+                                <group string="Caries Experience (DMFT)">
+                                    <field name="dmft_decayed"/>
+                                    <field name="dmft_missing"/>
+                                    <field name="dmft_filled"/>
+                                    <field name="dmft_index" class="fw-bold"/>
+                                    <div colspan="2" class="text-muted small">
+                                        Counted from the patient's tooth chart (latest finding per tooth).
+                                    </div>
+                                </group>
+                            </group>
+                            <div class="o_dental_exam_section_title">
+                                <span><i class="oi me-2" data-icon="grid_view" title="Teeth"/>Tooth-Specific Findings</span>
+                                <small class="text-muted">Findings charted on the case odontogram during this visit appear here; you can also add them directly.</small>
+                            </div>
+                            <field name="tooth_finding_ids" nolabel="1"
+                                   context="{'default_patient_id': patient_id, 'default_case_id': case_id, 'default_doctor_id': doctor_id}">
+                                <list editable="bottom" default_order="tooth_number, finding_date desc">
+                                    <field name="tooth_number" string="Tooth" placeholder="e.g. 36"/>
+                                    <field name="tooth_name" optional="show" readonly="1"/>
+                                    <field name="condition"/>
+                                    <field name="surfaces" placeholder="MOD"/>
+                                    <field name="severity" optional="show"/>
+                                    <field name="diagnosis_id" options="{'no_create': True}" optional="show"/>
+                                    <field name="treatment_indicated" optional="show"/>
+                                    <field name="clinical_action" optional="show"/>
+                                    <field name="endo_summary" optional="hide" readonly="1"/>
+                                    <field name="notes" optional="hide"/>
+                                    <field name="state" widget="badge" optional="hide" readonly="1"/>
+                                    <field name="patient_id" column_invisible="1"/>
+                                    <field name="case_id" column_invisible="1"/>
+                                </list>
+                            </field>
+                            <group>
+                                <field name="tooth_condition_summary" placeholder="Overall condition of the dentition"/>
+                            </group>
+                        </page>
+
+                        <!-- 4. PERIODONTAL -->
+                        <page string="Periodontal" name="periodontal">
+                            <group>
+                                <group string="Gingiva">
+                                    <field name="perio_gingival_color" widget="badges_selection"/>
+                                    <field name="perio_gingival_consistency" widget="badges_selection"/>
+                                    <field name="perio_gingival_contour" widget="badges_selection"/>
+                                    <field name="perio_recession" widget="badges_selection"/>
+                                    <field name="perio_suppuration" widget="boolean_toggle"/>
+                                    <field name="gum_condition" placeholder="e.g. Marginal gingivitis lower anteriors"/>
+                                </group>
+                                <group string="Indices">
+                                    <field name="perio_bleeding" widget="badges_selection"/>
+                                    <field name="perio_bop_percent"/>
+                                    <field name="perio_plaque_percent"/>
+                                    <label for="bpe_ur" string="BPE"/>
+                                    <div class="o_dental_bpe_grid" title="Basic Periodontal Examination: highest score per sextant">
+                                        <div><small>UR</small><field name="bpe_ur"/></div>
+                                        <div><small>UA</small><field name="bpe_ua"/></div>
+                                        <div><small>UL</small><field name="bpe_ul"/></div>
+                                        <div><small>LR</small><field name="bpe_lr"/></div>
+                                        <div><small>LA</small><field name="bpe_la"/></div>
+                                        <div><small>LL</small><field name="bpe_ll"/></div>
+                                    </div>
+                                    <field name="bpe_max" invisible="not bpe_max"/>
+                                </group>
+                            </group>
+                            <group string="Periodontal Diagnosis">
+                                <group>
+                                    <field name="perio_status" widget="badges_selection"/>
+                                    <field name="perio_stage" widget="badges_selection" invisible="perio_status != 'periodontitis'"/>
+                                    <field name="perio_grade" widget="badges_selection" invisible="perio_status != 'periodontitis'"/>
+                                    <field name="perio_extent" widget="badges_selection" invisible="perio_status != 'periodontitis'"/>
+                                </group>
+                                <group>
+                                    <field name="perio_max_depth" invisible="not perio_max_depth"/>
+                                    <field name="perio_max_depth_tooth" invisible="not perio_max_depth_tooth"/>
+                                </group>
+                            </group>
+                            <div class="o_dental_exam_section_title">
+                                <span><i class="oi me-2" data-icon="bar_chart" title="Chart"/>Periodontal Chart</span>
+                                <small class="text-muted">Six-point probing depths in mm (D = distal, M = mesial, B = buccal, L = palatal/lingual). Pockets of 5 mm or more are highlighted.</small>
+                            </div>
+                            <field name="perio_chart_ids" nolabel="1">
+                                <list editable="bottom" default_order="tooth_number" decoration-danger="max_depth &gt;= 5" decoration-warning="max_depth == 4">
+                                    <field name="tooth_number" string="Tooth" placeholder="e.g. 16"/>
+                                    <field name="tooth_name" optional="hide"/>
+                                    <field name="pd_db"/>
+                                    <field name="pd_b"/>
+                                    <field name="pd_mb"/>
+                                    <field name="pd_dl"/>
+                                    <field name="pd_l"/>
+                                    <field name="pd_ml"/>
+                                    <field name="recession" string="Rec."/>
+                                    <field name="max_depth" string="Max"/>
+                                    <field name="clinical_attachment_loss" string="CAL" optional="show"/>
+                                    <field name="mobility"/>
+                                    <field name="furcation" optional="show"/>
+                                    <field name="bleeding"/>
+                                    <field name="plaque" optional="show"/>
+                                    <field name="suppuration" optional="hide"/>
+                                    <field name="notes" optional="hide"/>
+                                </list>
+                            </field>
+                            <group>
+                                <field name="perio_notes" placeholder="Other periodontal observations"/>
+                            </group>
+                        </page>
+
+                        <!-- 5. CLINICAL FINDINGS and investigations -->
+                        <page string="Clinical Findings" name="findings">
+                            <group>
+                                <field name="clinical_findings" placeholder="Key clinical findings that explain the complaint"/>
+                            </group>
+                            <group string="Investigations">
+                                <field name="radiographs_taken"/>
+                                <field name="radiographic_findings" placeholder="e.g. Periapical radiolucency 36, bone loss 30% lower anteriors"/>
+                                <field name="investigation_notes" placeholder="Pulp vitality, biopsy, laboratory tests, photographs"/>
+                            </group>
+                            <group>
                                 <field name="additional_notes"/>
                             </group>
                         </page>
-                        <page string="Dental Observations">
+
+                        <!-- 6. DIAGNOSIS -->
+                        <page string="Diagnosis" name="diagnoses">
+                            <div class="o_dental_exam_section_title mt-0">
+                                <span><i class="oi me-2" data-icon="assignment" title="Diagnosis"/>Diagnoses</span>
+                                <small class="text-muted">Search by name or ICD code. Tooth diagnoses from the odontogram are added here automatically.</small>
+                            </div>
+                            <field name="diagnosis_ids" nolabel="1"
+                                   context="{'default_case_id': case_id, 'default_examination_id': id, 'default_patient_id': patient_id, 'default_doctor_id': doctor_id}">
+                                <list editable="bottom" default_order="date desc, id desc"
+                                      decoration-muted="status == 'resolved'" decoration-warning="status == 'suspected'">
+                                    <field name="date"/>
+                                    <field name="tooth_reference" string="Tooth" placeholder="e.g. 36"/>
+                                    <field name="diagnosis_id" options="{'no_create': True}"/>
+                                    <field name="status" widget="badge" decoration-warning="status == 'suspected'"
+                                           decoration-danger="status == 'confirmed'" decoration-muted="status == 'resolved'"/>
+                                    <field name="notes" optional="show"/>
+                                    <field name="doctor_id" optional="hide"/>
+                                    <field name="patient_id" column_invisible="1"/>
+                                    <field name="case_id" column_invisible="1"/>
+                                </list>
+                            </field>
                             <group>
-                                <field name="oral_hygiene"/>
-                                <field name="gum_condition"/>
-                                <field name="tooth_condition_summary"/>
-                                <field name="soft_tissue_findings"/>
-                                <field name="occlusion"/>
+                                <field name="provisional_diagnosis" placeholder="Working diagnosis while investigations are pending"/>
+                                <field name="differential_diagnosis" placeholder="Other conditions considered"/>
                             </group>
                         </page>
-                        <page string="Vitals">
+
+                        <!-- 7. ASSESSMENT -->
+                        <page string="Assessment" name="assessment">
+                            <group>
+                                <field name="clinical_impression" placeholder="Overall clinical impression of the patient's oral health"/>
+                            </group>
+                            <group>
+                                <group string="Risk Assessment">
+                                    <field name="caries_risk" widget="badges_selection"/>
+                                    <field name="perio_risk" widget="badges_selection"/>
+                                    <field name="oral_cancer_risk" widget="badges_selection"/>
+                                </group>
+                                <group string="Prognosis &amp; Priority">
+                                    <field name="prognosis" widget="badges_selection"/>
+                                    <field name="treatment_urgency" widget="badges_selection"/>
+                                    <field name="recall_interval" widget="badges_selection"/>
+                                </group>
+                            </group>
+                            <group>
+                                <field name="recommended_treatment" placeholder="Treatment options discussed; record the costed plan on the case's Treatment tab"/>
+                            </group>
+                            <group>
+                                <group string="Referral">
+                                    <field name="referral_required" widget="boolean_toggle"/>
+                                    <field name="referral_to" invisible="not referral_required" required="referral_required"/>
+                                    <field name="referral_reason" invisible="not referral_required"/>
+                                </group>
+                                <group string="Communication">
+                                    <field name="patient_informed" widget="boolean_toggle"/>
+                                </group>
+                            </group>
+                        </page>
+
+                        <page string="Vitals" name="vitals">
                             <group>
                                 <group>
                                     <field name="height"/>
@@ -55,6 +449,11 @@
                                 </group>
                             </group>
                         </page>
+
+                        <page string="Summary" name="summary">
+                            <div class="text-muted small mb-2">This summary is built from the sections above and shown in the patient's Clinical Timeline.</div>
+                            <field name="examination_summary" nolabel="1" class="o_dental_exam_summary"/>
+                        </page>
                     </notebook>
                 </sheet>
                 <chatter/>
@@ -66,19 +465,50 @@
         <field name="name">dental.clinical.examination.list</field>
         <field name="model">dental.clinical.examination</field>
         <field name="arch" type="xml">
-            <list>
+            <list decoration-muted="state == 'done'" default_order="examination_date desc">
                 <field name="name"/>
                 <field name="patient_id"/>
                 <field name="case_id"/>
                 <field name="examination_date"/>
                 <field name="doctor_id"/>
+                <field name="chief_complaint" optional="hide"/>
+                <field name="sections_progress" widget="progressbar" optional="show"/>
+                <field name="state" widget="badge" decoration-info="state == 'draft'" decoration-success="state == 'done'"/>
             </list>
+        </field>
+    </record>
+
+    <record id="view_dental_clinical_examination_search" model="ir.ui.view">
+        <field name="name">dental.clinical.examination.search</field>
+        <field name="model">dental.clinical.examination</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name"/>
+                <field name="patient_id"/>
+                <field name="case_id"/>
+                <field name="doctor_id"/>
+                <field name="examination_summary" string="Findings"/>
+                <filter string="In Progress" name="in_progress" domain="[('state', '=', 'draft')]"/>
+                <filter string="Completed" name="completed" domain="[('state', '=', 'done')]"/>
+                <separator/>
+                <filter string="Examination Date" name="examination_date" date="examination_date"/>
+                <separator/>
+                <filter string="Referral Required" name="referral" domain="[('referral_required', '=', True)]"/>
+                <filter string="Urgent" name="urgent" domain="[('treatment_urgency', 'in', ('urgent', 'emergency'))]"/>
+                <filter string="Oral Lesion" name="lesion" domain="[('io_lesion_present', '=', True)]"/>
+                <group>
+                    <filter string="Patient" name="group_by_patient" context="{'group_by': 'patient_id'}"/>
+                    <filter string="Doctor" name="group_by_doctor" context="{'group_by': 'doctor_id'}"/>
+                    <filter string="Status" name="group_by_state" context="{'group_by': 'state'}"/>
+                </group>
+            </search>
         </field>
     </record>
 
     <record id="action_dental_clinical_examination" model="ir.actions.act_window">
         <field name="name">Clinical Examinations</field>
         <field name="res_model">dental.clinical.examination</field>
-        <field name="view_mode">list,form</field>
+        <field name="view_mode">kanban,list,form</field>
+        <field name="search_view_id" ref="view_dental_clinical_examination_search"/>
     </record>
 </odoo>

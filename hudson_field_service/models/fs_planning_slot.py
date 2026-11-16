@@ -574,6 +574,11 @@ class FsPlanningSlot(models.Model):
         order = self.env['field.service.order'].browse(int(res_id)).exists()
         if not order:
             raise UserError(_("This job does not exist anymore."))
+        if not date_end:
+            # Dropped on the calendar: its planned duration of working time
+            start, end, _breaks = self._get_work_span(
+                fields.Datetime.to_datetime(date_start), order.duration_planned or 1.0, order.company_id)
+            date_start, date_end = start, end
         vals = {'date_planned': date_start, 'date_deadline': date_end}
         if group_field == 'resource_id':
             if not row_key:
@@ -581,10 +586,27 @@ class FsPlanningSlot(models.Model):
             vals['employee_id'] = row_key
         elif group_field in ('role_id', 'project_id', 'task_id', 'sale_order_id', 'partner_id') and row_key:
             vals[group_field] = row_key
-        if 'employee_id' not in vals and not order.employee_id:
+        # On the calendar (no rows), the job becomes an open shift to assign.
+        if group_field and 'employee_id' not in vals and not order.employee_id:
             raise UserError(_("Group the schedule by resource and drop the job on a technician to plan it."))
         order.write(vals)
         return True
+
+    @api.model
+    def _get_planned_shift(self, ref):
+        model, _sep, res_id = ref.partition(',')
+        if model == 'field.service.order':
+            return self.search([('field_service_order_id', '=', int(res_id))], order='id', limit=1)
+        return super()._get_planned_shift(ref)
+
+    def action_unschedule_from_calendar(self):
+        """A job not sold through Plan Services goes back to the jobs to
+        schedule (see field.service.order.action_unschedule)."""
+        jobs = self.filtered(lambda s: s.field_service_order_id and not s.sale_line_id)
+        for order in jobs.field_service_order_id:
+            order.action_unschedule()
+        rest = self - jobs
+        return super(FsPlanningSlot, rest).action_unschedule_from_calendar() if rest else True
 
     # -------------------------------------------------------------------------
     # SALES ORDERS: services with a worksheet are field service jobs
@@ -690,6 +712,10 @@ class FsPlanningSlot(models.Model):
                 'longitude': partner.partner_longitude,
             })
         return jobs
+
+    @api.model
+    def _get_map_mapbox_token(self):
+        return self.get_mapbox_token() or super()._get_map_mapbox_token()
 
     @api.model
     def get_mapbox_token(self):

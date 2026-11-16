@@ -15,19 +15,23 @@
 
                     <!-- SECTION 1: EMPLOYEE INFORMATION -->
                     <separator string="1. Employee Information" colspan="2"/>
+                    <field name="is_employee_readonly" invisible="1"/>
                     <group>
                         <group>
-                            <field name="employee_id" options="{'no_create': True, 'no_open': True}"/>
-                            <field name="employee_code"/>
+                            <field name="company_id" groups="base.group_multi_company" readonly="is_employee_readonly"/>
+                            <field name="employee_id"
+                                   readonly="is_employee_readonly"
+                                   options="{'no_create': True, 'no_open': True}"
+                                   domain="['|', ('company_id', '=', False), ('company_id', '=', company_id)]"/>
+                            <field name="employee_code" readonly="1"/>
                             <field name="department_id"/>
                             <field name="job_id"/>
-                            <field name="company_id" groups="base.group_multi_company"/>
                         </group>
                         <group>
-                            <field name="contract_id" readonly="1" force_save="1"/>
-                            <field name="struct_id" readonly="1" force_save="1"/>
-                            <field name="current_wage" widget="monetary" readonly="1" force_save="1"/>
-                            <field name="current_employer_cost_monthly" widget="monetary" readonly="1" force_save="1"/>
+                            <field name="contract_id" readonly="1"/>
+                            <field name="struct_id" readonly="1"/>
+                            <field name="current_wage" widget="monetary" readonly="1"/>
+                            <field name="current_employer_cost_monthly" widget="monetary" readonly="1"/>
                         </group>
                     </group>
 
@@ -41,6 +45,7 @@
                         <group>
                             <field name="computation_type"/>
                             <field name="increase_percentage" invisible="computation_type != 'percentage'"/>
+                            <field name="extra_amount" invisible="computation_type != 'percentage'" widget="monetary"/>
                             <field name="increase_amount" invisible="computation_type != 'fixed_amount'" widget="monetary"/>
                         </group>
                     </group>
@@ -52,7 +57,7 @@
                             <field name="revision_basis" widget="radio"/>
                         </group>
                         <group>
-                            <field name="capped_wage_amount" invisible="revision_basis != 'capped_wage'" required="revision_basis == 'capped_wage'" widget="monetary" placeholder="e.g. ₹15,000"/>
+                            <field name="capped_wage_amount" invisible="revision_basis != 'capped_wage'" required="revision_basis == 'capped_wage'" widget="monetary" placeholder="e.g. ₹25,000"/>
                         </group>
                     </group>
 
@@ -245,19 +250,219 @@
         <field name="target">new</field>
     </record>
 
-    <!-- Native Odoo Server Action in Employee Action / More (⚙) Menu -->
+    <!-- Salary Increase: compact dialog (as in Odoo) on the same wizard and revision service -->
+    <record id="hds_in_salary_increase_wizard_view_form" model="ir.ui.view">
+        <field name="name">hds.in.salary.increase.wizard.form</field>
+        <field name="model">hds.in.salary.revision.wizard</field>
+        <field name="priority">20</field>
+        <field name="arch" type="xml">
+            <form string="Salary Increase">
+                <field name="employee_id" invisible="1"/>
+                <field name="company_id" invisible="1"/>
+                <field name="currency_id" invisible="1"/>
+                <field name="employee_count" invisible="1"/>
+                <field name="employee_ids" invisible="1"/>
+                <field name="revision_type" invisible="1"/>
+                <field name="computation_type" invisible="1"/>
+                <field name="breakdown_distribution_mode" invisible="1"/>
+                <group>
+                    <field name="effective_date" string="Date of Salary Increase"/>
+                    <label for="increase_percentage" string="Increase Rate"/>
+                    <div class="d-flex align-items-center">
+                        <field name="increase_percentage" class="oe_inline" style="max-width: 8rem;"/>
+                        <span class="ms-1">%</span>
+                    </div>
+                    <label for="revision_basis" string="Applies on"/>
+                    <div class="d-flex flex-wrap align-items-center gap-3">
+                        <field name="revision_basis" widget="radio" options="{'horizontal': true}" nolabel="1"/>
+                        <field name="capped_wage_amount" widget="monetary" class="oe_inline" style="max-width: 10rem;"
+                               invisible="revision_basis != 'capped_wage'" required="revision_basis == 'capped_wage'"/>
+                    </div>
+                    <field name="extra_amount" widget="monetary"/>
+                </group>
+                <div class="text-muted" invisible="employee_count &gt; 1 or not employee_id">
+                    <field name="employee_id" readonly="1" class="oe_inline fw-semibold" options="{'no_open': True}"/>:
+                    <field name="current_wage" widget="monetary" readonly="1" class="oe_inline"/>
+                    <i class="oi oi-arrow-right mx-1" title="New wage"/>
+                    <field name="revised_wage" widget="monetary" readonly="1" class="oe_inline fw-semibold"/>
+                </div>
+                <div class="text-muted" invisible="employee_count &lt;= 1">
+                    The increase applies to <field name="employee_count" readonly="1" class="oe_inline fw-semibold"/> employees.
+                </div>
+                <footer>
+                    <button name="action_confirm_salary_increase" string="Confirm" type="object" class="btn-primary"/>
+                    <button string="Discard" class="btn-secondary" special="cancel"/>
+                    <button name="action_open_detailed_revision" string="Advanced" type="object" class="btn-link ms-auto"
+                            invisible="employee_count &gt; 1"
+                            title="Compare the current and the new salary (breakdown, PF, ESIC, statutory deductions)"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <!-- Salary Increase > Advanced: read-only comparison of the current and the new salary -->
+    <record id="hds_in_salary_increase_comparison_view_form" model="ir.ui.view">
+        <field name="name">hds.in.salary.increase.comparison.form</field>
+        <field name="model">hds.in.salary.revision.wizard</field>
+        <field name="priority">30</field>
+        <field name="arch" type="xml">
+            <form string="Salary Increase - Comparison">
+                <field name="company_id" invisible="1"/>
+                <field name="currency_id" invisible="1"/>
+                <field name="employee_ids" invisible="1"/>
+                <field name="contract_id" invisible="1"/>
+                <field name="revision_type" invisible="1"/>
+                <field name="computation_type" invisible="1"/>
+                <field name="increase_amount" invisible="1"/>
+                <field name="breakdown_distribution_mode" invisible="1"/>
+                <field name="increase_percentage" invisible="1"/>
+                <field name="revision_basis" invisible="1"/>
+                <field name="capped_wage_amount" invisible="1"/>
+                <field name="extra_amount" invisible="1"/>
+                <field name="preview_show_pf" invisible="1"/>
+                <field name="preview_show_esic" invisible="1"/>
+                <field name="preview_show_pt" invisible="1"/>
+                <field name="preview_show_lwf" invisible="1"/>
+                <div class="d-flex flex-wrap gap-3 mb-3">
+                    <span><span class="text-muted">Employee: </span>
+                        <field name="employee_id" readonly="1" class="oe_inline fw-semibold" options="{'no_open': True}"/></span>
+                    <span><span class="text-muted">From: </span>
+                        <field name="effective_date" readonly="1" class="oe_inline fw-semibold"/></span>
+                </div>
+
+                <h5>Salary Summary</h5>
+                <table class="table table-sm align-middle mb-4">
+                    <thead><tr><th/><th class="text-end">Current</th><th class="text-end">New</th></tr></thead>
+                    <tbody>
+                        <tr><td>Gross Salary</td>
+                            <td class="text-end"><field name="current_wage" widget="monetary" readonly="1"/></td>
+                            <td class="text-end fw-bold"><field name="revised_wage" widget="monetary" readonly="1"/></td></tr>
+                        <tr><td>Employer Cost</td>
+                            <td class="text-end"><field name="preview_old_ctc" widget="monetary" readonly="1"/></td>
+                            <td class="text-end fw-bold"><field name="preview_new_ctc" widget="monetary" readonly="1"/></td></tr>
+                        <tr><td>Increase</td><td/>
+                            <td class="text-end fw-bold text-success"><field name="wage_difference" widget="monetary" readonly="1"/></td></tr>
+                    </tbody>
+                </table>
+
+                <h5>Projected Salary Breakdown Preview</h5>
+                <table class="table table-sm align-middle mb-4">
+                    <thead><tr><th/><th class="text-end">Current</th><th class="text-end">New</th></tr></thead>
+                    <tbody>
+                        <tr class="table-active"><td colspan="3" class="fw-semibold">Core Salary Components</td></tr>
+                        <tr invisible="not auto_preview_basic_salary and not auto_preview_revised_basic"><td>Basic</td>
+                            <td class="text-end"><field name="auto_preview_basic_salary" widget="monetary" readonly="1"/></td>
+                            <td class="text-end fw-bold"><field name="auto_preview_revised_basic" widget="monetary" readonly="1"/></td></tr>
+                        <tr invisible="not auto_preview_hra and not auto_preview_revised_hra"><td>HRA</td>
+                            <td class="text-end"><field name="auto_preview_hra" widget="monetary" readonly="1"/></td>
+                            <td class="text-end fw-bold"><field name="auto_preview_revised_hra" widget="monetary" readonly="1"/></td></tr>
+                        <tr invisible="not auto_preview_da and not auto_preview_revised_da"><td>DA</td>
+                            <td class="text-end"><field name="auto_preview_da" widget="monetary" readonly="1"/></td>
+                            <td class="text-end fw-bold"><field name="auto_preview_revised_da" widget="monetary" readonly="1"/></td></tr>
+                        <tr invisible="not auto_preview_travel and not auto_preview_revised_travel"><td>Travel</td>
+                            <td class="text-end"><field name="auto_preview_travel" widget="monetary" readonly="1"/></td>
+                            <td class="text-end fw-bold"><field name="auto_preview_revised_travel" widget="monetary" readonly="1"/></td></tr>
+                        <tr class="table-active"><td colspan="3" class="fw-semibold">Allowances &amp; Balancing Component</td></tr>
+                        <tr invisible="not auto_preview_meal and not auto_preview_revised_meal"><td>Meal</td>
+                            <td class="text-end"><field name="auto_preview_meal" widget="monetary" readonly="1"/></td>
+                            <td class="text-end fw-bold"><field name="auto_preview_revised_meal" widget="monetary" readonly="1"/></td></tr>
+                        <tr invisible="not auto_preview_medical and not auto_preview_revised_medical"><td>Medical</td>
+                            <td class="text-end"><field name="auto_preview_medical" widget="monetary" readonly="1"/></td>
+                            <td class="text-end fw-bold"><field name="auto_preview_revised_medical" widget="monetary" readonly="1"/></td></tr>
+                        <tr invisible="not auto_preview_other and not auto_preview_revised_other"><td>Other</td>
+                            <td class="text-end"><field name="auto_preview_other" widget="monetary" readonly="1"/></td>
+                            <td class="text-end fw-bold"><field name="auto_preview_revised_other" widget="monetary" readonly="1"/></td></tr>
+                        <tr><td>Fixed (Balancing)</td>
+                            <td class="text-end"><field name="auto_preview_fixed" widget="monetary" readonly="1"/></td>
+                            <td class="text-end fw-bold"><field name="auto_preview_revised_fixed" widget="monetary" readonly="1"/></td></tr>
+                    </tbody>
+                </table>
+
+                <div invisible="not preview_show_pf">
+                    <h5>Provident Fund (EPF &amp; EPS)</h5>
+                    <table class="table table-sm align-middle mb-4">
+                        <thead><tr><th/><th class="text-end">Current</th><th class="text-end">New</th></tr></thead>
+                        <tbody>
+                            <tr><td>EPF Wage</td>
+                                <td class="text-end"><field name="preview_old_epf_wage" widget="monetary" readonly="1"/></td>
+                                <td class="text-end fw-bold"><field name="preview_new_epf_wage" widget="monetary" readonly="1"/></td></tr>
+                            <tr><td>Employee EPF</td>
+                                <td class="text-end"><field name="preview_old_ee_epf" widget="monetary" readonly="1"/></td>
+                                <td class="text-end fw-bold"><field name="preview_new_ee_epf" widget="monetary" readonly="1"/></td></tr>
+                            <tr><td>Employer PF</td>
+                                <td class="text-end"><field name="preview_old_er_pf" widget="monetary" readonly="1"/></td>
+                                <td class="text-end fw-bold"><field name="preview_new_er_pf" widget="monetary" readonly="1"/></td></tr>
+                            <tr><td>EPS</td>
+                                <td class="text-end"><field name="preview_old_eps" widget="monetary" readonly="1"/></td>
+                                <td class="text-end fw-bold"><field name="preview_new_eps" widget="monetary" readonly="1"/></td></tr>
+                            <tr><td>EDLI</td>
+                                <td class="text-end"><field name="preview_old_edli" widget="monetary" readonly="1"/></td>
+                                <td class="text-end fw-bold"><field name="preview_new_edli" widget="monetary" readonly="1"/></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div invisible="not preview_show_esic and not preview_show_pt and not preview_show_lwf">
+                    <h5>Statutory Taxes &amp; Funds</h5>
+                    <table class="table table-sm align-middle mb-2">
+                        <thead><tr><th/><th class="text-end">Current</th><th class="text-end">New</th></tr></thead>
+                        <tbody>
+                            <tr invisible="not preview_show_esic"><td>ESIC Applicable</td>
+                                <td class="text-end"><field name="preview_old_esic_app" widget="boolean" readonly="1"/></td>
+                                <td class="text-end"><field name="preview_new_esic_app" widget="boolean" readonly="1"/></td></tr>
+                            <tr invisible="not preview_show_esic"><td>Employee ESIC</td>
+                                <td class="text-end"><field name="preview_old_ee_esic" widget="monetary" readonly="1"/></td>
+                                <td class="text-end fw-bold"><field name="preview_new_ee_esic" widget="monetary" readonly="1"/></td></tr>
+                            <tr invisible="not preview_show_esic"><td>Employer ESIC</td>
+                                <td class="text-end"><field name="preview_old_er_esic" widget="monetary" readonly="1"/></td>
+                                <td class="text-end fw-bold"><field name="preview_new_er_esic" widget="monetary" readonly="1"/></td></tr>
+                            <tr invisible="not preview_show_pt"><td>Professional Tax</td>
+                                <td class="text-end"><field name="preview_old_pt_amount" widget="monetary" readonly="1"/></td>
+                                <td class="text-end fw-bold"><field name="preview_pt_amount" widget="monetary" readonly="1"/></td></tr>
+                            <tr invisible="not preview_show_lwf"><td>Labour Welfare Fund</td>
+                                <td class="text-end"><field name="preview_lwf_amount" widget="monetary" readonly="1"/></td>
+                                <td class="text-end fw-bold"><field name="preview_lwf_amount" widget="monetary" readonly="1"/></td></tr>
+                        </tbody>
+                    </table>
+                    <div class="text-muted small" invisible="not preview_show_esic">
+                        ESIC coverage is re-evaluated at the start of the next contribution period (Apr–Sep, Oct–Mar).
+                    </div>
+                </div>
+                <footer>
+                    <button name="action_confirm_salary_increase" string="Confirm" type="object" class="btn-primary"/>
+                    <button name="action_back_to_salary_increase" string="Back" type="object" class="btn-secondary"/>
+                    <button string="Discard" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_hds_in_salary_increase_wizard" model="ir.actions.act_window">
+        <field name="name">Salary Increase</field>
+        <field name="res_model">hds.in.salary.revision.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="view_id" ref="hds_in_salary_increase_wizard_view_form"/>
+        <field name="target">new</field>
+    </record>
+
+    <!-- Employee form ⚙ menu and employee list Actions (one or several employees) -->
     <record id="action_server_employee_salary_revision" model="ir.actions.server">
-        <field name="name">Salary Revision</field>
+        <field name="name">Salary Increase</field>
         <field name="model_id" ref="hr.model_hr_employee"/>
         <field name="binding_model_id" ref="hr.model_hr_employee"/>
-        <field name="binding_view_types">form</field>
+        <field name="binding_view_types">list,form</field>
         <field name="state">code</field>
         <field name="code">
-action = record.env['ir.actions.act_window']._for_xml_id('hudson_in_payroll.action_hds_in_salary_revision_wizard')
+action = env['ir.actions.act_window']._for_xml_id('hudson_in_payroll.action_hds_in_salary_increase_wizard')
 action['context'] = {
-    'active_id': record.id,
-    'active_ids': record.ids,
+    'active_id': records[:1].id,
+    'active_ids': records.ids,
     'active_model': 'hr.employee',
+    'default_employee_id': records[:1].id,
+    'default_is_employee_readonly': True,
+    'default_increase_percentage': 0.0,
+    'default_computation_type': 'percentage',
+    'default_breakdown_distribution_mode': 'auto_structure',
 }
         </field>
     </record>

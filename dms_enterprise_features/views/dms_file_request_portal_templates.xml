@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <template id="portal_file_request_page" name="Document Request Upload">
+        <html lang="en">
+            <head>
+                <meta charset="utf-8"/>
+                <meta name="viewport" content="width=device-width, initial-scale=1"/>
+                <title>Document Request - <t t-out="file.name"/></title>
+                <link rel="stylesheet" href="/web/static/lib/bootstrap/dist/css/bootstrap.css"/>
+                <style>
+                    body { background: #f3f4f6; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; color: #374151; }
+                    .dms-req-wrap { max-width: 560px; margin: 48px auto; padding: 0 16px; }
+                    .dms-req-card { background: #fff; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,.08), 0 8px 24px rgba(0,0,0,.04); overflow: hidden; }
+                    .dms-req-head { padding: 24px 28px 16px; border-bottom: 1px solid #e5e7eb; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+                    .dms-req-head small { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: #6b7280; }
+                    .dms-req-head h1 { font-size: 22px; font-weight: 700; margin: 2px 0 0; color: #111827; word-break: break-word; }
+                    .dms-req-head img { max-height: 40px; max-width: 140px; object-fit: contain; }
+                    .dms-req-body { padding: 24px 28px 28px; font-size: 14px; }
+                    .dms-req-msg { background: #f9fafb; border-left: 3px solid #875A7B; padding: 10px 14px; border-radius: 4px; white-space: pre-wrap; margin: 12px 0 0; }
+                    .dms-req-drop { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; border: 2px dashed #d1d5db; border-radius: 8px; padding: 32px 16px; margin: 20px 0 16px; cursor: pointer; text-align: center; color: #6b7280; transition: border-color .15s, background .15s; }
+                    .dms-req-drop:hover, .dms-req-drop.dragover { border-color: #875A7B; background: #faf5f9; }
+                    .dms-req-drop svg { color: #9ca3af; }
+                    .dms-req-drop .fname { color: #111827; font-weight: 600; word-break: break-all; }
+                    .dms-req-btn { background: #875A7B; border: none; color: #fff; padding: 10px 22px; border-radius: 6px; font-weight: 600; width: 100%; }
+                    .dms-req-btn:disabled { opacity: .5; }
+                    .dms-req-btn:hover:not(:disabled) { background: #6f4a65; }
+                    .dms-req-done { text-align: center; padding: 16px 0 4px; }
+                    .dms-req-done svg { color: #16a34a; }
+                    .dms-req-foot { text-align: center; font-size: 12px; color: #9ca3af; margin-top: 16px; }
+                </style>
+            </head>
+            <body>
+                <div class="dms-req-wrap">
+                    <div class="dms-req-card">
+                        <div class="dms-req-head">
+                            <div>
+                                <small>Document Request</small>
+                                <h1 t-out="file.name"/>
+                            </div>
+                            <img t-if="company.logo and not company.uses_default_logo" t-att-src="'/logo.png?company=%s' % company.id" t-att-alt="company.name"/>
+                        </div>
+                        <div class="dms-req-body">
+                            <t t-if="success">
+                                <div class="dms-req-done">
+                                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M8 12l3 3 5-6"/></svg>
+                                    <h2 class="h5 mt-3">Thank you!</h2>
+                                    <p class="mb-0">Your document has been sent to <t t-out="requester.name or company.name"/>.</p>
+                                </div>
+                            </t>
+                            <t t-elif="not is_open">
+                                <div class="dms-req-done">
+                                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M8 12l3 3 5-6"/></svg>
+                                    <h2 class="h5 mt-3">Nothing left to upload</h2>
+                                    <p class="mb-0">This document has already been provided, or the request was cancelled.</p>
+                                </div>
+                            </t>
+                            <t t-else="">
+                                <p class="mb-1">
+                                    Hello <t t-out="file.request_partner_id.name"/>,
+                                </p>
+                                <p class="mb-0">
+                                    <strong t-out="requester.name or company.name"/> asks you to provide
+                                    <strong t-out="file.name"/><t t-if="file.request_date_deadline"> before
+                                    <strong t-out="file.request_date_deadline"/></t>.
+                                </p>
+                                <div t-if="file.request_message" class="dms-req-msg" t-out="file.request_message"/>
+
+                                <div t-if="error" class="alert alert-danger mt-3 mb-0" role="alert" t-out="error"/>
+
+                                <form t-attf-action="/dms/request/#{file.id}/upload?db=#{db_name}" method="post" enctype="multipart/form-data" id="dms_req_form">
+                                    <input type="hidden" name="csrf_token" t-att-value="csrf_token"/>
+                                    <input type="hidden" name="token" t-att-value="token"/>
+                                    <label class="dms-req-drop" for="dms_req_file" id="dms_req_drop">
+                                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4"/><path d="M7 9l5-5 5 5"/><path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg>
+                                        <span id="dms_req_label">Click to choose a file, or drop it here</span>
+                                    </label>
+                                    <input type="file" name="ufile" id="dms_req_file" class="d-none" required="required"/>
+                                    <button type="submit" class="dms-req-btn" id="dms_req_submit" disabled="disabled">Upload</button>
+                                </form>
+                                <script>
+                                    (function () {
+                                        var input = document.getElementById('dms_req_file');
+                                        var drop = document.getElementById('dms_req_drop');
+                                        var label = document.getElementById('dms_req_label');
+                                        var submit = document.getElementById('dms_req_submit');
+                                        var form = document.getElementById('dms_req_form');
+                                        function refresh() {
+                                            var f = input.files &amp;&amp; input.files[0];
+                                            label.textContent = f ? f.name : 'Click to choose a file, or drop it here';
+                                            label.className = f ? 'fname' : '';
+                                            submit.disabled = !f;
+                                        }
+                                        input.addEventListener('change', refresh);
+                                        ['dragenter', 'dragover'].forEach(function (t) {
+                                            drop.addEventListener(t, function (e) { e.preventDefault(); drop.classList.add('dragover'); });
+                                        });
+                                        ['dragleave', 'drop'].forEach(function (t) {
+                                            drop.addEventListener(t, function (e) { e.preventDefault(); drop.classList.remove('dragover'); });
+                                        });
+                                        drop.addEventListener('drop', function (e) {
+                                            if (e.dataTransfer &amp;&amp; e.dataTransfer.files.length) {
+                                                input.files = e.dataTransfer.files;
+                                                refresh();
+                                            }
+                                        });
+                                        form.addEventListener('submit', function () {
+                                            submit.disabled = true;
+                                            submit.textContent = 'Uploading...';
+                                        });
+                                    })();
+                                </script>
+                            </t>
+                        </div>
+                    </div>
+                    <div class="dms-req-foot" t-out="company.name"/>
+                </div>
+            </body>
+        </html>
+    </template>
+</odoo>

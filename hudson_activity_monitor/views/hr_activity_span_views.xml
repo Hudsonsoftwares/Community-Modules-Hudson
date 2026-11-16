@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="hr_activity_span_view_list" model="ir.ui.view">
+        <field name="name">hr.activity.span.list</field>
+        <field name="model">hr.activity.span</field>
+        <field name="arch" type="xml">
+            <list string="Activity Log" create="0" edit="0" delete="0"
+                  decoration-muted="state != 'active'" decoration-info="is_open">
+                <field name="date_start"/>
+                <field name="date_end" optional="show"/>
+                <field name="employee_id" widget="many2one_avatar_employee"/>
+                <field name="state" widget="badge"
+                       decoration-success="state == 'active'" decoration-warning="state == 'idle'"/>
+                <field name="app_id"/>
+                <field name="category" widget="badge" optional="show"
+                       decoration-success="category == 'productive'" decoration-danger="category == 'unproductive'"/>
+                <field name="title" optional="show"/>
+                <field name="device_id" optional="hide"/>
+                <field name="is_open" optional="hide"/>
+                <field name="duration_hours" widget="float_time" sum="Total"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="hr_activity_span_view_form" model="ir.ui.view">
+        <field name="name">hr.activity.span.form</field>
+        <field name="model">hr.activity.span</field>
+        <field name="arch" type="xml">
+            <form string="Activity" create="0" edit="0" delete="0">
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="employee_id"/>
+                            <field name="state"/>
+                            <field name="app_id"/>
+                            <field name="category"/>
+                            <field name="title"/>
+                        </group>
+                        <group>
+                            <field name="date_start"/>
+                            <field name="date_end"/>
+                            <field name="duration_hours" widget="float_time"/>
+                            <field name="device_id"/>
+                            <field name="is_open"/>
+                        </group>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="hr_activity_span_view_calendar" model="ir.ui.view">
+        <field name="name">hr.activity.span.calendar</field>
+        <field name="model">hr.activity.span</field>
+        <field name="arch" type="xml">
+            <calendar string="Timeline" date_start="date_start" date_stop="date_end" color="app_id"
+                      mode="day" create="0" quick_create="0" event_open_popup="1">
+                <field name="employee_id" filters="1"/>
+                <field name="state"/>
+                <field name="app_id"/>
+                <field name="title"/>
+                <field name="duration_hours" widget="float_time"/>
+            </calendar>
+        </field>
+    </record>
+
+    <record id="hr_activity_span_view_gantt" model="ir.ui.view">
+        <field name="name">hr.activity.span.gantt</field>
+        <field name="model">hr.activity.span</field>
+        <field name="arch" type="xml">
+            <gantt js_class="activity_gantt" string="Timeline" date_start="date_start" date_stop="date_end"
+                   default_scale="day"/>
+        </field>
+    </record>
+
+    <record id="hr_activity_span_view_pivot" model="ir.ui.view">
+        <field name="name">hr.activity.span.pivot</field>
+        <field name="model">hr.activity.span</field>
+        <field name="arch" type="xml">
+            <pivot string="Time per Application" sample="1">
+                <field name="app_id" type="row"/>
+                <field name="employee_id" type="col"/>
+                <field name="duration_hours" type="measure" widget="float_time"/>
+            </pivot>
+        </field>
+    </record>
+
+    <record id="hr_activity_span_view_graph" model="ir.ui.view">
+        <field name="name">hr.activity.span.graph</field>
+        <field name="model">hr.activity.span</field>
+        <field name="arch" type="xml">
+            <graph string="Time per Application" type="bar" order="desc" sample="1">
+                <field name="app_id"/>
+                <field name="duration_hours" type="measure" widget="float_time"/>
+            </graph>
+        </field>
+    </record>
+
+    <record id="hr_activity_span_view_search" model="ir.ui.view">
+        <field name="name">hr.activity.span.search</field>
+        <field name="model">hr.activity.span</field>
+        <field name="arch" type="xml">
+            <search>
+                <searchpanel view_types="list,pivot,graph,calendar,gantt">
+                    <field name="employee_id" icon="person" enable_counters="1"/>
+                    <field name="department_id" icon="group" enable_counters="1"/>
+                </searchpanel>
+                <field name="employee_id"/>
+                <field name="app_id"/>
+                <field name="title"/>
+                <field name="department_id"/>
+                <filter name="today" string="Today" domain="[('date', '=', context_today().strftime('%Y-%m-%d'))]"/>
+                <filter name="last_7_days" string="Last 7 Days"
+                        domain="[('date', '&gt;=', (context_today() - relativedelta(days=7)).strftime('%Y-%m-%d'))]"/>
+                <filter name="filter_date" string="Date" date="date"/>
+                <separator/>
+                <filter name="active" string="Active" domain="[('state', '=', 'active')]"/>
+                <filter name="idle" string="Idle" domain="[('state', '=', 'idle')]"/>
+                <filter name="locked" string="Locked" domain="[('state', '=', 'locked')]"/>
+                <separator/>
+                <filter name="productive" string="Productive" domain="[('category', '=', 'productive')]"/>
+                <filter name="unproductive" string="Unproductive" domain="[('category', '=', 'unproductive')]"/>
+                <separator/>
+                <filter name="live" string="Live" domain="[('is_open', '=', True)]"/>
+                <group>
+                    <filter name="group_employee" string="Employee" context="{'group_by': 'employee_id'}"/>
+                    <filter name="group_app" string="Application" context="{'group_by': 'app_id'}"/>
+                    <filter name="group_state" string="Status" context="{'group_by': 'state'}"/>
+                    <filter name="group_category" string="Category" context="{'group_by': 'category'}"/>
+                    <filter name="group_date" string="Day" context="{'group_by': 'date:day'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_hr_activity_span_timeline" model="ir.actions.act_window">
+        <field name="name">Timeline</field>
+        <field name="res_model">hr.activity.span</field>
+        <field name="view_mode">gantt,calendar,list,form</field>
+        <field name="view_id" ref="hr_activity_span_view_gantt"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">No activity recorded yet</p>
+            <p>Pair the Hudson Activity agent on an employee's computer (Employee form, Activity Monitoring tab).</p>
+        </field>
+    </record>
+
+    <record id="action_hr_activity_span" model="ir.actions.act_window">
+        <field name="name">Activity Log</field>
+        <field name="res_model">hr.activity.span</field>
+        <field name="view_mode">list,pivot,graph,gantt,calendar,form</field>
+        <field name="context">{'search_default_today': 1, 'search_default_group_employee': 1, 'search_default_group_date': 1}</field>
+    </record>
+
+    <record id="action_hr_activity_span_apps" model="ir.actions.act_window">
+        <field name="name">Applications Used</field>
+        <field name="res_model">hr.activity.span</field>
+        <field name="view_mode">graph,pivot,list</field>
+        <field name="domain">[('state', '=', 'active')]</field>
+        <field name="context">{'search_default_last_7_days': 1}</field>
+    </record>
+</odoo>

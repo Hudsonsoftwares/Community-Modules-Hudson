@@ -8,6 +8,7 @@ import { Dialog } from "@web/core/dialog/dialog";
 import { FormViewDialog } from "@web/views/view_dialogs/form_view_dialog";
 import { ConfirmationDialog } from "@web/core/confirmation_dialog/confirmation_dialog";
 import { standardActionServiceProps } from "@web/webclient/actions/action_plugin";
+import { FormStatusIndicator } from "@web/views/form/form_status_indicator/form_status_indicator";
 
 // -----------------------------------------------------------------------------
 // Role Color Palette (keep in sync with ROLE_PALETTE in hudson_sign_template.py)
@@ -32,7 +33,6 @@ const ALIGN_TYPES = ["text", "multiline", "selection", "date"];
 const MULTILINE_TYPES = ["multiline", "stamp"];
 const SQUARE_TYPES = ["checkbox", "radio"];
 
-const SAVE_DELAY = 700;
 const MIN_ZOOM = 25;
 const MAX_ZOOM = 400;
 const AUTO_ZOOM_MAX = 1.5;
@@ -135,7 +135,7 @@ export class SignerSettingsDialog extends Component {
 // -----------------------------------------------------------------------------
 export class HudsonSignEditor extends Component {
     static template = "hudson_sign.SignEditor";
-    static components = { SignIcon };
+    static components = { SignIcon, FormStatusIndicator };
     props = useProps({
         ...standardActionServiceProps,
     });
@@ -157,9 +157,9 @@ export class HudsonSignEditor extends Component {
         // Opened from Sign > Templates (not from the Documents dashboard)
         this.fromTemplates = Boolean(context.hudson_sign_from_templates);
 
-        this._saveTimer = null;
         this._savePromise = Promise.resolve();
-        this._dirty = false;
+        // Fields and signers as last saved, restored by "Discard all changes"
+        this._savedSnapshot = null;
         this._newRoleSeq = 0;
         this._nextItemId = 1;
         this._textCache = {};
@@ -216,6 +216,8 @@ export class HudsonSignEditor extends Component {
             isLoading: true,
             errorMessage: false,
             saving: false,
+            // Unsaved changes: shows the save / discard buttons, like a form view
+            dirty: false,
 
             openDropdownRoleId: null,
         });
@@ -238,6 +240,7 @@ export class HudsonSignEditor extends Component {
         this.onWindowMouseMoveBound = this.onWindowMouseMove.bind(this);
         this.onWindowMouseUpBound = this.onWindowMouseUp.bind(this);
         this.onKeyDownBound = this.onKeyDown.bind(this);
+        this.onBeforeUnloadBound = this.onBeforeUnload.bind(this);
         this.onResizeBound = () => {
             if (["auto", "page-fit", "page-width"].includes(this.state.zoomMode)) {
                 this.setZoomMode(this.state.zoomMode);
@@ -251,6 +254,7 @@ export class HudsonSignEditor extends Component {
             window.addEventListener('pointerdown', this.onOutsidePointerDown, true);
             window.addEventListener('keydown', this.onKeyDownBound);
             window.addEventListener('resize', this.onResizeBound);
+            window.addEventListener('beforeunload', this.onBeforeUnloadBound);
             await this.loadData();
         });
 
@@ -272,7 +276,9 @@ export class HudsonSignEditor extends Component {
             window.removeEventListener('pointerdown', this.onOutsidePointerDown, true);
             window.removeEventListener('keydown', this.onKeyDownBound);
             window.removeEventListener('resize', this.onResizeBound);
+            window.removeEventListener('beforeunload', this.onBeforeUnloadBound);
             this._stopAutoScroll();
+            // Leaving the editor saves, as leaving a form view does
             this.saveNow();
         });
     }
@@ -344,6 +350,7 @@ export class HudsonSignEditor extends Component {
                 };
             });
             this.pendingItems = null;
+            this._takeSnapshot();
         }
         this.state.isLoading = false;
         this.state.needsRender = true;
@@ -420,23 +427,71 @@ export class HudsonSignEditor extends Component {
 
     // ---- Saving -------------------------------------------------------------
 
+    /** A field or signer changed: saved with the save button or when leaving the editor */
     scheduleSave() {
-        this._dirty = true;
-        clearTimeout(this._saveTimer);
-        this._saveTimer = setTimeout(() => this.saveNow(), SAVE_DELAY);
+        this.state.dirty = true;
     }
 
     saveNow() {
-        clearTimeout(this._saveTimer);
-        if (!this._dirty || !this.templateId || this.pendingItems || !this.state.pages.length) {
+        if (!this.state.dirty || !this.templateId || this.pendingItems || !this.state.pages.length) {
             return this._savePromise;
         }
-        this._dirty = false;
+        this.state.dirty = false;
         this._savePromise = this._savePromise.then(() => this._save()).catch((err) => {
-            this._dirty = true;
+            this.state.dirty = true;
             this.notification.add(err?.data?.message || err?.message || "Could not save the template.", { type: "danger" });
         });
         return this._savePromise;
+    }
+
+    /** Positions as page ratios: the snapshot stays valid whatever the zoom */
+    _takeSnapshot() {
+        this._savedSnapshot = JSON.parse(JSON.stringify({
+            roles: this.state.roles,
+            items: this.state.items.map(item => {
+                const page = this.getPage(item.page);
+                return {
+                    ...item,
+                    x: item.x / page.width,
+                    y: item.y / page.height,
+                    width: item.width / page.width,
+                    height: item.height / page.height,
+                };
+            }),
+        }));
+    }
+
+    async discardChanges() {
+        if (this.isUnsavedDraft) {
+            // Like discarding a new record: leave without making it a template
+            this.state.dirty = false;
+            return this._leaveEditor();
+        }
+        await this._savePromise;
+        if (!this._savedSnapshot) {
+            return;
+        }
+        this.closePopover();
+        const snapshot = JSON.parse(JSON.stringify(this._savedSnapshot));
+        this.state.roles = snapshot.roles;
+        this.state.items = snapshot.items.map(item => {
+            const page = this.getPage(item.page);
+            return {
+                ...item,
+                x: item.x * page.width,
+                y: item.y * page.height,
+                width: item.width * page.width,
+                height: item.height * page.height,
+            };
+        });
+        this.state.dirty = false;
+    }
+
+    onBeforeUnload(ev) {
+        if (this.state.dirty) {
+            ev.preventDefault();
+            ev.returnValue = "";
+        }
     }
 
     async _save() {
@@ -482,6 +537,7 @@ export class HudsonSignEditor extends Component {
                     role.id = dbId;
                 }
             }
+            this._takeSnapshot();
         } finally {
             this.state.saving = false;
         }
@@ -576,9 +632,9 @@ export class HudsonSignEditor extends Component {
                 this.notification.add("Please wait until the document has loaded.", { type: "warning" });
                 return;
             }
-            this._dirty = true;
+            // A draft uploaded in Documents is saved as a template even without changes
             await this.saveNow();
-            if (this._dirty) {
+            if (this.state.dirty) {
                 // The save failed: the error was already notified
                 return;
             }

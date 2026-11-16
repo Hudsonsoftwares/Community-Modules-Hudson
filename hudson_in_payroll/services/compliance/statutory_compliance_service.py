@@ -41,7 +41,11 @@ class StatutoryComplianceValidationService:
         if not getattr(employee, 'hds_in_esic_applicable', False):
             return True, False
 
-        ip_no = getattr(employee, 'hds_in_esic_ip_number', False)
+        ip_no = (
+            getattr(employee, 'hds_in_esic_ip_number', False)
+            or getattr(employee, 'hds_in_esic_number', False)
+            or getattr(employee, 'esic_number', False)
+        )
         if not ip_no or not str(ip_no).strip():
             return False, _("Missing ESIC IP Number")
 
@@ -56,7 +60,14 @@ class StatutoryComplianceValidationService:
         if not getattr(employee, 'hds_in_lwf_applicable', False):
             return True, False
 
-        lwf_no = getattr(employee, 'hds_in_lwf_number', False)
+        lwf_no = (
+            getattr(employee, 'hds_in_lwf_number', False)
+            or getattr(employee, 'registration_number', False)
+            or getattr(employee, 'barcode', False)
+            or getattr(employee, 'employee_code', False)
+            or getattr(employee, 'identification_id', False)
+            or str(employee.id)
+        )
         if not lwf_no:
             return False, _("Missing LWF Registration / Employee Number")
 

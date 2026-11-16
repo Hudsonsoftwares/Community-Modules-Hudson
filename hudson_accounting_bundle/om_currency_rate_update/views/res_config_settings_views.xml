@@ -65,6 +65,10 @@
                         <div class="mt8">
                             <button name="action_test_currency_rates" type="object" string="Test Connection" class="btn-link" icon="wifi"/>
                             <button name="action_update_currency_rates" type="object" string="Update Now" class="btn-link" icon="refresh"/>
+                            <button name="action_force_update_currency_rates" type="object" string="Force Update"
+                                    class="btn-link" invisible="not rate_max_change"
+                                    confirm="Save the rates of the sources even if they changed more than the maximum change?"
+                                    title="Save the rates even when they changed more than the maximum change, e.g. after a real devaluation."/>
                         </div>
                     </div>
                 </setting>

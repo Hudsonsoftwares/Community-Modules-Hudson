@@ -63,10 +63,18 @@ class TestLWFService(TransactionCase):
             'active': True,
         })
 
+        # Ensure company enables LWF and has valid state
+        self.env.company.partner_id.write({'state_id': self.state_mh.id})
+        self.env.company.write({
+            'hds_in_enable_lwf': True,
+            'hds_in_lwf_registration_no': 'LWF/MH/2026/001',
+        })
+
         # Employee assigned to Mumbai Work Location
         self.emp_mh = self.env['hr.employee'].create({
             'name': 'Maharashtra Employee',
             'work_location_id': self.work_loc_mh.id,
+            'hds_in_lwf_applicable': True,
         })
         contract = self.env['hr.version'].search([('employee_id', '=', self.emp_mh.id)], limit=1)
         if contract:
@@ -137,7 +145,10 @@ class TestLWFService(TransactionCase):
     def test_06_lwf_service_contractor_exempt(self):
         """June 2026 payslip for contractor -> LWF = 0."""
         self.emp_mh.hds_in_lwf_applicable = True
-        self.emp_mh.employee_type = 'contractor'
+        contract_type = self.env.ref('hudson_payroll_base.employee_type_contract', raise_if_not_found=False)
+        if not contract_type:
+            contract_type = self.env['hr.employee.type'].create({'name': 'Contractor', 'code': 'CON'})
+        self.emp_mh.employee_type_id = contract_type.id
         payslip_june = self.env['hr.payslip'].create({
             'employee_id': self.emp_mh.id,
             'date_from': '2026-06-01',

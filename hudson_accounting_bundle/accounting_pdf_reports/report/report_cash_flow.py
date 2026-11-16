@@ -30,6 +30,10 @@ LINE_ORDER = (
     'receivable', 'payable', 'income', 'expense', 'current_liability', 'current_asset', 'credit_card',
     'unmatched', 'transfer', 'fixed_asset', 'borrowing', 'equity', 'other',
 )
+# The cash: bank and cash accounts, and the credit cards (paying with a card is spending cash, as in
+# Odoo Enterprise where the credit card journals are liquidity journals)
+CASH_ACCOUNT_TYPES = ('asset_cash', 'liability_credit_card')
+PARTNER_ACCOUNT_TYPES = ('asset_receivable', 'liability_payable')
 # The cash is followed through the reconciliations of the transit accounts (outstanding receipts and payments,
 # suspense, internal transfers) to find what it was paid for, this many steps at most.
 MAX_TRANSIT_DEPTH = 4
@@ -59,9 +63,10 @@ class ReportCashFlow(models.AbstractModel):
 
     @api.model
     def _get_transit_accounts(self, company):
-        journals = self.env['account.journal'].sudo().search([('company_id', 'child_of', company.id)])
+        # `company` may hold several companies (all the companies of the company switcher)
+        journals = self.env['account.journal'].sudo().search([('company_id', 'child_of', company.ids)])
         method_lines = self.env['account.payment.method.line'].sudo().search([('journal_id', 'in', journals.ids)])
-        return (company.transfer_account_id | company.account_journal_suspense_account_id
+        return (company.mapped('transfer_account_id') | company.mapped('account_journal_suspense_account_id')
                 | journals.suspense_account_id | method_lines.payment_account_id).sudo(False)
 
     @api.model
@@ -79,12 +84,21 @@ class ReportCashFlow(models.AbstractModel):
         return account.cash_flow_activity or activity, line
 
     @api.model
-    def _allocate(self, move_line, amount, transit_accounts, flows, depth=0):
-        """ Add `amount` of cash to the flows of what `move_line` stands for. A line on a transit account
-        (e.g. outstanding receipts) stands for the lines it is reconciled with, in proportion. """
+    def _trace(self, move_line, amount, transit_accounts, emit, depth=0, partner_line=None):
+        """ Find what `amount` of cash paid or received against `move_line` was for, and hand it to
+        `emit(activity, line, account, amount, partner_line)`:
+
+        - a line on a transit account (outstanding receipts and payments, suspense, transfers) stands
+          for the lines it is reconciled with, in proportion;
+        - a line on a receivable or payable account stands for the lines of the invoices and bills it
+          is reconciled with (as in Odoo Enterprise): the part of a payment that paid for equipment
+          is an investing flow, the part that paid a loan or a dividend a financing one. What is not
+          reconciled yet is an advance payment of the customer or to the supplier;
+        - another line is classified by its account.
+        """
         account = move_line.account_id
-        if account.account_type == 'asset_cash':
-            flows[('operating', 'transfer', False)] += amount
+        if account.account_type in CASH_ACCOUNT_TYPES:
+            emit('operating', 'transfer', None, amount, partner_line)
             return
         if account in transit_accounts and depth < MAX_TRANSIT_DEPTH:
             total = abs(move_line.balance)
@@ -97,13 +111,54 @@ class ReportCashFlow(models.AbstractModel):
                 matched_share += share
                 for other in counterpart.move_id.line_ids - counterpart:
                     if other.account_id and other.balance:
-                        self._allocate(other, amount * share * other.balance / -counterpart.balance,
-                                       transit_accounts, flows, depth + 1)
+                        self._trace(other, amount * share * other.balance / -counterpart.balance,
+                                    transit_accounts, emit, depth + 1, partner_line)
             if matched_share < 1.0:
-                flows[('operating', 'unmatched', False)] += amount * (1.0 - matched_share)
+                emit('operating', 'unmatched', None, amount * (1.0 - matched_share), partner_line)
+            return
+        if account.account_type in PARTNER_ACCOUNT_TYPES and partner_line is None and depth < MAX_TRANSIT_DEPTH:
+            total = abs(move_line.balance)
+            matched_share = 0.0
+            for partial in (move_line.matched_debit_ids | move_line.matched_credit_ids) if total else []:
+                counterpart = partial.debit_move_id if partial.credit_move_id == move_line else partial.credit_move_id
+                lines = counterpart.move_id.line_ids
+                # a payment matched with another payment (an advance refunded...) is not traced further
+                if any(line.account_id.account_type in CASH_ACCOUNT_TYPES or line.account_id in transit_accounts
+                       for line in lines):
+                    continue
+                others = lines.filtered(lambda line: line.account_id and line.balance
+                                        and line.account_id.account_type not in PARTNER_ACCOUNT_TYPES)
+                denominator = sum(others.mapped('balance'))
+                if not denominator:
+                    continue
+                share = partial.amount / total
+                matched_share += share
+                for other in others:
+                    self._trace(other, amount * share * other.balance / denominator,
+                                transit_accounts, emit, depth + 1, move_line)
+            if matched_share < 1.0:
+                activity, line = self._classify(account)
+                emit(activity, line, account, amount * (1.0 - matched_share), None)
             return
         activity, line = self._classify(account)
-        flows[(activity, line, account.id)] += amount
+        emit(activity, line, account, amount, partner_line)
+
+    @api.model
+    def _trace_cash_lines(self, cash_lines, company):
+        """ :return: list of {origin, activity, line, account, amount, partner_line}: what the cash of the
+            moves of `cash_lines` was paid or received for. `origin` is the line of the cash move the
+            amount comes from, `partner_line` the receivable or payable line it was traced through. """
+        transit_accounts = self._get_transit_accounts(company)
+        entries = []
+        for move in cash_lines.move_id:
+            for move_line in move.line_ids:
+                if (move_line.account_id and move_line.balance
+                        and move_line.account_id.account_type not in CASH_ACCOUNT_TYPES):
+                    def emit(activity, line, account, amount, partner_line, origin=move_line):
+                        entries.append({'origin': origin, 'activity': activity, 'line': line,
+                                        'account': account, 'amount': amount, 'partner_line': partner_line})
+                    self._trace(move_line, -move_line.balance, transit_accounts, emit)
+        return entries
 
     @api.model
     def _get_cash_flow(self, form):
@@ -116,18 +171,21 @@ class ReportCashFlow(models.AbstractModel):
         if not date_from or not date_to:
             raise UserError(_('Set the start and end dates of the cash flow statement.'))
         MoveLine = self.env['account.move.line']
-        cash_domain = self._get_line_domain(form, company) & Domain('account_id.account_type', '=', 'asset_cash')
+        cash_domain = self._get_line_domain(form, company) & Domain('account_id.account_type', 'in', CASH_ACCOUNT_TYPES)
 
         [(opening,)] = MoveLine._read_group(cash_domain & Domain('date', '<', date_from), aggregates=['balance:sum'])
         cash_lines = MoveLine.search(cash_domain & Domain('date', '>=', date_from) & Domain('date', '<=', date_to))
         net_change = sum(cash_lines.mapped('balance'))
 
-        transit_accounts = self._get_transit_accounts(company)
         flows = defaultdict(float)
-        for move in cash_lines.move_id:
-            for move_line in move.line_ids:
-                if move_line.account_id and move_line.account_id.account_type != 'asset_cash' and move_line.balance:
-                    self._allocate(move_line, -move_line.balance, transit_accounts, flows)
+        for entry in self._trace_cash_lines(cash_lines, company):
+            activity, line, account = entry['activity'], entry['line'], entry['account']
+            if entry['partner_line'] and activity == 'operating':
+                # an operating item of an invoice or a bill: cash received from the customer or paid
+                # to the supplier
+                account = entry['partner_line'].account_id
+                activity, line = self._classify(account)
+            flows[(activity, line, account.id if account else False)] += entry['amount']
 
         labels = self._get_line_labels()
         Account = self.env['account.account']

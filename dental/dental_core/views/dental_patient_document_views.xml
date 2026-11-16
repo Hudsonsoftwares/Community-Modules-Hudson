@@ -94,8 +94,11 @@
     <record id="action_dental_patient_documents" model="ir.actions.act_window">
         <field name="name">Previous Records &amp; X-Rays</field>
         <field name="res_model">dental.patient.document</field>
-        <field name="view_mode">list,form</field>
-        <field name="view_id" ref="view_dental_patient_document_tree"/>
+        <field name="view_mode">kanban,list,form</field>
+        <field name="view_ids" eval="[(5, 0, 0),
+            (0, 0, {'view_mode': 'kanban'}),
+            (0, 0, {'view_mode': 'list', 'view_id': ref('view_dental_patient_document_tree')}),
+            (0, 0, {'view_mode': 'form'})]"/>
         <field name="search_view_id" ref="view_dental_patient_document_search"/>
         <field name="help" type="html">
             <p class="o_view_nocontent_smiling_face">

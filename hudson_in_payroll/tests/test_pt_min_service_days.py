@@ -9,25 +9,28 @@ from odoo.addons.hudson_in_payroll.services.professional_tax.pt_periodicity_stra
 
 
 class TestPTMinServiceDays(TransactionCase):
-    """
-    Test suite for Kerala 60-day PT rule and PT engine guards:
-    1. min_service_days and appointment days service calculation in PTPeriodScheduleService
-    2. BELOW_MIN_SERVICE_DAYS status when service days < 60 in half-year window
-    3. ZERO_WAGE guard when earned wage is 0 (except simulation)
-    4. Net Pay Guard (PT capped at GROSS + DED)
-    5. get_period_already_deducted states (verify/done/paid only, never draft/cancel)
-    """
+    # 18 statutory scenarios:
+    # KL-01..KL-09 Kerala H1/H2 service day checks
+    # TN-01..TN-06 Tamil Nadu H1 checks
+    # GEN-01..GEN-03 engine guards
 
     def setUp(self):
         super().setUp()
         self.pt_service = ProfessionalTaxService(self.env)
         self.sched_service = PTPeriodScheduleService(self.env)
         self.company = self.env.company
-
-        self.state_kl = self.env.ref('base.state_in_kl', raise_if_not_found=False) or self.env['res.country.state'].search([('code', '=', 'KL')], limit=1)
-        self.state_mh = self.env.ref('base.state_in_mh', raise_if_not_found=False) or self.env['res.country.state'].search([('code', '=', 'MH')], limit=1)
-
-        # Create test employee
+        self.state_kl = (
+            self.env.ref('base.state_in_kl', raise_if_not_found=False)
+            or self.env['res.country.state'].search([('code', '=', 'KL')], limit=1)
+        )
+        self.state_tn = (
+            self.env.ref('base.state_in_tn', raise_if_not_found=False)
+            or self.env['res.country.state'].search([('code', '=', 'TN')], limit=1)
+        )
+        self.state_mh = (
+            self.env.ref('base.state_in_mh', raise_if_not_found=False)
+            or self.env['res.country.state'].search([('code', '=', 'MH')], limit=1)
+        )
         self.emp = self.env['hr.employee'].create({
             'name': 'PT Min Service Days Test Employee',
             'company_id': self.company.id,
@@ -37,202 +40,258 @@ class TestPTMinServiceDays(TransactionCase):
         if self.emp.version_id:
             self.emp.version_id.write({'contract_date_start': '2026-04-01', 'date_start': '2026-04-01'})
 
-    def test_01_service_days_calculation(self):
-        """Tests exact calculation of service days in half-yearly period window."""
-        window_start = date(2026, 4, 1)
-        window_end = date(2026, 9, 30)
+    # ---- helpers ----
 
-        # Case A: Joined 2 Aug 2026 -> 30 days in Aug + 30 days in Sep = 60 days
-        self.emp.write({'contract_date_start': '2026-08-02', 'date_start': '2026-08-02'})
-        if self.emp.version_id:
-            self.emp.version_id.write({'contract_date_start': '2026-08-02', 'date_start': '2026-08-02'})
-        days_60 = self.sched_service.compute_service_days(self.emp, window_start, window_end)
-        self.assertEqual(days_60, 60, "Joining on 2 Aug should yield exactly 60 service days in Apr-Sep window.")
-
-        # Also test calculate_service_days alias
-        days_alias = self.sched_service.calculate_service_days(self.emp, window_start, window_end)
-        self.assertEqual(days_alias, 60)
-
-        # Case B: Joined 3 Aug 2026 -> 29 days in Aug + 30 days in Sep = 59 days
-        self.emp.write({'contract_date_start': '2026-08-03', 'date_start': '2026-08-03'})
-        if self.emp.version_id:
-            self.emp.version_id.write({'contract_date_start': '2026-08-03', 'date_start': '2026-08-03'})
-        days_59 = self.sched_service.compute_service_days(self.emp, window_start, window_end)
-        self.assertEqual(days_59, 59, "Joining on 3 Aug should yield 59 service days in Apr-Sep window.")
-
-        # Case C: Resigned mid-period (joined 1 Apr, left 15 May -> 45 days)
-        self.emp.write({
-            'contract_date_start': '2026-04-01', 'date_start': '2026-04-01',
-            'departure_date': '2026-05-15', 'contract_date_end': '2026-05-15'
-        })
-        if self.emp.version_id:
-            self.emp.version_id.write({
-                'contract_date_start': '2026-04-01', 'date_start': '2026-04-01',
-                'departure_date': '2026-05-15', 'contract_date_end': '2026-05-15'
-            })
-        days_45 = self.sched_service.compute_service_days(self.emp, window_start, window_end)
-        self.assertEqual(days_45, 45, "Resignation on 15 May should yield 45 service days.")
-
-    def test_02_kerala_min_service_days_guard(self):
-        """Tests that Kerala PT returns BELOW_MIN_SERVICE_DAYS when service days < 60."""
-        sched = self.env['pt.period.schedule'].search([
-            ('state_id', '=', self.state_kl.id),
-            ('periodicity', '=', 'half_yearly'),
-            ('window_start_month', '=', '4'),
-            ('window_end_month', '=', '9'),
+    def _kl_h1(self, min_sd=60):
+        s = self.env['pt.period.schedule'].search([
+            ('state_id', '=', self.state_kl.id), ('periodicity', '=', 'half_yearly'),
+            ('window_start_month', '=', '4'), ('window_end_month', '=', '9'),
         ], limit=1)
-        if not sched:
-            sched = self.env['pt.period.schedule'].create({
-                'state_id': self.state_kl.id,
-                'periodicity': 'half_yearly',
-                'window_start_month': '4',
-                'window_end_month': '9',
-                'deduction_strategy': 'end_of_period',
-                'deduction_month': '9',
-                'min_service_days': 60,
-                'active': True,
+        if not s:
+            s = self.env['pt.period.schedule'].create({
+                'state_id': self.state_kl.id, 'periodicity': 'half_yearly',
+                'window_start_month': '4', 'window_end_month': '9',
+                'deduction_strategy': 'end_of_period', 'deduction_month': '9',
+                'min_service_days': min_sd, 'active': True,
             })
         else:
-            sched.write({'min_service_days': 60})
+            s.write({'min_service_days': min_sd})
+        return s
 
-        # Sub-scenario 1: Joined 3 Aug 2026 (59 days) -> PT = 0, BELOW_MIN_SERVICE_DAYS
-        self.emp.write({'contract_date_start': '2026-08-03', 'date_start': '2026-08-03', 'departure_date': False})
+    def _kl_h2(self, min_sd=60):
+        s = self.env['pt.period.schedule'].search([
+            ('state_id', '=', self.state_kl.id), ('periodicity', '=', 'half_yearly'),
+            ('window_start_month', '=', '10'), ('window_end_month', '=', '3'),
+        ], limit=1)
+        if not s:
+            s = self.env['pt.period.schedule'].create({
+                'state_id': self.state_kl.id, 'periodicity': 'half_yearly',
+                'window_start_month': '10', 'window_end_month': '3',
+                'deduction_strategy': 'end_of_period', 'deduction_month': '3',
+                'min_service_days': min_sd, 'active': True,
+            })
+        else:
+            s.write({'min_service_days': min_sd})
+        return s
+
+    def _tn_h1(self, min_sd=60):
+        s = self.env['pt.period.schedule'].search([
+            ('state_id', '=', self.state_tn.id), ('periodicity', '=', 'half_yearly'),
+            ('window_start_month', '=', '4'), ('window_end_month', '=', '9'),
+        ], limit=1)
+        if not s:
+            s = self.env['pt.period.schedule'].create({
+                'state_id': self.state_tn.id, 'periodicity': 'half_yearly',
+                'window_start_month': '4', 'window_end_month': '9',
+                'deduction_strategy': 'end_of_period', 'deduction_month': '9',
+                'min_service_days': min_sd, 'active': True,
+            })
+        else:
+            s.write({'min_service_days': min_sd})
+        return s
+
+    def _dates(self, join=None, exit=None):
+        vals = {}
+        if join:
+            vals['contract_date_start'] = str(join)
+            vals['date_start'] = str(join)
+        if exit is not None:
+            if exit is False:
+                vals['departure_date'] = False
+                vals['contract_date_end'] = False
+            else:
+                vals['departure_date'] = str(exit)
+                vals['contract_date_end'] = str(exit)
+        self.emp.write(vals)
         if self.emp.version_id:
-            self.emp.version_id.write({'contract_date_start': '2026-08-03', 'date_start': '2026-08-03', 'departure_date': False})
+            self.emp.version_id.write(vals)
 
-        res_59 = self.pt_service.compute_pt(
-            employee=self.emp,
-            salary=50000.0,
-            eval_date=date(2026, 9, 30),
-            state=self.state_kl,
-        )
-        self.assertEqual(res_59.amount, 0.0)
-        self.assertEqual(res_59.validation_status, 'BELOW_MIN_SERVICE_DAYS')
-        self.assertFalse(res_59.is_valid)
+    # KL-01
+    def test_kl_01_service_days_calculation(self):
+        w_start, w_end = date(2026, 4, 1), date(2026, 9, 30)
+        self._dates(join=date(2026, 8, 2), exit=False)
+        self.assertEqual(self.sched_service.compute_service_days(self.emp, w_start, w_end), 60)
+        self.assertEqual(self.sched_service.calculate_service_days(self.emp, w_start, w_end), 60)
+        self._dates(join=date(2026, 8, 3))
+        self.assertEqual(self.sched_service.compute_service_days(self.emp, w_start, w_end), 59)
+        self._dates(join=date(2026, 4, 1), exit=False)
+        self.assertEqual(self.sched_service.compute_service_days(self.emp, w_start, w_end), 183)
+        self._dates(join=date(2026, 4, 1), exit=date(2026, 5, 15))
+        self.assertEqual(self.sched_service.compute_service_days(self.emp, w_start, w_end), 45)
 
-        # Sub-scenario 2: Joined 2 Aug 2026 (60 days) -> PT applies
-        self.emp.write({'contract_date_start': '2026-08-02', 'date_start': '2026-08-02'})
-        if self.emp.version_id:
-            self.emp.version_id.write({'contract_date_start': '2026-08-02', 'date_start': '2026-08-02'})
+    # KL-02
+    def test_kl_02_kerala_below_min_service_days(self):
+        self._kl_h1(60)
+        self._dates(join=date(2026, 8, 3), exit=False)
+        res = self.pt_service.compute_pt(employee=self.emp, salary=50000.0, eval_date=date(2026, 9, 30), state=self.state_kl)
+        self.assertEqual(res.amount, 0.0)
+        self.assertEqual(res.validation_status, 'BELOW_MIN_SERVICE_DAYS')
+        self.assertFalse(res.is_valid)
 
-        res_60 = self.pt_service.compute_pt(
-            employee=self.emp,
-            salary=50000.0,
-            eval_date=date(2026, 9, 30),
-            state=self.state_kl,
-        )
-        self.assertNotEqual(res_60.validation_status, 'BELOW_MIN_SERVICE_DAYS')
-        self.assertTrue(res_60.amount > 0.0)
+    # KL-03
+    def test_kl_03_kerala_exactly_60_days_eligible(self):
+        self._kl_h1(60)
+        self._dates(join=date(2026, 8, 2), exit=False)
+        res = self.pt_service.compute_pt(employee=self.emp, salary=50000.0, eval_date=date(2026, 9, 30), state=self.state_kl)
+        self.assertNotEqual(res.validation_status, 'BELOW_MIN_SERVICE_DAYS')
+        self.assertGreater(res.amount, 0.0)
 
-    def test_03_zero_earned_wage_guard(self):
-        """Tests that zero earned wage results in ZERO_WAGE status (skipped in simulation)."""
-        # Actual computation with zero wage
-        res_zero = self.pt_service.compute_pt(
-            employee=self.emp,
-            salary=0.0,
-            eval_date=date(2026, 9, 30),
-            state=self.state_kl,
-            is_simulation=False,
-        )
+    # KL-04
+    def test_kl_04_kerala_joined_before_h1_start(self):
+        self._kl_h1(60)
+        self._dates(join=date(2026, 1, 1), exit=False)
+        res = self.pt_service.compute_pt(employee=self.emp, salary=50000.0, eval_date=date(2026, 9, 30), state=self.state_kl)
+        self.assertNotEqual(res.validation_status, 'BELOW_MIN_SERVICE_DAYS')
+
+    # KL-05
+    def test_kl_05_kerala_early_exit_below_60_days(self):
+        self._kl_h1(60)
+        self._dates(join=date(2026, 4, 1), exit=date(2026, 5, 29))
+        res = self.pt_service.compute_pt(employee=self.emp, salary=50000.0, eval_date=date(2026, 9, 30), state=self.state_kl)
+        self.assertEqual(res.amount, 0.0)
+        self.assertEqual(res.validation_status, 'BELOW_MIN_SERVICE_DAYS')
+
+    # KL-06
+    def test_kl_06_kerala_h2_below_60_days(self):
+        self._kl_h2(60)
+        self._dates(join=date(2027, 2, 1), exit=False)
+        w_s, w_e = date(2026, 10, 1), date(2027, 3, 31)
+        self.assertEqual(self.sched_service.compute_service_days(self.emp, w_s, w_e), 59)
+        res = self.pt_service.compute_pt(employee=self.emp, salary=50000.0, eval_date=date(2027, 3, 31), state=self.state_kl)
+        self.assertEqual(res.amount, 0.0)
+        self.assertEqual(res.validation_status, 'BELOW_MIN_SERVICE_DAYS')
+
+    # KL-07
+    def test_kl_07_kerala_h2_exactly_60_days_eligible(self):
+        self._kl_h2(60)
+        self._dates(join=date(2027, 1, 31), exit=False)
+        w_s, w_e = date(2026, 10, 1), date(2027, 3, 31)
+        self.assertEqual(self.sched_service.compute_service_days(self.emp, w_s, w_e), 60)
+        res = self.pt_service.compute_pt(employee=self.emp, salary=50000.0, eval_date=date(2027, 3, 31), state=self.state_kl)
+        self.assertNotEqual(res.validation_status, 'BELOW_MIN_SERVICE_DAYS')
+
+    # KL-08
+    def test_kl_08_kerala_halfyear_boundary_reset(self):
+        self._kl_h2(60)
+        self._dates(join=date(2026, 8, 2), exit=date(2026, 9, 30))
+        w_h2 = (date(2026, 10, 1), date(2027, 3, 31))
+        self.assertEqual(self.sched_service.compute_service_days(self.emp, *w_h2), 0)
+        res = self.pt_service.compute_pt(employee=self.emp, salary=50000.0, eval_date=date(2027, 3, 31), state=self.state_kl)
+        self.assertEqual(res.amount, 0.0)
+        self.assertEqual(res.validation_status, 'BELOW_MIN_SERVICE_DAYS')
+
+    # KL-09
+    def test_kl_09_salary_revision_does_not_affect_service_days(self):
+        self._kl_h1(60)
+        self._dates(join=date(2026, 8, 2), exit=False)
+        w_s, w_e = date(2026, 4, 1), date(2026, 9, 30)
+        days_before = self.sched_service.compute_service_days(self.emp, w_s, w_e)
+        contract = getattr(self.emp, 'contract_id', False) or getattr(self.emp, 'version_id', False)
+        if contract:
+            contract.write({'wage': 80000.0})
+        self.assertEqual(self.sched_service.compute_service_days(self.emp, w_s, w_e), days_before)
+
+    # TN-01
+    def test_tn_01_tamilnadu_below_60_days_h1(self):
+        self._tn_h1(60)
+        self._dates(join=date(2026, 8, 3), exit=False)
+        res = self.pt_service.compute_pt(employee=self.emp, salary=50000.0, eval_date=date(2026, 9, 30), state=self.state_tn)
+        self.assertEqual(res.amount, 0.0)
+        self.assertEqual(res.validation_status, 'BELOW_MIN_SERVICE_DAYS')
+
+    # TN-02
+    def test_tn_02_tamilnadu_exactly_60_days_eligible(self):
+        self._tn_h1(60)
+        self._dates(join=date(2026, 8, 2), exit=False)
+        res = self.pt_service.compute_pt(employee=self.emp, salary=50000.0, eval_date=date(2026, 9, 30), state=self.state_tn)
+        self.assertNotEqual(res.validation_status, 'BELOW_MIN_SERVICE_DAYS')
+
+    # TN-03
+    def test_tn_03_tamilnadu_full_period_employee(self):
+        self._tn_h1(60)
+        self._dates(join=date(2025, 1, 1), exit=False)
+        res = self.pt_service.compute_pt(employee=self.emp, salary=50000.0, eval_date=date(2026, 9, 30), state=self.state_tn)
+        self.assertNotEqual(res.validation_status, 'BELOW_MIN_SERVICE_DAYS')
+
+    # TN-04
+    def test_tn_04_tamilnadu_early_exit_below_60_days(self):
+        self._tn_h1(60)
+        self._dates(join=date(2026, 4, 1), exit=date(2026, 5, 29))
+        res = self.pt_service.compute_pt(employee=self.emp, salary=50000.0, eval_date=date(2026, 9, 30), state=self.state_tn)
+        self.assertEqual(res.amount, 0.0)
+        self.assertEqual(res.validation_status, 'BELOW_MIN_SERVICE_DAYS')
+
+    # TN-05
+    def test_tn_05_tamilnadu_no_min_service_days_always_eligible(self):
+        self._tn_h1(0)
+        self._dates(join=date(2026, 8, 3), exit=False)
+        res = self.pt_service.compute_pt(employee=self.emp, salary=50000.0, eval_date=date(2026, 9, 30), state=self.state_tn)
+        self.assertNotEqual(res.validation_status, 'BELOW_MIN_SERVICE_DAYS')
+
+    # TN-06
+    def test_tn_06_tamilnadu_check_min_service_days_return_tuple(self):
+        sched = self._tn_h1(60)
+        self._dates(join=date(2026, 8, 3), exit=False)
+        meets, s_days, min_days = self.sched_service.check_min_service_days(sched, self.emp, eval_date=date(2026, 9, 30))
+        self.assertFalse(meets)
+        self.assertEqual(s_days, 59)
+        self.assertEqual(min_days, 60)
+        self._dates(join=date(2026, 8, 2), exit=False)
+        meets60, s60, m60 = self.sched_service.check_min_service_days(sched, self.emp, eval_date=date(2026, 9, 30))
+        self.assertTrue(meets60)
+        self.assertEqual(s60, 60)
+        self.assertEqual(m60, 60)
+
+    # GEN-01
+    def test_gen_01_zero_earned_wage_guard(self):
+        res_zero = self.pt_service.compute_pt(employee=self.emp, salary=0.0, eval_date=date(2026, 9, 30), state=self.state_kl, is_simulation=False)
         self.assertEqual(res_zero.amount, 0.0)
         self.assertEqual(res_zero.validation_status, 'ZERO_WAGE')
         self.assertFalse(res_zero.is_valid)
-
-        # Simulation mode should not trigger ZERO_WAGE
-        res_sim = self.pt_service.compute_pt(
-            employee=self.emp,
-            salary=0.0,
-            eval_date=date(2026, 9, 30),
-            state=self.state_kl,
-            is_simulation=True,
-        )
+        res_sim = self.pt_service.compute_pt(employee=self.emp, salary=0.0, eval_date=date(2026, 9, 30), state=self.state_kl, is_simulation=True)
         self.assertNotEqual(res_sim.validation_status, 'ZERO_WAGE')
 
-    def test_04_net_pay_guard(self):
-        """Tests that PT deduction is capped at GROSS + DED from localdict."""
-        class MockCategories:
-            def __init__(self, gross, ded):
-                self.GROSS = gross
-                self.DED = ded
+    # GEN-02
+    def test_gen_02_net_pay_guard(self):
+        class MockCats:
+            def __init__(self, g, d):
+                self.GROSS = g
+                self.DED = d
+        self._dates(join=date(2026, 4, 1), exit=False)
+        self._kl_h1(60)
+        cats = MockCats(5000.0, -4900.0)
+        res_c = self.pt_service.compute_pt(employee=self.emp, salary=50000.0, eval_date=date(2026, 9, 30), state=self.state_kl, localdict={'categories': cats}, is_simulation=False)
+        self.assertEqual(res_c.amount, 100.0)
+        cats0 = MockCats(5000.0, -5000.0)
+        res_0 = self.pt_service.compute_pt(employee=self.emp, salary=50000.0, eval_date=date(2026, 9, 30), state=self.state_kl, localdict={'categories': cats0}, is_simulation=False)
+        self.assertEqual(res_0.amount, 0.0)
+        res_s = self.pt_service.compute_pt(employee=self.emp, salary=50000.0, eval_date=date(2026, 9, 30), state=self.state_kl, localdict={'categories': cats}, is_simulation=True)
+        self.assertGreater(res_s.amount, 100.0)
 
-        # Sub-scenario 1: Gross 5000, other deductions -4900 -> net available = 100
-        # If PT would be 1250, it should be capped at 100
-        cats = MockCategories(gross=5000.0, ded=-4900.0)
-        res_capped = self.pt_service.compute_pt(
-            employee=self.emp,
-            salary=50000.0,
-            eval_date=date(2026, 9, 30),
-            state=self.state_kl,
-            localdict={'categories': cats},
-            is_simulation=False,
-        )
-        self.assertEqual(res_capped.amount, 100.0, "PT should be capped at remaining net earnings (100.0).")
-
-        # Sub-scenario 2: Gross 5000, other deductions -5000 -> net available = 0
-        cats_zero = MockCategories(gross=5000.0, ded=-5000.0)
-        res_zero_net = self.pt_service.compute_pt(
-            employee=self.emp,
-            salary=50000.0,
-            eval_date=date(2026, 9, 30),
-            state=self.state_kl,
-            localdict={'categories': cats_zero},
-            is_simulation=False,
-        )
-        self.assertEqual(res_zero_net.amount, 0.0, "PT should be capped at 0 when other deductions equal gross.")
-
-        # Sub-scenario 3: Simulation skips net pay guard
-        res_sim = self.pt_service.compute_pt(
-            employee=self.emp,
-            salary=50000.0,
-            eval_date=date(2026, 9, 30),
-            state=self.state_kl,
-            localdict={'categories': cats},
-            is_simulation=True,
-        )
-        self.assertTrue(res_sim.amount > 100.0, "Simulation should skip net pay guard capping.")
-
-    def test_05_counted_payslip_states(self):
-        """Tests that get_period_already_deducted counts only verify, done, paid states."""
+    # GEN-03
+    def test_gen_03_counted_payslip_states(self):
         strategy = PTPeriodicityStrategyRegistry.get_strategy('half_yearly')
         self.assertEqual(PT_COUNTED_PAYSLIP_STATES, ('verify', 'done', 'paid'))
-
         struct = self.env.ref('hudson_payroll_base.structure_base', raise_if_not_found=False) or self.env['hr.payroll.structure'].search([], limit=1)
-
         pt_rule = self.env.ref('hudson_in_payroll.hds_in_rule_pt', raise_if_not_found=False) or self.env['hr.salary.rule'].search([('code', '=', 'PT')], limit=1)
-
         contract = getattr(self.emp, 'contract_id', False) or getattr(self.emp, 'version_id', False)
-        # Create a draft payslip with PT line
         slip_draft = self.env['hr.payslip'].create({
-            'name': 'Draft Slip Apr',
-            'employee_id': self.emp.id,
+            'name': 'Draft Slip Apr', 'employee_id': self.emp.id,
             'contract_id': contract.id if contract else False,
-            'date_from': '2026-04-01',
-            'date_to': '2026-04-30',
-            'struct_id': struct.id if struct else False,
-            'state': 'draft',
+            'date_from': '2026-04-01', 'date_to': '2026-04-30',
+            'struct_id': struct.id if struct else False, 'state': 'draft',
         })
-        line = self.env['hr.payslip.line'].create({
-            'slip_id': slip_draft.id,
-            'employee_id': self.emp.id,
+        self.env['hr.payslip.line'].create({
+            'slip_id': slip_draft.id, 'employee_id': self.emp.id,
             'contract_id': contract.id if contract else False,
             'salary_rule_id': pt_rule.id if pt_rule else False,
-            'name': 'Professional Tax',
-            'code': 'PT',
-            'amount': -500.0,
-            'quantity': 1.0,
-            'total': -500.0,
+            'name': 'Professional Tax', 'code': 'PT',
+            'amount': -500.0, 'quantity': 1.0, 'total': -500.0,
         })
         self.env.invalidate_all()
-
-        deducted = strategy.get_period_already_deducted(
-            self.env, employee=self.emp, start_date=date(2026, 4, 1), eval_date=date(2026, 9, 30)
-        )
-        self.assertEqual(deducted, 0.0, "Draft payslip should NOT be counted in already deducted PT.")
-
-        # Mark slip as paid
+        deducted = strategy.get_period_already_deducted(self.env, employee=self.emp, start_date=date(2026, 4, 1), eval_date=date(2026, 9, 30))
+        self.assertEqual(deducted, 0.0)
         slip_draft.write({'state': 'paid'})
         self.env.invalidate_all()
-        deducted_paid = strategy.get_period_already_deducted(
-            self.env, employee=self.emp, start_date=date(2026, 4, 1), eval_date=date(2026, 9, 30)
-        )
-        self.assertEqual(deducted_paid, 500.0, "Paid payslip SHOULD be counted in already deducted PT.")
+        deducted_paid = strategy.get_period_already_deducted(self.env, employee=self.emp, start_date=date(2026, 4, 1), eval_date=date(2026, 9, 30))
+        self.assertEqual(deducted_paid, 500.0)

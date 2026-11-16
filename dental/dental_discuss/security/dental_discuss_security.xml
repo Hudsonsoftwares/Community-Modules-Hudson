@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Dental Discuss & Communication Privilege / Security definitions -->
+    <record id="res_groups_privilege_dental_communication" model="res.groups.privilege">
+        <field name="name">Dental Communication</field>
+        <field name="sequence">40</field>
+        <field name="category_id" ref="dental_base.module_category_dental_clinic"/>
+    </record>
+</odoo>
+

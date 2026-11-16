@@ -112,7 +112,9 @@ class TdsFinancialYearWizard(models.TransientModel):
         if existing:
             raise ValidationError(_(f"Financial Year with Code '{self.code}' already exists!"))
 
-        # Create new FY
+        # Create new FY. Slab lists are passed explicitly (empty) so tds.financial.year.default_get()
+        # does not pre-fill them from the latest year; the copies below are the only source of slabs
+        # (otherwise every slab is created twice and the overlap validation fails).
         new_fy = self.env['tds.financial.year'].create({
             'name': self.name,
             'code': self.code,
@@ -121,6 +123,8 @@ class TdsFinancialYearWizard(models.TransientModel):
             'end_date': self.end_date,
             'is_closed': False,
             'active': True,
+            'tax_slab_ids': [],
+            'surcharge_ids': [],
         })
 
         # Copy Tax Slabs
@@ -128,6 +132,7 @@ class TdsFinancialYearWizard(models.TransientModel):
             for slab in self.source_fy_id.tax_slab_ids:
                 slab.copy({
                     'financial_year_id': new_fy.id,
+                    'date_from': self.start_date,
                 })
 
         # Copy Surcharge Slabs
@@ -135,6 +140,7 @@ class TdsFinancialYearWizard(models.TransientModel):
             for surcharge in self.source_fy_id.surcharge_ids:
                 surcharge.copy({
                     'financial_year_id': new_fy.id,
+                    'date_from': self.start_date,
                 })
 
         # Close previous FY if requested

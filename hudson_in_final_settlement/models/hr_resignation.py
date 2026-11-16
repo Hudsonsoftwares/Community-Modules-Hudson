@@ -1,6 +1,10 @@
-# -*- coding: utf-8 -*-
-from odoo import api, fields, models, _
+import logging
+# pyrefly: ignore [missing-import]
+from odoo import fields, models, _
+# pyrefly: ignore [missing-import]
 from odoo.exceptions import UserError
+
+_logger = logging.getLogger(__name__)
 
 
 class HrResignation(models.Model):
@@ -54,6 +58,7 @@ class HrResignation(models.Model):
         last_day = self.approved_revealing_date or self.expected_revealing_date or fields.Date.today()
         company = self.employee_id.company_id or self.env.company
 
+        departure_reason = self.env['final.settlement']._get_departure_reason_for_exit_reason('resignation')
         settlement = self.env['final.settlement'].create({
             'employee_id': self.employee_id.id,
             'company_id': company.id,
@@ -61,6 +66,7 @@ class HrResignation(models.Model):
             'last_working_day': last_day,
             'settlement_date': fields.Date.today(),
             'exit_reason': 'resignation',
+            'departure_reason_id': departure_reason.id if departure_reason else False,
             'state': 'draft',
         })
 
@@ -69,8 +75,8 @@ class HrResignation(models.Model):
             from ..services.final_settlement_calculation_service import FinalSettlementCalculationService
             calc_service = FinalSettlementCalculationService(self.env)
             calc_service.compute_settlement(settlement)
-        except Exception:
-            pass
+        except Exception as e:
+            _logger.exception("Failed to pre-compute final settlement lines for %s: %s", settlement.name, str(e))
 
         return {
             'name': _('Final Settlement'),
@@ -134,6 +140,7 @@ class HrResignation(models.Model):
             if not existing:
                 last_day = record.approved_revealing_date or record.expected_revealing_date or fields.Date.today()
                 company = record.employee_id.company_id or self.env.company
+                departure_reason = self.env['final.settlement']._get_departure_reason_for_exit_reason('resignation')
                 settlement = self.env['final.settlement'].create({
                     'employee_id': record.employee_id.id,
                     'company_id': company.id,
@@ -141,6 +148,7 @@ class HrResignation(models.Model):
                     'last_working_day': last_day,
                     'settlement_date': fields.Date.today(),
                     'exit_reason': 'resignation',
+                    'departure_reason_id': departure_reason.id if departure_reason else False,
                     'state': 'draft',
                 })
                 # Automatically compute settlement breakdown lines
@@ -148,5 +156,5 @@ class HrResignation(models.Model):
                     from ..services.final_settlement_calculation_service import FinalSettlementCalculationService
                     calc_service = FinalSettlementCalculationService(self.env)
                     calc_service.compute_settlement(settlement)
-                except Exception:
-                    pass
+                except Exception as e:
+                    _logger.exception("Failed to auto-compute final settlement lines for %s (resignation %s): %s", settlement.name, record.name, str(e))

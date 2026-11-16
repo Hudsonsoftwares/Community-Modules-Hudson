@@ -14,6 +14,14 @@ class HudsonAttendanceRegularization(models.Model):
         required=True,
         tracking=True,
     )
+    company_id = fields.Many2one(
+        'res.company',
+        string='Company',
+        related='employee_id.company_id',
+        store=True,
+        index=True,
+        readonly=True,
+    )
     anomaly_id = fields.Many2one(
         'hudson.attendance.anomaly',
         string='Linked Anomaly',

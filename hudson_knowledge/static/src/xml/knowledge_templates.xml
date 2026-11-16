@@ -1,97 +1,102 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <templates xml:space="preserve">
 
-<!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+<!-- ═══════════════════════════════════════════════════════════════
      Main Knowledge Client Action
-â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+═══════════════════════════════════════════════════════════════ -->
 <t t-name="hudson_knowledge.KnowledgeClientAction" owl="1">
     <div class="o_action o_knowledge_client_action">
         <!-- Main layout: sidebar + content (Native Odoo top navbar is used above) -->
         <div class="o_knowledge_main">
             <!-- Sidebar -->
             <div class="o_knowledge_sidebar">
-                <!-- New Article Button -->
-                <button class="o_knowledge_new_article_btn" t-on-click="() => this.onNewArticle(false)">
-                    <span class="o_knowledge_new_icon">+</span>
-                    New Article
-                </button>
-
-                <!-- Search -->
-                <div class="o_knowledge_sidebar_search" t-on-click="onSearch">
-                    <i class="fa fa-search"/>
-                    <span>Searchâ€¦</span>
+                <!-- New Article + Search (Odoo Online layout) -->
+                <div class="o_knowledge_sidebar_top">
+                    <button class="o_knowledge_new_article_btn" t-on-click="() => this.onNewArticle(false)">
+                        <i class="oi" data-icon="add"/>
+                        <span>New Article</span>
+                    </button>
+                    <button class="o_knowledge_sidebar_search_btn" t-on-click="onSearch" title="Search an article">
+                        <i class="oi" data-icon="search"/>
+                    </button>
                 </div>
 
-                <!-- Scrollable tree -->
-                <div class="o_knowledge_sidebar_tree">
+                <!-- Scrollable tree (drag &amp; drop between sections) -->
+                <div class="o_knowledge_sidebar_tree" t-att-class="{ 'o_knowledge_is_dragging': state.isDragging }">
                     <!-- Favorites -->
                     <t t-if="state.sidebar.favorites and state.sidebar.favorites.length">
-                        <div class="o_knowledge_sidebar_section">
-                            <span class="o_knowledge_section_title">Favorites</span>
+                        <div class="o_knowledge_section" data-section="favorites">
+                            <div class="o_knowledge_sidebar_section">
+                                <span class="o_knowledge_section_title">Favorites</span>
+                            </div>
+                            <t t-foreach="state.sidebar.favorites" t-as="article" t-key="'fav_' + article.id">
+                                <t t-call="hudson_knowledge.KnowledgeSidebarItem" item="article" level="0" section="'favorites'"/>
+                            </t>
                         </div>
-                        <t t-foreach="state.sidebar.favorites" t-as="article" t-key="article.id">
-                            <t t-call="hudson_knowledge.KnowledgeSidebarItem" item="article" level="0"/>
+                    </t>
+                    <div class="o_knowledge_section"
+                         t-att-data-section="'workspace'"
+                         t-on-dragover="(ev) => this.onSidebarSectionDragOver(ev)"
+                         t-on-drop="(ev) => this.onSidebarSectionDrop(ev, 'workspace')">
+                        <div class="o_knowledge_sidebar_section">
+                            <span class="o_knowledge_section_title">Workspace</span>
+                            <button class="o_knowledge_section_add_btn"
+                                    t-on-click="() => this.onNewArticle(false, 'workspace')"
+                                    title="Create an article in Workspace">
+                                <i class="oi" data-icon="add"/>
+                            </button>
+                        </div>
+                        <t t-foreach="state.sidebar.workspace" t-as="article" t-key="article.id">
+                            <t t-call="hudson_knowledge.KnowledgeSidebarItem" item="article" level="0" section="'workspace'"/>
                         </t>
-                    </t>
-
-                    <!-- Workspace -->
-                    <div class="o_knowledge_sidebar_section">
-                        <span class="o_knowledge_section_title">Workspace</span>
-                        <button class="o_knowledge_section_add_btn"
-                                t-on-click="() => this.onNewArticle(false, 'workspace')"
-                                title="New Workspace Article">
-                            <i class="fa fa-plus"/>
-                        </button>
+                        <div t-if="!state.sidebar.workspace or !state.sidebar.workspace.length" class="o_knowledge_section_empty">
+                            <t t-if="state.isDragging">Drop here to move to Workspace</t>
+                        </div>
                     </div>
-                    <t t-foreach="state.sidebar.workspace" t-as="article" t-key="article.id">
-                        <t t-call="hudson_knowledge.KnowledgeSidebarItem" item="article" level="0"/>
-                    </t>
-                    <t t-if="!state.sidebar.workspace or !state.sidebar.workspace.length">
-                        <div class="text-muted px-4 py-1" style="font-size:12px; font-style: italic;">No workspace articles</div>
-                    </t>
-
-                    <!-- Shared -->
-                    <div class="o_knowledge_sidebar_section">
-                        <span class="o_knowledge_section_title">Shared</span>
-                        <button class="o_knowledge_section_add_btn"
-                                t-on-click="() => this.onNewArticle(false, 'shared')"
-                                title="New Shared Article">
-                            <i class="fa fa-plus"/>
-                        </button>
+                    <div class="o_knowledge_section" t-if="(state.sidebar.shared and state.sidebar.shared.length) or state.isDragging"
+                         t-att-data-section="'shared'"
+                         t-on-dragover="(ev) => this.onSidebarSectionDragOver(ev)"
+                         t-on-drop="(ev) => this.onSidebarSectionDrop(ev, 'shared')">
+                        <div class="o_knowledge_sidebar_section">
+                            <span class="o_knowledge_section_title">Shared</span>
+                        </div>
+                        <t t-foreach="state.sidebar.shared" t-as="article" t-key="article.id">
+                            <t t-call="hudson_knowledge.KnowledgeSidebarItem" item="article" level="0" section="'shared'"/>
+                        </t>
+                        <div t-if="!state.sidebar.shared or !state.sidebar.shared.length" class="o_knowledge_section_empty">
+                            <t t-if="state.isDragging">Drop here to move to Shared</t>
+                        </div>
                     </div>
-                    <t t-foreach="state.sidebar.shared" t-as="article" t-key="article.id">
-                        <t t-call="hudson_knowledge.KnowledgeSidebarItem" item="article" level="0"/>
-                    </t>
-                    <t t-if="!state.sidebar.shared or !state.sidebar.shared.length">
-                        <div class="text-muted px-4 py-1" style="font-size:12px; font-style: italic;">No shared articles</div>
-                    </t>
-
-                    <!-- Private -->
-                    <div class="o_knowledge_sidebar_section">
-                        <span class="o_knowledge_section_title">Private</span>
-                        <button class="o_knowledge_section_add_btn"
-                                t-on-click="() => this.onNewArticle(false, 'private')"
-                                title="New Private Article">
-                            <i class="fa fa-plus"/>
-                        </button>
+                    <div class="o_knowledge_section"
+                         t-att-data-section="'private'"
+                         t-on-dragover="(ev) => this.onSidebarSectionDragOver(ev)"
+                         t-on-drop="(ev) => this.onSidebarSectionDrop(ev, 'private')">
+                        <div class="o_knowledge_sidebar_section">
+                            <span class="o_knowledge_section_title">Private</span>
+                            <button class="o_knowledge_section_add_btn"
+                                    t-on-click="() => this.onNewArticle(false, 'private')"
+                                    title="Create an article in Private">
+                                <i class="oi" data-icon="add"/>
+                            </button>
+                        </div>
+                        <t t-foreach="state.sidebar.private" t-as="article" t-key="article.id">
+                            <t t-call="hudson_knowledge.KnowledgeSidebarItem" item="article" level="0" section="'private'"/>
+                        </t>
+                        <div t-if="!state.sidebar.private or !state.sidebar.private.length" class="o_knowledge_section_empty">
+                            <t t-if="state.isDragging">Drop here to move to Private</t>
+                        </div>
                     </div>
-                    <t t-foreach="state.sidebar.private" t-as="article" t-key="article.id">
-                        <t t-call="hudson_knowledge.KnowledgeSidebarItem" item="article" level="0"/>
-                    </t>
-                    <t t-if="!state.sidebar.private or !state.sidebar.private.length">
-                        <div class="text-muted px-4 py-1" style="font-size:12px; font-style: italic;">No private articles</div>
-                    </t>
                 </div>
 
                 <!-- Footer buttons -->
                 <div class="o_knowledge_sidebar_footer">
                     <button class="o_knowledge_footer_btn" t-on-click="onBrowseTemplates">
-                        <i class="fa fa-paint-brush fa-fw"/>
+                        <i class="oi oi-fw" data-icon="brush"/>
                         Browse Templates
                     </button>
                     <button class="o_knowledge_footer_btn" t-on-click="onOpenTrash">
-                        <i class="fa fa-trash fa-fw"/>
-                        Open Trash
+                        <i class="oi oi-fw" data-icon="delete"/>
+                        Open the Trash
                     </button>
                 </div>
             </div>
@@ -100,18 +105,18 @@
             <div class="o_knowledge_content" t-ref="this.contentArea">
                 <t t-if="state.loading">
                     <div class="o_knowledge_loading">
-                        <i class="fa fa-spinner fa-spin"/>
-                        Loadingâ€¦
+                        <i class="oi oi-spin" data-icon="progress_activity"/>
+                        Loading…
                     </div>
                 </t>
 
                 <t t-elif="!state.currentArticle">
                     <div class="o_knowledge_empty_state">
-                        <div class="o_knowledge_empty_icon">ðŸ“š</div>
+                        <div class="o_knowledge_empty_icon">📚</div>
                         <h3>Welcome to Knowledge</h3>
                         <p>Create your first article to get started, or browse existing articles in the sidebar.</p>
                         <button class="btn btn-primary mt-3" t-on-click="() => this.onNewArticle(false)">
-                            <i class="fa fa-plus me-2"/>
+                            <i class="oi me-2" data-icon="add"/>
                             New Article
                         </button>
                     </div>
@@ -120,11 +125,22 @@
                 <t t-else="">
                     <!-- Top Breadcrumbs / Actions Toolbar -->
                     <div class="o_knowledge_article_toolbar">
-                        <div class="d-flex align-items-center gap-1">
+                        <div class="d-flex align-items-center gap-1 min-w-0">
+                            <!-- Breadcrumbs of the app the article was opened from (Knowledge button) -->
+                            <t t-foreach="this.appBreadcrumbs" t-as="crumb" t-key="crumb_index">
+                                <a href="#"
+                                   class="o_knowledge_app_breadcrumb text-truncate"
+                                   t-att-data-crumb-index="crumb_index"
+                                   t-att-title="'Back to &quot;' + (crumb.name || '') + '&quot;'"
+                                   t-on-click.prevent="onAppBreadcrumbClick">
+                                    <t t-out="crumb.name or 'Unnamed'"/>
+                                </a>
+                                <span class="text-muted">/</span>
+                            </t>
                             <!-- Parent article breadcrumb navigation -->
                             <t t-if="state.currentArticle.parent_id">
                                 <span class="o_knowledge_breadcrumb_parent text-muted me-1"
-                                      t-on-click="() => this.openArticle(state.currentArticle.parent_id)"
+                                      t-on-click="() => this.onSelectArticle(state.currentArticle.parent_id)"
                                       style="cursor: pointer; font-size: 14px; font-weight: 500;"
                                       title="Back to parent article">
                                     <t t-out="state.currentArticle.parent_name || 'Parent'"/>
@@ -132,61 +148,40 @@
                                 <span class="text-muted me-1" style="font-size: 13px;">/</span>
                             </t>
 
-                            <span class="o_knowledge_toolbar_emoji" t-ref="this.toolbarEmoji" t-on-click="onEmojiClick" title="Change icon">
-                                <t t-out="state.currentArticle.icon || 'ðŸ“„'"/>
+                            <span t-if="state.currentArticle.icon" class="o_knowledge_toolbar_emoji" t-att-class="{'o_readonly': isArticleReadonly}" t-ref="this.toolbarEmoji" t-on-click="onEmojiClick" t-att-title="isArticleReadonly ? '' : 'Change icon'">
+                                <t t-out="state.currentArticle.icon"/>
                             </span>
                             <input type="text"
                                    class="o_knowledge_toolbar_title_input"
+                                   t-att-readonly="isArticleReadonly"
                                    t-att-value="state.currentArticle.name || ''"
                                    placeholder="Untitled"
                                    t-on-input="onToolbarTitleInput"
                                    t-on-change="onToolbarTitleChange"
                                    title="Rename article"/>
                             
-                            <!-- Cloud Status & Discard:
-                                 When saved: show ONLY cloud with tick icon.
-                                 When unsaved: show cloud save icon + discard (cross) icon. -->
-                            <t t-if="state.saveStatus === 'saved'">
-                                <span class="o_knowledge_cloud_status ms-1" title="All changes saved">
-                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" class="o_cloud_icon o_saved">
-                                        <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z" fill="#5F6368"/>
-                                        <path d="M9.5 14.5L7 12l-1.4 1.4 3.9 3.9 8-8L16.1 7.9z" fill="#FFFFFF"/>
-                                    </svg>
-                                </span>
-                            </t>
-                            <t t-else="">
-                                <span class="o_knowledge_cloud_status o_knowledge_save_btn ms-1"
-                                      t-on-click="onForceSave"
-                                      title="Save changes"
-                                      style="cursor: pointer;">
-                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" class="o_cloud_icon o_unsaved">
-                                        <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z" fill="#5F6368"/>
-                                        <path d="M12 8l-4 4h2.5v4h3v-4H16z" fill="#FFFFFF"/>
-                                    </svg>
-                                </span>
-                                <span class="o_knowledge_toolbar_close o_knowledge_discard_btn ms-1"
-                                      t-on-click="onDiscardChanges"
-                                      title="Discard unsaved changes"
-                                      style="cursor: pointer;">
-                                    <i class="fa fa-times text-muted"/>
-                                </span>
-                            </t>
+                            <!-- Odoo's form Save / Discard indicator: shown while the
+                                 article has unsaved changes (Alt+S / Alt+J). -->
+                            <FormStatusIndicator t-if="!this.isArticleReadonly"
+                                                 isDirty="this.isDirty"
+                                                 save="() => this.onForceSave()"
+                                                 discard="() => this.onDiscardChanges()"/>
                         </div>
 
                         <div class="ms-auto d-flex align-items-center gap-1">
                             <button class="o_knowledge_share_btn" t-on-click="onShare">
-                                <i class="fa fa-share-alt me-1"/>
+                                <i class="oi me-1" data-icon="share"/>
                                 Share
                             </button>
                             <button class="o_knowledge_icon_btn"
                                     t-att-class="state.currentArticle.is_user_favorite ? 'o_knowledge_starred' : ''"
                                     t-on-click="onToggleFavorite"
                                     title="Toggle Favorite">
-                                <i t-att-class="state.currentArticle.is_user_favorite ? 'fa fa-star text-warning' : 'fa fa-star-o'"/>
+                                <i class="oi" data-icon="star" t-att-class="state.currentArticle.is_user_favorite ? 'oi-filled text-warning' : ''"/>
                             </button>
                             <button class="o_knowledge_icon_btn" t-on-click="onToggleKebab"
                                     t-ref="this.kebabBtn" title="More options">
-                                <i class="fa fa-ellipsis-v"/>
+                                <i class="oi" data-icon="more_vert"/>
                             </button>
                         </div>
 
@@ -194,49 +189,31 @@
                         <t t-if="state.showKebab">
                             <div class="o_knowledge_kebab_menu" t-ref="this.kebabMenu">
                                 <div class="o_knowledge_kebab_section">
-                                    <button class="o_knowledge_kebab_item" t-on-click="onAddIcon">
-                                        <span class="o_knowledge_kebab_icon">ðŸ˜€</span>
+                                    <button class="o_knowledge_kebab_item" t-if="!isArticleReadonly" t-on-click="onAddIcon">
+                                        <span class="o_knowledge_kebab_icon">😀</span>
                                         <span class="o_knowledge_kebab_label">Add Icon</span>
                                     </button>
-                                    <button class="o_knowledge_kebab_item" t-on-click="onAddCover">
-                                        <span class="o_knowledge_kebab_icon"><i class="fa fa-image"/></span>
+                                    <button class="o_knowledge_kebab_item" t-if="!isArticleReadonly" t-on-click="onAddCover">
+                                        <span class="o_knowledge_kebab_icon"><i class="oi" data-icon="image"/></span>
                                         <span class="o_knowledge_kebab_label">Add Cover</span>
                                     </button>
                                     <button class="o_knowledge_kebab_item" t-on-click="onToggleFullWidth">
-                                        <span class="o_knowledge_kebab_icon"><i class="fa fa-arrows-h"/></span>
+                                        <span class="o_knowledge_kebab_icon"><i class="oi" data-icon="width"/></span>
                                         <span class="o_knowledge_kebab_label">Full Width</span>
                                         <span class="o_knowledge_kebab_toggle">
-                                            <t t-if="state.currentArticle.full_width">âœ“</t>
+                                            <t t-if="state.currentArticle.full_width">✓</t>
                                         </span>
                                     </button>
                                 </div>
 
                                 <div class="o_knowledge_kebab_section">
-                                    <t t-if="state.currentArticle.visibility !== 'private'">
-                                        <button class="o_knowledge_kebab_item" t-on-click="() => this.onSetArticleVisibility(state.currentArticle, 'private')">
-                                            <span class="o_knowledge_kebab_icon"><i class="fa fa-lock"/></span>
-                                            <span class="o_knowledge_kebab_label">Move to Private</span>
-                                        </button>
-                                    </t>
-                                    <t t-if="state.currentArticle.visibility !== 'workspace'">
-                                        <button class="o_knowledge_kebab_item" t-on-click="() => this.onSetArticleVisibility(state.currentArticle, 'workspace')">
-                                            <span class="o_knowledge_kebab_icon"><i class="fa fa-users"/></span>
-                                            <span class="o_knowledge_kebab_label">Move to Workspace</span>
-                                        </button>
-                                    </t>
-                                    <t t-if="state.currentArticle.visibility !== 'shared'">
-                                        <button class="o_knowledge_kebab_item" t-on-click="() => this.onSetArticleVisibility(state.currentArticle, 'shared')">
-                                            <span class="o_knowledge_kebab_icon"><i class="fa fa-share-alt"/></span>
-                                            <span class="o_knowledge_kebab_label">Move to Shared</span>
-                                        </button>
-                                    </t>
                                     <button class="o_knowledge_kebab_item" t-on-click="onMoveTo">
-                                        <span class="o_knowledge_kebab_icon"><i class="fa fa-arrows"/></span>
-                                        <span class="o_knowledge_kebab_label">Move To Parentâ€¦</span>
+                                        <span class="o_knowledge_kebab_icon"><i class="oi" data-icon="open_with"/></span>
+                                        <span class="o_knowledge_kebab_label">Move To</span>
                                     </button>
                                     <button class="o_knowledge_kebab_item" t-on-click="onToggleLock">
                                         <span class="o_knowledge_kebab_icon">
-                                            <i t-att-class="state.currentArticle.is_locked ? 'fa fa-lock' : 'fa fa-unlock-alt'"/>
+                                            <i class="oi" t-att-data-icon="state.currentArticle.is_locked ? 'lock' : 'lock_open'"/>
                                         </span>
                                         <span class="o_knowledge_kebab_label">
                                             <t t-if="state.currentArticle.is_locked">Unlock Content</t>
@@ -244,19 +221,19 @@
                                         </span>
                                     </button>
                                     <button class="o_knowledge_kebab_item" t-on-click="onCreateCopy">
-                                        <span class="o_knowledge_kebab_icon"><i class="fa fa-copy"/></span>
+                                        <span class="o_knowledge_kebab_icon"><i class="oi" data-icon="content_copy"/></span>
                                         <span class="o_knowledge_kebab_label">Create a Copy</span>
                                     </button>
                                     <button class="o_knowledge_kebab_item" t-on-click="onDownloadPdf">
-                                        <span class="o_knowledge_kebab_icon"><i class="fa fa-download"/></span>
+                                        <span class="o_knowledge_kebab_icon"><i class="oi" data-icon="download"/></span>
                                         <span class="o_knowledge_kebab_label">Download PDF</span>
                                     </button>
                                     <button class="o_knowledge_kebab_item" t-on-click="onAddToTemplates">
-                                        <span class="o_knowledge_kebab_icon"><i class="fa fa-paint-brush"/></span>
+                                        <span class="o_knowledge_kebab_icon"><i class="oi" data-icon="brush"/></span>
                                         <span class="o_knowledge_kebab_label">Add to Templates</span>
                                     </button>
                                     <button class="o_knowledge_kebab_item" t-on-click="onOpenVersionHistory">
-                                        <span class="o_knowledge_kebab_icon"><i class="fa fa-history"/></span>
+                                        <span class="o_knowledge_kebab_icon"><i class="oi" data-icon="history"/></span>
                                         <span class="o_knowledge_kebab_label">Show version history</span>
                                     </button>
                                 </div>
@@ -264,13 +241,13 @@
                                 <div class="o_knowledge_kebab_section">
                                     <button class="o_knowledge_kebab_item o_knowledge_kebab_danger"
                                             t-on-click="onMoveToTrash">
-                                        <span class="o_knowledge_kebab_icon"><i class="fa fa-trash"/></span>
+                                        <span class="o_knowledge_kebab_icon"><i class="oi" data-icon="delete"/></span>
                                         <span class="o_knowledge_kebab_label">Move to Trash</span>
                                     </button>
                                 </div>
 
                                 <div class="o_knowledge_kebab_footer">
-                                    Last Edited Â· <t t-out="getLastEditedRelative()"/>
+                                    Last Edited · <t t-out="getLastEditedRelative()"/>
                                     <div class="o_knowledge_kebab_user">
                                         <t t-if="state.currentArticle.write_uid">
                                             <img t-att-src="state.currentArticle.write_uid.avatar"
@@ -283,10 +260,28 @@
                         </t>
                     </div>
 
+                    <!-- Trash banner (article opened from the Trash list) -->
+                    <t t-if="isInTrash">
+                        <div class="o_knowledge_trash_banner">
+                            This Article is in Trash and will be deleted on the
+                            <t t-out="getTrashDeletionDate()"/>.
+                            <a href="#" class="o_knowledge_trash_restore"
+                               t-on-click.prevent="onRestoreFromTrash">Restore</a>
+                        </div>
+                    </t>
+
+                    <!-- Read-only banner (member / general access "Can Read") -->
+                    <t t-elif="state.currentArticle.user_can_write === false">
+                        <div class="o_knowledge_locked_overlay o_knowledge_readonly_banner">
+                            <i class="oi me-1" data-icon="lock"/>
+                            You can read this article but not edit it.
+                        </div>
+                    </t>
+
                     <!-- Locked Banner -->
-                    <t t-if="state.currentArticle.is_locked">
+                    <t t-if="state.currentArticle.is_locked and !isInTrash">
                         <div class="o_knowledge_locked_overlay">
-                            <i class="fa fa-lock me-1"/>
+                            <i class="oi me-1" data-icon="lock"/>
                             This article is locked and cannot be edited.
                             <button t-on-click="onToggleLock">Unlock</button>
                         </div>
@@ -311,34 +306,34 @@
                                     <!-- Drag repositioning hint badge -->
                                     <t t-if="state.isRepositioningCover">
                                         <div class="o_knowledge_reposition_hint">
-                                            <i class="fa fa-arrows-v me-1"/>
+                                            <i class="oi me-1" data-icon="height"/>
                                             Drag image to reposition
                                         </div>
                                     </t>
 
                                     <!-- Overlay action buttons on bottom-right (Image 2) -->
-                                    <div class="o_knowledge_cover_actions">
+                                    <div class="o_knowledge_cover_actions" t-if="!isArticleReadonly">
                                         <t t-if="state.isRepositioningCover">
                                             <button type="button" class="btn btn-sm btn-primary o_knowledge_cover_action_btn o_save_pos" t-on-click="onSaveCoverPosition" title="Save position">
-                                                <i class="fa fa-check me-1"/>
+                                                <i class="oi me-1" data-icon="check"/>
                                                 Save Position
                                             </button>
                                             <button type="button" class="btn btn-sm btn-light o_knowledge_cover_action_btn" t-on-click="onCancelCoverPosition" title="Cancel">
-                                                <i class="fa fa-times me-1"/>
+                                                <i class="oi me-1" data-icon="close"/>
                                                 Cancel
                                             </button>
                                         </t>
                                         <t t-else="">
                                             <button type="button" class="btn btn-sm o_knowledge_cover_action_btn" t-on-click="onOpenCoverModal" title="Replace cover">
-                                                <i class="fa fa-picture-o me-1"/>
+                                                <i class="oi me-1" data-icon="image"/>
                                                 Replace Cover
                                             </button>
                                             <button type="button" class="btn btn-sm o_knowledge_cover_action_btn" t-on-click="onStartRepositionCover" title="Reposition cover">
-                                                <i class="fa fa-arrows-v me-1"/>
+                                                <i class="oi me-1" data-icon="height"/>
                                                 Reposition
                                             </button>
                                             <button type="button" class="btn btn-sm o_knowledge_cover_action_btn" t-on-click="onRemoveCover" title="Remove cover">
-                                                <i class="fa fa-trash-o me-1"/>
+                                                <i class="oi me-1" data-icon="delete"/>
                                                 Remove
                                             </button>
                                         </t>
@@ -351,20 +346,21 @@
                                 <t t-if="state.currentArticle.icon">
                                     <div class="o_knowledge_icon_large"
                                          t-ref="this.titleEmoji"
+                                         t-att-class="{'o_readonly': isArticleReadonly}"
                                          t-on-click="onEmojiClick"
-                                         title="Change icon">
+                                         t-att-title="isArticleReadonly ? '' : 'Change icon'">
                                         <span t-out="state.currentArticle.icon"/>
                                     </div>
                                 </t>
-                                <div class="o_knowledge_header_actions">
+                                <div class="o_knowledge_header_actions" t-if="!isArticleReadonly">
                                     <t t-if="!state.currentArticle.icon">
                                         <button type="button" class="btn btn-sm o_knowledge_header_btn" t-on-click="onAddIcon">
-                                            <span class="me-1">ðŸ˜€</span> Add icon
+                                            <span class="me-1">😀</span> Add icon
                                         </button>
                                     </t>
                                     <t t-if="!state.currentArticle.cover_image_url">
                                         <button type="button" class="btn btn-sm o_knowledge_header_btn" t-on-click="onAddCover">
-                                            <i class="fa fa-picture-o me-1"/> Add cover
+                                            <i class="oi me-1" data-icon="image"/> Add cover
                                         </button>
                                     </t>
                                 </div>
@@ -372,7 +368,7 @@
 
                             <!-- Native Odoo 19 WYSIWYG Editor Canvas for the Whole Article -->
                             <div class="o_knowledge_editor_container" t-ref="this.bodyContainer" t-on-click="onEditorContainerClick">
-                                <t t-if="!state.currentArticle.is_locked">
+                                <t t-if="!isInTrash and !state.currentArticle.is_locked and state.currentArticle.user_can_write !== false">
                                     <Wysiwyg
                                         config="editorConfig"
                                         onLoad.bind="onEditorLoad"
@@ -382,7 +378,9 @@
                                     />
                                 </t>
                                 <t t-else="">
-                                    <div class="o_knowledge_readonly_body py-3" t-out="getReadonlyBody()"/>
+                                    <div class="o_knowledge_readonly_body py-3">
+                                        <HtmlViewer config="readonlyViewerConfig" t-key="wysiwygKey"/>
+                                    </div>
                                 </t>
                             </div>
 
@@ -394,7 +392,7 @@
                                          t-att-alt="state.currentArticle.write_uid.name"/>
                                     Last edited by <strong class="ms-1 me-1"
                                         t-out="state.currentArticle.write_uid.name"/>
-                                    Â· <t t-out="getLastEditedRelative()"/>
+                                    · <t t-out="getLastEditedRelative()"/>
                                 </t>
                             </div>
                         </div>
@@ -403,10 +401,10 @@
             </div>
         </div>
 
-        <!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        <!-- ═══════════════════════════════════════════════════════════
              Insert View Modal (Kanban / List / Calendar)
              Matches Image 2 exactly
-        â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+        ═══════════════════════════════════════════════════════════════ -->
         <t t-if="state.showInsertViewModal">
             <div class="o_knowledge_modal_backdrop" t-on-click="onCloseInsertViewModal">
                 <div class="o_knowledge_modal o_knowledge_insert_modal" t-on-click.stop="">
@@ -447,9 +445,9 @@
             </div>
         </t>
 
-        <!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        <!-- ═══════════════════════════════════════════════════════════
              Version History Modal (Matches Image 1)
-        â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+        ═══════════════════════════════════════════════════════════════ -->
         <t t-if="state.showHistoryModal">
             <div class="o_knowledge_modal_backdrop" t-on-click="onCloseVersionHistory">
                 <div t-attf-class="o_knowledge_modal o_knowledge_history_modal {{ state.historyIsFullscreen ? 'o_history_fullscreen' : '' }}"
@@ -461,7 +459,7 @@
                             <button type="button" class="btn btn-sm btn-link text-muted p-1"
                                     t-on-click="onToggleHistoryFullscreen"
                                     t-att-title="state.historyIsFullscreen ? 'Exit fullscreen' : 'Fullscreen'">
-                                <i t-attf-class="fa {{ state.historyIsFullscreen ? 'fa-compress' : 'fa-expand' }}"/>
+                                <i class="oi" t-att-data-icon="state.historyIsFullscreen ? 'fullscreen_exit' : 'fullscreen'"/>
                             </button>
                             <button type="button" class="btn-close" t-on-click="onCloseVersionHistory" aria-label="Close"/>
                         </div>
@@ -473,8 +471,8 @@
                         <div class="o_history_sidebar border-end d-flex flex-column">
                             <t t-if="state.historyLoading">
                                 <div class="p-4 text-center text-muted">
-                                    <i class="fa fa-circle-o-notch fa-spin fa-2x"/>
-                                    <div class="mt-2 small">Loading versionsâ€¦</div>
+                                    <i class="oi oi-spin oi-2x" data-icon="progress_activity"/>
+                                    <div class="mt-2 small">Loading versions…</div>
                                 </div>
                             </t>
                             <t t-else="">
@@ -490,7 +488,7 @@
                                             <!-- Timeline indicator dot / line -->
                                             <div class="o_history_timeline_marker">
                                                 <span class="o_history_dot">
-                                                    <i t-if="state.selectedHistoryVersion and state.selectedHistoryVersion.id == ver.id" class="fa fa-play"/>
+                                                    <i t-if="state.selectedHistoryVersion and state.selectedHistoryVersion.id == ver.id" class="oi oi-filled" data-icon="play_arrow"/>
                                                 </span>
                                             </div>
                                             <!-- Version Card -->
@@ -571,9 +569,9 @@
             </div>
         </t>
 
-        <!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        <!-- ═══════════════════════════════════════════════════════════
              Choose a Nice Cover Modal (Matches Image 3)
-        â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+        ═══════════════════════════════════════════════════════════════ -->
         <t t-if="state.showCoverModal">
             <div class="o_knowledge_modal_backdrop" t-on-click="onCloseCoverModal">
                 <div class="o_knowledge_modal o_knowledge_cover_modal" t-on-click.stop="">
@@ -592,11 +590,11 @@
                             <div class="d-flex align-items-center gap-2 flex-grow-1" style="max-width: 480px;">
                                 <div class="input-group">
                                     <span class="input-group-text bg-white border-end-0 text-muted" style="border-color: #dee2e6;">
-                                        <i class="fa fa-search"/>
+                                        <i class="oi" data-icon="search"/>
                                     </span>
                                     <input type="text"
                                            class="form-control border-start-0"
-                                           placeholder="Search Unsplash coversâ€¦"
+                                           placeholder="Search Unsplash covers…"
                                            t-att-value="state.coverSearchQuery"
                                            t-on-input="onCoverSearchInput"
                                            style="border-color: #dee2e6;"/>
@@ -664,7 +662,7 @@
                         <!-- Unsplash Unconfigured Alert Notice -->
                         <t t-if="!state.unsplashConfigured">
                             <div class="alert alert-info d-flex align-items-center py-2 px-3 mb-3 rounded-2" style="font-size: 13px; background-color: #eef7fc; border-color: #bee5eb; color: #0c5460;">
-                                <i class="fa fa-info-circle me-2 fs-5 flex-shrink-0"/>
+                                <i class="oi me-2 fs-5 flex-shrink-0" data-icon="info"/>
                                 <div>
                                     Unsplash API is not configured. You can choose from curated covers below, upload your own image, or add an image URL.
                                 </div>
@@ -685,7 +683,7 @@
 
                         <t t-if="!filteredCoverImages || !filteredCoverImages.length">
                             <div class="text-center text-muted py-5">
-                                <i class="fa fa-picture-o fa-2x mb-2 d-block"/>
+                                <i class="oi oi-2x mb-2 d-block" data-icon="image"/>
                                 No images found matching your search.
                             </div>
                         </t>
@@ -694,7 +692,7 @@
                         <div class="d-flex justify-content-center mt-3">
                             <button type="button" class="btn btn-light rounded-circle shadow-sm o_knowledge_cover_more_btn"
                                     t-on-click="onLoadMoreCovers" title="Load more">
-                                <i class="fa fa-chevron-down"/>
+                                <i class="oi" data-icon="keyboard_arrow_down"/>
                             </button>
                         </div>
                     </div>
@@ -710,65 +708,50 @@
             </div>
         </t>
 
-        <!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        <!-- ═══════════════════════════════════════════════════════════
              Sidebar 3-Dots Context Menu (Matches user's screenshot)
-        â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+        ═══════════════════════════════════════════════════════════════ -->
         <t t-if="state.sidebarMenu and state.sidebarMenu.isOpen">
             <div class="o_knowledge_sidebar_dropdown_backdrop" t-on-click="onCloseSidebarMenu"/>
             <div class="o_knowledge_sidebar_dropdown"
                  t-att-style="'top:' + state.sidebarMenu.y + 'px; left:' + state.sidebarMenu.x + 'px;'"
                  t-on-click.stop="">
                 <button class="o_knowledge_dropdown_item" t-on-click="() => this.onSidebarOpenNewTab(state.sidebarMenu.article)">
-                    <i class="fa fa-external-link me-2"/>
+                    <i class="oi me-2" data-icon="open_in_new"/>
                     Open in new tab
                 </button>
                 <div class="dropdown-divider my-1"/>
                 <button class="o_knowledge_dropdown_item" t-on-click="() => this.onSidebarToggleFavorite(state.sidebarMenu.article)">
-                    <i t-att-class="state.sidebarMenu.article.is_user_favorite ? 'fa fa-star text-warning me-2' : 'fa fa-star-o me-2'"/>
+                    <i class="oi me-2" data-icon="star" t-att-class="state.sidebarMenu.article.is_user_favorite ? 'oi-filled text-warning' : ''"/>
                     <t t-if="state.sidebarMenu.article.is_user_favorite">Remove from Favorite</t>
                     <t t-else="">Add to Favorite</t>
                 </button>
                 <button class="o_knowledge_dropdown_item" t-on-click="() => this.onSidebarShare(state.sidebarMenu.article)">
-                    <i class="fa fa-share me-2"/>
+                    <i class="oi me-2" data-icon="forward"/>
                     Share
                 </button>
-                <button class="o_knowledge_dropdown_item" t-on-click="() => this.onSidebarRename(state.sidebarMenu.article)">
-                    <i class="fa fa-pencil me-2"/>
-                    Rename
-                </button>
-                <button class="o_knowledge_dropdown_item" t-on-click="() => this.onSidebarMoveTo(state.sidebarMenu.article)">
-                    <i class="fa fa-angle-double-right me-2"/>
-                    Move To Parentâ€¦
-                </button>
-                <t t-if="state.sidebarMenu.article.visibility !== 'private'">
-                    <button class="o_knowledge_dropdown_item" t-on-click="() => this.onSetArticleVisibility(state.sidebarMenu.article, 'private')">
-                        <i class="fa fa-lock me-2"/>
-                        Move to Private
+                <t t-if="state.sidebarMenu.article.user_can_write">
+                    <button class="o_knowledge_dropdown_item" t-on-click="() => this.onSidebarRename(state.sidebarMenu.article)">
+                        <i class="oi me-2" data-icon="edit"/>
+                        Rename
                     </button>
-                </t>
-                <t t-if="state.sidebarMenu.article.visibility !== 'workspace'">
-                    <button class="o_knowledge_dropdown_item" t-on-click="() => this.onSetArticleVisibility(state.sidebarMenu.article, 'workspace')">
-                        <i class="fa fa-users me-2"/>
-                        Move to Workspace
-                    </button>
-                </t>
-                <t t-if="state.sidebarMenu.article.visibility !== 'shared'">
-                    <button class="o_knowledge_dropdown_item" t-on-click="() => this.onSetArticleVisibility(state.sidebarMenu.article, 'shared')">
-                        <i class="fa fa-share-alt me-2"/>
-                        Move to Shared
+                    <button class="o_knowledge_dropdown_item" t-on-click="() => this.onSidebarMoveTo(state.sidebarMenu.article)">
+                        <i class="oi me-2" data-icon="keyboard_double_arrow_right"/>
+                        Move To
                     </button>
                 </t>
                 <button class="o_knowledge_dropdown_item" t-on-click="() => this.onSidebarCreateCopy(state.sidebarMenu.article)">
-                    <i class="fa fa-clone me-2"/>
+                    <i class="oi me-2" data-icon="content_copy"/>
                     Create a Copy
                 </button>
-                <button class="o_knowledge_dropdown_item text-danger" t-on-click="() => this.onSidebarMoveToTrash(state.sidebarMenu.article)">
-                    <i class="fa fa-trash-o me-2"/>
+                <button t-if="state.sidebarMenu.article.user_can_write" class="o_knowledge_dropdown_item"
+                        t-on-click="() => this.onSidebarMoveToTrash(state.sidebarMenu.article)">
+                    <i class="oi me-2" data-icon="delete"/>
                     Send to Trash
                 </button>
                 <div class="dropdown-divider my-1"/>
                 <div class="o_knowledge_dropdown_footer px-3 py-2 text-muted" style="font-size: 11px;">
-                    <div>Last Edited Â· <t t-out="getArticleLastEdited(state.sidebarMenu.article)"/></div>
+                    <div>Last Edited · <t t-out="getArticleLastEdited(state.sidebarMenu.article)"/></div>
                     <div class="d-flex align-items-center gap-2 mt-1">
                         <t t-if="state.sidebarMenu.article.write_uid">
                             <img t-att-src="state.sidebarMenu.article.write_uid.avatar || ('/web/image/res.users/' + state.sidebarMenu.article.write_uid.id + '/avatar_128')"
@@ -784,15 +767,15 @@
             </div>
         </t>
 
-        <!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        <!-- ═══════════════════════════════════════════════════════════
              AI Article Generator Modal
-        â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+        ═══════════════════════════════════════════════════════════════ -->
         <t t-if="state.showAIDialog">
             <div class="o_knowledge_modal_backdrop" t-on-click="onCloseAIDialog">
                 <div class="o_knowledge_modal" t-on-click.stop="">
                     <div class="o_knowledge_modal_header">
                         <div class="d-flex align-items-center gap-2">
-                            <span style="font-size:20px;">âœ¨</span>
+                            <span style="font-size:20px;">✨</span>
                             <h5 class="m-0 fw-semibold">Generate Article with AI</h5>
                         </div>
                         <button class="btn-close" t-on-click="onCloseAIDialog"/>
@@ -803,27 +786,27 @@
                             <button class="btn btn-sm"
                                     t-att-class="state.aiPreset === 'plan' ? 'btn-primary' : 'btn-outline-secondary'"
                                     t-on-click="() => this.selectAIPreset('plan')">
-                                ðŸ“Š Project Plan
+                                📊 Project Plan
                             </button>
                             <button class="btn btn-sm"
                                     t-att-class="state.aiPreset === 'meeting' ? 'btn-primary' : 'btn-outline-secondary'"
                                     t-on-click="() => this.selectAIPreset('meeting')">
-                                ðŸ“ Meeting Notes
+                                📝 Meeting Notes
                             </button>
                             <button class="btn btn-sm"
                                     t-att-class="state.aiPreset === 'sop' ? 'btn-primary' : 'btn-outline-secondary'"
                                     t-on-click="() => this.selectAIPreset('sop')">
-                                ðŸ“‹ SOP Guide
+                                📋 SOP Guide
                             </button>
                             <button class="btn btn-sm"
                                     t-att-class="state.aiPreset === 'prd' ? 'btn-primary' : 'btn-outline-secondary'"
                                     t-on-click="() => this.selectAIPreset('prd')">
-                                ðŸš€ Product Spec
+                                🚀 Product Spec
                             </button>
                             <button class="btn btn-sm"
                                     t-att-class="state.aiPreset === 'custom' ? 'btn-primary' : 'btn-outline-secondary'"
                                     t-on-click="() => this.selectAIPreset('custom')">
-                                ðŸ’¡ Custom Topic
+                                💡 Custom Topic
                             </button>
                         </div>
 
@@ -840,11 +823,11 @@
                         <button class="btn btn-primary btn-sm" t-on-click="onConfirmAIGenerate"
                                 t-att-disabled="state.aiGenerating">
                             <t t-if="state.aiGenerating">
-                                <i class="fa fa-spinner fa-spin me-1"/>
-                                Generatingâ€¦
+                                <i class="oi oi-spin me-1" data-icon="progress_activity"/>
+                                Generating…
                             </t>
                             <t t-else="">
-                                <i class="fa fa-magic me-1"/>
+                                <i class="oi me-1" data-icon="wand_stars"/>
                                 Generate Article
                             </t>
                         </button>
@@ -853,44 +836,119 @@
             </div>
         </t>
 
-        <!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        <!-- ═══════════════════════════════════════════════════════════
              Template Picker Modal
-        â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+        ═══════════════════════════════════════════════════════════════ -->
         <t t-if="state.showTemplateDialog">
             <div class="o_knowledge_modal_backdrop" t-on-click="onCloseTemplateDialog">
-                <div class="o_knowledge_modal o_knowledge_modal_lg" t-on-click.stop="">
+                <div class="o_knowledge_modal o_knowledge_template_browser" t-on-click.stop="">
                     <div class="o_knowledge_modal_header">
                         <div class="d-flex align-items-center gap-2">
-                            <span style="font-size:20px;">ðŸ–Œï¸</span>
-                            <h5 class="m-0 fw-semibold">Load a Template</h5>
+                            <span style="font-size:20px;">🖌️</span>
+                            <h5 class="m-0 fw-semibold">Select a Template</h5>
                         </div>
                         <button class="btn-close" t-on-click="onCloseTemplateDialog"/>
                     </div>
-                    <div class="o_knowledge_modal_body">
-                        <div class="o_knowledge_template_grid">
-                            <t t-foreach="state.availableTemplates" t-as="tmpl" t-key="tmpl.id">
-                                <div class="o_knowledge_template_card" t-on-click="() => this.onSelectTemplate(tmpl)">
-                                    <div class="o_knowledge_template_card_icon" t-out="tmpl.icon || 'ðŸ“„'"/>
-                                    <div class="o_knowledge_template_card_info">
-                                        <div class="fw-semibold text-dark" t-out="tmpl.name"/>
-                                        <div class="text-muted" style="font-size:12px;">Click to load template into article</div>
+                    <div class="o_knowledge_template_browser_body">
+                        <t t-if="!state.availableTemplates.length">
+                            <div class="o_knowledge_template_browser_empty text-muted">
+                                No templates yet. Use "Add to Templates" in the article menu to save one.
+                            </div>
+                        </t>
+                        <t t-else="">
+                            <div class="o_knowledge_template_browser_list">
+                                <t t-foreach="state.templateCategories" t-as="cat" t-key="cat.id">
+                                    <div class="o_knowledge_template_category">
+                                        <div class="o_knowledge_template_category_name" t-out="cat.name"/>
+                                        <t t-foreach="cat.templates" t-as="tmpl" t-key="tmpl.id">
+                                            <div class="o_knowledge_template_list_item"
+                                                 t-att-class="state.selectedTemplateId === tmpl.id ? 'active' : ''"
+                                                 t-on-click="() => this.onPreviewTemplate(tmpl)"
+                                                 t-on-dblclick="() => this.onSelectTemplate(tmpl)">
+                                                <span class="o_knowledge_template_list_icon" t-out="tmpl.icon || '📄'"/>
+                                                <span class="o_knowledge_template_list_name" t-out="tmpl.name"/>
+                                            </div>
+                                        </t>
                                     </div>
-                                </div>
-                            </t>
-                        </div>
+                                </t>
+                            </div>
+                            <div class="o_knowledge_template_browser_preview">
+                                <t t-set="preview" t-value="selectedTemplate"/>
+                                <t t-if="preview">
+                                    <div t-if="preview.cover_image_url" class="o_knowledge_template_preview_cover">
+                                        <img t-att-src="preview.cover_image_url"
+                                             t-att-style="'object-position: center ' + (preview.cover_position || '50%') + ';'"
+                                             alt="Template cover"/>
+                                    </div>
+                                    <div class="o_knowledge_template_preview_content"
+                                         t-att-class="preview.cover_image_url ? 'o_has_cover' : ''">
+                                        <div class="o_knowledge_template_preview_icon" t-out="preview.icon || '📄'"/>
+                                        <div t-if="preview.description" class="text-muted mb-2" t-out="preview.description"/>
+                                        <div class="o_knowledge_template_preview_body" t-out="getTemplatePreviewHtml(preview)"/>
+                                    </div>
+                                </t>
+                            </div>
+                        </t>
                     </div>
                     <div class="o_knowledge_modal_footer">
+                        <button t-if="selectedTemplate and selectedTemplate.can_delete"
+                                class="btn btn-link text-danger btn-sm me-auto"
+                                t-on-click="() => this.onDeleteTemplate(selectedTemplate)">
+                            Delete Template
+                        </button>
                         <button class="btn btn-secondary btn-sm" t-on-click="onCloseTemplateDialog">
                             Cancel
+                        </button>
+                        <button class="btn btn-primary btn-sm"
+                                t-att-disabled="!selectedTemplate"
+                                t-on-click="() => this.onSelectTemplate(selectedTemplate)">
+                            Load Template
                         </button>
                     </div>
                 </div>
             </div>
         </t>
 
-        <!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        <!-- Save article as template -->
+        <t t-if="state.showSaveTemplateDialog">
+            <div class="o_knowledge_modal_backdrop" t-on-click="onCloseSaveTemplateDialog">
+                <div class="o_knowledge_modal" t-on-click.stop="">
+                    <div class="o_knowledge_modal_header">
+                        <h5 class="m-0 fw-semibold">Add to Templates</h5>
+                        <button class="btn-close" t-on-click="onCloseSaveTemplateDialog"/>
+                    </div>
+                    <div class="o_knowledge_modal_body">
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Template Name</label>
+                            <input type="text" class="form-control" t-att-value="state.saveTemplateName"
+                                   t-on-input="(ev) => this.state.saveTemplateName = ev.target.value"/>
+                        </div>
+                        <div>
+                            <label class="form-label fw-semibold">Category</label>
+                            <select class="form-select" t-on-change="onSaveTemplateCategoryChange">
+                                <t t-foreach="state.saveTemplateCategories" t-as="cat" t-key="cat.id">
+                                    <option t-att-value="cat.id"
+                                            t-att-selected="cat.id === state.saveTemplateCategoryId"
+                                            t-out="cat.name"/>
+                                </t>
+                            </select>
+                        </div>
+                        <div class="text-muted small mt-3">
+                            The content, icon and cover of the article are saved in the template.
+                        </div>
+                    </div>
+                    <div class="o_knowledge_modal_footer">
+                        <button class="btn btn-secondary btn-sm" t-on-click="onCloseSaveTemplateDialog">Cancel</button>
+                        <button class="btn btn-primary btn-sm" t-att-disabled="state.savingTemplate"
+                                t-on-click="onConfirmSaveTemplate">Save</button>
+                    </div>
+                </div>
+            </div>
+        </t>
+
+        <!-- ═══════════════════════════════════════════════════════════
              In-App Prompt / Input Dialog (Replaces browser alert/prompt)
-        â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+        ═══════════════════════════════════════════════════════════════ -->
         <t t-if="state.showItemPromptModal">
             <div class="o_knowledge_modal_backdrop" t-on-click="onCloseItemPromptModal">
                 <div class="o_knowledge_modal" t-on-click.stop="" style="max-width: 440px; border-radius: 8px;">
@@ -915,7 +973,7 @@
                         </button>
                         <t t-if="state.itemPromptShowDelete">
                             <button class="btn btn-outline-danger btn-sm px-3 me-auto" t-on-click="onItemPromptDelete">
-                                <i class="fa fa-trash me-1"/>Delete
+                                <i class="oi me-1" data-icon="delete"/>Delete
                             </button>
                         </t>
                         <button class="btn btn-primary btn-sm px-4" style="background:#714B67; border-color:#714B67;"
@@ -929,39 +987,46 @@
     </div>
 </t>
 
-<!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+<!-- ═══════════════════════════════════════════════════════════════
      Sidebar Item (recursive with tree branch lines)
-â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+═══════════════════════════════════════════════════════════════ -->
 <t t-name="hudson_knowledge.KnowledgeSidebarItem" owl="1">
     <div class="o_knowledge_tree_item"
          t-att-class="(item.id === state.currentArticle?.id ? 'o_knowledge_item_active ' : '') + (level > 0 ? 'o_knowledge_tree_subitem ' : '')"
          t-att-data-level="level"
-         t-on-click.stop="() => this.onSelectArticle(item.id)">
+         t-att-style="'padding-left:' + (8 + level * 16) + 'px'"
+         t-att-data-article-id="item.id"
+         t-att-draggable="item.user_can_write ? 'true' : 'false'"
+         t-on-dragstart="(ev) => this.onSidebarDragStart(ev, this._evArticle(ev))"
+         t-on-dragend="(ev) => this.onSidebarDragEnd(ev)"
+         t-on-dragover="(ev) => this.onSidebarItemDragOver(ev, this._evArticle(ev))"
+         t-on-drop="(ev) => this.onSidebarItemDrop(ev, this._evArticle(ev), this._evSection(ev))"
+         t-on-click.stop="(ev) => this.onSelectArticle(this._evArticleId(ev))">
 
         <!-- Expand toggle (if has children) -->
         <span t-if="item.child_count > 0"
               class="o_knowledge_item_toggle"
               t-att-class="(state.expandedIds || []).includes(item.id) ? 'o_knowledge_item_toggle_open' : ''"
-              t-on-click.stop="() => this.onToggleExpand(item.id)">
-            <i class="fa fa-caret-right"/>
+              t-on-click.stop="(ev) => this.onToggleExpand(this._evArticleId(ev))">
+            <i class="oi" data-icon="arrow_right"/>
         </span>
         <span t-else="" class="o_knowledge_item_toggle" style="visibility:hidden;">
-            <i class="fa fa-caret-right"/>
+            <i class="oi" data-icon="arrow_right"/>
         </span>
 
         <!-- Icon -->
-        <span class="o_knowledge_item_icon"><t t-out="item.icon || 'ðŸ“„'"/></span>
+        <span class="o_knowledge_item_icon"><t t-out="item.icon || ''"/></span>
 
         <!-- Name -->
         <span class="o_knowledge_item_name" t-out="item.name"/>
 
         <!-- Actions (hover) -->
         <div class="o_knowledge_item_actions">
-            <button t-on-click.stop="(ev) => this.onArticleQuickMenu(ev, item)" title="More">
-                <i class="fa fa-ellipsis-h"/>
+            <button t-on-click.stop="(ev) => this.onArticleQuickMenu(ev, this._evArticle(ev))" title="More actions">
+                <i class="oi" data-icon="more_vert"/>
             </button>
-            <button t-on-click.stop="() => this.onNewChildArticle(item.id)" title="New sub-article">
-                <i class="fa fa-plus"/>
+            <button t-if="item.user_can_write" t-on-click.stop="(ev) => this.onNewChildArticle(this._evArticleId(ev))" title="Add a sub-article">
+                <i class="oi" data-icon="add"/>
             </button>
         </div>
     </div>
@@ -970,169 +1035,23 @@
     <t t-if="(state.expandedIds || []).includes(item.id) and (state.childrenMap || {})[item.id]">
         <div class="o_knowledge_tree_branch_group" t-att-data-level="level">
             <t t-foreach="state.childrenMap[item.id]" t-as="child" t-key="child.id">
-                <t t-call="hudson_knowledge.KnowledgeSidebarItem" item="child" level="level + 1"/>
+                <t t-call="hudson_knowledge.KnowledgeSidebarItem" item="child" level="level + 1" section="section"/>
             </t>
         </div>
     </t>
 </t>
 
-<!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-     Embedded View Block (inside article body)
-â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
-<t t-name="hudson_knowledge.KnowledgeEmbeddedView" owl="1">
-    <div class="o_knowledge_embedded_view" t-att-data-view-ref="viewRefId" t-att-data-view-type="viewType">
-        <!-- Header -->
-        <div class="o_knowledge_embedded_header">
-            <span>
-                <t t-if="viewType === 'kanban'">âŠž</t>
-                <t t-elif="viewType === 'list'">â˜°</t>
-                <t t-elif="viewType === 'calendar'">ðŸ“…</t>
-            </span>
-            <span t-out="viewName or 'Items'"/>
-            <span class="o_knowledge_embedded_type">
-                <t t-if="viewType === 'kanban'">Kanban</t>
-                <t t-elif="viewType === 'list'">List</t>
-                <t t-elif="viewType === 'calendar'">Calendar</t>
-            </span>
-            <button class="o_knowledge_embedded_add_btn" t-on-click="onAddItem">
-                + Add
-            </button>
-        </div>
-
-        <!-- Body -->
-        <div class="o_knowledge_embedded_body">
-            <!-- Kanban -->
-            <t t-if="viewType === 'kanban'">
-                <div class="o_knowledge_embedded_kanban">
-                    <t t-foreach="stages" t-as="stage" t-key="stage.id">
-                        <div class="o_knowledge_kanban_col">
-                            <div class="o_knowledge_col_header">
-                                <span t-out="stage.name"/>
-                                <span class="badge rounded-pill bg-secondary"
-                                      t-out="getItemsForStage(stage.id).length"/>
-                            </div>
-                            <t t-foreach="getItemsForStage(stage.id)" t-as="itm" t-key="itm.id">
-                                <div class="o_knowledge_kanban_card" t-on-click="() => this.onEditItem(itm.id)">
-                                    <div t-out="itm.name"/>
-                                    <t t-if="itm.user_name">
-                                        <div class="text-muted" style="font-size:11px; margin-top:4px;">
-                                            <i class="fa fa-user-o me-1"/>
-                                            <t t-out="itm.user_name"/>
-                                        </div>
-                                    </t>
-                                </div>
-                            </t>
-                            <button class="o_knowledge_add_item_btn"
-                                    t-on-click="() => this.onAddItemToStage(stage.id)">
-                                <i class="fa fa-plus"/>
-                                Add Item
-                            </button>
-                        </div>
-                    </t>
-                    <button class="o_knowledge_add_col_btn" t-on-click="onAddStage">
-                        <i class="fa fa-plus"/>
-                        Add Stage
-                    </button>
-                </div>
-            </t>
-
-            <!-- List -->
-            <t t-elif="viewType === 'list'">
-                <div class="o_knowledge_embedded_list">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Name</th>
-                                <th>Stage</th>
-                                <th>Assigned To</th>
-                                <th>Date</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <t t-foreach="items" t-as="itm" t-key="itm.id">
-                                <tr t-on-click="() => this.onEditItem(itm.id)" style="cursor:pointer;">
-                                    <td t-out="itm.name"/>
-                                    <td t-out="itm.stage_name"/>
-                                    <td t-out="itm.user_name"/>
-                                    <td t-out="itm.date || ''"/>
-                                </tr>
-                            </t>
-                        </tbody>
-                    </table>
-                    <div class="o_knowledge_list_add_row" t-on-click="onAddItem">
-                        <i class="fa fa-plus"/>
-                        Add Item
-                    </div>
-                </div>
-            </t>
-
-            <!-- Calendar -->
-            <t t-elif="viewType === 'calendar'">
-                <div class="o_knowledge_embedded_calendar">
-                    <div class="d-flex align-items-center justify-content-between mb-2">
-                        <button class="btn btn-sm btn-link" t-on-click="prevMonth">
-                            <i class="fa fa-chevron-left"/>
-                        </button>
-                        <strong style="font-size:13px;" t-out="getMonthLabel()"/>
-                        <button class="btn btn-sm btn-link" t-on-click="nextMonth">
-                            <i class="fa fa-chevron-right"/>
-                        </button>
-                    </div>
-                    <div class="o_knowledge_cal_grid">
-                        <t t-foreach="['Sun','Mon','Tue','Wed','Thu','Fri','Sat']" t-as="day" t-key="day">
-                            <div class="o_knowledge_cal_header" t-out="day"/>
-                        </t>
-                        <t t-foreach="calendarCells" t-as="cell" t-key="cell_index">
-                            <div class="o_knowledge_cal_day"
-                                 t-att-class="getCellClass(cell)"
-                                 t-on-click="() => this.onCalendarDayClick(cell)">
-                                <div class="o_knowledge_cal_num" t-out="cell.day || ''"/>
-                                <t t-foreach="cell.events" t-as="ev" t-key="ev.id">
-                                    <div class="o_knowledge_cal_event" t-out="ev.name"/>
-                                </t>
-                            </div>
-                        </t>
-                    </div>
-                </div>
-            </t>
-        </div>
-
-        <t t-if="state.showItemModal">
-            <div class="o_knowledge_modal_backdrop" t-on-click="onCloseModal">
-                <div class="o_knowledge_modal" t-on-click.stop="" style="max-width: 420px; border-radius: 8px;">
-                    <div class="o_knowledge_modal_header py-3 px-4 border-bottom">
-                        <h5 class="m-0 fw-semibold" style="font-size:16px;" t-out="state.modalTitle || 'Item'"/>
-                        <button class="btn-close" t-on-click="onCloseModal"/>
-                    </div>
-                    <div class="o_knowledge_modal_body py-4 px-4">
-                        <input type="text"
-                               class="form-control"
-                               t-att-value="state.modalValue"
-                               t-on-input="(ev) => this.state.modalValue = ev.target.value"
-                               t-on-keydown="(ev) => ev.key === 'Enter' ? this.onConfirmModal() : (ev.key === 'Escape' ? this.onCloseModal() : null)"
-                               style="font-size: 14px;"/>
-                    </div>
-                    <div class="o_knowledge_modal_footer justify-content-end gap-2 pt-0 pb-3 px-4 border-0">
-                        <button class="btn btn-light btn-sm px-3" t-on-click="onCloseModal">Cancel</button>
-                        <button class="btn btn-primary btn-sm px-4" style="background:#714B67; border-color:#714B67;" t-on-click="onConfirmModal">Save</button>
-                    </div>
-                </div>
-            </div>
-        </t>
-    </div>
-</t>
-
-<!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+<!-- ═══════════════════════════════════════════════════════════════
      Knowledge Emoji Picker Component (Integrated, Zero-Crash)
      Matches Image 1 exactly
-â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+═══════════════════════════════════════════════════════════════ -->
 <t t-name="hudson_knowledge.KnowledgeEmojiPicker" owl="1">
     <div class="o_knowledge_emoji_picker_wrapper position-relative" t-on-click.stop="">
         <!-- Search bar (Image 1) -->
         <div class="o_knowledge_emoji_search_container p-2 border-bottom">
             <div class="input-group input-group-sm">
                 <span class="input-group-text bg-white border-end-0 text-muted">
-                    <i class="fa fa-search"/>
+                    <i class="oi" data-icon="search"/>
                 </span>
                 <input type="text"
                        class="form-control border-start-0"
@@ -1195,7 +1114,7 @@
                     class="o_knowledge_emoji_remove_btn flex-shrink-0"
                     t-on-click="onRemoveEmoji"
                     title="Remove Icon">
-                <i class="fa fa-times-circle"/>
+                <i class="oi" data-icon="cancel"/>
             </button>
         </div>
     </div>

@@ -34,13 +34,19 @@ class AccountBudget(models.Model):
     user_id = fields.Many2one('res.users', 'Responsible', default=lambda self: self.env.user)
     date_from = fields.Date('Start Date', required=True)
     date_to = fields.Date('End Date', required=True)
+    # as in Odoo Enterprise: Draft -> Open -> Done; "Revise" replaces an open budget by a draft copy
+    # (the "Confirmed" step of former versions is migrated to Open)
     state = fields.Selection([
         ('draft', 'Draft'),
+        ('validate', 'Open'),
+        ('revised', 'Revised'),
+        ('done', 'Done'),
         ('cancel', 'Cancelled'),
-        ('confirm', 'Confirmed'),
-        ('validate', 'Validated'),
-        ('done', 'Done')
     ], 'Status', default='draft', index=True, required=True, readonly=True, copy=False, tracking=True)
+    parent_id = fields.Many2one(
+        'account.budget', 'Revision Of', readonly=True, copy=False, index='btree_not_null',
+        check_company=True, help="The budget this one revises.")
+    revision_ids = fields.One2many('account.budget', 'parent_id', 'Revisions', readonly=True)
     line_ids = fields.One2many('account.budget.line', 'budget_id', 'Budget Lines', copy=True)
     company_id = fields.Many2one('res.company', 'Company', required=True, default=lambda self: self.env.company)
     currency_id = fields.Many2one(related='company_id.currency_id')
@@ -130,25 +136,74 @@ class AccountBudget(models.Model):
 
     def _check_budget_manager(self):
         if not self.env.su and not self.env.user.has_group('account.group_account_manager'):
-            raise AccessError(_('Only accounting managers can approve, close or cancel budgets.'))
+            raise AccessError(_('Only accounting managers can open, revise, close or cancel budgets.'))
+
+    def _check_budget_state(self, states, action):
+        wrong = self.filtered(lambda budget: budget.state not in states)
+        if wrong:
+            raise UserError(_('The budget "%(budget)s" cannot be %(action)s in its current state.',
+                              budget=wrong[0].name, action=action))
 
     def action_budget_confirm(self):
-        self.write({'state': 'confirm'})
-
-    def action_budget_draft(self):
-        self.write({'state': 'draft'})
+        """ "Open" button: the budget is in force (its lines count in the reports and the warnings). """
+        self._check_budget_manager()
+        self._check_budget_state(('draft',), _('opened'))
+        self.write({'state': 'validate'})
 
     def action_budget_validate(self):
+        """ Former "Approve" step, now the same as Open (the budgets already open are left as they are). """
         self._check_budget_manager()
-        self.write({'state': 'validate'})
+        return self.filtered(lambda budget: budget.state == 'draft').action_budget_confirm()
+
+    def action_budget_draft(self):
+        self._check_budget_manager()
+        self._check_budget_state(('validate', 'cancel'), _('reset to draft'))
+        self.write({'state': 'draft'})
 
     def action_budget_cancel(self):
         self._check_budget_manager()
+        self._check_budget_state(('draft', 'validate'), _('cancelled'))
         self.write({'state': 'cancel'})
 
     def action_budget_done(self):
         self._check_budget_manager()
+        self._check_budget_state(('validate',), _('closed'))
         self.write({'state': 'done'})
+
+    def _get_revision_name(self):
+        """ "<name> - REV(2026-11-12 14:16)", as in Odoo Enterprise (at the time of the user) """
+        self.ensure_one()
+        now = fields.Datetime.context_timestamp(self, fields.Datetime.now())
+        return '%s - REV(%s)' % (self.name, now.strftime('%Y-%m-%d %H:%M'))
+
+    def action_budget_revise(self):
+        """ "Revise" button: a draft copy of the open budget to change it, the open budget being kept as
+        "Revised" (it no longer counts). Opens the revision, as in Odoo Enterprise. """
+        self._check_budget_manager()
+        self._check_budget_state(('validate',), _('revised'))
+        revisions = self.browse()
+        for budget in self:
+            revision = budget.copy({'name': budget._get_revision_name(), 'parent_id': budget.id})
+            budget.write({'state': 'revised'})
+            budget.message_post(body=Markup('%s %s') % (_('Revised by'), revision._get_html_link()))
+            revisions |= revision
+        if len(revisions) == 1:
+            return {
+                'type': 'ir.actions.act_window',
+                'res_model': 'account.budget',
+                'res_id': revisions.id,
+                'view_mode': 'form',
+                'views': [(False, 'form')],
+                'target': 'current',
+            }
+        return {
+            'name': _('Budget Revisions'),
+            'type': 'ir.actions.act_window',
+            'res_model': 'account.budget',
+            'domain': [('id', 'in', revisions.ids)],
+            'view_mode': 'list,form',
+            'views': [(False, 'list'), (False, 'form')],
+        }
 
     def action_open_budget_report(self):
         self.ensure_one()
@@ -173,6 +228,8 @@ class AccountBudget(models.Model):
 
     def action_open_split_wizard(self):
         self.ensure_one()
+        if self.state != 'draft':
+            raise UserError(_('Only the lines of draft budgets can be split.'))
         return {
             'name': _('Split Lines by Period'),
             'type': 'ir.actions.act_window',

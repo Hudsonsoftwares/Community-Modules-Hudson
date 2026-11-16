@@ -10,11 +10,11 @@
                 <button name="action_open_account_move"
                         type="object"
                         class="oe_stat_button"
-                        icon="book"
+                        icon="attach_money"
                         invisible="not move_id">
                     <div class="o_stat_info">
-                        <span class="o_stat_text">Accounting</span>
-                        <span class="o_stat_text">Entry</span>
+                        <span class="o_stat_text">Journal Entry</span>
+                        <span class="o_stat_text">(<field name="move_state" readonly="1"/>)</span>
                     </div>
                 </button>
             </xpath>

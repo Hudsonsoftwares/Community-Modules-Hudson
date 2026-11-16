@@ -6,29 +6,42 @@
         <field name="inherit_id" ref="dental_patient.view_partner_form_dental"/>
         <field name="arch" type="xml">
             <div name="button_box" position="inside">
-                <button name="action_view_dental_cases" type="object" class="oe_stat_button" icon="fa-folder-open" invisible="not is_dental_patient">
+                <button name="action_view_treatment_history" type="object" class="oe_stat_button" icon="history"
+                        groups="dental_base.group_dental_dentist,dental_base.group_dental_manager"
+                        invisible="not is_dental_patient or not id" string="History (All Branches)"/>
+                <button name="action_view_dental_cases" type="object" class="oe_stat_button" icon="folder_open" invisible="not is_dental_patient">
                     <field name="dental_case_count" widget="statinfo" string="Cases"/>
                 </button>
-                <button name="action_view_dental_examinations" type="object" class="oe_stat_button" icon="fa-heartbeat" invisible="not is_dental_patient">
+                <button name="action_view_dental_examinations" type="object" class="oe_stat_button" icon="cardiology" invisible="not is_dental_patient">
                     <field name="dental_examination_count" widget="statinfo" string="Examinations"/>
                 </button>
-                <button name="action_view_treatment_plans" type="object" class="oe_stat_button" icon="fa-file-text-o" invisible="not is_dental_patient">
+                <button name="action_view_treatment_plans" type="object" class="oe_stat_button" icon="description" invisible="not is_dental_patient">
                     <field name="treatment_plan_count" widget="statinfo" string="Treatment Plans"/>
                 </button>
-                <button name="action_view_treatment_sessions" type="object" class="oe_stat_button" icon="fa-clock-o" invisible="not is_dental_patient">
+                <button name="action_view_treatment_sessions" type="object" class="oe_stat_button" icon="schedule" invisible="not is_dental_patient">
                     <field name="treatment_session_count" widget="statinfo" string="Sessions"/>
                 </button>
-                <button name="action_view_crm_leads" type="object" class="oe_stat_button" icon="fa-comments-o" invisible="not is_dental_patient">
+                <button name="action_view_crm_leads" type="object" class="oe_stat_button" icon="forum" invisible="not is_dental_patient">
                     <field name="crm_lead_count" widget="statinfo" string="Enquiries"/>
                 </button>
-                <button name="action_view_patient_documents" type="object" class="oe_stat_button" icon="fa-file-pdf-o" invisible="not is_dental_patient">
+                <button name="action_view_patient_documents" type="object" class="oe_stat_button" icon="picture_as_pdf" invisible="not is_dental_patient">
                     <field name="patient_document_count" widget="statinfo" string="Records / X-Rays"/>
                 </button>
             </div>
             <xpath expr="//notebook" position="inside">
+                <page string="Treatment History (All Branches)" name="treatment_history_all_branches"
+                      invisible="not is_dental_patient"
+                      groups="dental_base.group_dental_dentist,dental_base.group_dental_manager">
+                    <div class="alert alert-info d-flex align-items-center p-2 mb-2" role="status">
+                        <i class="fa fa-hospital-o fa-lg me-2"/>
+                        <div>What was diagnosed and done for this patient in every branch. Rows from other branches are
+                            highlighted and read-only.</div>
+                    </div>
+                    <field name="dental_history_ids" readonly="1" nolabel="1"/>
+                </page>
                 <page string="Previous Records &amp; X-Rays" name="patient_documents" invisible="not is_dental_patient">
                     <div class="alert alert-info d-flex align-items-center mb-3 p-3 border-0 rounded-3 shadow-sm" role="alert">
-                        <i class="fa fa-file-pdf-o fa-lg me-2 text-info"/>
+                        <i class="oi oi-lg me-2 text-info" data-icon="picture_as_pdf"/>
                         <div>
                             <strong>Patient Medical Records &amp; Diagnostic Files:</strong> Upload patient's previous dental records, past X-Rays (PDF/images), referral letters, prescriptions, or lab reports brought during registration.
                         </div>

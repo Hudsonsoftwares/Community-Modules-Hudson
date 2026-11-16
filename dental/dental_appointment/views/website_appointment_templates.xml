@@ -1042,7 +1042,7 @@
                 // Step 4: Slots Fetching
                 function fetchAvailableSlots() {
                     var datePicker = document.getElementById('booking_date_picker');
-                    bookingState.selectedDate = datePicker.value || new Date().toISOString().split('T')[0];
+                    bookingState.selectedDate = datePicker.value || datePicker.min || bookingState.selectedDate;
 
                     var loader = document.getElementById('slots_loading_indicator');
                     var container = document.getElementById('slots_results_box');
@@ -1187,10 +1187,13 @@
                         patient_id: bookingState.existingPatientId,
                         appointment_type_id: bookingState.serviceId,
                         doctor_id: bookingState.doctorId,
-                        date: bookingState.selectedDate,
-                        slot_time: bookingState.selectedSlotTime,
+                        // Keys read by dental.appointment.create_appointment_booking
+                        appointment_date: bookingState.selectedDate,
+                        appointment_time: bookingState.selectedSlotTime,
                         duration: bookingState.serviceDuration
                     };
+                    // Extension point: add-ons may add booking values (e.g. the online consultation mode)
+                    document.dispatchEvent(new CustomEvent('dental:booking-submit', { detail: payload }));
 
                     fetch('/dental/book_appointment', {
                         method: 'POST',
@@ -1204,14 +1207,16 @@
 
                         var res = d.result || {};
                         if (res.success) {
-                            var appt = res.appointment || {};
-                            document.getElementById('res_succ_ref').textContent = appt.appointment_name || res.name || 'APT-00000';
+                            var appt = res;
+                            document.getElementById('res_succ_ref').textContent = appt.appointment_name || 'APT-00000';
                             document.getElementById('res_succ_patient').textContent = (appt.patient_name || payload.name) + (appt.patient_id ? (' (' + appt.patient_id + ')') : '');
                             document.getElementById('res_succ_doctor').textContent = appt.doctor_name || bookingState.doctorName;
                             document.getElementById('res_succ_service').textContent = appt.service_name || bookingState.serviceName;
                             document.getElementById('res_succ_datetime').textContent = (appt.date_formatted || bookingState.selectedDate) + ' at ' + (appt.time_formatted || bookingState.selectedSlotLabel);
 
                             goToStep(6);
+                            // Extension point: add-ons may adapt the success screen to the server result
+                            document.dispatchEvent(new CustomEvent('dental:booking-success', { detail: res }));
                         } else {
                             showError(res.error || res.message || 'Booking submission failed. Please try again.');
                         }

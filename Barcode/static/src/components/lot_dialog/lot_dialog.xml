@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-name="custom_barcode_scanner.LotDialog" owl="1">
+        <div class="position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center" style="background-color: rgba(0,0,0,0.5); z-index: 1050;">
+            <div class="bg-view rounded shadow-lg" style="width: 90%; max-width: 500px; color: var(--o-barcode-text);">
+                <!-- Header -->
+                <div class="d-flex justify-content-between align-items-center p-3 border-bottom">
+                    <h5 class="mb-0 fw-bold">
+                        <t t-if="this.props.product.tracking === 'serial'">Enter Serial Number</t>
+                        <t t-else="">Enter Lot Number</t>
+                    </h5>
+                    <button class="btn border-0 text-dark shadow-none" t-on-click="this.props.onCancel">
+                        <i class="oi" data-icon="close"/>
+                    </button>
+                </div>
+                <!-- Body -->
+                <div class="p-4">
+                    <div class="mb-3 text-muted small">
+                        Product: <span class="fw-bold text-dark" t-out="this.props.product.display_name"/>
+                    </div>
+                    <div class="mb-3">
+                        <label class="small mb-1 fw-bold text-muted">
+                            <t t-if="this.props.product.tracking === 'serial'">Serial Number</t>
+                            <t t-else="">Lot Number</t>
+                        </label>
+                        <input type="text" class="form-control shadow-none bg-transparent text-dark border-0 border-bottom border-secondary rounded-0 px-0" 
+                            t-att-value="this.state.lotName" t-on-input="(e) => this.state.lotName = e.target.value" t-ref="this.lotInput" placeholder="Scan or type..." autofocus="1"/>
+                    </div>
+                </div>
+                <!-- Footer -->
+                <div class="p-3 d-flex gap-2">
+                    <button class="btn o_barcode_text_light fw-bold shadow-none flex-grow-1" style="background-color: #017e84;" t-on-click="this.onApply">Apply</button>
+                    <button class="btn btn-secondary fw-bold shadow-none" t-on-click="this.props.onCancel">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </t>
+</templates>

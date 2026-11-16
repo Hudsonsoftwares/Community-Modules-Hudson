@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Batch transfer form: "Barcode" smart button (like Odoo Online) that opens the batch
+         in the Barcode app. Only for batches that are not finished yet. -->
+    <record id="stock_picking_batch_form_barcode_button" model="ir.ui.view">
+        <field name="name">stock.picking.batch.form.barcode.button</field>
+        <field name="model">stock.picking.batch</field>
+        <field name="inherit_id" ref="stock.stock_picking_batch_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//div[@name='button_box']" position="inside">
+                <button name="action_client_action" string="Barcode" type="object"
+                        class="oe_stat_button" icon="barcode"
+                        invisible="state in ('done', 'cancel')">
+                    <div class="o_stat_info">
+                        <span class="o_stat_text">Barcode</span>
+                    </div>
+                </button>
+            </xpath>
+        </field>
+    </record>
+</odoo>

@@ -1,0 +1,219 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-name="dental_subscription.Dashboard">
+        <div class="o_action o_dental_sub_dashboard">
+            <div class="dsd-body">
+                <header class="dsd-header">
+                    <div>
+                        <h1 class="dsd-title">Membership Dashboard</h1>
+                        <p class="dsd-subtitle">
+                            <t t-if="this.state.data"><t t-out="this.state.data.company.name"/> · </t>
+                            Live figures from subscriptions, invoices and benefit usage
+                        </p>
+                    </div>
+                    <button class="btn btn-secondary dsd-refresh" t-on-click="() => this.load()">
+                        <i t-attf-class="fa fa-refresh me-1 #{this.state.loading ? 'fa-spin' : ''}"/> Refresh
+                    </button>
+                </header>
+
+                <div t-if="this.state.error" class="alert alert-danger" role="alert">
+                    <t t-out="this.state.error"/>
+                </div>
+                <t t-if="this.state.data">
+                    <t t-set="d" t-value="this.state.data"/>
+                    <t t-set="k" t-value="this.state.data.kpis"/>
+                    <t t-set="tr" t-value="this.trend"/>
+
+                    <!-- Row 1: headline numbers -->
+                    <section class="dsd-tiles">
+                        <button class="dsd-tile" t-on-click="() => this.openOrders(k.active.domain, 'Active Subscriptions')">
+                            <span class="dsd-tile-label">Active subscriptions</span>
+                            <span class="dsd-tile-value"><t t-out="this.count(k.active.value)"/></span>
+                            <span class="dsd-tile-hint"><t t-out="this.count(k.members.value)"/> patients covered</span>
+                        </button>
+                        <button class="dsd-tile" t-on-click="() => this.openOrders(k.mrr.domain, 'Active Subscriptions')">
+                            <span class="dsd-tile-label">Monthly recurring revenue</span>
+                            <span class="dsd-tile-value"><t t-out="this.money(k.mrr.value)"/></span>
+                            <span class="dsd-tile-hint">ARR <t t-out="this.money(k.arr.value)"/></span>
+                        </button>
+                        <button class="dsd-tile" t-on-click="() => this.openOrders(k.new_month.domain, 'New This Month')">
+                            <span class="dsd-tile-label">New this month</span>
+                            <span class="dsd-tile-value"><t t-out="this.count(k.new_month.value)"/></span>
+                            <span class="dsd-tile-hint"><t t-out="this.count(k.renewed_month.value)"/> renewals</span>
+                        </button>
+                        <button class="dsd-tile" t-on-click="() => this.openOrders(k.churn_month.domain, 'Closed This Month')">
+                            <span class="dsd-tile-label">Closed this month</span>
+                            <span class="dsd-tile-value"><t t-out="this.count(k.churn_month.value)"/></span>
+                            <span class="dsd-tile-hint">excl. completed installment plans</span>
+                        </button>
+                    </section>
+
+                    <!-- Row 2: money & attention -->
+                    <section class="dsd-tiles">
+                        <button class="dsd-tile" t-on-click="() => this.openInvoices(k.invoiced_month.domain, 'Invoiced This Month')">
+                            <span class="dsd-tile-label">Invoiced this month</span>
+                            <span class="dsd-tile-value"><t t-out="this.money(k.invoiced_month.value)"/></span>
+                            <span class="dsd-tile-hint">Collected <t t-out="this.money(k.collected_month.value)"/></span>
+                        </button>
+                        <button class="dsd-tile" t-on-click="() => this.openInvoices(k.overdue_amount.domain, 'Overdue Invoices')">
+                            <span class="dsd-tile-label">
+                                <i t-if="k.overdue_amount.value" class="fa fa-exclamation-circle dsd-status-critical me-1" aria-hidden="true"/>Overdue
+                            </span>
+                            <span class="dsd-tile-value"><t t-out="this.money(k.overdue_amount.value)"/></span>
+                            <span class="dsd-tile-hint"><t t-out="this.count(k.overdue_amount.count)"/> invoices · <t t-out="this.count(k.overdue_subs.value)"/> subscriptions</span>
+                        </button>
+                        <button class="dsd-tile" t-on-click="() => this.openOrders(k.expiring_30.domain, 'Expiring in 30 Days')">
+                            <span class="dsd-tile-label">
+                                <i t-if="k.expiring_30.value" class="fa fa-clock-o dsd-status-warning me-1" aria-hidden="true"/>Expiring in 30 days
+                            </span>
+                            <span class="dsd-tile-value"><t t-out="this.count(k.expiring_30.value)"/></span>
+                            <span class="dsd-tile-hint"><t t-out="this.count(k.to_renew.value)"/> to renew · <t t-out="this.count(k.paused.value)"/> paused</span>
+                        </button>
+                        <button class="dsd-tile" t-on-click="() => this.openUsage()">
+                            <span class="dsd-tile-label">Benefits used this month</span>
+                            <span class="dsd-tile-value"><t t-out="this.count(k.benefit_uses.value)"/></span>
+                            <span class="dsd-tile-hint">worth <t t-out="this.money(k.benefit_value.value)"/> in cover &amp; discounts</span>
+                        </button>
+                    </section>
+
+                    <div class="dsd-notices">
+                        <button t-if="k.suspended.value" class="dsd-notice" t-on-click="() => this.openOrders(k.suspended.domain, 'Benefits Suspended')">
+                            <i class="fa fa-ban dsd-status-critical me-1" aria-hidden="true"/>
+                            <strong><t t-out="k.suspended.value"/></strong> subscription(s) with benefits suspended for non-payment
+                        </button>
+                        <button t-if="k.draft_invoices.value" class="dsd-notice" t-on-click="() => this.openInvoices(k.draft_invoices.domain, 'Draft Membership Invoices')">
+                            <i class="fa fa-pencil-square-o dsd-status-warning me-1" aria-hidden="true"/>
+                            <strong><t t-out="k.draft_invoices.value"/></strong> recurring invoice(s) still in draft – post them so payments and overdue tracking apply
+                        </button>
+                    </div>
+
+                    <!-- Charts -->
+                    <section class="dsd-grid">
+                        <div class="dsd-card">
+                            <h3 class="dsd-card-title">Running contracts by type</h3>
+                            <div class="dsd-hbars">
+                                <t t-foreach="this.byType" t-as="row" t-key="row.key">
+                                    <button class="dsd-hbar-row" t-on-click="() => this.openOrders(row.domain, row.label)"
+                                            t-att-title="row.label + ': ' + row.count + ' contracts, ' + row.members + ' members, MRR ' + this.money(row.mrr)">
+                                        <span class="dsd-hbar-label"><t t-out="row.label"/></span>
+                                        <span class="dsd-hbar-track">
+                                            <span class="dsd-hbar-fill" t-attf-style="width: #{row.pct}%"/>
+                                        </span>
+                                        <span class="dsd-hbar-value"><t t-out="row.count"/></span>
+                                    </button>
+                                </t>
+                            </div>
+                        </div>
+
+                        <div class="dsd-card">
+                            <div class="dsd-card-head">
+                                <h3 class="dsd-card-title">New vs closed contracts</h3>
+                                <div class="dsd-legend">
+                                    <span><i class="dsd-swatch dsd-s1"/>New</span>
+                                    <span><i class="dsd-swatch dsd-s2"/>Closed</span>
+                                </div>
+                            </div>
+                            <svg class="dsd-chart" viewBox="0 0 340 150" role="img" aria-label="New and closed contracts per month, last six months">
+                                <line class="dsd-grid-line" x1="30" x2="330" y1="10" y2="10"/>
+                                <line class="dsd-grid-line" x1="30" x2="330" y1="70" y2="70"/>
+                                <line class="dsd-axis" x1="30" x2="330" t-att-y1="tr.baseline" t-att-y2="tr.baseline"/>
+                                <text class="dsd-tick" x="26" y="14" text-anchor="end"><t t-out="tr.max"/></text>
+                                <text class="dsd-tick" x="26" t-att-y="tr.baseline" text-anchor="end">0</text>
+                                <t t-foreach="tr.rows" t-as="r" t-key="r.label">
+                                    <rect class="dsd-bar dsd-s1" t-att-x="r.newX" t-att-y="r.newY" t-att-width="tr.barW" t-att-height="r.newH" rx="2">
+                                        <title><t t-out="r.label"/>: <t t-out="r.new"/> new</title>
+                                    </rect>
+                                    <rect class="dsd-bar dsd-s2" t-att-x="r.churnX" t-att-y="r.churnY" t-att-width="tr.barW" t-att-height="r.churnH" rx="2">
+                                        <title><t t-out="r.label"/>: <t t-out="r.churn"/> closed</title>
+                                    </rect>
+                                    <text class="dsd-tick" t-att-x="r.xLabel" y="146" text-anchor="middle"><t t-out="r.label.split(' ')[0]"/></text>
+                                </t>
+                            </svg>
+                        </div>
+
+                        <div class="dsd-card">
+                            <h3 class="dsd-card-title">Invoiced per month</h3>
+                            <svg class="dsd-chart" viewBox="0 0 340 150" role="img" aria-label="Amount invoiced on subscriptions per month, last six months">
+                                <line class="dsd-grid-line" x1="30" x2="330" y1="10" y2="10"/>
+                                <line class="dsd-grid-line" x1="30" x2="330" y1="70" y2="70"/>
+                                <line class="dsd-axis" x1="30" x2="330" t-att-y1="tr.baseline" t-att-y2="tr.baseline"/>
+                                <text class="dsd-tick" x="26" y="14" text-anchor="end"><t t-out="this.money(tr.maxInv)"/></text>
+                                <t t-foreach="tr.rows" t-as="r" t-key="r.label">
+                                    <rect class="dsd-bar dsd-s1" t-att-x="r.invX" t-att-y="r.invY" t-att-width="tr.invBarW" t-att-height="r.invH" rx="2">
+                                        <title><t t-out="r.label"/>: <t t-out="this.money(r.invoiced)"/></title>
+                                    </rect>
+                                    <text class="dsd-tick" t-att-x="r.xLabel" y="146" text-anchor="middle"><t t-out="r.label.split(' ')[0]"/></text>
+                                </t>
+                            </svg>
+                        </div>
+                    </section>
+
+                    <!-- Table view of the trend (accessibility / exact values) -->
+                    <details class="dsd-card dsd-table-toggle">
+                        <summary>Monthly figures as a table</summary>
+                        <table class="table table-sm mb-0">
+                            <thead><tr><th>Month</th><th class="text-end">New</th><th class="text-end">Closed</th><th class="text-end">Invoiced</th></tr></thead>
+                            <tbody>
+                                <tr t-foreach="d.trend" t-as="r" t-key="r.label">
+                                    <td><t t-out="r.label"/></td>
+                                    <td class="text-end"><t t-out="r.new"/></td>
+                                    <td class="text-end"><t t-out="r.churn"/></td>
+                                    <td class="text-end"><t t-out="this.money(r.invoiced)"/></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </details>
+
+                    <!-- Lists -->
+                    <section class="dsd-grid">
+                        <div class="dsd-card">
+                            <h3 class="dsd-card-title">Expiring soon</h3>
+                            <p t-if="!d.expiring.length" class="dsd-empty">Nothing expires in the next 30 days.</p>
+                            <table t-else="" class="table table-sm table-hover mb-0 dsd-table">
+                                <thead><tr><th>Subscription</th><th>Patient</th><th>Ends</th></tr></thead>
+                                <tbody>
+                                    <tr t-foreach="d.expiring" t-as="o" t-key="o.id" t-on-click="() => this.openOrder(o.id)">
+                                        <td><t t-out="o.name"/><div class="dsd-muted"><t t-out="o.type"/></div></td>
+                                        <td><t t-out="o.partner"/></td>
+                                        <td><t t-out="o.end_date"/></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="dsd-card">
+                            <h3 class="dsd-card-title">Overdue payments</h3>
+                            <p t-if="!d.overdue.length" class="dsd-empty">No overdue membership payments.</p>
+                            <table t-else="" class="table table-sm table-hover mb-0 dsd-table">
+                                <thead><tr><th>Subscription</th><th>Patient</th><th class="text-end">Overdue</th></tr></thead>
+                                <tbody>
+                                    <tr t-foreach="d.overdue" t-as="o" t-key="o.id" t-on-click="() => this.openOrder(o.id)">
+                                        <td><t t-out="o.name"/><div class="dsd-muted">since <t t-out="o.overdue_since"/></div></td>
+                                        <td><t t-out="o.partner"/></td>
+                                        <td class="text-end"><t t-out="this.money(o.amount_overdue)"/></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="dsd-card">
+                            <h3 class="dsd-card-title">Next recurring invoices</h3>
+                            <p t-if="!d.upcoming_invoices.length" class="dsd-empty">No active subscription to invoice.</p>
+                            <table t-else="" class="table table-sm table-hover mb-0 dsd-table">
+                                <thead><tr><th>Subscription</th><th>Plan</th><th>Date</th></tr></thead>
+                                <tbody>
+                                    <tr t-foreach="d.upcoming_invoices" t-as="o" t-key="o.id" t-on-click="() => this.openOrder(o.id)">
+                                        <td><t t-out="o.name"/><div class="dsd-muted"><t t-out="o.partner"/></div></td>
+                                        <td><t t-out="o.plan"/></td>
+                                        <td><t t-out="o.next_invoice_date"/></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </section>
+                </t>
+                <div t-elif="this.state.loading" class="dsd-empty p-5 text-center">
+                    <i class="fa fa-spinner fa-spin me-1"/> Loading…
+                </div>
+            </div>
+        </div>
+    </t>
+</templates>

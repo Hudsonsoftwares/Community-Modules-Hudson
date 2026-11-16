@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Common dental diagnoses for the examination's diagnosis selection. Runs on install only
+         (existing databases get them from the 1.0.12 migration); codes or names already in the
+         master are skipped, so nothing the clinic maintains is duplicated. -->
+    <data noupdate="1">
+        <function model="dental.diagnosis" name="_load_standard_diagnoses"/>
+    </data>
+</odoo>

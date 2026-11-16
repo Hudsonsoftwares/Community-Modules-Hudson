@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import logging
+# pyrefly: ignore [missing-import]
 from odoo import fields
 from ..base import BaseStatutoryService
 
@@ -49,8 +50,10 @@ class Section57IIADeductionService(BaseStatutoryService):
         elif eval_date:
             ref_year = eval_date.year if hasattr(eval_date, 'year') else int(str(eval_date)[:4])
             is_ita_2025 = (eval_date >= fields.Date.from_string('2026-04-01')) if hasattr(eval_date, 'year') else (ref_year >= 2026)
+        else:
+            is_ita_2025 = True
         
-        return "Section 93(1)(d), Income-tax Act 2025" if is_ita_2025 else "Section 57(iia), Income-tax Act 1961"
+        return "Family Pension Section 93(1)(d), Income-tax Act 2025" if is_ita_2025 else "Section 57(iia), Income-tax Act 1961"
 
     @classmethod
     def get_statutory_section_code(cls, financial_year=None, eval_date=None):

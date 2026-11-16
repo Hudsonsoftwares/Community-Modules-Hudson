@@ -1,0 +1,168 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <!-- Close reasons used by the automatic lifecycle (kept out of churn on the dashboard when completed) -->
+        <record id="close_reason_installments_completed" model="sale.subscription.close.reason">
+            <field name="name">Installment plan completed</field>
+            <field name="sequence">90</field>
+        </record>
+        <record id="close_reason_membership_expired" model="sale.subscription.close.reason">
+            <field name="name">Membership expired (not renewed)</field>
+            <field name="sequence">91</field>
+        </record>
+
+        <!-- ============================================================ -->
+        <!-- Starter products, one per subscription type. Prices, plans   -->
+        <!-- and benefits are examples: edit them under Memberships >     -->
+        <!-- Configuration > Membership Products.                         -->
+        <!-- ============================================================ -->
+        <record id="product_membership_individual" model="product.template">
+            <field name="name">Dental Care Membership</field>
+            <field name="type">service</field>
+            <field name="invoice_policy">order</field>
+            <field name="purchase_ok" eval="False"/>
+            <field name="recurring_invoice" eval="True"/>
+            <field name="subscription_plan_id" ref="hudson_subscriptions.subscription_plan_monthly"/>
+            <field name="dental_membership_type">membership</field>
+            <field name="dental_max_members">1</field>
+            <field name="list_price">25.0</field>
+        </record>
+        <record id="rule_individual_consultation" model="dental.membership.benefit.rule">
+            <field name="product_tmpl_id" ref="product_membership_individual"/>
+            <field name="sequence">10</field>
+            <field name="name">Check-up consultations – covered</field>
+            <field name="treatment_id" ref="dental_catalog.treatment_consultation"/>
+            <field name="benefit_type">covered</field>
+            <field name="quantity_limit">2</field>
+            <field name="limit_period">year</field>
+        </record>
+        <record id="rule_individual_scaling" model="dental.membership.benefit.rule">
+            <field name="product_tmpl_id" ref="product_membership_individual"/>
+            <field name="sequence">20</field>
+            <field name="name">Scaling – covered</field>
+            <field name="treatment_id" ref="dental_catalog.treatment_scaling"/>
+            <field name="benefit_type">covered</field>
+            <field name="quantity_limit">2</field>
+            <field name="limit_period">year</field>
+        </record>
+        <record id="rule_individual_discount" model="dental.membership.benefit.rule">
+            <field name="product_tmpl_id" ref="product_membership_individual"/>
+            <field name="sequence">90</field>
+            <field name="name">All other treatments – 15% off</field>
+            <field name="benefit_type">discount</field>
+            <field name="discount">15</field>
+            <field name="quantity_limit">0</field>
+            <field name="limit_period">term</field>
+        </record>
+
+        <record id="product_membership_family" model="product.template">
+            <field name="name">Family Dental Membership</field>
+            <field name="type">service</field>
+            <field name="invoice_policy">order</field>
+            <field name="purchase_ok" eval="False"/>
+            <field name="recurring_invoice" eval="True"/>
+            <field name="subscription_plan_id" ref="hudson_subscriptions.subscription_plan_monthly"/>
+            <field name="dental_membership_type">family</field>
+            <field name="dental_max_members">4</field>
+            <field name="list_price">70.0</field>
+        </record>
+        <record id="rule_family_consultation" model="dental.membership.benefit.rule">
+            <field name="product_tmpl_id" ref="product_membership_family"/>
+            <field name="sequence">10</field>
+            <field name="name">Check-up consultations – covered (shared by the family)</field>
+            <field name="treatment_id" ref="dental_catalog.treatment_consultation"/>
+            <field name="benefit_type">covered</field>
+            <field name="quantity_limit">8</field>
+            <field name="limit_period">year</field>
+        </record>
+        <record id="rule_family_scaling" model="dental.membership.benefit.rule">
+            <field name="product_tmpl_id" ref="product_membership_family"/>
+            <field name="sequence">20</field>
+            <field name="name">Scaling – covered (shared by the family)</field>
+            <field name="treatment_id" ref="dental_catalog.treatment_scaling"/>
+            <field name="benefit_type">covered</field>
+            <field name="quantity_limit">8</field>
+            <field name="limit_period">year</field>
+        </record>
+        <record id="rule_family_discount" model="dental.membership.benefit.rule">
+            <field name="product_tmpl_id" ref="product_membership_family"/>
+            <field name="sequence">90</field>
+            <field name="name">All other treatments – 15% off</field>
+            <field name="benefit_type">discount</field>
+            <field name="discount">15</field>
+            <field name="limit_period">term</field>
+        </record>
+
+        <record id="product_preventive_package" model="product.template">
+            <field name="name">Preventive Care Package</field>
+            <field name="type">service</field>
+            <field name="invoice_policy">order</field>
+            <field name="purchase_ok" eval="False"/>
+            <field name="recurring_invoice" eval="True"/>
+            <field name="subscription_plan_id" ref="hudson_subscriptions.subscription_plan_yearly"/>
+            <field name="dental_membership_type">preventive</field>
+            <field name="dental_max_members">1</field>
+            <field name="list_price">180.0</field>
+        </record>
+        <record id="rule_preventive_consultation" model="dental.membership.benefit.rule">
+            <field name="product_tmpl_id" ref="product_preventive_package"/>
+            <field name="sequence">10</field>
+            <field name="name">Preventive check-ups – covered</field>
+            <field name="treatment_id" ref="dental_catalog.treatment_consultation"/>
+            <field name="benefit_type">covered</field>
+            <field name="quantity_limit">2</field>
+            <field name="limit_period">billing</field>
+        </record>
+        <record id="rule_preventive_scaling" model="dental.membership.benefit.rule">
+            <field name="product_tmpl_id" ref="product_preventive_package"/>
+            <field name="sequence">20</field>
+            <field name="name">Scaling &amp; polishing – covered</field>
+            <field name="treatment_id" ref="dental_catalog.treatment_scaling"/>
+            <field name="benefit_type">covered</field>
+            <field name="quantity_limit">2</field>
+            <field name="limit_period">billing</field>
+        </record>
+
+        <record id="product_ortho_installment" model="product.template">
+            <field name="name">Orthodontic Treatment Installment</field>
+            <field name="type">service</field>
+            <field name="invoice_policy">order</field>
+            <field name="purchase_ok" eval="False"/>
+            <field name="recurring_invoice" eval="True"/>
+            <field name="subscription_plan_id" ref="hudson_subscriptions.subscription_plan_monthly"/>
+            <field name="dental_membership_type">installment</field>
+            <field name="dental_max_members">1</field>
+            <field name="list_price">0.0</field>
+        </record>
+
+        <record id="product_maintenance" model="product.template">
+            <field name="name">Post-Treatment Maintenance Plan</field>
+            <field name="type">service</field>
+            <field name="invoice_policy">order</field>
+            <field name="purchase_ok" eval="False"/>
+            <field name="recurring_invoice" eval="True"/>
+            <field name="subscription_plan_id" ref="hudson_subscriptions.subscription_plan_quarterly"/>
+            <field name="dental_membership_type">maintenance</field>
+            <field name="dental_max_members">1</field>
+            <field name="list_price">45.0</field>
+        </record>
+        <record id="rule_maintenance_consultation" model="dental.membership.benefit.rule">
+            <field name="product_tmpl_id" ref="product_maintenance"/>
+            <field name="sequence">10</field>
+            <field name="name">Maintenance review – covered</field>
+            <field name="treatment_id" ref="dental_catalog.treatment_consultation"/>
+            <field name="benefit_type">covered</field>
+            <field name="quantity_limit">1</field>
+            <field name="limit_period">billing</field>
+        </record>
+        <record id="rule_maintenance_scaling" model="dental.membership.benefit.rule">
+            <field name="product_tmpl_id" ref="product_maintenance"/>
+            <field name="sequence">20</field>
+            <field name="name">Professional cleaning – covered</field>
+            <field name="treatment_id" ref="dental_catalog.treatment_scaling"/>
+            <field name="benefit_type">covered</field>
+            <field name="quantity_limit">1</field>
+            <field name="limit_period">billing</field>
+        </record>
+    </data>
+</odoo>

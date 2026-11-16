@@ -84,23 +84,31 @@
                                     <field name="send_payslips" class="w-75"/>
                                 </div>
                             </setting>
+
+                            <!-- Row 4 Left: Attendance Threshold for Fixed Salary -->
+                            <setting id="attendance_threshold_setting" string="Attendance Threshold for Fixed Salary" help="Minimum working days required in a month to qualify for 100% fixed salary when Pay by Attendance is disabled.">
+                                <field name="enable_attendance_threshold"/>
+                                <div class="content-group mt8" invisible="not enable_attendance_threshold">
+                                    <div class="row mt8">
+                                        <label for="min_attendance_threshold_days" class="col-lg-5 o_light_label" string="Default Minimum"/>
+                                        <div class="col-lg-7 d-flex align-items-center">
+                                            <field name="min_attendance_threshold_days" class="oe_inline text-center" style="width: 70px !important;"/>
+                                            <span class="ms-2">days</span>
+                                        </div>
+                                    </div>
+                                    <div class="text-muted small mt-2">
+                                        If worked days fall below this, salary is prorated to actual days worked. If worked days = 0, salary is ₹0.
+                                    </div>
+                                </div>
+                            </setting>
                         </block>
 
                         <!-- ========================================== -->
                         <!-- 2. ACCOUNTING SECTION                      -->
                         <!-- ========================================== -->
                         <block title="Accounting" name="accounting_setting_container">
-                            <setting id="payroll_accounting_setting" string="Payroll Entries" help="Post payroll slips in accounting">
-                                <field name="module_account"/>
-                                <div class="text-muted">
-                                    Post payroll slips in accounting
-                                </div>
-                            </setting>
                             <setting id="batch_accounting_setting" string="Batch Accounting Entries" help="Create consolidated journal entries upon pay run confirmation">
                                 <field name="payrun_accounting"/>
-                                <div class="text-muted">
-                                    Create consolidated journal entries upon pay run confirmation
-                                </div>
                             </setting>
                         </block>
 

@@ -1,117 +1,157 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
+    <template id="report_prescription_document">
+        <t t-set="doc" t-value="doc.with_context(lang=doc.patient_id.lang or doc.env.lang)"/>
+        <!-- external_layout picks the letterhead of the record's branch from `o` -->
+        <t t-set="o" t-value="doc"/>
+        <t t-call="web.external_layout">
+            <div class="page o_dental_rx_report">
+                <style>
+                    .o_dental_rx_report { font-size: 12.5px; color: #1e293b; }
+                    .o_dental_rx_report table { width: 100%; border-collapse: collapse; }
+                    .o_rxr_band td { vertical-align: top; }
+                    .o_rxr_doctor { font-size: 18px; font-weight: bold; color: #0f5f5a; }
+                    .o_rxr_sub { color: #64748b; font-size: 11.5px; }
+                    .o_rxr_no { font-size: 16px; font-weight: bold; color: #0f172a; }
+                    .o_rxr_label { color: #64748b; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.05em; }
+                    .o_rxr_value { font-weight: bold; color: #0f172a; font-size: 12.5px; }
+                    .o_rxr_patient { background-color: #f1f8f7; border: 1px solid #d5e9e5; }
+                    .o_rxr_patient td { padding: 8px 12px; vertical-align: top; }
+                    .o_rxr_allergy { margin-top: 10px; padding: 6px 12px; border: 1px solid #fecaca; background-color: #fef2f2; color: #991b1b; }
+                    .o_rxr_symbol { font-family: Georgia, 'Times New Roman', serif; font-size: 34px; font-weight: bold; color: #0f5f5a; line-height: 1; }
+                    .o_rxr_meds th { background-color: #0f5f5a; color: #ffffff; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.04em; padding: 7px 8px; text-align: left; }
+                    .o_rxr_meds td { padding: 8px; border-bottom: 1px solid #e3e8ee; vertical-align: top; }
+                    .o_rxr_meds tr.o_rxr_even td { background-color: #f8fafc; }
+                    .o_rxr_med { font-weight: bold; color: #0f172a; font-size: 13px; }
+                    .o_rxr_advice { margin-top: 14px; padding: 10px 14px; border-left: 4px solid #f59e0b; background-color: #fffbeb; }
+                    .o_rxr_sign { border-top: 1px solid #0f172a; padding-top: 4px; }
+                </style>
+
+                <!-- Prescriber and prescription reference -->
+                <table class="o_rxr_band" style="margin-bottom: 12px;">
+                    <tr>
+                        <td style="width: 62%;">
+                            <div class="o_rxr_doctor">Dr. <span t-out="doc.dentist_id.name"/></div>
+                            <div class="o_rxr_sub">
+                                <t t-if="doc.dentist_specialization"><span t-out="doc.dentist_specialization"/></t>
+                                <t t-if="doc.dentist_specialization and doc.dentist_reg_no"> · </t>
+                                <t t-if="doc.dentist_reg_no">Reg. No. <span t-out="doc.dentist_reg_no"/></t>
+                            </div>
+                        </td>
+                        <td style="width: 38%; text-align: right;">
+                            <div class="o_rxr_no" t-out="doc.name"/>
+                            <div class="o_rxr_sub">Date: <span t-field="doc.prescription_date"/></div>
+                            <div class="o_rxr_sub" t-if="doc.case_id">Case: <span t-out="doc.case_id.name"/></div>
+                        </td>
+                    </tr>
+                </table>
+
+                <!-- Patient -->
+                <table class="o_rxr_patient">
+                    <tr>
+                        <td style="width: 34%;">
+                            <div class="o_rxr_label">Patient</div>
+                            <div class="o_rxr_value" t-out="doc.patient_id.name"/>
+                        </td>
+                        <td style="width: 18%;">
+                            <div class="o_rxr_label">Patient ID</div>
+                            <div class="o_rxr_value" t-out="doc.patient_dental_id or '-'"/>
+                        </td>
+                        <td style="width: 18%;">
+                            <div class="o_rxr_label">Age / Sex</div>
+                            <div class="o_rxr_value">
+                                <t t-out="doc.patient_age or '-'"/><t t-if="doc.patient_age"> y</t>
+                                <t t-if="doc.patient_gender"> / <span t-field="doc.patient_gender"/></t>
+                            </div>
+                        </td>
+                        <td style="width: 30%;">
+                            <div class="o_rxr_label">Indication</div>
+                            <div class="o_rxr_value" t-out="doc.diagnosis or '-'"/>
+                        </td>
+                    </tr>
+                </table>
+
+                <div class="o_rxr_allergy" t-if="doc.patient_allergy_status == 'known' and doc.patient_allergies_text">
+                    <strong>Known allergies:</strong> <span t-out="doc.patient_allergies_text"/>
+                </div>
+
+                <!-- Medicines -->
+                <table style="margin: 16px 0 6px 0;">
+                    <tr>
+                        <td style="width: 46px;"><span class="o_rxr_symbol">&#8478;</span></td>
+                        <td style="vertical-align: middle; color: #64748b; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em;">
+                            Prescribed medicines (<t t-out="len(doc.line_ids)"/>)
+                        </td>
+                    </tr>
+                </table>
+                <table class="o_rxr_meds">
+                    <thead>
+                        <tr>
+                            <th style="width: 4%;">#</th>
+                            <th style="width: 34%;">Medicine</th>
+                            <th style="width: 26%;">Dosage</th>
+                            <th style="width: 10%;">Duration</th>
+                            <th style="width: 8%; text-align: right;">Qty</th>
+                            <th style="width: 18%;">Instructions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr t-foreach="doc.line_ids" t-as="line" t-att-class="'o_rxr_even' if line_index % 2 else ''">
+                            <td t-out="line_index + 1"/>
+                            <td>
+                                <div class="o_rxr_med">
+                                    <span t-out="line.medicine_id.name"/>
+                                    <span t-if="line.strength and line.strength not in (line.medicine_id.name or '')" t-out="line.strength"/>
+                                </div>
+                                <div class="o_rxr_sub">
+                                    <t t-if="line.generic_name"><span t-out="line.generic_name"/></t>
+                                    <t t-if="line.generic_name and line.dosage_form"> · </t>
+                                    <t t-if="line.dosage_form"><span t-field="line.dosage_form"/></t>
+                                </div>
+                            </td>
+                            <td>
+                                <div><span t-out="line.dose"/> · <span t-out="line.frequency_label"/></div>
+                                <div class="o_rxr_sub" t-if="line.route and line.route != 'oral'"><span t-field="line.route"/></div>
+                            </td>
+                            <td><span t-out="line.duration"/> day(s)</td>
+                            <td style="text-align: right;"><span t-out="'%g' % line.quantity"/> <span class="o_rxr_sub" t-out="line.uom_id.name or ''"/></td>
+                            <td><span t-out="line.instructions or 'As directed'"/></td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div class="o_rxr_advice" t-if="doc.clinical_notes">
+                    <strong>Advice</strong>
+                    <div style="white-space: pre-line;" t-out="doc.clinical_notes"/>
+                </div>
+
+                <!-- Signature -->
+                <table style="margin-top: 36px; page-break-inside: avoid;">
+                    <tr>
+                        <td style="width: 58%; vertical-align: bottom;" class="o_rxr_sub">
+                            <div t-if="doc.fulfillment == 'pharmacy'">Dispensed by the clinic pharmacy.</div>
+                            <div t-elif="doc.fulfillment == 'patient'">Medicines may be bought at any pharmacy.</div>
+                            <div>Take medicines exactly as prescribed. Stop and contact the clinic in case of swelling, rash or any unexpected reaction.</div>
+                        </td>
+                        <td style="width: 42%; text-align: right; vertical-align: bottom;">
+                            <div style="min-height: 64px;">
+                                <img t-if="doc.dentist_signature" t-att-src="image_data_uri(doc.dentist_signature)" style="max-height: 60px; max-width: 170px;"/>
+                            </div>
+                            <div class="o_rxr_sign" style="display: inline-block; min-width: 210px; text-align: center;">
+                                <strong>Dr. <span t-out="doc.dentist_id.name"/></strong>
+                                <div class="o_rxr_sub">Signature</div>
+                            </div>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+        </t>
+    </template>
+
     <template id="report_prescription_template">
         <t t-call="web.html_container">
             <t t-foreach="docs" t-as="doc">
-                <t t-call="web.external_layout">
-                    <div class="page" style="font-family: Arial, sans-serif; font-size: 13px; color: #222;">
-                        <!-- Clinic & Doctor Header Header -->
-                        <div class="row pb-3 mb-3 border-bottom align-items-center">
-                            <div class="col-7">
-                                <h3 class="fw-bold text-primary mb-1">
-                                    <t t-if="doc.dentist_id.name"><span t-esc="'Dr. ' + doc.dentist_id.name"/></t>
-                                    <t t-else="">Dental Clinic Doctor</t>
-                                </h3>
-                                <div class="text-muted small">
-                                    <t t-if="doc.dentist_specialization"><span t-esc="doc.dentist_specialization"/> | </t>
-                                    <t t-if="doc.dentist_reg_no">Reg No: <span t-esc="doc.dentist_reg_no"/></t>
-                                </div>
-                                <div class="small text-muted" t-if="doc.company_id.phone">
-                                    Tel: <span t-esc="doc.company_id.phone"/>
-                                </div>
-                            </div>
-                            <div class="col-5 text-end">
-                                <h4 class="fw-bold mb-0 text-dark"><span t-esc="doc.name"/></h4>
-                                <div class="text-muted small">Date: <span t-esc="doc.prescription_date"/></div>
-                                <div t-if="doc.case_id" class="text-muted small">Case Ref: <span t-esc="doc.case_id.name"/></div>
-                            </div>
-                        </div>
-
-                        <!-- Patient Info Card -->
-                        <div class="row p-3 mb-4 rounded bg-light border">
-                            <div class="col-6">
-                                <div><strong>Patient Name:</strong> <span class="fw-bold" t-esc="doc.patient_id.name"/></div>
-                                <div><strong>Patient ID:</strong> <span t-esc="doc.patient_dental_id or 'N/A'"/></div>
-                                <div><strong>Age / Gender:</strong> 
-                                    <span t-esc="doc.patient_age or 'N/A'"/> Yrs / 
-                                    <span t-esc="doc.patient_gender and doc.patient_gender.capitalize() or 'N/A'"/>
-                                </div>
-                            </div>
-                            <div class="col-6 text-end">
-                                <div><strong>Contact:</strong> <span t-esc="doc.patient_phone or 'N/A'"/></div>
-                                <div t-if="doc.diagnosis"><strong>Clinical Diagnosis:</strong> <span class="text-danger" t-esc="doc.diagnosis"/></div>
-                            </div>
-                        </div>
-
-                        <!-- Allergy Alert Notice if any -->
-                        <div t-if="doc.patient_allergies" class="alert alert-warning p-2 mb-3 small border">
-                            <strong>Known Allergies / Medical Alerts:</strong> <span t-esc="doc.patient_allergies"/>
-                        </div>
-
-                        <!-- Rx Symbol & Medicines Table -->
-                        <div class="mb-2">
-                            <span style="font-size: 28px; font-weight: bold; font-family: serif; color: #0d6efd;">&#8478;</span>
-                            <span class="fs-6 fw-bold ms-2 text-secondary">Prescribed Medications</span>
-                        </div>
-
-                        <table class="table table-sm table-bordered mb-4">
-                            <thead class="table-light">
-                                <tr class="text-center">
-                                    <th style="width: 5%;">#</th>
-                                    <th style="width: 30%; text-align: left;">Medicine &amp; Strength</th>
-                                    <th style="width: 12%;">Form</th>
-                                    <th style="width: 13%;">Dose</th>
-                                    <th style="width: 15%;">Frequency</th>
-                                    <th style="width: 10%;">Duration</th>
-                                    <th style="width: 15%; text-align: left;">Instructions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <t t-set="idx" t-value="1"/>
-                                <tr t-foreach="doc.line_ids" t-as="line">
-                                    <td class="text-center" t-esc="idx"/>
-                                    <td>
-                                        <div class="fw-bold" t-esc="line.medicine_id.name"/>
-                                        <div class="text-muted small" t-if="line.generic_name"><span t-esc="line.generic_name"/></div>
-                                        <div class="text-muted small" t-if="line.strength"><span t-esc="line.strength"/></div>
-                                    </td>
-                                    <td class="text-center" t-esc="line.dosage_form and line.dosage_form.capitalize() or ''"/>
-                                    <td class="text-center" t-esc="line.dose"/>
-                                    <td class="text-center" t-esc="dict(line._fields['frequency'].selection).get(line.frequency, '')"/>
-                                    <td class="text-center"><span t-esc="line.duration"/> Days</td>
-                                    <td><span t-esc="line.instructions or 'As directed'"/></td>
-                                    <t t-set="idx" t-value="idx + 1"/>
-                                </tr>
-                            </tbody>
-                        </table>
-
-                        <!-- Clinical Advice -->
-                        <div t-if="doc.clinical_notes" class="p-3 mb-4 border rounded bg-white">
-                            <strong>Special Advice &amp; Warnings:</strong>
-                            <div class="mt-1" t-esc="doc.clinical_notes"/>
-                        </div>
-
-                        <!-- Signature Section -->
-                        <div class="row pt-5 mt-5">
-                            <div class="col-6">
-                                <div class="text-muted small">
-                                    <em>Note: Take medications strictly according to instructions. In case of unexpected allergic reaction or swelling, contact clinic immediately.</em>
-                                </div>
-                            </div>
-                            <div class="col-6 text-end">
-                                <div style="min-height: 70px;">
-                                    <t t-if="doc.dentist_signature">
-                                        <img t-att-src="image_data_uri(doc.dentist_signature)" style="max-height: 60px; max-width: 160px;"/>
-                                    </t>
-                                </div>
-                                <div class="border-top pt-1 d-inline-block" style="min-width: 200px;">
-                                    <strong><t t-if="doc.dentist_id.name"><span t-esc="'Dr. ' + doc.dentist_id.name"/></t></strong>
-                                    <div class="small text-muted">Prescribing Dentist Signature</div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </t>
+                <t t-call="dental_pharmacy.report_prescription_document"/>
             </t>
         </t>
     </template>

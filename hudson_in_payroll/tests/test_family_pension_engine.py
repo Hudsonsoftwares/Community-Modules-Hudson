@@ -290,3 +290,25 @@ class TestFamilyPensionEngine(TransactionCase):
 
         code_2627 = Section57IIADeductionService.get_statutory_section_code(self.fy2627)
         self.assertEqual(code_2627, "93(1)(d)")
+
+    def test_09_declaration_form_total_other_sources_includes_family_pension(self):
+        """
+        Verify that Tab 4 'Income from Other Sources' on tds.employee.declaration
+        correctly sums savings interest, FD interest, dividend, misc, AND family pension.
+        """
+        decl = self.env['tds.employee.declaration'].create({
+            'employee_id': self.employee.id,
+            'financial_year_id': self.fy2526.id,
+            'tax_regime_id': self.regime_new.id,
+            'state': 'draft',
+            'savings_bank_interest': 10000.0,
+            'fixed_deposit_interest': 0.0,
+            'dividend_income': 0.0,
+            'other_sources_income': 10000.0,
+            'decl_57iia_family_pension': 12000.0,
+        })
+        self.assertEqual(decl.total_other_sources_income, 32000.0)
+
+        # Dynamic update when family pension amount changes
+        decl.write({'decl_57iia_family_pension': 18000.0})
+        self.assertEqual(decl.total_other_sources_income, 38000.0)

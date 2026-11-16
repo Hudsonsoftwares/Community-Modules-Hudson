@@ -22,7 +22,8 @@
             ref('dental_base.group_dental_manager'),
             ref('dental_base.group_dental_admin')
         ])]"/>
-        <field name="active" eval="True"/>
+        <!-- Hidden from the Dental Clinic app: available from its own module -->
+        <field name="active" eval="False"/>
     </record>
 
     <!-- Sub-Menus under Equipment & Maintenance -->
@@ -73,12 +74,6 @@
     <!-- ========================================================================= -->
     <!-- RECEPTION DESK MAINTENANCE QUICK MENUS                                    -->
     <!-- ========================================================================= -->
-    <menuitem id="menu_reception_report_equipment_issue"
-              name="Report Equipment Issue"
-              parent="dental_core.menu_reception_front_desk"
-              action="action_reception_report_equipment_issue"
-              sequence="50"/>
-
     <menuitem id="menu_reception_unavailable_equipment"
               name="Equipment Out of Service"
               parent="dental_core.menu_reception_front_desk"

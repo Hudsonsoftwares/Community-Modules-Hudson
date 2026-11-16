@@ -1,8 +1,27 @@
-from odoo import models, fields
+from odoo import api, models, fields
 
 
 class ResConfigSettings(models.TransientModel):
     _inherit = 'res.config.settings'
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        # Workaround for an Odoo 20 core bug: the web client may send a binary
+        # value as {'filename': ..., 'content': False}. Binary.convert_to_cache
+        # then calls `.filename` on None and crashes. Normalize such values to
+        # False (empty binary) before the core create processes them.
+        for vals in vals_list:
+            for fname, value in list(vals.items()):
+                field = self._fields.get(fname)
+                if (
+                    field is not None
+                    and field.type == 'binary'
+                    and isinstance(value, dict)
+                    and 'content' in value
+                    and not value['content']
+                ):
+                    vals[fname] = False
+        return super().create(vals_list)
 
     dental_tooth_numbering_system = fields.Selection([
         ('fdi', 'FDI Two-Digit (ISO 3950) - Recommended'),

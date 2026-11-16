@@ -34,6 +34,11 @@ class ResPartner(models.Model):
         compute='_compute_patient_document_count'
     )
 
+    # Read-only timeline from every branch (the records above only cover the user's branches)
+    dental_history_ids = fields.One2many(
+        'dental.patient.history', 'patient_id', string='Treatment History (All Branches)',
+        groups='dental_base.group_dental_dentist,dental_base.group_dental_manager')
+
     @api.depends('patient_document_ids')
     def _compute_patient_document_count(self):
         for partner in self:
@@ -75,6 +80,17 @@ class ResPartner(models.Model):
     def _compute_treatment_session_count(self):
         for partner in self:
             partner.treatment_session_count = len(partner.treatment_session_ids)
+
+    def action_view_treatment_history(self):
+        self.ensure_one()
+        return {
+            'name': _('Treatment History of %s', self.name),
+            'type': 'ir.actions.act_window',
+            'res_model': 'dental.patient.history',
+            'view_mode': 'list,form',
+            'domain': [('patient_id', '=', self.id)],
+            'context': {'search_default_group_by_branch': 1},
+        }
 
     def action_view_dental_cases(self):
         self.ensure_one()

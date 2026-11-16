@@ -1,10 +1,18 @@
 # -*- coding: utf-8 -*-
 from datetime import datetime, timedelta, date
 import logging
+import pytz
 from odoo import models, fields, api, _
-from odoo.exceptions import ValidationError
+from odoo.exceptions import AccessError, UserError, ValidationError
 
 _logger = logging.getLogger(__name__)
+
+# Clinic opening hours in local time: (period key, label, hour from, hour to).
+# A service is only offered at a start time when it also ends inside the same session.
+CLINIC_SESSIONS = {
+    'weekday': [('morning', 'Morning', 9.0, 13.0), ('afternoon', 'Afternoon', 14.0, 18.0)],
+    'sunday': [('morning', 'Sunday Hours', 10.0, 14.0)],
+}
 
 
 class DentalAppointment(models.Model):
@@ -12,6 +20,7 @@ class DentalAppointment(models.Model):
     _description = 'Dental Appointment'
     _inherit = ['mail.thread', 'mail.activity.mixin']
     _order = 'date_start desc, id desc'
+    _check_company_auto = True
 
     name = fields.Char(
         string='Appointment Number',
@@ -38,7 +47,8 @@ class DentalAppointment(models.Model):
         'product.template',
         string='Dental Treatment',
         domain=[('is_dental_treatment', '=', True)],
-        tracking=True
+        tracking=True,
+        check_company=True,
     )
     appointment_type_id = fields.Many2one(
         'dental.appointment.type',
@@ -65,6 +75,8 @@ class DentalAppointment(models.Model):
         required=True,
         default=lambda self: self.env.company
     )
+    # Standard company field (mirrors branch_id) used by record rules and check_company validation
+    company_id = fields.Many2one(related='branch_id', store=True, index=True, string='Company')
 
     state = fields.Selection([
         ('pending', 'Pending'),
@@ -122,9 +134,57 @@ class DentalAppointment(models.Model):
         copy=False
     )
 
+    # Clinic hours alert (informational: booking outside hours stays allowed)
+    outside_clinic_hours = fields.Boolean(
+        string='Outside Clinic Hours', compute='_compute_outside_clinic_hours',
+        help='The appointment is not within the clinic hours set in Clinic Configuration.')
+
+    is_receptionist = fields.Boolean(
+        string='Is Receptionist',
+        compute='_compute_is_receptionist',
+        help='True if current user is front-desk receptionist or clinic administrator.'
+    )
+
+    def _compute_is_receptionist(self):
+        can_check = self._can_check_in()
+        for record in self:
+            record.is_receptionist = can_check
+    clinic_hours_warning = fields.Char(string='Clinic Hours Notice', compute='_compute_outside_clinic_hours')
+
     # ---------------------------------------------------------
     # Computes & Onchanges
     # ---------------------------------------------------------
+    @api.depends('date_start', 'date_end', 'branch_id')
+    def _compute_outside_clinic_hours(self):
+        for record in self:
+            record.clinic_hours_warning = record._get_clinic_hours_warning()
+            record.outside_clinic_hours = bool(record.clinic_hours_warning)
+
+    def _log_outside_clinic_hours(self):
+        """Leave a visible note on appointments scheduled outside clinic hours (never blocks)."""
+        for record in self:
+            if record.state in ('cancelled', 'no_show', 'completed'):
+                continue
+            warning = record._get_clinic_hours_warning()
+            if warning:
+                record.message_post(body=_("Clinic hours alert: %s", warning))
+
+    def _get_clinic_hours_warning(self):
+        self.ensure_one()
+        if not self.date_start or not self.date_end:
+            return False
+        clinic = (self.branch_id or self.env.company).sudo()
+        tz = self._get_clinic_tz(clinic)
+        start_local = pytz.utc.localize(self.date_start).astimezone(tz).replace(tzinfo=None)
+        end_local = pytz.utc.localize(self.date_end).astimezone(tz).replace(tzinfo=None)
+        return clinic._dental_outside_hours_message(start_local, end_local)
+
+    @api.onchange('date_start', 'date_end', 'branch_id')
+    def _onchange_clinic_hours_alert(self):
+        warning = self._get_clinic_hours_warning()
+        if warning:
+            return {'warning': {'title': _("Outside Clinic Hours"), 'message': warning, 'type': 'notification'}}
+
     @api.depends('date_start', 'date_end')
     def _compute_duration(self):
         for record in self:
@@ -174,8 +234,8 @@ class DentalAppointment(models.Model):
                         'title': _("Doctor Availability Conflict"),
                         'message': _("Doctor %s is on approved leave from %s to %s. Please pick another time slot or another doctor.") % (
                             self.doctor_id.name,
-                            fields.Datetime.to_string(leaves.date_from),
-                            fields.Datetime.to_string(leaves.date_to)
+                            self._format_local(leaves.date_from, self._get_clinic_tz(self.branch_id)),
+                            self._format_local(leaves.date_to, self._get_clinic_tz(self.branch_id))
                         )
                     }
                 }
@@ -227,14 +287,17 @@ class DentalAppointment(models.Model):
                             is_down = True
                         elif hasattr(eq, 'equipment_condition') and eq.equipment_condition in ('under_repair', 'out_of_order', 'scrapped'):
                             is_down = True
-                        elif eq.maintenance_open_count and eq.maintenance_open_count > 0:
-                            # Check active corrective breakdown requests
-                            active_reqs = self.env['maintenance.request'].sudo().search([
+                        elif getattr(eq, 'scrap_date', False):
+                            is_down = True
+                        else:
+                            # Check active requests or scrap requests
+                            req_match = self.env['maintenance.request'].sudo().search([
                                 ('equipment_id', '=', eq.id),
-                                ('stage_id.done', '=', False),
-                                ('maintenance_type', '=', 'corrective')
+                                '|',
+                                ('stage_id.name', 'ilike', 'scrap'),
+                                '&', ('stage_id.fold', '=', False), ('equipment_availability_impact', 'in', ('unavailable', 'reduced_capacity'))
                             ], limit=1)
-                            if active_reqs:
+                            if req_match:
                                 is_down = True
                         if is_down:
                             unavailable_equips |= eq
@@ -250,7 +313,9 @@ class DentalAppointment(models.Model):
                         # Find operational ones
                         oper_equips = all_cat_equips.filtered(
                             lambda e: getattr(e, 'is_available', True) and
-                                      getattr(e, 'equipment_condition', 'operational') not in ('under_repair', 'out_of_order', 'scrapped')
+                                      not getattr(e, 'scrap_date', False) and
+                                      getattr(e, 'equipment_condition', 'operational') not in ('under_repair', 'out_of_order', 'scrapped') and
+                                      not e.maintenance_ids.filtered(lambda r: r.stage_id and ('scrap' in (r.stage_id.name or '').lower() or (not r.stage_id.fold and r.equipment_availability_impact == 'unavailable')))
                         )
                         # If NONE are operational in this branch, all are down!
                         if not oper_equips:
@@ -259,10 +324,18 @@ class DentalAppointment(models.Model):
             if unavailable_equips:
                 app.has_equipment_conflict = True
                 app.conflicting_equipment_ids = [(6, 0, unavailable_equips.ids)]
-                eq_names = ", ".join(unavailable_equips.mapped('name'))
-                app.equipment_conflict_reason = _(
-                    "Required equipment '%s' is currently under maintenance or unavailable in %s."
-                ) % (eq_names, app.branch_id.name or 'this clinic')
+                scrapped_names = unavailable_equips.filtered(
+                    lambda e: e.equipment_condition == 'scrapped' or getattr(e, 'scrap_date', False) or e.maintenance_ids.filtered(lambda r: r.stage_id and 'scrap' in (r.stage_id.name or '').lower())
+                ).mapped('name')
+                if scrapped_names:
+                    app.equipment_conflict_reason = _(
+                        "CRITICAL: Equipment '%s' has been SCRAPPED / Decommissioned in %s. Please reassign the appointment to an alternate operatory."
+                    ) % (", ".join(scrapped_names), app.branch_id.name or 'this clinic')
+                else:
+                    eq_names = ", ".join(unavailable_equips.mapped('name'))
+                    app.equipment_conflict_reason = _(
+                        "Required equipment '%s' is currently under maintenance or unavailable in %s."
+                    ) % (eq_names, app.branch_id.name or 'this clinic')
                 return app.equipment_conflict_reason
             else:
                 app.has_equipment_conflict = False
@@ -298,13 +371,29 @@ class DentalAppointment(models.Model):
         appointments = super().create(vals_list)
         appointments._sync_calendar_event()
         appointments._check_appointment_equipment_availability()
+        appointments._log_outside_clinic_hours()
+        appointments._link_follow_up_from_context()
         return appointments
+
+    def _link_follow_up_from_context(self):
+        """Book the follow-up that opened this appointment form (see action_book_followup_appointment)."""
+        follow_up_id = self.env.context.get('dental_follow_up_id')
+        if not follow_up_id or len(self) != 1:
+            return
+        follow_up = self.env['dental.follow.up'].browse(follow_up_id).exists()
+        if follow_up:
+            follow_up._link_booked_appointment(self)
 
     def write(self, vals):
         res = super().write(vals)
+        if 'state' in vals:
+            self.env['dental.follow.up'].sudo().search(
+                [('booked_appointment_id', 'in', self.ids), ('state', '=', 'booked')])._sync_from_booked_appointment()
         if set(vals.keys()) & {'date_start', 'date_end', 'state', 'patient_id', 'doctor_id', 'treatment_id', 'appointment_type_id', 'branch_id'}:
             self._sync_calendar_event()
             self._check_appointment_equipment_availability()
+        if {'date_start', 'date_end', 'branch_id'} & set(vals):
+            self._log_outside_clinic_hours()
         return res
 
     def unlink(self):
@@ -371,10 +460,11 @@ class DentalAppointment(models.Model):
                     record.conflicting_leave_id = leaves[0].id
                     continue
                 else:
+                    tz = self._get_clinic_tz(record.branch_id)
                     raise ValidationError(_("Doctor %s is on approved leave during this time (%s to %s). Please reschedule this appointment.") % (
                         record.doctor_id.name,
-                        fields.Datetime.to_string(leaves[0].date_from),
-                        fields.Datetime.to_string(leaves[0].date_to)
+                        self._format_local(leaves[0].date_from, tz),
+                        self._format_local(leaves[0].date_to, tz)
                     ))
             elif record.has_leave_conflict:
                 record.has_leave_conflict = False
@@ -389,11 +479,23 @@ class DentalAppointment(models.Model):
                 ('date_end', '>', record.date_start)
             ]
             if record.state != 'pending' and self.search_count(domain) > 0:
+                tz = self._get_clinic_tz(record.branch_id)
                 raise ValidationError(_("Doctor %s already has an appointment during this time (%s to %s).") % (
                     record.doctor_id.name,
-                    fields.Datetime.to_string(record.date_start),
-                    fields.Datetime.to_string(record.date_end)
+                    self._format_local(record.date_start, tz),
+                    self._format_local(record.date_end, tz, '%I:%M %p')
                 ))
+
+            # Check the doctor's maximum appointments per day
+            if record.state != 'pending':
+                tz = self._get_clinic_tz(record.branch_id)
+                local_day = pytz.utc.localize(record.date_start).astimezone(tz).date()
+                if self._doctor_day_limit_reached(record.doctor_id, local_day, tz, exclude_id=record.id):
+                    raise ValidationError(_("Doctor %s has reached the maximum of %s appointments on %s.") % (
+                        record.doctor_id.name,
+                        record.doctor_id.sudo().max_appointments_per_day,
+                        local_day.strftime('%d %b %Y'),
+                    ))
 
             # Check branch consistency if doctor is assigned to a specific company
             if record.branch_id and record.doctor_id.company_id and record.doctor_id.company_id != record.branch_id:
@@ -404,7 +506,19 @@ class DentalAppointment(models.Model):
     # ---------------------------------------------------------
     # State Action Methods
     # ---------------------------------------------------------
+    def _check_state_transition(self, allowed_states, action_label):
+        """Raise a clear error when a workflow button is used from an invalid status."""
+        state_labels = dict(self._fields['state'].selection)
+        for record in self:
+            if record.state not in allowed_states:
+                raise UserError(_("Cannot %(action)s appointment %(name)s while it is '%(state)s'.") % {
+                    'action': action_label,
+                    'name': record.name,
+                    'state': state_labels.get(record.state, record.state),
+                })
+
     def action_confirm(self):
+        self.filtered(lambda r: r.state != 'confirmed')._check_state_transition(['pending'], _('confirm'))
         for record in self:
             if record.state == 'confirmed':
                 continue
@@ -430,9 +544,35 @@ class DentalAppointment(models.Model):
                     template.send_mail(record.id, force_send=False)
                     record.message_post(body=_('Appointment confirmation email sent/queued to %s.') % record.patient_id.email)
 
+    @api.model
+    def _can_check_in(self):
+        """Checking in a patient is a front-desk reception act: allowed for Receptionists and Dental Administrators.
+        Doctors start the visit from the Dentist Workspace once the patient is checked in."""
+        if self.env.su:
+            return True
+        user = self.env.user
+        # Dental Administrator and System Administrator always have access
+        if (
+            user.has_group('dental_base.group_dental_admin')
+            or user.has_group('base.group_system')
+        ):
+            return True
+
+        # Front-desk receptionists have access
+        if (
+            user.has_group('dental_base.group_dental_receptionist')
+            or bool(user.employee_id and user.employee_id.dental_role == 'receptionist')
+        ):
+            return True
+
+        # Doctors (without receptionist or administrator permissions) cannot check in
+        return False
+
     def action_check_in(self):
+        if not self._can_check_in():
+            raise AccessError(_("Only receptionists can check in patients. Doctors start the visit from the Dentist Workspace once the patient is checked in."))
         for record in self:
-            if record.state in ['checked_in', 'in_consultation', 'completed', 'cancelled']:
+            if record.state in ['checked_in', 'in_consultation', 'completed', 'cancelled', 'no_show']:
                 continue
 
             if not record.token_number:
@@ -450,16 +590,38 @@ class DentalAppointment(models.Model):
                 'state': 'checked_in',
                 'check_in_time': fields.Datetime.now()
             })
+            # The live queue follows the check-in time; keep an audit trail when it differs from the booking
+            booked_day = fields.Datetime.context_timestamp(record, record.date_start).date() if record.date_start else False
+            if booked_day and booked_day != fields.Date.context_today(record):
+                record.message_post(body=_(
+                    "Patient checked in on %(today)s for an appointment booked on %(booked)s. "
+                    "The visit is in today's queue for Dr. %(doctor)s.",
+                    today=fields.Date.context_today(record), booked=booked_day, doctor=record.doctor_id.name))
+
+    @api.model
+    def _can_start_consultation(self):
+        """Starting a consultation is a clinical act: only users with the Dentist permission
+        (including receptionists who are also dentists). A receptionist alone cannot."""
+        return self.env.su or self.env.user.has_group('dental_base.group_dental_dentist')
 
     def action_start_consultation(self):
-        for record in self:
+        if not self._can_start_consultation():
+            raise AccessError(_("Only dentists can start a consultation. The front desk checks the patient in; "
+                                "the doctor starts the visit from the Dentist Workspace."))
+        to_start = self.filtered(lambda r: r.state != 'in_consultation')
+        to_start._check_state_transition(['confirmed', 'checked_in'], _('start the consultation for'))
+        # Walk-ins seen directly from 'confirmed' are checked in first so queue/waiting data stays consistent
+        to_start.filtered(lambda r: r.state == 'confirmed').sudo().action_check_in()
+        for record in to_start:
             record.write({
                 'state': 'in_consultation',
                 'called_time': fields.Datetime.now()
             })
 
     def action_complete(self):
-        for record in self:
+        to_complete = self.filtered(lambda r: r.state != 'completed')
+        to_complete._check_state_transition(['checked_in', 'in_consultation'], _('complete'))
+        for record in to_complete:
             record.state = 'completed'
             record._create_automatic_followup()
 
@@ -473,26 +635,8 @@ class DentalAppointment(models.Model):
             if not appt.patient_id:
                 continue
                 
-            treatment_name = (appt.treatment_id.name or appt.reason or '').lower()
-            if any(w in treatment_name for w in ['surgery', 'extraction', 'implant', 'wisdom']):
-                days_delta = 3
-                reason_txt = f"Post-Surgical Suture & Healing Check: {appt.treatment_id.name or 'Surgery / Extraction'}"
-            elif any(w in treatment_name for w in ['root canal', 'endodontic', 'rct']):
-                days_delta = 7
-                reason_txt = f"RCT Follow-up & Permanent Restoration: {appt.treatment_id.name or 'Root Canal'}"
-            elif any(w in treatment_name for w in ['braces', 'ortho', 'aligner']):
-                days_delta = 28
-                reason_txt = f"Orthodontic Adjustment Checkup: {appt.treatment_id.name or 'Braces'}"
-            elif any(w in treatment_name for w in ['filling', 'crown', 'bridge', 'restoration']):
-                days_delta = 7
-                reason_txt = f"Post-Restoration Occlusion & Sensitivity Check: {appt.treatment_id.name or 'Filling / Crown'}"
-            elif any(w in treatment_name for w in ['scaling', 'cleaning', 'prophylaxis']):
-                days_delta = 14
-                reason_txt = f"Gingival Health & Post-Scaling Review: {appt.treatment_id.name or 'Scaling'}"
-            else:
-                days_delta = 7
-                reason_txt = f"Post-Treatment Review: {appt.treatment_id.name or appt.reason or 'Consultation'}"
-                
+            days_delta, reason_txt = follow_up_obj._suggest_followup(appt.treatment_id, appt.reason)
+
             follow_up_date = today + timedelta(days=days_delta)
             
             existing = follow_up_obj.search([
@@ -531,12 +675,14 @@ class DentalAppointment(models.Model):
                 })
 
     def action_cancel(self):
+        self._check_state_transition(['pending', 'confirmed', 'checked_in', 'cancelled'], _('cancel'))
         for record in self:
             record.state = 'cancelled'
             if record.calendar_event_id:
                 record.calendar_event_id.sudo().unlink()
 
     def action_no_show(self):
+        self._check_state_transition(['pending', 'confirmed', 'checked_in'], _('mark as no-show'))
         for record in self:
             record.state = 'no_show'
             if record.calendar_event_id:
@@ -559,8 +705,136 @@ class DentalAppointment(models.Model):
         }
 
     # ---------------------------------------------------------
+    # Shared Business Logic: Bookable Services
+    # ---------------------------------------------------------
+    @api.model
+    def _resolve_booking_branch(self, branch_id=None):
+        if branch_id:
+            try:
+                branch = self.env['res.company'].sudo().browse(int(branch_id))
+                if branch.exists():
+                    # Booking runs with sudo: never let an internal user book into a branch they cannot access
+                    return self.env['dental.company.mixin']._dental_check_company_access(branch.with_env(self.env))
+            except (ValueError, TypeError):
+                pass
+        return self.env.company
+
+    @api.model
+    def _get_bookable_treatment_domain(self, branch=None):
+        """Catalog services that can be booked: active, sellable dental services shared or owned by the branch."""
+        domain = [
+            ('is_dental_treatment', '=', True),
+            ('active', '=', True),
+            ('sale_ok', '=', True),
+            ('type', '=', 'service'),
+        ]
+        if branch:
+            domain += ['|', ('company_id', '=', False), ('company_id', '=', branch.id)]
+        return domain
+
+    @api.model
+    def get_bookable_services(self, branch_id=None):
+        """Return every service the given branch can book: appointment types plus catalog treatments.
+
+        A treatment and an appointment type sharing the same name are merged into a single entry so the
+        receptionist never sees duplicates, while the booking still records both.
+        """
+        branch = self._resolve_booking_branch(branch_id)
+        appt_types = self.env['dental.appointment.type'].sudo().search([('active', '=', True)], order='id asc')
+        treatments = self.env['product.template'].sudo().search(
+            self._get_bookable_treatment_domain(branch), order='sequence asc, name asc')
+
+        services = []
+        by_name = {}
+        for atype in appt_types:
+            item = {
+                'key': f'type_{atype.id}',
+                'appointment_type_id': atype.id,
+                'treatment_id': False,
+                'name': atype.name,
+                'duration': atype.duration or 30,
+                'description': atype.description or '',
+                'price': atype.price or 0.0,
+                'category': _('Consultation & Visits'),
+                'icon': atype.icon or 'fa-stethoscope',
+                'icon_type': atype.icon_type or 'icon',
+                'has_custom_image': bool(atype.image),
+                'image_url': f'/web/image/dental.appointment.type/{atype.id}/image' if atype.image else False,
+            }
+            services.append(item)
+            by_name[(atype.name or '').strip().lower()] = item
+
+        for treatment in treatments:
+            duration = round((treatment.treatment_duration or 0.0) * 60) or 30
+            existing = by_name.get((treatment.name or '').strip().lower())
+            if existing:
+                existing['treatment_id'] = treatment.id
+                existing['price'] = existing['price'] or treatment.list_price
+                existing['category'] = treatment.dental_treatment_category_id.name or existing['category']
+                continue
+            services.append({
+                'key': f'treatment_{treatment.id}',
+                'appointment_type_id': False,
+                'treatment_id': treatment.id,
+                'name': treatment.name,
+                'duration': duration,
+                'description': treatment.description_sale or '',
+                'price': treatment.list_price,
+                'category': treatment.dental_treatment_category_id.name or _('Dental Treatments'),
+            })
+        return {
+            'branch_id': branch.id,
+            'branch_name': branch.name,
+            'services': services,
+        }
+
+    # ---------------------------------------------------------
     # Shared Business Logic: Patient Lookup & Matching
     # ---------------------------------------------------------
+    @api.model
+    def search_booking_patients(self, term='', limit=8):
+        """Live patient finder for the staff booking flow: name, phone, email or Patient ID.
+
+        Staff only, and run with the user's own access rights (branch rules apply). The public
+        website keeps using check_patient, which only matches exact identifiers.
+        """
+        if not self.env.user._is_internal():
+            raise AccessError(_("Only clinic staff can search patient records."))
+        term = (term or '').strip()
+        if len(term) < 2:
+            return []
+        limit = max(1, min(int(limit or 8), 20))
+        criteria = [('name', 'ilike', term), ('phone', 'ilike', term),
+                    ('email', 'ilike', term), ('dental_patient_id', 'ilike', term)]
+        digits = ''.join(c for c in term if c.isdigit())
+        if len(digits) >= 4 and digits != term:
+            criteria.append(('phone', 'ilike', digits))
+        domain = [('is_dental_patient', '=', True)] + ['|'] * (len(criteria) - 1) + criteria
+        patients = self.env['res.partner'].search(domain, limit=limit, order='name, id')
+        return [self._booking_patient_payload(p) for p in patients]
+
+    @api.model
+    def get_booking_patient(self, patient_id):
+        """One patient for the booking flow (e.g. just registered), with the user's access rights."""
+        if not self.env.user._is_internal():
+            raise AccessError(_("Only clinic staff can search patient records."))
+        patient = self.env['res.partner'].browse(int(patient_id)).exists()
+        patient.check_access('read')
+        return self._booking_patient_payload(patient) if patient else False
+
+    @api.model
+    def _booking_patient_payload(self, patient):
+        return {
+            'id': patient.id,
+            'name': patient.name or '',
+            'phone': patient.phone or '',
+            'email': patient.email or '',
+            'dental_patient_id': patient.dental_patient_id or '',
+            'gender': patient.gender or '',
+            'date_of_birth': str(patient.date_of_birth) if patient.date_of_birth else '',
+            'age': patient.age or 0,
+        }
+
     @api.model
     def check_patient(self, identifier=None):
         """Search for an existing patient by phone number, email, or patient ID."""
@@ -707,142 +981,190 @@ class DentalAppointment(models.Model):
     # Shared Business Logic: Availability & Slots
     # ---------------------------------------------------------
     @api.model
-    def get_available_slots(self, date=None, doctor_id=None, duration=30, branch_id=None, **kwargs):
-        """Return available time slots for a given date, doctor, duration, and branch."""
-        target_date_str = date or fields.Date.context_today(self).strftime('%Y-%m-%d')
-        if hasattr(target_date_str, 'strftime'):
-            target_date_str = target_date_str.strftime('%Y-%m-%d')
+    def _get_clinic_tz(self, branch=None):
+        """Clinic hours are local times: use the branch timezone, else the user's, else the admin's."""
+        tz_name = branch.partner_id.tz if branch else False
+        if not tz_name and not self.env.user._is_public():
+            tz_name = self.env.user.tz
+        if not tz_name:
+            admin = self.env.ref('base.user_admin', raise_if_not_found=False)
+            tz_name = admin.sudo().tz if admin else False
         try:
-            target_date_obj = datetime.strptime(str(target_date_str), '%Y-%m-%d').date()
-        except Exception:
-            target_date_obj = date.today()
-            target_date_str = target_date_obj.strftime('%Y-%m-%d')
+            return pytz.timezone(tz_name or 'UTC')
+        except pytz.UnknownTimeZoneError:
+            return pytz.utc
 
-        duration_val = float(duration or 30.0)
-        now = datetime.now()
-        is_today = (target_date_obj == now.date())
+    @api.model
+    def _to_utc(self, local_dt, tz):
+        """Naive clinic-local datetime -> naive UTC datetime as stored by Odoo."""
+        return tz.localize(local_dt).astimezone(pytz.utc).replace(tzinfo=None)
 
-        weekday = target_date_obj.weekday()
-        if weekday == 6:  # Sunday
-            raw_slots = [
-                ('10:00', '10:00 AM', 'morning'),
-                ('10:30', '10:30 AM', 'morning'),
-                ('11:00', '11:00 AM', 'morning'),
-                ('11:30', '11:30 AM', 'morning'),
-                ('12:00', '12:00 PM', 'morning'),
-                ('12:30', '12:30 PM', 'morning'),
-                ('13:00', '01:00 PM', 'afternoon'),
-                ('13:30', '01:30 PM', 'afternoon'),
-            ]
-        else:
-            raw_slots = [
-                ('09:00', '09:00 AM', 'morning'),
-                ('09:30', '09:30 AM', 'morning'),
-                ('10:00', '10:00 AM', 'morning'),
-                ('10:30', '10:30 AM', 'morning'),
-                ('11:00', '11:00 AM', 'morning'),
-                ('11:30', '11:30 AM', 'morning'),
-                ('12:00', '12:00 PM', 'morning'),
-                ('12:30', '12:30 PM', 'morning'),
-                ('14:00', '02:00 PM', 'afternoon'),
-                ('14:30', '02:30 PM', 'afternoon'),
-                ('15:00', '03:00 PM', 'afternoon'),
-                ('15:30', '03:30 PM', 'afternoon'),
-                ('16:00', '04:00 PM', 'afternoon'),
-                ('16:30', '04:30 PM', 'afternoon'),
-                ('17:00', '05:00 PM', 'afternoon'),
-                ('17:30', '05:30 PM', 'afternoon'),
-            ]
+    @api.model
+    def _format_local(self, utc_dt, tz, fmt='%d %b %Y %I:%M %p'):
+        return pytz.utc.localize(utc_dt).astimezone(tz).strftime(fmt)
 
-        # Resolve Branch
-        branch = None
-        if branch_id:
-            try:
-                branch = self.env['res.company'].sudo().browse(int(branch_id))
-                if not branch.exists():
-                    branch = None
-            except Exception:
-                branch = None
+    @api.model
+    def _get_slot_step(self, branch=None):
+        """Clinic's own slot length (Clinic Configuration), else the global default."""
+        return max((branch or self.env.company).sudo()._dental_get_slot_duration(), 5)
 
+    @api.model
+    def _get_clinic_sessions(self, target_date, branch=None):
+        """Working sessions of the clinic on that day (Clinic Configuration > Clinic Hours);
+        built-in standard timings when the clinic has none configured."""
+        clinic = branch or self.env.company
+        sessions = clinic.sudo()._dental_get_sessions(target_date.weekday())
+        if sessions is not None:
+            return sessions
+        return CLINIC_SESSIONS['sunday' if target_date.weekday() == 6 else 'weekday']
+
+    @api.model
+    def _resolve_booking_doctors(self, branch=None, doctor_id=None):
+        """(selected doctor or None, all candidate dentists of the branch)."""
         emp_obj = self.env['hr.employee'].sudo()
-        doc_domain = [('is_dentist', '=', True), ('active', '=', True)]
+        domain = [('is_dentist', '=', True), ('active', '=', True)]
         if branch:
-            doc_domain = [('is_dentist', '=', True), ('active', '=', True), '|', ('company_id', '=', False), ('company_id', '=', branch.id)]
+            domain += ['|', ('company_id', '=', False), ('company_id', '=', branch.id)]
+        dentists = emp_obj.search(domain, order='id asc') or emp_obj.search(
+            [('is_dentist', '=', True), ('active', '=', True)], order='id asc')
+        selected = None
+        if doctor_id and str(doctor_id).strip() not in ('', '0', 'any', 'None', 'null', 'false'):
+            if str(doctor_id).isdigit():
+                selected = emp_obj.browse(int(doctor_id)).exists() or None
+            else:
+                selected = emp_obj.search([('name', 'ilike', str(doctor_id).strip()), ('is_dentist', '=', True)], limit=1) or None
+        return selected, dentists
 
-        all_dentists = emp_obj.search(doc_domain, order='id asc')
-        if not all_dentists:
-            all_dentists = emp_obj.search([('is_dentist', '=', True), ('active', '=', True)], order='id asc')
-        if not all_dentists:
-            all_dentists = emp_obj.search([('id', 'in', [1, 4])], order='id asc')
+    @api.model
+    def _doctor_day_limit_reached(self, doctor, local_date, tz, exclude_id=None):
+        """True when the doctor already has their 'Max Appointments / Day' on this clinic-local date (0 = no limit)."""
+        limit = doctor.sudo().max_appointments_per_day
+        if not limit:
+            return False
+        day_start = datetime.combine(local_date, datetime.min.time())
+        domain = [
+            ('doctor_id', '=', doctor.id),
+            ('state', 'not in', ['cancelled', 'no_show']),
+            ('date_start', '>=', self._to_utc(day_start, tz)),
+            ('date_start', '<', self._to_utc(day_start + timedelta(days=1), tz)),
+        ]
+        if exclude_id:
+            domain.append(('id', '!=', exclude_id))
+        return self.sudo().search_count(domain) >= limit
 
-        selected_doc = None
-        if doctor_id and str(doctor_id).strip() not in ('', '0', 'any', 'None'):
-            try:
-                if str(doctor_id).isdigit():
-                    selected_doc = emp_obj.browse(int(doctor_id))
-                else:
-                    selected_doc = emp_obj.search([('name', 'ilike', str(doctor_id).strip()), ('is_dentist', '=', True)], limit=1)
-                if not selected_doc.exists():
-                    selected_doc = None
-            except Exception:
-                selected_doc = None
+    @api.model
+    def _is_doctor_free(self, doctor, start_utc, end_utc):
+        overlap = self.sudo().search_count([
+            ('doctor_id', '=', doctor.id),
+            ('state', 'not in', ['cancelled', 'no_show']),
+            ('date_start', '<', end_utc),
+            ('date_end', '>', start_utc),
+        ])
+        if overlap:
+            return False
+        return not self.env['hr.leave'].sudo().search_count([
+            ('employee_id', '=', doctor.id),
+            ('state', '=', 'validate'),
+            ('date_from', '<', end_utc),
+            ('date_to', '>', start_utc),
+        ])
 
-        candidate_docs = [selected_doc] if selected_doc else all_dentists
-        leave_obj = self.env['hr.leave'].sudo()
-
-        slots_result = []
-        for slot_time, label, period in raw_slots:
-            slot_dt_start = datetime.strptime(f"{target_date_str} {slot_time}:00", '%Y-%m-%d %H:%M:%S')
-            slot_dt_end = slot_dt_start + timedelta(minutes=duration_val)
-
-            if is_today and slot_dt_start <= (now + timedelta(minutes=15)):
-                slots_result.append({
-                    'time': slot_time,
-                    'label': label,
+    @api.model
+    def _compute_day_slots(self, target_date, doctors, duration, tz, branch=None):
+        """Slots of one clinic day. A slot is offered only if the whole service fits inside the session."""
+        now_local = datetime.now(pytz.utc).astimezone(tz).replace(tzinfo=None)
+        step = timedelta(minutes=self._get_slot_step(branch))
+        length = timedelta(minutes=duration)
+        day_start = datetime.combine(target_date, datetime.min.time())
+        # Doctors who already reached their daily appointment limit are not offered on this day
+        capped = {d.id for d in doctors if self._doctor_day_limit_reached(d, target_date, tz)}
+        open_doctors = [d for d in doctors if d.id not in capped]
+        slots = []
+        for period, _label, hour_from, hour_to in self._get_clinic_sessions(target_date, branch):
+            start = day_start + timedelta(hours=hour_from)
+            session_end = day_start + timedelta(hours=hour_to)
+            while start + length <= session_end:
+                slot = {
+                    'time': start.strftime('%H:%M'),
+                    'label': start.strftime('%I:%M %p'),
+                    'end_label': (start + length).strftime('%I:%M %p'),
                     'period': period,
                     'available': False,
-                    'reason': 'Past Time'
-                })
-                continue
+                    'reason': '',
+                    'available_doctors': [],
+                }
+                if start <= now_local + timedelta(minutes=15):
+                    slot['reason'] = _('Past time')
+                else:
+                    start_utc, end_utc = self._to_utc(start, tz), self._to_utc(start + length, tz)
+                    slot['available_doctors'] = [d.id for d in open_doctors if self._is_doctor_free(d, start_utc, end_utc)]
+                    slot['available'] = bool(slot['available_doctors'])
+                    if not slot['available']:
+                        if doctors and not open_doctors:
+                            slot['reason'] = _('Daily limit reached')
+                        else:
+                            slot['reason'] = _('Booked') if len(doctors) == 1 else _('Fully booked')
+                slots.append(slot)
+                start += step
+        return slots
 
-            free_docs = []
-            for doc in candidate_docs:
-                overlap = self.sudo().search_count([
-                    ('doctor_id', '=', doc.id),
-                    ('state', 'not in', ['cancelled', 'no_show']),
-                    ('date_start', '<', slot_dt_end),
-                    ('date_end', '>', slot_dt_start),
-                ])
-                if overlap > 0:
-                    continue
+    @api.model
+    def get_available_slots(self, date=None, doctor_id=None, duration=30, branch_id=None, **kwargs):
+        """Available time slots for a date, doctor, duration and branch, in the clinic's local time.
 
-                leaves = leave_obj.search_count([
-                    ('employee_id', '=', doc.id),
-                    ('state', '=', 'validate'),
-                    ('date_from', '<', slot_dt_end),
-                    ('date_to', '>', slot_dt_start),
-                ])
-                if leaves > 0:
-                    continue
+        Slot times are clinic-local "HH:MM"; availability is checked against stored UTC appointments and leaves.
+        """
+        branch = self._resolve_booking_branch(branch_id) if branch_id else None
+        tz = self._get_clinic_tz(branch)
+        today_local = datetime.now(pytz.utc).astimezone(tz).date()
+        try:
+            target_date = datetime.strptime(str(date)[:10], '%Y-%m-%d').date() if date else today_local
+        except ValueError:
+            target_date = today_local
+        try:
+            duration_val = max(int(float(duration or 30)), 5)
+        except (TypeError, ValueError):
+            duration_val = 30
 
-                free_docs.append(doc.id)
+        selected_doc, dentists = self._resolve_booking_doctors(branch, doctor_id)
+        doctors = [selected_doc] if selected_doc else list(dentists)
+        periods = [{
+            'key': period,
+            'label': label,
+            'range': '%s - %s' % (
+                (datetime.min + timedelta(hours=h_from)).strftime('%I:%M %p'),
+                (datetime.min + timedelta(hours=h_to)).strftime('%I:%M %p')),
+        } for period, label, h_from, h_to in self._get_clinic_sessions(target_date, branch)]
 
-            is_avail = len(free_docs) > 0
-            slots_result.append({
-                'time': slot_time,
-                'label': label,
-                'period': period,
-                'available': is_avail,
-                'reason': '' if is_avail else ('Doctor Booked' if selected_doc else 'Fully Booked'),
-                'available_doctors': free_docs
-            })
-
-        return {
+        result = {
             'success': True,
-            'date': target_date_str,
-            'weekday': target_date_obj.strftime('%A'),
-            'slots': slots_result,
+            'date': target_date.strftime('%Y-%m-%d'),
+            'weekday': target_date.strftime('%A'),
+            'date_label': target_date.strftime('%a, %d %b %Y'),
+            'today': today_local.strftime('%Y-%m-%d'),
+            'timezone': tz.zone,
+            'periods': periods,
+            'slots': [],
+            'message': '',
+            'next_available_date': False,
+            'next_available_label': '',
         }
+        if target_date < today_local:
+            result['message'] = _('This date has already passed. Please choose today or a future date.')
+        else:
+            result["slots"] = self._compute_day_slots(target_date, doctors, duration_val, tz, branch)
+        if not any(s['available'] for s in result['slots']):
+            # Help the user: find the next day with a free slot (two weeks ahead)
+            probe = max(target_date, today_local)
+            for _i in range(14):
+                probe += timedelta(days=1)
+                if any(s["available"] for s in self._compute_day_slots(probe, doctors, duration_val, tz, branch)):
+                    result['next_available_date'] = probe.strftime('%Y-%m-%d')
+                    result['next_available_label'] = probe.strftime('%a, %d %b %Y')
+                    break
+            if not result['message']:
+                result['message'] = _('No free slots on this date for the selected doctor and service.')
+        return result
 
     # ---------------------------------------------------------
     # Shared Business Logic: Appointment Booking
@@ -879,121 +1201,74 @@ class DentalAppointment(models.Model):
             clean_time = str(appointment_time).strip()
             if len(clean_time.split(':')) == 2 and not any(x in clean_time.lower() for x in ['am', 'pm']):
                 dt_str = f"{appointment_date} {clean_time}:00"
-                date_start = datetime.strptime(dt_str, '%Y-%m-%d %H:%M:%S')
+                local_start = datetime.strptime(dt_str, '%Y-%m-%d %H:%M:%S')
             elif len(clean_time.split(':')) == 3 and not any(x in clean_time.lower() for x in ['am', 'pm']):
                 dt_str = f"{appointment_date} {clean_time}"
-                date_start = datetime.strptime(dt_str, '%Y-%m-%d %H:%M:%S')
+                local_start = datetime.strptime(dt_str, '%Y-%m-%d %H:%M:%S')
             else:
                 dt_str = f"{appointment_date} {clean_time.replace('.', '').upper()}"
-                date_start = datetime.strptime(dt_str, '%Y-%m-%d %I:%M %p')
-            date_end = date_start + timedelta(minutes=duration)
+                local_start = datetime.strptime(dt_str, '%Y-%m-%d %I:%M %p')
         except Exception as e:
             _logger.error("Failed to parse appointment datetime: %s", e)
             return {'success': False, 'error': _('Invalid date or time format.')}
 
         is_internal = self.env.user and self.env.user.has_group('base.group_user')
-        allow_past = post.get('allow_past', False) or self.env.context.get('allow_past', False) or is_internal
-        try:
-            booking_date_obj = datetime.strptime(str(appointment_date), '%Y-%m-%d').date()
-            today_date = fields.Date.context_today(self)
-            if not allow_past and booking_date_obj < today_date:
-                return {'success': False, 'error': _('Cannot book an appointment for past dates. Please select an upcoming date.')}
-        except Exception:
-            pass
+        # Explicit opt-in only (e.g. data imports); normal bookings must use a real, free clinic slot
+        allow_past = post.get('allow_past', False) or self.env.context.get('allow_past', False)
 
-        # Resolve Branch / Company
-        branch = None
-        if branch_id:
+        branch = self._resolve_booking_branch(branch_id)
+        tz = self._get_clinic_tz(branch)
+
+        # Picked times are clinic-local; Odoo stores UTC
+        local_end = local_start + timedelta(minutes=duration)
+        date_start = self._to_utc(local_start, tz)
+        date_end = self._to_utc(local_end, tz)
+        when_label = '%s, %s - %s' % (local_start.strftime('%a %d %b %Y'), local_start.strftime('%I:%M %p'), local_end.strftime('%I:%M %p'))
+
+        # Resolve Treatment (only when one was explicitly chosen and is bookable at this branch)
+        treatment = None
+        if treatment_id:
             try:
-                branch = self.env['res.company'].sudo().browse(int(branch_id))
-                if not branch.exists():
-                    branch = self.env.company
-            except Exception:
-                branch = self.env.company
-        else:
-            branch = self.env.company
+                treatment = self.env['product.template'].sudo().search(
+                    [('id', '=', int(treatment_id))] + self._get_bookable_treatment_domain(branch), limit=1)
+            except (ValueError, TypeError):
+                treatment = None
+            if not treatment:
+                return {'success': False, 'error': _('The selected service is not available for booking at this branch.')}
 
-        # Resolve Doctor & Validate Availability
-        emp_obj = self.env['hr.employee'].sudo()
+        # Resolve Doctor & validate the slot with the same rules as the slot picker
+        selected_doc, dentists = self._resolve_booking_doctors(branch, doctor_id)
+        if doctor_id and str(doctor_id).strip() not in ('', '0', 'any', 'None', 'null', 'false') and not selected_doc:
+            return {'success': False, 'error': _('The selected doctor is not available for booking.')}
+        if allow_past:
+            candidates = [selected_doc] if selected_doc else list(dentists)
+        else:
+            day_slots = self._compute_day_slots(local_start.date(), [selected_doc] if selected_doc else list(dentists), duration, tz, branch)
+            slot = next((s for s in day_slots if s['time'] == local_start.strftime('%H:%M')), None)
+            if not slot:
+                return {'success': False, 'error': _(
+                    '%(when)s is outside clinic hours for a %(minutes)s-minute service. Please choose one of the offered time slots.',
+                    when=when_label, minutes=int(duration))}
+            if not slot['available']:
+                return {'success': False, 'error': _('%(when)s is no longer available (%(reason)s). Please pick another time.',
+                                                     when=when_label, reason=slot['reason'] or _('booked'))}
+            candidates = [selected_doc] if selected_doc else self.env['hr.employee'].sudo().browse(slot['available_doctors'])
+
+        # Lock each candidate doctor and re-check, so two receptionists cannot book the same slot at once
         doctor = None
-        if doctor_id and str(doctor_id).strip() not in ('', '0', 'any', 'None'):
-            try:
-                if str(doctor_id).isdigit():
-                    doctor = emp_obj.browse(int(doctor_id))
-                else:
-                    doctor = emp_obj.search([('name', 'ilike', str(doctor_id).strip()), ('is_dentist', '=', True)], limit=1)
-                if not doctor.exists():
-                    doctor = None
-            except Exception:
-                doctor = None
-
-        leave_obj = self.env['hr.leave'].sudo()
-
-        if doctor:
-            # Transaction row lock on doctor to prevent race conditions during concurrent bookings
-            try:
-                self.env.cr.execute("SELECT id FROM hr_employee WHERE id = %s FOR UPDATE NOWAIT", (doctor.id,))
-            except Exception:
-                pass
-
-            overlap = self.sudo().search_count([
-                ('doctor_id', '=', doctor.id),
-                ('state', 'not in', ['cancelled', 'no_show']),
-                ('date_start', '<', date_end),
-                ('date_end', '>', date_start),
-            ])
-            if overlap > 0:
-                return {
-                    'success': False,
-                    'error': _('Doctor %s is already booked for this time slot (%s - %s). Please pick another time or choose Any Specialist.') % (
-                        doctor.name, appointment_time, date_end.strftime('%H:%M')
-                    )
-                }
-
-            leaves = leave_obj.search_count([
-                ('employee_id', '=', doctor.id),
-                ('state', '=', 'validate'),
-                ('date_from', '<', date_end),
-                ('date_to', '>', date_start),
-            ])
-            if leaves > 0:
-                return {
-                    'success': False,
-                    'error': _('Doctor %s is on scheduled leave during this time. Please pick another time.') % doctor.name
-                }
-        else:
-            doc_domain = [('is_dentist', '=', True), ('active', '=', True)]
-            if branch:
-                doc_domain = [('is_dentist', '=', True), ('active', '=', True), '|', ('company_id', '=', False), ('company_id', '=', branch.id)]
-            all_dentists = emp_obj.search(doc_domain, order='id asc')
-            if not all_dentists:
-                all_dentists = emp_obj.search([('is_dentist', '=', True), ('active', '=', True)], order='id asc')
-            if not all_dentists:
-                all_dentists = emp_obj.search([('id', 'in', [1, 4])], order='id asc')
-
-            for d in all_dentists:
-                overlap = self.sudo().search_count([
-                    ('doctor_id', '=', d.id),
-                    ('state', 'not in', ['cancelled', 'no_show']),
-                    ('date_start', '<', date_end),
-                    ('date_end', '>', date_start),
-                ])
-                if overlap == 0:
-                    leaves = leave_obj.search_count([
-                        ('employee_id', '=', d.id),
-                        ('state', '=', 'validate'),
-                        ('date_from', '<', date_end),
-                        ('date_to', '>', date_start),
-                    ])
-                    if leaves == 0:
-                        doctor = d
-                        break
-
-            if not doctor:
-                return {
-                    'success': False,
-                    'error': _('All dental specialists are fully booked for this time slot. Please choose another date or time.')
-                }
+        for candidate in candidates:
+            self.env.cr.execute("SELECT id FROM hr_employee WHERE id = %s FOR UPDATE", (candidate.id,))
+            if self._is_doctor_free(candidate, date_start, date_end) and \
+                    not self._doctor_day_limit_reached(candidate, local_start.date(), tz):
+                doctor = candidate
+                break
+        if not doctor:
+            if selected_doc:
+                return {'success': False, 'error': _(
+                    'Dr. %(doctor)s is not available at %(when)s. Please pick another time or choose Any Specialist.',
+                    doctor=selected_doc.name, when=when_label)}
+            return {'success': False, 'error': _(
+                'All dental specialists are booked at %(when)s. Please choose another date or time.', when=when_label)}
 
         # Resolve Patient
         try:
@@ -1002,18 +1277,6 @@ class DentalAppointment(models.Model):
             return {'success': False, 'error': str(ve)}
         except Exception as e:
             return {'success': False, 'error': _('Error processing patient information: %s') % str(e)}
-
-        # Resolve Treatment
-        treatment = None
-        if treatment_id:
-            try:
-                treatment = self.env['product.template'].sudo().browse(int(treatment_id))
-                if not treatment.exists():
-                    treatment = None
-            except Exception:
-                treatment = None
-        if not treatment:
-            treatment = self.env['product.template'].sudo().search([('is_dental_treatment', '=', True)], limit=1)
 
         service_title = appt_type.name if appt_type else (treatment.name if treatment else 'Dental Appointment')
         reason_text = service_title
@@ -1057,9 +1320,10 @@ class DentalAppointment(models.Model):
                 'service_name': service_title,
                 'duration_min': int(duration),
                 'date_str': appointment_date,
-                'date_formatted': date_start.strftime('%A, %B %d, %Y'),
+                'date_formatted': local_start.strftime('%A, %B %d, %Y'),
                 'time_str': appointment_time,
-                'time_formatted': date_start.strftime('%I:%M %p'),
+                'time_formatted': local_start.strftime('%I:%M %p'),
+                'end_time_formatted': local_end.strftime('%I:%M %p'),
                 'status': 'Confirmed' if booking_state == 'confirmed' else 'Pending Confirmation',
             }
         except Exception as e:

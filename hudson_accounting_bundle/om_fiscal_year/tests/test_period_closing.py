@@ -121,3 +121,28 @@ class TestPeriodClosing(AccountTestInvoicingCommon):
         closing.action_refresh()
         with self.assertRaises(UserError):
             closing.action_close()
+
+    def test_status_only_changes_through_the_buttons(self):
+        """ Writing the status directly (list view, import, RPC) skipped the checks of action_close and the
+        administrator check. """
+        self.task.active = False
+        accountant = new_test_user(self.env, login='closing_accountant_2', groups='account.group_account_user')
+        draft = self.init_invoice('out_invoice', amounts=[100.0], taxes=[], invoice_date='2026-03-10')
+        closing = self._closing()
+        for user_closing in (closing.with_user(accountant), closing):
+            with self.assertRaises(UserError):
+                user_closing.write({'state': 'closed'})
+        self.assertEqual(closing.state, 'open')
+        with self.assertRaises(UserError):
+            self.env['account.period.closing'].with_user(accountant).create(
+                {'date_from': date(2026, 5, 1), 'state': 'closed'})
+
+        draft.action_post()
+        closing.action_close()
+        with self.assertRaises(UserError):
+            closing.with_user(accountant).write({'state': 'open'})
+        with self.assertRaises(UserError):
+            closing.write({'date_to': date(2026, 3, 15)})
+        self.assertEqual(closing.state, 'closed')
+        closing.action_reopen()
+        self.assertEqual(closing.state, 'open')

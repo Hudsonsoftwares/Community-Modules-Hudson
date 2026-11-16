@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="insurance_policy_view_list" model="ir.ui.view">
+        <field name="name">insurance.policy.list</field>
+        <field name="model">insurance.policy</field>
+        <field name="arch" type="xml">
+            <list decoration-muted="status in ('expired', 'inactive')">
+                <field name="partner_id"/>
+                <field name="priority" optional="hide"/>
+                <field name="insurer_id"/>
+                <field name="plan_id" optional="show"/>
+                <field name="tpa_id" optional="hide"/>
+                <field name="member_id"/>
+                <field name="policy_number" optional="show"/>
+                <field name="date_start" optional="show"/>
+                <field name="date_end" optional="show"/>
+                <field name="status" widget="badge" decoration-success="status == 'valid'"
+                       decoration-warning="status == 'not_started'" decoration-danger="status == 'expired'"/>
+                <field name="eligibility_status" widget="badge" optional="show"
+                       decoration-success="eligibility_status == 'eligible'"
+                       decoration-danger="eligibility_status == 'not_eligible'"/>
+                <field name="last_verified_date" optional="hide"/>
+                <field name="company_id" groups="base.group_multi_company" optional="hide"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="insurance_policy_view_form" model="ir.ui.view">
+        <field name="name">insurance.policy.form</field>
+        <field name="model">insurance.policy</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button name="action_check_eligibility" type="object" string="Check Eligibility"
+                            class="btn-primary" icon="check_circle" invisible="not id"/>
+                </header>
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_view_eligibility" type="object" class="oe_stat_button"
+                                icon="history" invisible="not eligibility_count">
+                            <field name="eligibility_count" widget="statinfo" string="Checks"/>
+                        </button>
+                    </div>
+                    <widget name="web_ribbon" title="Archived" bg_color="text-bg-danger" invisible="active"/>
+                    <widget name="web_ribbon" title="Expired" bg_color="text-bg-warning"
+                            invisible="status != 'expired'"/>
+                    <div class="oe_title">
+                        <label for="partner_id"/>
+                        <h1><field name="partner_id" placeholder="Patient"/></h1>
+                        <div class="d-flex gap-2" invisible="not eligibility_status">
+                            <field name="eligibility_status" widget="badge"
+                                   decoration-success="eligibility_status == 'eligible'"
+                                   decoration-danger="eligibility_status == 'not_eligible'"/>
+                            <span class="text-muted">verified <field name="last_verified_date" widget="remaining_days" class="d-inline"/></span>
+                        </div>
+                    </div>
+                    <group>
+                        <group string="Insurer">
+                            <field name="plan_id" context="{'default_insurer_id': insurer_id}"/>
+                            <field name="insurer_id" context="{'default_is_company': True, 'default_insurance_partner_type': 'insurer'}"/>
+                            <field name="tpa_id" context="{'default_is_company': True, 'default_insurance_partner_type': 'tpa'}"/>
+                            <field name="payer_id" invisible="not tpa_id"/>
+                            <field name="connector"/>
+                        </group>
+                        <group string="Card">
+                            <field name="member_id"/>
+                            <field name="policy_number"/>
+                            <field name="group_number"/>
+                            <field name="priority"/>
+                        </group>
+                        <group string="Validity">
+                            <field name="date_start"/>
+                            <field name="date_end"/>
+                            <field name="status" widget="badge" decoration-success="status == 'valid'"
+                                   decoration-warning="status == 'not_started'" decoration-danger="status == 'expired'"/>
+                            <field name="sum_insured"/>
+                            <field name="currency_id" groups="base.group_multi_currency"/>
+                        </group>
+                        <group string="Policyholder">
+                            <field name="holder_id"/>
+                            <field name="relationship"/>
+                            <field name="company_id" groups="base.group_multi_company"/>
+                            <field name="active" invisible="1"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Insurance Card" name="card">
+                            <group>
+                                <group>
+                                    <field name="card_front" widget="image" filename="card_front_filename"
+                                           options="{'size': [0, 180]}"/>
+                                    <field name="card_front_filename" invisible="1"/>
+                                </group>
+                                <group>
+                                    <field name="card_back" widget="image" filename="card_back_filename"
+                                           options="{'size': [0, 180]}"/>
+                                    <field name="card_back_filename" invisible="1"/>
+                                </group>
+                            </group>
+                        </page>
+                        <page string="Eligibility Checks" name="eligibility">
+                            <field name="eligibility_ids" readonly="1">
+                                <list decoration-danger="state == 'error'">
+                                    <field name="name"/>
+                                    <field name="request_date"/>
+                                    <field name="payer_id"/>
+                                    <field name="state" widget="badge"/>
+                                    <field name="result" widget="badge" decoration-success="result == 'eligible'"
+                                           decoration-danger="result == 'not_eligible'"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Notes" name="notes">
+                            <field name="note"/>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="insurance_policy_view_search" model="ir.ui.view">
+        <field name="name">insurance.policy.search</field>
+        <field name="model">insurance.policy</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="partner_id"/>
+                <field name="member_id"/>
+                <field name="policy_number"/>
+                <field name="insurer_id"/>
+                <field name="plan_id"/>
+                <filter string="Valid" name="valid" domain="[('status', '=', 'valid')]"/>
+                <filter string="Expired" name="expired" domain="[('status', '=', 'expired')]"/>
+                <separator/>
+                <filter string="Not Verified" name="not_verified" domain="[('last_verified_date', '=', False)]"/>
+                <filter string="Archived" name="inactive" domain="[('active', '=', False)]"/>
+                <group>
+                    <filter string="Insurance Company" name="group_insurer" context="{'group_by': 'insurer_id'}"/>
+                    <filter string="Plan" name="group_plan" context="{'group_by': 'plan_id'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_insurance_policy" model="ir.actions.act_window">
+        <field name="name">Patient Policies</field>
+        <field name="res_model">insurance.policy</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Record a patient's insurance policy</p>
+            <p>Enter the details from the insurance card, then check eligibility with the payer.</p>
+        </field>
+    </record>
+</odoo>

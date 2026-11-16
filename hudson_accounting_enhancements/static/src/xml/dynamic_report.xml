@@ -2,11 +2,11 @@
 <templates xml:space="preserve">
     <t t-name="hudson_dynamic_reports.DynamicReport" >
         <t t-set="state" t-value="this.state"/>
-        <div class="o_dynamic_report_container d-flex flex-column">
+        <div t-att-class="'o_dynamic_report_container d-flex flex-column ' + (this.isDarkMode ? 'o_dark o_dark_mode' : '')">
             <div class="o_dynamic_report_top_bar d-flex justify-content-between align-items-center mb-3 mt-2 px-3 position-relative" style="z-index: 1050; gap: 12px; flex-wrap: nowrap;">
                 <!-- Left: Report Title & Settings -->
                 <div class="o_dynamic_report_title_section d-flex align-items-center flex-shrink-0">
-                    <h2 class="text-dark fw-bold mb-0 d-flex align-items-center" style="font-size: 1.25rem; white-space: nowrap;">
+                    <h2 class="o_dynamic_report_title fw-bold mb-0 d-flex align-items-center" style="font-size: 1.25rem; white-space: nowrap;">
                         <span t-out="this.state.title"/>
                         <div class="dropdown ms-2 o_report_title_actions" t-if="this.state.integrations.dms || this.state.integrations.knowledge">
                             <button type="button" class="o_report_title_gear" data-bs-toggle="dropdown" aria-expanded="false" title="Actions" aria-label="Actions">
@@ -30,16 +30,16 @@
                     <style>
                         .o_date_period_menu { min-width: 380px; border-radius: 6px; }
                         .o_date_period_row { cursor: pointer; gap: 2px; }
-                        .o_date_period_value { min-width: 150px; font-size: 0.875rem; color: #374151; }
+                        .o_date_period_value { min-width: 150px; font-size: 0.875rem; color: var(--dr-text-primary, #374151); }
                         .o_date_period_arrow { line-height: 1; border: 0 !important; background: none !important; box-shadow: none !important; min-width: 0; }
-                        .o_date_period_arrow:hover { color: #111827 !important; }
+                        .o_date_period_arrow:hover { color: var(--dr-title-color, #111827) !important; }
                         .o_rates_menu { min-width: 260px; border-radius: 8px; }
                         .o_rates_menu input { max-width: 150px; text-align: right; }
                     </style>
                     <t t-if="this.isSingleDateReport()">
                     
                         <div class="dropdown flex-shrink-0">
-                            <button class="btn btn-light border dropdown-toggle fw-semibold text-dark o_report_filter_btn" type="button" data-bs-toggle="dropdown" aria-expanded="false" data-bs-auto-close="outside">
+                            <button class="btn dropdown-toggle fw-semibold o_report_filter_btn" type="button" data-bs-toggle="dropdown" aria-expanded="false" data-bs-auto-close="outside">
                                 <i class="fa fa-calendar me-1 text-secondary"></i>
                                 <span t-out="this.getAgedDateButtonLabel()"/>
                             </button>
@@ -99,7 +99,7 @@
                     </t>
                     <t t-else="">
                         <div class="dropdown flex-shrink-0">
-                            <button class="btn btn-light border dropdown-toggle fw-semibold text-dark o_report_filter_btn" type="button" data-bs-toggle="dropdown" aria-expanded="false" data-bs-auto-close="outside">
+                            <button class="btn dropdown-toggle fw-semibold o_report_filter_btn" type="button" data-bs-toggle="dropdown" aria-expanded="false" data-bs-auto-close="outside">
                                 <i class="fa fa-calendar me-1 text-secondary"></i>
                                 <span t-out="this.getDateButtonLabel()"/>
                             </button>
@@ -157,7 +157,7 @@
                     <!-- Comparison Dropdown -->
                     <t t-if="this.hasFilter('comparison')">
                         <div class="dropdown flex-shrink-0">
-                            <button t-att-class="'btn dropdown-toggle fw-semibold o_report_filter_btn ' + (this.isComparisonActive() ? 'o_filter_btn_active' : 'btn-light border text-dark')" type="button" data-bs-toggle="dropdown" aria-expanded="false" data-bs-auto-close="outside">
+                            <button t-att-class="'btn dropdown-toggle fw-semibold o_report_filter_btn ' + (this.isComparisonActive() ? 'o_filter_btn_active' : '')" type="button" data-bs-toggle="dropdown" aria-expanded="false" data-bs-auto-close="outside">
                                 <span t-out="this.getComparisonButtonLabel()"/>
                             </button>
                             <ul class="dropdown-menu shadow-sm o_comparison_dropdown">
@@ -279,7 +279,7 @@
 
                     <!-- GAAP / Multi-Selection Filter -->
                     <div class="dropdown flex-shrink-0" t-if="this.state.available_ledgers and this.state.available_ledgers.length > 0">
-                        <button class="btn btn-light border dropdown-toggle fw-semibold text-dark o_report_filter_btn" type="button" data-bs-toggle="dropdown" aria-expanded="false" data-bs-auto-close="outside">
+                        <button class="btn dropdown-toggle fw-semibold o_report_filter_btn" type="button" data-bs-toggle="dropdown" aria-expanded="false" data-bs-auto-close="outside">
                             <i class="fa fa-book me-1 text-secondary"></i>
                             <span t-out="this.getGaapButtonLabel()"/>
                         </button>
@@ -304,7 +304,7 @@
                     <!-- Analytic Dropdown (Accounts & Plans) -->
                     <t t-if="this.hasFilter('analytic')">
                         <div class="dropdown flex-shrink-0">
-                            <button t-att-class="'btn dropdown-toggle fw-semibold o_report_filter_btn ' + (((this.state.filterSummary.analytic_accounts &amp;&amp; this.state.filterSummary.analytic_accounts.length) || (this.state.filterSummary.analytic_plans &amp;&amp; this.state.filterSummary.analytic_plans.length)) ? 'o_filter_btn_active' : 'btn-light border text-dark')" type="button" data-bs-toggle="dropdown" aria-expanded="false" data-bs-auto-close="outside">
+                            <button t-att-class="'btn dropdown-toggle fw-semibold o_report_filter_btn ' + (((this.state.filterSummary.analytic_accounts &amp;&amp; this.state.filterSummary.analytic_accounts.length) || (this.state.filterSummary.analytic_plans &amp;&amp; this.state.filterSummary.analytic_plans.length)) ? 'o_filter_btn_active' : '')" type="button" data-bs-toggle="dropdown" aria-expanded="false" data-bs-auto-close="outside">
                                 <i class="fa fa-pie-chart me-1 text-secondary"/>
                                 <span t-out="(this.state.filterSummary.analytic_accounts &amp;&amp; this.state.filterSummary.analytic_accounts.length) || (this.state.filterSummary.analytic_plans &amp;&amp; this.state.filterSummary.analytic_plans.length) ? 'Analytic (' + ((this.state.filterSummary.analytic_accounts ? this.state.filterSummary.analytic_accounts.length : 0) + (this.state.filterSummary.analytic_plans ? this.state.filterSummary.analytic_plans.length : 0)) + ')' : 'Analytic'"/>
                             </button>
@@ -316,7 +316,7 @@
                                 <div class="o_hfp_body">
                                     <div class="o_hfp_section">
                                     <label class="o_hfp_label">Analytic Accounts</label>
-                                    <div class="o_hfp_search">
+                                    <div class="o_hfp_search o_hfp_search_analytic">
                                         <svg class="o_hfp_search_icon" width="13" height="13" viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="5.25" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M11 11L14.5 14.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
                                         <input type="text" class="form-control" placeholder="Search accounts..."
                                                t-on-keyup="(ev) => this.onAnalyticSearch(ev)" t-on-focus="() => this.loadDefaultAnalytics()" t-on-click="() => this.loadDefaultAnalytics()"
@@ -344,7 +344,7 @@
                                 </div>
                                     <div class="o_hfp_section">
                                     <label class="o_hfp_label">Analytic Plans</label>
-                                    <div class="o_hfp_search">
+                                    <div class="o_hfp_search o_hfp_search_analytic_plan">
                                         <svg class="o_hfp_search_icon" width="13" height="13" viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="5.25" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M11 11L14.5 14.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
                                         <input type="text" class="form-control" placeholder="Search plans..."
                                                t-on-keyup="(ev) => this.onAnalyticPlanSearch(ev)" t-on-focus="() => this.loadDefaultAnalyticPlans()" t-on-click="() => this.loadDefaultAnalyticPlans()"
@@ -381,7 +381,7 @@
                     <!-- Asset Categories Filter (Depreciation Schedule) -->
                     <t t-if="this.state.model_name === 'asset.depreciation.schedule'">
                         <div class="dropdown flex-shrink-0">
-                            <button t-att-class="'btn dropdown-toggle fw-semibold o_report_filter_btn ' + ((this.state.filterSummary.asset_categories &amp;&amp; this.state.filterSummary.asset_categories.length) ? 'o_filter_btn_active' : 'btn-light border text-dark')" type="button" data-bs-toggle="dropdown" aria-expanded="false" data-bs-auto-close="outside">
+                            <button t-att-class="'btn dropdown-toggle fw-semibold o_report_filter_btn ' + ((this.state.filterSummary.asset_categories &amp;&amp; this.state.filterSummary.asset_categories.length) ? 'o_filter_btn_active' : '')" type="button" data-bs-toggle="dropdown" aria-expanded="false" data-bs-auto-close="outside">
                                 <i class="fa fa-folder-open-o me-1 text-secondary"/>
                                 <span t-out="(this.state.filterSummary.asset_categories &amp;&amp; this.state.filterSummary.asset_categories.length) ? 'Categories (' + this.state.filterSummary.asset_categories.length + ')' : 'Categories'"/>
                             </button>
@@ -393,7 +393,7 @@
                                 <div class="o_hfp_body">
                                     <div class="o_hfp_section">
                                     <label class="o_hfp_label">Categories</label>
-                                    <div class="o_hfp_search">
+                                    <div class="o_hfp_search o_hfp_search_asset_cat">
                                         <svg class="o_hfp_search_icon" width="13" height="13" viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="5.25" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M11 11L14.5 14.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
                                         <input type="text" class="form-control" placeholder="Search categories..."
                                                t-on-keyup="(ev) => this.onAssetCategorySearch(ev)" t-on-focus="() => this.loadDefaultAssetCategories()" t-on-click="() => this.loadDefaultAssetCategories()"
@@ -430,7 +430,7 @@
                     <!-- Account Filter -->
                     <t t-if="this.hasFilter('account_aged')">
                         <div class="dropdown flex-shrink-0">
-                            <button class="btn btn-light border dropdown-toggle fw-semibold text-dark o_report_filter_btn" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <button class="btn dropdown-toggle fw-semibold o_report_filter_btn" type="button" data-bs-toggle="dropdown" aria-expanded="false">
                                 <i class="fa fa-user me-1 text-secondary"></i>
                                 <span t-out="this.getAgedAccountLabel()"/>
                             </button>
@@ -464,8 +464,8 @@
                     </t>
                     <t t-elif="this.hasFilter('account_partner')">
                         <div class="dropdown flex-shrink-0">
-                            <button class="btn btn-light border dropdown-toggle fw-semibold text-dark o_report_filter_btn" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
-                                <i class="fa fa-user me-1 text-dark"></i>
+                            <button class="btn dropdown-toggle fw-semibold o_report_filter_btn" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+                                <i class="fa fa-user me-1"></i>
                                 <span t-out="this.getPartnerAccountLabel()"/>
                             </button>
                             <ul class="dropdown-menu shadow p-2" style="border-radius: 6px; min-width: 220px;">
@@ -504,7 +504,7 @@
                     <!-- Partners Filter -->
                     <t t-if="this.hasFilter('partners')">
                         <div class="dropdown flex-shrink-0">
-                            <button t-att-class="'btn dropdown-toggle fw-semibold o_report_filter_btn ' + (((this.state.filterSummary.partners &amp;&amp; this.state.filterSummary.partners.length) || (this.state.filterSummary.tags &amp;&amp; this.state.filterSummary.tags.length)) ? 'o_filter_btn_active' : 'btn-light border text-dark')" type="button" data-bs-toggle="dropdown" aria-expanded="false" data-bs-auto-close="outside">
+                            <button t-att-class="'btn dropdown-toggle fw-semibold o_report_filter_btn ' + (((this.state.filterSummary.partners &amp;&amp; this.state.filterSummary.partners.length) || (this.state.filterSummary.tags &amp;&amp; this.state.filterSummary.tags.length)) ? 'o_filter_btn_active' : '')" type="button" data-bs-toggle="dropdown" aria-expanded="false" data-bs-auto-close="outside">
                                 <i class="fa fa-users me-1 text-secondary"></i>
                                 <t t-if="(this.state.filterSummary.partners &amp;&amp; this.state.filterSummary.partners.length) || (this.state.filterSummary.tags &amp;&amp; this.state.filterSummary.tags.length)">
                                     <span>Partners (<t t-out="(this.state.filterSummary.partners ? this.state.filterSummary.partners.length : 0) + (this.state.filterSummary.tags ? this.state.filterSummary.tags.length : 0)"/>)</span>
@@ -521,7 +521,7 @@
                                 <div class="o_hfp_body">
                                     <div class="o_hfp_section">
                                     <label class="o_hfp_label">Partners</label>
-                                    <div class="o_hfp_search">
+                                    <div class="o_hfp_search o_hfp_search_partner">
                                         <svg class="o_hfp_search_icon" width="13" height="13" viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="5.25" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M11 11L14.5 14.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
                                         <input type="text" class="form-control" placeholder="Search partners..."
                                                t-on-keyup="(ev) => this.onPartnerSearch(ev)" t-on-focus="() => this.loadDefaultPartners()" t-on-click="() => this.loadDefaultPartners()"
@@ -549,7 +549,7 @@
                                 </div>
                                     <div class="o_hfp_section">
                                     <label class="o_hfp_label">Partner Tags</label>
-                                    <div class="o_hfp_search">
+                                    <div class="o_hfp_search o_hfp_search_tag">
                                         <svg class="o_hfp_search_icon" width="13" height="13" viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="5.25" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M11 11L14.5 14.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
                                         <input type="text" class="form-control" placeholder="Search tags..."
                                                t-on-keyup="(ev) => this.onTagSearch(ev)"
@@ -586,7 +586,7 @@
                     <!-- Journals Filter (Journal Audit) -->
                     <t t-if="this.hasFilter('journals')">
                         <div class="dropdown flex-shrink-0">
-                            <button t-att-class="'btn dropdown-toggle fw-semibold o_report_filter_btn ' + ((this.state.filterSummary.journal_ids &amp;&amp; this.state.filterSummary.journal_ids.length) ? 'o_filter_btn_active' : 'btn-light border text-dark')" type="button" data-bs-toggle="dropdown" aria-expanded="false" data-bs-auto-close="outside">
+                            <button t-att-class="'btn dropdown-toggle fw-semibold o_report_filter_btn ' + ((this.state.filterSummary.journal_ids &amp;&amp; this.state.filterSummary.journal_ids.length) ? 'o_filter_btn_active' : '')" type="button" data-bs-toggle="dropdown" aria-expanded="false" data-bs-auto-close="outside">
                                 <i class="fa fa-book me-1 text-secondary"></i>
                                 <span t-out="this.getJournalButtonLabel()"/>
                             </button>
@@ -605,7 +605,7 @@
 
                     <!-- Exchange Rates popover (Unrealized Currency): rates of the report, editable for the report only -->
                     <div class="dropdown flex-shrink-0" t-if="this.getReportKind() === 'unrealized'">
-                        <button t-att-class="'btn dropdown-toggle fw-semibold o_report_filter_btn ' + (this.hasCustomRates() ? 'o_filter_btn_active' : 'btn-light border text-dark')" type="button" data-bs-toggle="dropdown" aria-expanded="false" data-bs-auto-close="outside">
+                        <button t-att-class="'btn dropdown-toggle fw-semibold o_report_filter_btn ' + (this.hasCustomRates() ? 'o_filter_btn_active' : '')" type="button" data-bs-toggle="dropdown" aria-expanded="false" data-bs-auto-close="outside">
                             <i class="fa fa-line-chart me-1 text-secondary"></i> Exchange Rates
                         </button>
                         <div class="dropdown-menu shadow p-3 o_rates_menu">
@@ -628,7 +628,7 @@
 
                     <!-- Target Moves Dropdown (Posted Entries / With Draft Entries...) -->
                     <div class="dropdown flex-shrink-0">
-                        <button t-att-class="'btn dropdown-toggle fw-semibold o_report_filter_btn ' + (this.isTargetMoveActive() ? 'o_filter_btn_active' : 'btn-light border text-dark')" type="button" data-bs-toggle="dropdown" aria-expanded="false" data-bs-auto-close="outside">
+                        <button t-att-class="'btn dropdown-toggle fw-semibold o_report_filter_btn ' + (this.isTargetMoveActive() ? 'o_filter_btn_active' : '')" type="button" data-bs-toggle="dropdown" aria-expanded="false" data-bs-auto-close="outside">
                             <i class="fa fa-sliders me-1" style="font-size: 0.85rem;"/>
                             <span t-out="this.getTargetMoveButtonLabel()"/>
                         </button>
@@ -645,9 +645,15 @@
                                     <span t-att-class="(this.state.filterSummary.target_move === 'All Entries') ? 'fw-bold' : ''">Include Draft Entries</span>
                                 </a>
                             </li>
-                            <t t-if="this.reportFilters.options &amp;&amp; this.reportFilters.options.length">
+                            <t t-if="(this.reportFilters.options &amp;&amp; this.reportFilters.options.length) || this.state.alert_message">
                                 <li role="separator" class="o_report_options_separator" style="border-top: 1px solid #94a3b8; margin: 6px 4px;"/>
                             </t>
+                            <li t-if="this.state.alert_message">
+                                <a class="dropdown-item cursor-pointer d-flex align-items-center py-2" t-on-click="() => this.toggleAlertBanner()">
+                                    <span class="o_check_slot"><t t-if="!this.state.alert_dismissed"><svg class="o_check_svg" width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M13.5 4.5L6.5 11.5L3 8" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></t></span>
+                                    <span t-att-class="(!this.state.alert_dismissed) ? 'fw-bold' : ''">Unposted Entries Notice</span>
+                                </a>
+                            </li>
                             <li t-if="this.hasOption('unfold_all')">
                                 <a class="dropdown-item cursor-pointer d-flex align-items-center py-2" t-on-click="() => this.onUnfoldAllToggle()">
                                     <span class="o_check_slot"><t t-if="this.state.unfoldAll"><svg class="o_check_svg" width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M13.5 4.5L6.5 11.5L3 8" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></t></span>
@@ -721,7 +727,7 @@
 
                     <!-- Currency Rounding Toggle dropdown -->
                     <div class="dropdown flex-shrink-0">
-                        <button class="btn btn-light border dropdown-toggle fw-semibold text-dark o_report_filter_btn" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        <button class="btn dropdown-toggle fw-semibold o_report_filter_btn" type="button" data-bs-toggle="dropdown" aria-expanded="false">
                             <span t-out="'In ' + (this.state.filterSummary.rounding !== undefined ? this.state.filterSummary.rounding : '') + (this.state.currency_symbol || '₹')"/>
                         </button>
                         <ul class="dropdown-menu shadow p-2" style="border-radius: 6px; min-width: 140px;">
@@ -739,17 +745,17 @@
                     <!-- Search Box -->
                     <div class="o_dynamic_report_search position-relative flex-shrink-0" style="width: 130px;">
                         <i class="fa fa-search position-absolute text-muted" style="left: 9px; top: 50%; transform: translateY(-50%); font-size: 0.75rem;"></i>
-                        <input type="text" class="form-control form-control-sm ps-4 pe-3 bg-white" style="height: 32px; font-size: 0.8rem; border-radius: 6px;" placeholder="Search..." t-model.proxy="this.state.searchQuery" t-on-input="(ev) => this.onSearchInput(ev)"/>
+                        <input type="text" class="form-control form-control-sm ps-4 pe-3 o_report_search_input" style="height: 32px; font-size: 0.8rem; border-radius: 6px;" placeholder="Search..." t-model.proxy="this.state.searchQuery" t-on-input="(ev) => this.onSearchInput(ev)"/>
                         <i t-if="this.state.searchQuery" class="fa fa-times position-absolute text-muted cursor-pointer" style="right: 8px; top: 50%; transform: translateY(-50%); font-size: 0.75rem;" t-on-click="() => { this.state.searchQuery = ''; }"/>
                     </div>
 
-                    <button class="btn btn-sm btn-outline-warning text-dark border shadow-sm" t-if="this.state.model_name === 'account.unrealized.currency.wizard' || this.state.model_name === 'account.unrealized.currency.report'" t-on-click="() => this.createAdjustmentEntry()" style="height: 32px; font-size: 0.8rem; border-radius: 6px;">
+                    <button class="btn btn-sm btn-outline-warning border shadow-sm" t-if="this.state.model_name === 'account.unrealized.currency.wizard' || this.state.model_name === 'account.unrealized.currency.report'" t-on-click="() => this.createAdjustmentEntry()" style="height: 32px; font-size: 0.8rem; border-radius: 6px;">
                         <i class="fa fa-pencil-square-o text-warning me-1"></i> Adjustment
                     </button>
 
                     <!-- Print / Export Dropdown -->
                     <div class="dropdown flex-shrink-0">
-                        <button class="btn btn-sm btn-light border dropdown-toggle fw-semibold text-dark d-flex align-items-center shadow-sm" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="border-radius: 6px; height: 32px; font-size: 0.8125rem;">
+                        <button class="btn btn-sm o_report_filter_btn dropdown-toggle fw-semibold d-flex align-items-center shadow-sm" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="border-radius: 6px; height: 32px; font-size: 0.8125rem;">
                             <i class="fa fa-print me-1 text-secondary"></i>
                             <span>Print / Export</span>
                         </button>
@@ -780,21 +786,31 @@
             </div>
 
             <!-- Unposted Notice Banner -->
-            <div t-if="this.state.alert_message" class="alert text-center py-2 px-3 mb-2 border-0 mx-3" style="background-color: #d1ecf1; color: #0c5460; font-size: 0.88rem; border-radius: 6px;">
+            <div t-if="this.state.alert_message &amp;&amp; !this.state.alert_dismissed" class="alert o_report_unposted_alert text-center py-2 px-4 mb-2 mx-3 position-relative d-flex align-items-center justify-content-center" style="font-size: 0.88rem; border-radius: 6px;">
                 <span>There are <strong>unposted Journal Entries</strong> prior or included in this period.</span>
+                <button type="button" class="btn btn-link p-0 position-absolute end-0 me-3 text-decoration-none d-flex align-items-center justify-content-center o_alert_close_btn" style="color: inherit; opacity: 0.7; border: none; background: transparent; cursor: pointer; top: 50%; transform: translateY(-50%); width: 24px; height: 24px;" title="Close banner" aria-label="Close" t-on-click="() => this.closeAlertBanner()">
+                    <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M3 3l10 10m0-10L3 13"/>
+                    </svg>
+                </button>
             </div>
             
             <!-- Secondary Alert Banner (e.g. Active Company Only) -->
-            <div t-if="this.state.secondary_alert_message" class="alert text-center py-2 px-3 mb-3 border-0 mx-3" style="background-color: #fff3cd; color: #856404; font-size: 0.88rem; border-radius: 6px;">
-                <span t-out="this.state.secondary_alert_message"/>
+            <div t-if="this.state.secondary_alert_message &amp;&amp; !this.state.secondary_alert_dismissed" class="alert o_report_secondary_alert text-center py-2 px-4 mb-3 mx-3 position-relative d-flex align-items-center justify-content-center" style="font-size: 0.88rem; border-radius: 6px;">
+                <span class="flex-grow-1 text-center" t-out="this.state.secondary_alert_message"/>
+                <button type="button" class="btn btn-link p-0 position-absolute end-0 me-3 text-decoration-none d-flex align-items-center justify-content-center o_alert_close_btn" style="color: inherit; opacity: 0.7; border: none; background: transparent; cursor: pointer; top: 50%; transform: translateY(-50%); width: 24px; height: 24px;" title="Close banner" aria-label="Close" t-on-click="() => this.closeSecondaryAlertBanner()">
+                    <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M3 3l10 10m0-10L3 13"/>
+                    </svg>
+                </button>
             </div>
-            <div class="o_dynamic_report_content bg-white p-0">
+            <div class="o_dynamic_report_content p-0">
                 <!-- Split Horizontally View (Two Columns) -->
                 <t t-if="this.isSplitHorizontally()">
                     <div class="row g-3 p-3 m-0">
                         <!-- Left Column -->
                         <div class="col-12 col-lg-6">
-                            <div class="card border shadow-sm p-0 bg-white" style="border-radius: 6px; overflow: hidden;">
+                            <div class="card o_dynamic_report_split_card border shadow-sm p-0" style="border-radius: 6px; overflow: hidden;">
                                 <table class="table enterprise-table table-hover table-sm mb-0">
                                     <thead>
                                         <tr t-if="this.state.column_groups &amp;&amp; this.state.column_groups.length">
@@ -885,10 +901,10 @@
                                                                             </svg>
                                                                         </button>
                                                                         <div t-if="this.state.openDropdownLineId === line.id" 
-                                                                             class="dropdown-menu show shadow border py-1 bg-white" 
-                                                                             t-att-style="(this.state.dropdownIsDropup ? 'bottom: 100%; top: auto; margin-bottom: 6px;' : 'top: 100%; margin-top: 2px;') + ' display: block; position: absolute; left: 0; z-index: 9999; min-width: 170px; border-radius: 6px; box-shadow: 0 8px 24px rgba(0,0,0,0.18); border: 1px solid #cbd5e1;'">
+                                                                             class="dropdown-menu show shadow border py-1" 
+                                                                             t-att-style="this.state.dropdownStyle || ''">
                                                                             <t t-if="line.asset_id">
-                                                                                <a class="dropdown-item py-1 px-3 text-dark cursor-pointer d-flex align-items-center" 
+                                                                                <a class="dropdown-item py-1 px-3 cursor-pointer d-flex align-items-center" 
                                                                                    style="font-size: 0.85rem;"
                                                                                    t-on-click.stop="() => { this.toggleLineDropdown(null); this.onActionClicked(line, 'open_asset'); }">
                                                                                     <i class="fa fa-cubes me-2 text-primary"></i>
@@ -896,7 +912,7 @@
                                                                                 </a>
                                                                             </t>
                                                                             <t t-elif="line.move_id">
-                                                                                <a class="dropdown-item py-1 px-3 text-dark cursor-pointer d-flex align-items-center" 
+                                                                                <a class="dropdown-item py-1 px-3 cursor-pointer d-flex align-items-center" 
                                                                                    style="font-size: 0.85rem;"
                                                                                    t-on-click.stop="() => { this.toggleLineDropdown(null); this.onActionClicked(line, 'open_journal_entry'); }">
                                                                                     <i class="fa fa-file-text-o me-2 text-primary"></i>
@@ -907,20 +923,20 @@
                                                                                     </span>
                                                                                 </a>
                                                                             </t>
-                                                                            <a class="dropdown-item py-1 px-3 text-dark cursor-pointer d-flex align-items-center" 
+                                                                            <a class="dropdown-item py-1 px-3 cursor-pointer d-flex align-items-center" 
                                                                                style="font-size: 0.85rem;"
                                                                                t-on-click.stop="() => { this.toggleLineDropdown(null); this.onActionClicked(line, 'open_journal_items'); }">
                                                                                 <i class="fa fa-list me-2 text-secondary"></i>
                                                                                 <span>Journal Items</span>
                                                                             </a>
-                                                                            <a class="dropdown-item py-1 px-3 text-dark cursor-pointer d-flex align-items-center" 
+                                                                            <a class="dropdown-item py-1 px-3 cursor-pointer d-flex align-items-center" 
                                                                                style="font-size: 0.85rem;"
                                                                                t-on-click.stop="() => { this.toggleLineDropdown(null); this.onActionClicked(line, 'open_general_ledger'); }">
                                                                                 <i class="fa fa-book me-2 text-secondary"></i>
                                                                                 <span>General Ledger</span>
                                                                             </a>
                                                                             <t t-if="line.type === 'tax' &amp;&amp; line.tax_id">
-                                                                                <a class="dropdown-item py-1 px-3 text-dark cursor-pointer d-flex align-items-center" 
+                                                                                <a class="dropdown-item py-1 px-3 cursor-pointer d-flex align-items-center" 
                                                                                    style="font-size: 0.85rem;"
                                                                                    t-on-click.stop="() => { this.toggleLineDropdown(null); this.onAuditTax(line); }">
                                                                                     <i class="fa fa-search me-2 text-info"></i>
@@ -934,7 +950,7 @@
                                                         </t>
                                                         <t t-else="">
                                                             <t t-if="col.field === 'docs_count' and line.docs_count and line.journal_id">
-                                                                <a class="text-dark fw-semibold text-decoration-none cursor-pointer" 
+                                                                <a class="o_report_doc_link fw-semibold text-decoration-none cursor-pointer" 
                                                                    t-on-click.stop="() => this.onActionClicked(line, 'open_documents')"
                                                                    t-out="line.docs_count"/>
                                                             </t>
@@ -959,7 +975,7 @@
 
                         <!-- Right Column -->
                         <div class="col-12 col-lg-6">
-                            <div class="card border shadow-sm p-0 bg-white" style="border-radius: 6px; overflow: hidden;">
+                            <div class="card o_dynamic_report_split_card border shadow-sm p-0" style="border-radius: 6px; overflow: hidden;">
                                 <table class="table enterprise-table table-hover table-sm mb-0">
                                     <thead>
                                         <tr t-if="this.state.column_groups &amp;&amp; this.state.column_groups.length">
@@ -1047,10 +1063,10 @@
                                                                             </svg>
                                                                         </button>
                                                                         <div t-if="this.state.openDropdownLineId === line.id" 
-                                                                             class="dropdown-menu show shadow border py-1 bg-white" 
-                                                                             t-att-style="(this.state.dropdownIsDropup ? 'bottom: 100%; top: auto; margin-bottom: 6px;' : 'top: 100%; margin-top: 2px;') + ' display: block; position: absolute; left: 0; z-index: 9999; min-width: 170px; border-radius: 6px; box-shadow: 0 8px 24px rgba(0,0,0,0.18); border: 1px solid #cbd5e1;'">
+                                                                             class="dropdown-menu show shadow border py-1" 
+                                                                             t-att-style="this.state.dropdownStyle || ''">
                                                                             <t t-if="line.move_id">
-                                                                                <a class="dropdown-item py-1 px-3 text-dark cursor-pointer d-flex align-items-center" 
+                                                                                <a class="dropdown-item py-1 px-3 cursor-pointer d-flex align-items-center" 
                                                                                    style="font-size: 0.85rem;"
                                                                                    t-on-click.stop="() => { this.toggleLineDropdown(null); this.onActionClicked(line, 'open_journal_entry'); }">
                                                                                     <i class="fa fa-file-text-o me-2 text-primary"></i>
@@ -1061,20 +1077,20 @@
                                                                                     </span>
                                                                                 </a>
                                                                             </t>
-                                                                            <a class="dropdown-item py-1 px-3 text-dark cursor-pointer d-flex align-items-center" 
+                                                                            <a class="dropdown-item py-1 px-3 cursor-pointer d-flex align-items-center" 
                                                                                style="font-size: 0.85rem;"
                                                                                t-on-click.stop="() => { this.toggleLineDropdown(null); this.onActionClicked(line, 'open_journal_items'); }">
                                                                                 <i class="fa fa-list me-2 text-secondary"></i>
                                                                                 <span>Journal Items</span>
                                                                             </a>
-                                                                            <a class="dropdown-item py-1 px-3 text-dark cursor-pointer d-flex align-items-center" 
+                                                                            <a class="dropdown-item py-1 px-3 cursor-pointer d-flex align-items-center" 
                                                                                style="font-size: 0.85rem;"
                                                                                t-on-click.stop="() => { this.toggleLineDropdown(null); this.onActionClicked(line, 'open_general_ledger'); }">
                                                                                 <i class="fa fa-book me-2 text-secondary"></i>
                                                                                 <span>General Ledger</span>
                                                                             </a>
                                                                             <t t-if="line.type === 'tax' &amp;&amp; line.tax_id">
-                                                                                <a class="dropdown-item py-1 px-3 text-dark cursor-pointer d-flex align-items-center" 
+                                                                                <a class="dropdown-item py-1 px-3 cursor-pointer d-flex align-items-center" 
                                                                                    style="font-size: 0.85rem;"
                                                                                    t-on-click.stop="() => { this.toggleLineDropdown(null); this.onAuditTax(line); }">
                                                                                     <i class="fa fa-search me-2 text-info"></i>
@@ -1088,7 +1104,7 @@
                                                         </t>
                                                         <t t-else="">
                                                             <t t-if="col.field === 'docs_count' and line.docs_count and line.journal_id">
-                                                                <a class="text-dark fw-semibold text-decoration-none cursor-pointer" 
+                                                                <a class="o_report_doc_link fw-semibold text-decoration-none cursor-pointer" 
                                                                    t-on-click.stop="() => this.onActionClicked(line, 'open_documents')"
                                                                    t-out="line.docs_count"/>
                                                             </t>
@@ -1115,7 +1131,7 @@
 
                 <!-- Standard Single Table View -->
                 <t t-else="">
-                    <div t-if="this.state.companies_description" class="small fw-semibold py-2 px-3 text-uppercase border-bottom" style="color: var(--body-color, #94a3b8); font-size: 0.78rem; letter-spacing: 0.03em; background-color: var(--o-view-background-color);">
+                    <div t-if="this.state.companies_description" class="o_dynamic_report_companies_bar small fw-semibold py-2 px-3 text-uppercase border-bottom" style="font-size: 0.78rem; letter-spacing: 0.03em;">
                         <t t-out="this.state.companies_description"/>
                     </div>
                     <table class="table enterprise-table table-hover table-sm mb-0">
@@ -1208,10 +1224,10 @@
                                                                 </svg>
                                                             </button>
                                                             <div t-if="this.state.openDropdownLineId === line.id" 
-                                                                 class="dropdown-menu show shadow border py-1 bg-white" 
-                                                                 t-att-style="(this.state.dropdownIsDropup ? 'bottom: 100%; top: auto; margin-bottom: 6px;' : 'top: 100%; margin-top: 2px;') + ' display: block; position: absolute; left: 0; z-index: 9999; min-width: 170px; border-radius: 6px; box-shadow: 0 8px 24px rgba(0,0,0,0.18); border: 1px solid #cbd5e1;'">
+                                                                 class="dropdown-menu show shadow border py-1" 
+                                                                 t-att-style="this.state.dropdownStyle || ''">
                                                                 <t t-if="line.asset_id">
-                                                                    <a class="dropdown-item py-1 px-3 text-dark cursor-pointer d-flex align-items-center" 
+                                                                    <a class="dropdown-item py-1 px-3 cursor-pointer d-flex align-items-center" 
                                                                        style="font-size: 0.85rem;"
                                                                        t-on-click.stop="() => { this.toggleLineDropdown(null); this.onActionClicked(line, 'open_asset'); }">
                                                                         <i class="fa fa-cubes me-2 text-primary"></i>
@@ -1219,7 +1235,7 @@
                                                                     </a>
                                                                 </t>
                                                                 <t t-elif="line.move_id">
-                                                                    <a class="dropdown-item py-1 px-3 text-dark cursor-pointer d-flex align-items-center" 
+                                                                    <a class="dropdown-item py-1 px-3 cursor-pointer d-flex align-items-center" 
                                                                        style="font-size: 0.85rem;"
                                                                        t-on-click.stop="() => { this.toggleLineDropdown(null); this.onActionClicked(line, 'open_journal_entry'); }">
                                                                         <i class="fa fa-file-text-o me-2 text-primary"></i>
@@ -1230,20 +1246,20 @@
                                                                         </span>
                                                                     </a>
                                                                 </t>
-                                                                <a class="dropdown-item py-1 px-3 text-dark cursor-pointer d-flex align-items-center" 
+                                                                <a class="dropdown-item py-1 px-3 cursor-pointer d-flex align-items-center" 
                                                                    style="font-size: 0.85rem;"
                                                                    t-on-click.stop="() => { this.toggleLineDropdown(null); this.onActionClicked(line, 'open_journal_items'); }">
                                                                     <i class="fa fa-list me-2 text-secondary"></i>
                                                                     <span>Journal Items</span>
                                                                 </a>
-                                                                <a class="dropdown-item py-1 px-3 text-dark cursor-pointer d-flex align-items-center" 
+                                                                <a class="dropdown-item py-1 px-3 cursor-pointer d-flex align-items-center" 
                                                                    style="font-size: 0.85rem;"
                                                                    t-on-click.stop="() => { this.toggleLineDropdown(null); this.onActionClicked(line, 'open_general_ledger'); }">
                                                                     <i class="fa fa-book me-2 text-secondary"></i>
                                                                     <span>General Ledger</span>
                                                                 </a>
                                                                 <t t-if="line.type === 'tax' &amp;&amp; line.tax_id">
-                                                                    <a class="dropdown-item py-1 px-3 text-dark cursor-pointer d-flex align-items-center" 
+                                                                    <a class="dropdown-item py-1 px-3 cursor-pointer d-flex align-items-center" 
                                                                        style="font-size: 0.85rem;"
                                                                        t-on-click.stop="() => { this.toggleLineDropdown(null); this.onAuditTax(line); }">
                                                                         <i class="fa fa-search me-2 text-info"></i>
@@ -1257,7 +1273,7 @@
                                             </t>
                                             <t t-else="">
                                                 <t t-if="col.field === 'docs_count' and line.docs_count and line.journal_id">
-                                                    <a class="text-dark fw-semibold text-decoration-none cursor-pointer" 
+                                                    <a class="o_report_doc_link fw-semibold text-decoration-none cursor-pointer" 
                                                        t-on-click.stop="() => this.onActionClicked(line, 'open_documents')"
                                                        t-out="line.docs_count"/>
                                                 </t>

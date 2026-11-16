@@ -166,6 +166,7 @@ class DentalPharmacyDashboard(models.AbstractModel):
         recent_prescriptions = []
         status_map = {
             'confirmed': 'Pending',
+            'issued': 'Issued to Patient',
             'partially_dispensed': 'Partial',
             'fully_dispensed': 'Dispensed',
             'draft': 'Draft',

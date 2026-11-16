@@ -24,9 +24,9 @@ class DentalWebsiteAppointmentController(http.Controller):
             ('active', '=', True),
         ], order='id asc')
 
-        treatments = request.env['product.template'].sudo().search([
-            ('is_dental_treatment', '=', True),
-        ], order='sequence asc, name asc')
+        appt_model = request.env['dental.appointment'].sudo()
+        treatments = request.env['product.template'].sudo().search(
+            appt_model._get_bookable_treatment_domain(request.env.company), order='sequence asc, name asc')
 
         branches = request.env['res.company'].sudo().search([])
 

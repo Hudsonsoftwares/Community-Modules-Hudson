@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import logging
+# pyrefly: ignore [missing-import]
 from odoo import fields
 from ..base import BaseStatutoryService
 
@@ -96,23 +97,34 @@ class Section80CCHDeductionService(BaseStatutoryService):
         configured_pct = tds_param_svc.get_80cch_eligibility_percent(regime=regime, eval_date=eval_date)
         param_code = 'HDS_IN_TDS_80CCH_ELIGIBILITY_PERCENT_NEW' if regime == 'new' else 'HDS_IN_TDS_80CCH_ELIGIBILITY_PERCENT_OLD'
 
-        # 3. Perform Eligibility & Deduction Calculation
-        eligible_amount = round(source_amt * (configured_pct / 100.0), 2)
-        excess_amount = max(0.0, source_amt - eligible_amount)
-        usable_amount = eligible_amount
-        is_eligible = (eligible_amount > 0.0 or source_amt == 0.0)
-        status_str = 'ELIGIBLE' if is_eligible else 'INELIGIBLE'
-
         verified_amt = float(getattr(decl, 'decl_80cch_verified_amount', 0.0) or 0.0) if decl else 0.0
         approved_amt = source_amt if is_post_proof else 0.0
         amount_source_label = "APPROVED/POST-PROOF" if (is_post_proof and source_amt > 0.0) else "PROJECTED"
-
         calc_phase = "POST-PROOF" if is_post_proof else "PRE-PROOF"
 
-        remarks = (
-            f"Section 80CCH Status: ELIGIBLE. Agniveer Corpus Fund contribution "
-            f"of INR {source_amt:,.2f} is allowable as deduction under Section 80CCH ({configured_pct:.0f}% rate)."
-        )
+        # Check Agnipath Scheme eligibility if employee is identified
+        is_agnipath = getattr(employee, 'hds_in_is_agnipath', False) if employee else kwargs.get('is_agnipath', True)
+        if employee and not is_agnipath:
+            eligible_amount = 0.0
+            excess_amount = source_amt
+            usable_amount = 0.0
+            is_eligible = False
+            status_str = 'INELIGIBLE (Not enrolled under Agnipath Scheme)'
+            remarks = (
+                f"Section 80CCH Status: INELIGIBLE. Employee is not enrolled under the Agnipath Scheme. "
+                f"Agniveer Corpus Fund deduction is not allowable."
+            )
+        else:
+            # 3. Perform Eligibility & Deduction Calculation
+            eligible_amount = round(source_amt * (configured_pct / 100.0), 2)
+            excess_amount = max(0.0, source_amt - eligible_amount)
+            usable_amount = eligible_amount
+            is_eligible = (eligible_amount > 0.0 or source_amt == 0.0)
+            status_str = 'ELIGIBLE' if is_eligible else 'INELIGIBLE'
+            remarks = (
+                f"Section 80CCH Status: ELIGIBLE. Agniveer Corpus Fund contribution "
+                f"of INR {source_amt:,.2f} is allowable as deduction under Section 80CCH ({configured_pct:.0f}% rate)."
+            )
 
         # 4. Generate Formatted Statutory Audit Trace Log
         trace_log = f"""

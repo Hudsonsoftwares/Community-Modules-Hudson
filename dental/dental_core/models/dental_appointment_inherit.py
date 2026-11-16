@@ -2,12 +2,37 @@ from datetime import datetime, date, time, timedelta
 import calendar
 import pytz
 from odoo import models, fields, api, _
+from odoo.exceptions import AccessError, UserError
+from odoo.tools import format_amount
+
+from .account_move import dental_billing_summary
+from .res_users import DENTIST_WORKSPACE_GROUPS
 
 class DentalAppointment(models.Model):
     _inherit = 'dental.appointment'
 
     case_ids = fields.One2many('dental.case', 'appointment_id', string='Clinical Cases')
     case_count = fields.Integer(string='Case Count', compute='_compute_case_count')
+    # The dental case this visit belongs to: the case it opened, or an earlier case it continues
+    case_id = fields.Many2one(
+        'dental.case', string='Dental Case', compute='_compute_case_id', store=True, readonly=False,
+        index=True, copy=False, tracking=True, check_company=True,
+        help='Follow-up visits continue the patient\'s existing case instead of opening a new one.')
+
+    is_case_continuation = fields.Boolean(string='Follow-up Visit', compute='_compute_is_case_continuation')
+    # Shown on the visit cards of a case's Overview tab
+    case_chief_complaint = fields.Text(related='case_id.chief_complaint', string='Case Complaint')
+
+    @api.depends('case_ids')
+    def _compute_case_id(self):
+        for appt in self:
+            appt.case_id = appt.case_ids[:1] or appt.case_id
+
+    @api.depends('case_id')
+    def _compute_is_case_continuation(self):
+        for appt in self:
+            case = appt.sudo().case_id
+            appt.is_case_continuation = bool(case) and case.appointment_id.id != appt.id
     lead_id = fields.Many2one(
         'crm.lead',
         string='Originating CRM Enquiry',
@@ -55,17 +80,277 @@ class DentalAppointment(models.Model):
                         ) % appt.name)
         return res
 
-    @api.depends('case_ids')
+    @api.depends('case_id')
     def _compute_case_count(self):
         for appt in self:
-            appt.case_count = len(appt.case_ids)
+            appt.case_count = 1 if appt.case_id else 0
+
+    # ---------------------------------------------------------
+    # Front-desk billing (receptionists have no access to clinical cases,
+    # so the visit's case is read with sudo; invoices are still created as the user)
+    # ---------------------------------------------------------
+    billing_state = fields.Selection([
+        ('nothing', 'Nothing to Bill'),
+        ('to_invoice', 'To Invoice'),
+        ('draft', 'Invoice in Draft'),
+        ('due', 'Payment Due'),
+        ('paid', 'Paid'),
+    ], string='Billing Status', compute='_compute_billing', search='_search_billing_state')
+    invoice_count = fields.Integer(string='Invoice Count', compute='_compute_billing')
+    amount_due = fields.Monetary(string='Amount Due', compute='_compute_billing', currency_field='billing_currency_id')
+    has_draft_invoice = fields.Boolean(compute='_compute_billing')
+    billing_currency_id = fields.Many2one(related='branch_id.currency_id', string='Billing Currency')
+
+    def _get_visit_invoices(self):
+        self.ensure_one()
+        case = self.sudo().case_id
+        if case:
+            return case.invoice_ids
+        return self.env['account.move.line'].sudo().search([('dental_appointment_id', '=', self.id)]).move_id
+
+    def _search_billing_state(self, operator, value):
+        """Search on the computed billing status by narrowing to visits that can carry billing activity."""
+        if operator not in ('=', 'in'):
+            raise UserError(_("Unsupported search on Billing Status."))
+        values = [value] if operator == '=' else list(value)
+        if 'nothing' in values:
+            raise UserError(_("Searching for visits with nothing to bill is not supported."))
+        line_obj = self.env['account.move.line'].sudo()
+        billed_lines = line_obj.search([('move_id.state', '!=', 'cancel'), '|',
+                                        ('dental_appointment_id', '!=', False), ('dental_session_id', '!=', False)])
+        appointments = self.sudo().browse()
+        if 'to_invoice' in values:
+            # Completed visits whose fee is unbilled, and visits with completed but unbilled treatment
+            appointments |= self.sudo().search([('state', '=', 'completed'),
+                                                 ('id', 'not in', billed_lines.dental_appointment_id.ids)])
+            sessions = self.env['dental.treatment.session'].sudo().search([
+                ('state', '=', 'completed'), ('id', 'not in', billed_lines.dental_session_id.ids)])
+            appointments |= sessions.appointment_id | sessions.case_id.appointment_id
+        if set(values) - {'to_invoice'}:
+            # Visits that already have invoices
+            appointments |= billed_lines.dental_appointment_id | billed_lines.dental_session_id.case_id.appointment_id
+        return [('id', 'in', appointments.filtered(lambda a: a.billing_state in values).ids)]
+
+    def _compute_billing(self):
+        for appt in self:
+            case = appt.sudo().case_id
+            if case:
+                has_billable = bool(case._get_billable_line_vals())
+            else:
+                has_billable = appt.state == 'completed' and bool(appt.sudo()._get_consultation_fee_line_vals())
+            (appt.billing_state, appt.invoice_count, appt.amount_due,
+             appt.has_draft_invoice) = dental_billing_summary(appt._get_visit_invoices(), has_billable)
+
+    def _get_consultation_product(self):
+        self.ensure_one()
+        product = self.branch_id.dental_consultation_product_id or self.env.company.dental_consultation_product_id
+        if not product:
+            template = self.env.ref('dental_catalog.treatment_consultation', raise_if_not_found=False)
+            product = template.product_variant_id if template else product
+        return product
+
+    def _get_consultation_fee_line_vals(self, doctor=None):
+        """Consultation fee, billed once per appointment: doctor fee, else appointment type price, else service price."""
+        self.ensure_one()
+        if self.state in ('cancelled', 'no_show'):
+            return False
+        already_billed = self.env['account.move.line'].sudo().search_count([
+            ('dental_appointment_id', '=', self.id),
+            ('move_id.state', '!=', 'cancel'),
+        ])
+        product = self._get_consultation_product()
+        if already_billed or not product:
+            return False
+        doctor = doctor or self.doctor_id
+        # Read the fee from hr.employee itself; hr.employee.public is a SQL view over it
+        doctor_fee = self.env['hr.employee'].sudo().browse(doctor.id).consultation_fee if doctor else 0.0
+        price = doctor_fee or self.appointment_type_id.price or product.lst_price
+        if not price:
+            return False
+        label = _('Consultation – Dr. %s', doctor.name) if doctor else _('Consultation')
+        return {
+            'product_id': product.id,
+            'name': f"{label} ({self.name})",
+            'quantity': 1.0,
+            'price_unit': price,
+            'dental_appointment_id': self.id,
+        }
+
+    def _create_visit_invoice(self):
+        """Bill the visit: through its clinical case when there is one, otherwise the consultation fee only."""
+        self.ensure_one()
+        case = self.sudo().case_id
+        if case:
+            return case._create_patient_invoice()
+        # Serialize concurrent billing of the same visit so it can never be invoiced twice
+        self.env.cr.execute("SELECT id FROM dental_appointment WHERE id = %s FOR UPDATE", (self.id,))
+        fee = self.sudo()._get_consultation_fee_line_vals()
+        if not fee:
+            return self.env['account.move']
+        invoice, _extended = self.env['account.move']._dental_create_or_extend_invoice(
+            self.patient_id, self.branch_id or self.env.company, [fee], origin=self.name)
+        self.message_post(body=_("Consultation invoice prepared, total %s.", invoice.amount_total))
+        return invoice
+
+    def _check_billing_rights(self):
+        """Front desk (Invoicing rights) and doctors may prepare invoices.
+
+        Doctors only prepare drafts for records they can access; confirming invoices and
+        collecting payments stay with standard Odoo Invoicing rights.
+        """
+        user = self.env.user
+        if not (user.has_group('account.group_account_invoice') or user.has_group('dental_base.group_dental_dentist')):
+            raise AccessError(_("You are not allowed to prepare patient invoices."))
+
+    def _billing_result_action(self, invoice):
+        """Open the invoice for billing staff; doctors without accounting access get a confirmation instead."""
+        if self.env.user.has_group('account.group_account_invoice'):
+            return self._action_open_visit_invoices(invoice.with_env(self.env))
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'display_notification',
+            'params': {
+                'type': 'success',
+                'message': _("Invoice of %(amount)s sent to Reception Desk > Billing > Ready for Billing.",
+                             amount=invoice.amount_total),
+                'next': {'type': 'ir.actions.client', 'tag': 'soft_reload'},
+            },
+        }
+
+    def action_create_invoice(self):
+        self.ensure_one()
+        self._check_billing_rights()
+        self.check_access('read')
+        invoice = self.sudo()._create_visit_invoice()
+        if not invoice:
+            raise UserError(_("Nothing to invoice for this visit."))
+        return self._billing_result_action(invoice)
+
+    def action_view_invoices(self):
+        self.ensure_one()
+        return self._action_open_visit_invoices(
+            self._get_visit_invoices().filtered(lambda m: m.move_type == 'out_invoice'))
+
+    def _action_open_visit_invoices(self, invoices):
+        action = {
+            'name': _('Patient Invoices'),
+            'type': 'ir.actions.act_window',
+            'res_model': 'account.move',
+            'context': {'default_move_type': 'out_invoice', 'default_partner_id': self.patient_id.id},
+        }
+        if len(invoices) == 1:
+            action.update({'view_mode': 'form', 'res_id': invoices.id})
+        else:
+            action.update({'view_mode': 'list,form', 'domain': [('id', 'in', invoices.ids)]})
+        return action
+
+    def action_complete(self):
+        res = super().action_complete()
+        # Visits finished without a clinical case still get their consultation billed;
+        # visits with a case are billed when the doctor completes the consultation.
+        for appt in self.filtered(lambda a: a.state == 'completed' and not a.case_id):
+            if (appt.branch_id or self.env.company).dental_auto_invoice:
+                try:
+                    with self.env.cr.savepoint():
+                        appt.sudo()._create_visit_invoice()
+                except UserError as err:
+                    appt.message_post(body=_("Automatic invoice skipped: %s", err.args[0] if err.args else err))
+        return res
+
+    def _find_case_to_continue(self):
+        """The patient's latest still-active case (same doctor first), within the user's access rules."""
+        self.ensure_one()
+        cases = self.env['dental.case'].search([
+            ('patient_id', '=', self.patient_id.id),
+            ('state', 'in', ('draft', 'open', 'under_treatment')),
+        ], order='case_date desc, id desc')
+        return cases.filtered(lambda c: c.doctor_id == self.doctor_id)[:1] or cases[:1]
+
+    def _continue_case(self, case):
+        """Attach this follow-up visit to an existing case and open its consultation record for today."""
+        self.ensure_one()
+        self.case_id = case
+        if case.state in ('completed', 'cancelled'):
+            # A booked review of a closed case reopens it for this visit
+            case.state = 'open'
+        exam_obj = self.env['dental.clinical.examination']
+        if not exam_obj.search_count([('appointment_id', '=', self.id)]):
+            exam_obj.create({
+                'patient_id': self.patient_id.id,
+                'case_id': case.id,
+                'appointment_id': self.id,
+                'doctor_id': self.doctor_id.id,
+                'chief_complaint': self.env['dental.case']._extract_chief_complaint_from_appointment(self) or False,
+            })
+            case.message_post(body=_("Follow-up visit %(visit)s on %(date)s continued in this case.",
+                                     visit=self.name, date=self.date_start))
+
+    def _create_clinical_case(self):
+        self.ensure_one()
+        CaseObj = self.env['dental.case']
+        return CaseObj.create({
+            'patient_id': self.patient_id.id,
+            'doctor_id': self.doctor_id.id,
+            'appointment_id': self.id,
+            'branch_id': self.branch_id.id,
+            'chief_complaint': CaseObj._extract_chief_complaint_from_appointment(self),
+            'medical_history_summary': CaseObj._extract_medical_history_from_patient(self.patient_id) if self.patient_id else False,
+            'allergies': CaseObj._extract_allergies_from_patient(self.patient_id) if self.patient_id else False,
+            'current_medications': CaseObj._extract_medications_from_patient(self.patient_id) if self.patient_id else False,
+            'dental_history_summary': CaseObj._extract_dental_history_from_patient(self.patient_id) if self.patient_id else False,
+        })
+
+    def _action_open_case_form(self, case):
+        action = self.env['ir.actions.act_window']._for_xml_id('dental_core.action_dental_case')
+        action['res_id'] = case.id
+        action['views'] = [(self.env.ref('dental_core.view_dental_case_form').id, 'form')]
+        action['context'] = {'dental_current_visit_id': self.id}
+        return action
+
+    def action_open_visit_case(self):
+        """Open the clinical case of a past visit (read-back from another case's Overview cards),
+        showing that visit's own examination and records."""
+        self.ensure_one()
+        if not self.case_id:
+            raise UserError(_("Visit %s has no clinical case.", self.name))
+        return self._action_open_case_form(self.case_id)
+
+    def action_new_clinical_case(self):
+        """Open a separate case for an unrelated new problem instead of continuing the existing one."""
+        self.ensure_one()
+        old_case = self.case_id
+        if old_case and old_case.appointment_id == self:
+            raise UserError(_("This visit already has its own case %s.", old_case.name))
+        if self.state in ('confirmed', 'checked_in'):
+            # Start the consultation without the automatic case continuation of action_start_consultation
+            super(DentalAppointment, self).action_start_consultation()
+        case = self.with_context(dental_new_case_for_visit=True)._create_clinical_case()
+        if old_case:
+            # Today's consultation record moves with the visit
+            self.env['dental.clinical.examination'].search([('appointment_id', '=', self.id)]).write({'case_id': case.id})
+            old_case.message_post(body=_("Visit %(visit)s moved to new case %(case)s.", visit=self.name, case=case.name))
+        self.case_id = case
+        return self._action_open_case_form(case)
 
     def action_open_clinical_case(self):
         self.ensure_one()
         CaseObj = self.env['dental.case']
-        if self.case_ids:
+        if not self.case_id:
+            # Returning patient: continue the open case instead of creating a duplicate
+            case = self._find_case_to_continue()
+            if case:
+                self._continue_case(case)
+                return self._action_open_case_form(case)
+            case = self._create_clinical_case()
+            self.case_id = case
+            return self._action_open_case_form(case)
+        if self.case_id.appointment_id != self:
+            # Visit booked as a follow-up of this case (e.g. from a follow-up record)
+            self._continue_case(self.case_id)
+            return self._action_open_case_form(self.case_id)
+        if self.case_id:
             # Open existing case
-            case = self.case_ids[0]
+            case = self.case_id
             # Backfill any empty medical history / chief complaints from appointment and patient
             vals_to_update = {}
             if not case.chief_complaint:
@@ -91,29 +376,19 @@ class DentalAppointment(models.Model):
                         vals_to_update['dental_history_summary'] = dh
             if vals_to_update:
                 case.write(vals_to_update)
+            return self._action_open_case_form(case)
 
-            action = self.env['ir.actions.act_window']._for_xml_id('dental_core.action_dental_case')
-            action['res_id'] = case.id
-            action['views'] = [(self.env.ref('dental_core.view_dental_case_form').id, 'form')]
-            return action
-        else:
-            # Create a new case
-            case_vals = {
-                'patient_id': self.patient_id.id,
-                'doctor_id': self.doctor_id.id,
-                'appointment_id': self.id,
-                'branch_id': self.branch_id.id,
-                'chief_complaint': CaseObj._extract_chief_complaint_from_appointment(self),
-                'medical_history_summary': CaseObj._extract_medical_history_from_patient(self.patient_id) if self.patient_id else False,
-                'allergies': CaseObj._extract_allergies_from_patient(self.patient_id) if self.patient_id else False,
-                'current_medications': CaseObj._extract_medications_from_patient(self.patient_id) if self.patient_id else False,
-                'dental_history_summary': CaseObj._extract_dental_history_from_patient(self.patient_id) if self.patient_id else False,
-            }
-            case = CaseObj.create(case_vals)
-            action = self.env['ir.actions.act_window']._for_xml_id('dental_core.action_dental_case')
-            action['res_id'] = case.id
-            action['views'] = [(self.env.ref('dental_core.view_dental_case_form').id, 'form')]
-            return action
+    @api.model
+    def _dental_day_domain(self, utc_start, utc_end):
+        """Appointments that belong to a clinic day: booked for it, or checked in on it.
+
+        A patient who arrives on a different day than booked (early/late, or a
+        booking made for the wrong date) is part of today's live queue as soon as
+        the front desk checks them in.
+        """
+        return ['|',
+                '&', ('date_start', '>=', utc_start), ('date_start', '<=', utc_end),
+                '&', ('check_in_time', '>=', utc_start), ('check_in_time', '<=', utc_end)]
 
     def action_start_consultation(self):
         res = super().action_start_consultation()
@@ -128,6 +403,7 @@ class DentalAppointment(models.Model):
         Executive Dental Hospital Admin Dashboard.
         """
         company = self.env['res.company'].browse(branch_id) if branch_id else self.env.company
+        self.env['dental.company.mixin']._dental_check_company_access(company)
         today = fields.Date.today()
         user_tz = pytz.timezone(self.env.user.tz or 'UTC')
 
@@ -217,7 +493,7 @@ class DentalAppointment(models.Model):
         display_total_appts = total_appts_today
 
         # Chairs capacity
-        total_chairs = 16
+        total_chairs = getattr(company, 'dental_chair_count', 0) or 16
         occupied_chairs = min(in_consultation_count, total_chairs)
         chairs_occupancy_pct = int((occupied_chairs / total_chairs) * 100) if total_chairs > 0 else 0
 
@@ -447,8 +723,10 @@ class DentalAppointment(models.Model):
     @api.model
     def get_reception_dashboard_data(self, branch_id=None):
         company = self.env['res.company'].browse(branch_id) if branch_id else self.env.company
-        today = fields.Date.today()
+        self.env['dental.company.mixin']._dental_check_company_access(company)
         user_tz = pytz.timezone(self.env.user.tz or 'Asia/Kolkata')
+        # Clinic-local date (server date is UTC and lags 5:30h behind in India)
+        today = datetime.now(user_tz).date()
 
         # Local day boundaries in UTC
         start_local = user_tz.localize(datetime.combine(today, time.min))
@@ -457,10 +735,7 @@ class DentalAppointment(models.Model):
         utc_end = end_local.astimezone(pytz.utc).strftime('%Y-%m-%d %H:%M:%S')
 
         # 1. Real appointments today
-        domain = [
-            ('date_start', '>=', utc_start),
-            ('date_start', '<=', utc_end),
-        ]
+        domain = self._dental_day_domain(utc_start, utc_end)
         if branch_id:
             domain.append(('branch_id', '=', company.id))
 
@@ -507,7 +782,10 @@ class DentalAppointment(models.Model):
             ])
 
         # 5. Live Patient Queue list
-        active_waiting = checked_in_appts.sorted(key=lambda a: (a.queue_priority, a.date_start), reverse=True)
+        # Highest priority (emergencies) first, then first come, first served
+        active_waiting = checked_in_appts.sorted(
+            key=lambda a: (-(a.queue_priority or 0), a.check_in_time or a.date_start)
+        )
         active_in_consult = in_consultation_appts.sorted(key=lambda a: a.date_start)
         upcoming_scheduled = scheduled_appts.sorted(key=lambda a: a.date_start)
 
@@ -592,6 +870,14 @@ class DentalAppointment(models.Model):
                 'badge_class': badge_class,
                 'action_type': action_type,
                 'action_label': action_label,
+                'has_equipment_conflict': bool(a.has_equipment_conflict),
+                'equipment_conflict_reason': a.equipment_conflict_reason or '',
+                'conflicting_equipment_names': ", ".join(a.conflicting_equipment_ids.mapped('name')) if a.conflicting_equipment_ids else '',
+                'is_scrapped_conflict': bool(
+                    a.conflicting_equipment_ids.filtered(
+                        lambda e: e.equipment_condition == 'scrapped' or getattr(e, 'scrap_date', False) or e.maintenance_ids.filtered(lambda r: r.stage_id and 'scrap' in (r.stage_id.name or '').lower())
+                    )
+                ),
             })
 
         # 6. Real Today's Appointments Timeline
@@ -641,7 +927,9 @@ class DentalAppointment(models.Model):
             })
 
         # 7. Doctors Availability for Reception Desk
-        all_dentists = self.env['hr.employee'].sudo().search([('is_dentist', '=', True), ('active', '=', True)], order='id asc')
+        all_dentists = self.env['hr.employee'].sudo().search([
+            ('is_dentist', '=', True), ('active', '=', True), ('company_id', 'in', [False, company.id]),
+        ], order='id asc')
         now_utc = fields.Datetime.now()
         doctors_availability = []
         for doc in all_dentists:
@@ -701,7 +989,7 @@ class DentalAppointment(models.Model):
         converted_appointments_count = len(converted_enquiries)
 
         # Scheduled follow-up activities due or overdue
-        today_date = fields.Date.today()
+        today_date = today
         lead_activities = self.env['mail.activity'].search([
             ('res_model', '=', 'crm.lead'),
             ('res_id', 'in', open_leads.ids),
@@ -795,7 +1083,7 @@ class DentalAppointment(models.Model):
                 'id': l.id,
                 'name': l.name or '',
                 'contact_name': l.contact_name or l.partner_name or (l.patient_id.name if l.patient_id else False) or l.name or '—',
-                'phone': l.phone or (l.patient_id.phone if l.patient_id else False) or (l.patient_id.mobile if l.patient_id else False) or l.mobile or '',
+                'phone': l.phone or (l.patient_id.phone if l.patient_id else False) or '',
                 'email': l.email_from or (l.patient_id.email if l.patient_id else False) or '',
                 'source_type': l.source_type or 'other',
                 'source_label': s_label,
@@ -821,13 +1109,104 @@ class DentalAppointment(models.Model):
                 'received_date': rec_date_str,
             })
 
-        # 8. Equipment under maintenance or unavailable in this branch
+        # 8. Equipment under maintenance or unavailable in this branch (with Scrap Stage tracking)
         equip_domain = ['|', ('company_id', '=', False), ('company_id', '=', company.id)]
         branch_equipments = self.env['maintenance.equipment'].search(equip_domain)
-        unavailable_equips = branch_equipments.filtered(
-            lambda e: (hasattr(e, 'is_available') and not e.is_available) or
-                      (hasattr(e, 'equipment_condition') and e.equipment_condition in ('under_repair', 'out_of_order', 'scrapped'))
+
+        # Find maintenance requests on branch equipment
+        all_reqs = self.env['maintenance.request'].sudo().search([
+            ('equipment_id', 'in', branch_equipments.ids)
+        ])
+        scrap_reqs = all_reqs.filtered(lambda r: r.stage_id and ('scrap' in (r.stage_id.name or '').lower() or 'decommission' in (r.stage_id.name or '').lower()))
+        scrapped_equip_ids = set(scrap_reqs.mapped('equipment_id.id'))
+
+        open_repair_reqs = all_reqs.filtered(lambda r: not r.stage_id.fold and r.equipment_availability_impact in ('unavailable', 'reduced_capacity'))
+        repair_equip_ids = set(open_repair_reqs.mapped('equipment_id.id'))
+
+        scrapped_equips = branch_equipments.filtered(
+            lambda e: e.id in scrapped_equip_ids or
+                      getattr(e, 'equipment_condition', '') == 'scrapped' or
+                      bool(getattr(e, 'scrap_date', False))
         )
+        # Ensure condition is synced in DB if missing
+        for sq in scrapped_equips:
+            if sq.equipment_condition != 'scrapped' or sq.is_available:
+                sq.sudo().write({'equipment_condition': 'scrapped', 'is_available': False})
+
+        maintenance_equips = branch_equipments.filtered(
+            lambda e: e.id not in scrapped_equips.ids and (
+                e.id in repair_equip_ids or
+                (hasattr(e, 'is_available') and not e.is_available) or
+                (hasattr(e, 'equipment_condition') and e.equipment_condition in ('under_repair', 'out_of_order', 'needs_maintenance'))
+            )
+        )
+
+        unavailable_equips = scrapped_equips | maintenance_equips
+
+        # Find today's and future appointments in this clinic to assess impact
+        upcoming_appts = self.search([
+            ('branch_id', '=', company.id),
+            ('state', 'in', ('pending', 'confirmed', 'checked_in')),
+            ('date_start', '>=', utc_start),
+        ])
+
+        scrapped_equipment = []
+        for e in scrapped_equips:
+            e_scrap_req = scrap_reqs.filtered(lambda r: r.equipment_id.id == e.id)[:1]
+            scrap_reason = (e_scrap_req.name or e_scrap_req.description or '') if e_scrap_req else ''
+            if scrap_reason and '<' in scrap_reason:
+                import re
+                scrap_reason = re.sub('<[^<]+?>', '', scrap_reason).strip()
+
+            impacted = upcoming_appts.filtered(
+                lambda a: e in a.appointment_type_id.required_equipment_ids or
+                          (e.category_id and e.category_id in a.appointment_type_id.required_equipment_category_ids)
+            )
+
+            scrapped_equipment.append({
+                'id': e.id,
+                'name': e.name,
+                'category_id': e.category_id.id if e.category_id else False,
+                'category_name': e.category_id.name if e.category_id else 'General Equipment',
+                'serial_no': e.serial_no or '',
+                'scrap_date': e.scrap_date.strftime('%d %b %Y') if getattr(e, 'scrap_date', False) else '',
+                'scrap_reason': scrap_reason or 'Equipment decommissioned & scrapped in maintenance module.',
+                'request_id': e_scrap_req.id if e_scrap_req else False,
+                'affected_appointments_count': len(impacted),
+                'affected_appointment_ids': impacted.ids,
+            })
+
+        maintenance_equipment = []
+        for e in maintenance_equips:
+            e_rep_req = open_repair_reqs.filtered(lambda r: r.equipment_id.id == e.id)[:1]
+            req_issue = (e_rep_req.name or '') if e_rep_req else ''
+            stage_name = e_rep_req.stage_id.name if (e_rep_req and e_rep_req.stage_id) else (
+                'Under Repair' if e.equipment_condition == 'under_repair' else 'Out of Order'
+            )
+            tech_name = e_rep_req.user_ids[:1].name if (e_rep_req and e_rep_req.user_ids) else (
+                e.technician_user_id.name if e.technician_user_id else ''
+            )
+
+            impacted = upcoming_appts.filtered(
+                lambda a: e in a.appointment_type_id.required_equipment_ids or
+                          (e.category_id and e.category_id in a.appointment_type_id.required_equipment_category_ids)
+            )
+
+            maintenance_equipment.append({
+                'id': e.id,
+                'name': e.name,
+                'category_id': e.category_id.id if e.category_id else False,
+                'category_name': e.category_id.name if e.category_id else 'General Equipment',
+                'serial_no': e.serial_no or '',
+                'condition': getattr(e, 'equipment_condition', 'under_repair'),
+                'stage_name': stage_name,
+                'issue': req_issue or 'Reported defect / maintenance in progress',
+                'technician_name': tech_name,
+                'request_id': e_rep_req.id if e_rep_req else False,
+                'affected_appointments_count': len(impacted),
+                'affected_appointment_ids': impacted.ids,
+            })
+
         unavailable_equipment = [{
             'id': e.id,
             'name': e.name,
@@ -851,13 +1230,19 @@ class DentalAppointment(models.Model):
                 'crm_pending_followups': crm_followups_due_count,
                 'crm_converted_appointments': converted_appointments_count,
                 'unavailable_equipment_count': len(unavailable_equipment),
+                'scrapped_equipment_count': len(scrapped_equipment),
+                'under_maintenance_count': len(maintenance_equipment),
             },
             'queue_list': queue_list,
+            'can_start_consultation': self._can_start_consultation(),
+            'can_check_in': self._can_check_in(),
             'timeline_list': timeline_list,
             'doctors_availability': doctors_availability,
             'crm_enquiries': crm_enquiries,
             'crm_source_breakdown': source_breakdown,
             'unavailable_equipment': unavailable_equipment,
+            'scrapped_equipment': scrapped_equipment,
+            'maintenance_equipment': maintenance_equipment,
         }
 
     @api.model
@@ -867,8 +1252,10 @@ class DentalAppointment(models.Model):
         the Reception Desk Waiting Queue Screen and Future TV Display Board.
         """
         company = self.env['res.company'].browse(branch_id) if branch_id else self.env.company
-        today = fields.Date.today()
+        self.env['dental.company.mixin']._dental_check_company_access(company)
         user_tz = pytz.timezone(self.env.user.tz or 'Asia/Kolkata')
+        # Clinic-local date (server date is UTC and lags 5:30h behind in India)
+        today = datetime.now(user_tz).date()
 
         # Local day boundaries in UTC
         start_local = user_tz.localize(datetime.combine(today, time.min))
@@ -879,16 +1266,11 @@ class DentalAppointment(models.Model):
         # Clinic header info
         partner = company.partner_id
         clinic_name = company.name or "Dental Hospital & Surgical Center"
-        if clinic_name == 'My Company':
-            clinic_name = "DenBell Multi-Speciality Dental Hospital"
         address_parts = [p for p in [partner.street, partner.city, partner.zip] if p]
         clinic_address = ", ".join(address_parts) if address_parts else "Main Clinic & Dental Surgery"
 
         # 1. Real appointments today
-        domain = [
-            ('date_start', '>=', utc_start),
-            ('date_start', '<=', utc_end),
-        ]
+        domain = self._dental_day_domain(utc_start, utc_end)
         if branch_id:
             domain.append(('branch_id', '=', company.id))
 
@@ -901,7 +1283,8 @@ class DentalAppointment(models.Model):
         # Fetch active real doctors (strictly real doctors, no dummy records!)
         real_dentists = self.env['hr.employee'].sudo().search([
             ('is_dentist', '=', True),
-            ('active', '=', True)
+            ('active', '=', True),
+            ('company_id', 'in', [False, company.id]),
         ], order='id asc')
 
         # If any appointment has an assigned active employee who is acting as doctor, include them
@@ -988,7 +1371,7 @@ class DentalAppointment(models.Model):
                     'patient_id': curr.patient_id.id,
                     'patient_name': curr.patient_id.name or 'Unknown',
                     'demographics': format_demographics(curr.patient_id),
-                    'treatment_name': curr.treatment_id.name or curr.reason or 'Dental Consultation',
+                    'treatment_name': curr._dentist_dashboard_treatment_title(),
                     'state': curr.state,
                     'elapsed_mins': elapsed_mins,
                 }
@@ -1025,7 +1408,7 @@ class DentalAppointment(models.Model):
                     'patient_id': w.patient_id.id,
                     'patient_name': w.patient_id.name or 'Unknown',
                     'demographics': format_demographics(w.patient_id),
-                    'treatment_name': w.treatment_id.name or w.reason or 'Consultation',
+                    'treatment_name': w._dentist_dashboard_treatment_title(),
                     'waiting_mins': w_mins,
                     'is_emergency': bool(w.is_emergency or (w.queue_priority and w.queue_priority > 5)),
                 })
@@ -1047,19 +1430,19 @@ class DentalAppointment(models.Model):
                     'patient_name': u.patient_id.name or 'Unknown',
                     'demographics': format_demographics(u.patient_id),
                     'scheduled_time': time_display,
-                    'treatment_name': u.treatment_id.name or u.reason or 'Appointment',
+                    'treatment_name': u._dentist_dashboard_treatment_title(),
                 })
 
             doctors_data.append({
                 'doctor_id': doc.id,
-                'doctor_name': f"DR. {doc.name.upper()}" if not doc.name.upper().startswith("DR.") else doc.name.upper(),
+                'doctor_name': doc.name if doc.name.lower().startswith(('dr.', 'dr ')) else f"Dr. {doc.name}",
                 'specialization': spec,
                 'operatory_title': op_label,
                 'operatory_name': palette['name'],
                 'accent_color': palette['color'],
                 'bg_tint': palette['bg_tint'],
                 'border_color': palette['border'],
-                'avatar_url': f'/web/image?model=hr.employee&field=avatar_128&id={doc.id}',
+                'avatar_url': f'/web/image?model=hr.employee.public&field=avatar_128&id={doc.id}',
                 'now_serving': now_serving,
                 'waiting_queue': waiting_list,
                 'upcoming_list': upcoming_list,
@@ -1078,297 +1461,267 @@ class DentalAppointment(models.Model):
                 'completed_count': completed_total,
             },
             'doctors': doctors_data,
+            'can_start_consultation': self._can_start_consultation(),
+            'can_check_in': self._can_check_in(),
+        }
+
+    # ---------------------------------------------------------
+    # Dentist Dashboard
+    # ---------------------------------------------------------
+    DENTIST_STATUS_DISPLAY = {
+        'pending': ('Pending', 'st-pending'),
+        'confirmed': ('Confirmed', 'st-confirmed'),
+        'checked_in': ('Waiting', 'st-waiting'),
+        'in_consultation': ('In Chair', 'st-active'),
+        'completed': ('Completed', 'st-done'),
+        'cancelled': ('Cancelled', 'st-cancelled'),
+        'no_show': ('No Show', 'st-cancelled'),
+    }
+
+    def action_dashboard_finish(self):
+        """Finish a visit from the dentist dashboard.
+
+        When a clinical case exists, completion goes through the case so its
+        validations (e.g. chief complaint) are applied; otherwise the
+        appointment is completed directly.
+        """
+        for appt in self:
+            if appt.case_id:
+                appt.case_id.with_context(dental_current_visit_id=appt.id).action_complete_consultation()
+            else:
+                appt.action_complete()
+        return True
+
+    def _dentist_dashboard_treatment_title(self):
+        self.ensure_one()
+        if self.treatment_id:
+            return self.treatment_id.name
+        if self.appointment_type_id:
+            return self.appointment_type_id.name
+        if self.reason:
+            return self.reason.strip().splitlines()[0][:60]
+        return _('Consultation')
+
+    def _dentist_dashboard_row(self, user_tz, now_utc):
+        self.ensure_one()
+        label, css = self.DENTIST_STATUS_DISPLAY.get(self.state, (self.state, 'st-pending'))
+        start_local = pytz.utc.localize(self.date_start).astimezone(user_tz)
+        waiting_mins = 0
+        if self.state == 'checked_in' and self.check_in_time:
+            waiting_mins = max(0, int((now_utc - self.check_in_time).total_seconds() // 60))
+        in_chair_mins = 0
+        if self.state == 'in_consultation' and self.called_time:
+            in_chair_mins = max(0, int((now_utc - self.called_time).total_seconds() // 60))
+        check_in_display = ''
+        if self.check_in_time:
+            check_in_display = pytz.utc.localize(self.check_in_time).astimezone(user_tz).strftime('%I:%M %p').lstrip('0')
+        patient_ref = self.patient_id.dental_patient_id
+        return {
+            'id': self.id,
+            'name': self.name,
+            'token': self.token_number or '',
+            'patient_id': self.patient_id.id,
+            'patient_name': self.patient_id.name or _('Patient'),
+            'patient_ref': patient_ref if patient_ref and patient_ref != 'New' else '',
+            'avatar_url': f'/web/image?model=res.partner&field=avatar_128&id={self.patient_id.id}',
+            'treatment': self._dentist_dashboard_treatment_title(),
+            'time': start_local.strftime('%I:%M %p').lstrip('0'),
+            'check_in_time': check_in_display,
+            'state': self.state,
+            'status_label': label,
+            'status_class': css,
+            'is_emergency': self.is_emergency,
+            'waiting_mins': waiting_mins,
+            'in_chair_mins': in_chair_mins,
+            'has_case': bool(self.case_id),
         }
 
     @api.model
-    def get_dentist_dashboard_data(self, doctor_id=None, period='week'):
+    def get_dentist_dashboard_data(self, **kwargs):
         """
-        Fetches operational metrics, appointments overview chart data,
-        doctors team profiles, and upcoming appointment schedule for the
-        Dentist / Doctor Dashboard.
+        Data for the Dentist Dashboard: the current user's own live clinic day
+        (patient in chair, waiting queue, schedule), KPIs and the appointments
+        overview chart.
+
+        Strictly scoped to the employee linked to the current user with
+        Dental Role = Dentist. No other doctor can be selected: any doctor id
+        sent by the client is ignored, and users without such a profile get
+        no clinical data at all.
         """
-        company = self.env.company
-        today = fields.Date.today()
-        user_tz = pytz.timezone(self.env.user.tz or 'Asia/Kolkata')
-        now_local = datetime.now(user_tz)
+        user = self.env.user
+        if not user._has_dentist_workspace_access():
+            if not user.has_groups(DENTIST_WORKSPACE_GROUPS):
+                raise AccessError(_("You are not allowed to access the Dentist Workspace."))
+            # Dental permission but no linked Dentist employee: empty state only
+            return {
+                'has_doctor': False,
+                'doctor_info': {
+                    'id': False,
+                    'name': user.name,
+                    'display_name': user.name,
+                    'greeting': _("Dentist Workspace"),
+                    'specialization': _("No dentist profile"),
+                    'branch_name': '',
+                    'avatar_url': f'/web/image?model=res.users&field=avatar_128&id={user.id}',
+                },
+            }
+        selected_doctor = user._get_dental_dentist_profile()
 
-        # Dynamic greeting
-        hour = now_local.hour
-        if hour < 12:
-            greeting = "Good Morning"
-        elif hour < 17:
-            greeting = "Good Afternoon"
-        else:
-            greeting = "Good Evening"
+        today = fields.Date.context_today(self)
+        user_tz = pytz.timezone(user.tz or 'Asia/Kolkata')
+        now_utc = fields.Datetime.now()
+        now_local = pytz.utc.localize(now_utc).astimezone(user_tz)
 
-        # Local day boundaries in UTC
-        start_local = user_tz.localize(datetime.combine(today, time.min))
-        end_local = user_tz.localize(datetime.combine(today, time.max))
-        utc_start = start_local.astimezone(pytz.utc).strftime('%Y-%m-%d %H:%M:%S')
-        utc_end = end_local.astimezone(pytz.utc).strftime('%Y-%m-%d %H:%M:%S')
+        def to_utc(local_date, t=time.min):
+            return user_tz.localize(datetime.combine(local_date, t)).astimezone(pytz.utc).replace(tzinfo=None)
 
-        # Current doctor / user
-        selected_doctor = None
-        if doctor_id:
-            selected_doctor = self.env['hr.employee'].browse(int(doctor_id))
-        else:
-            # 1. Logged in user linked to active dentist
-            emp = self.env['hr.employee'].search([
-                ('user_id', '=', self.env.uid),
-                ('is_dentist', '=', True),
-                ('active', '=', True)
-            ], limit=1)
-            if not emp:
-                # 2. Logged in user linked to any active employee
-                emp = self.env['hr.employee'].search([
-                    ('user_id', '=', self.env.uid),
-                    ('active', '=', True)
-                ], limit=1)
-            if emp:
-                selected_doctor = emp
-            else:
-                # 3. First active dentist in the clinic
-                selected_doctor = self.env['hr.employee'].search([
-                    ('is_dentist', '=', True),
-                    ('active', '=', True)
-                ], order='id asc', limit=1)
+        utc_start = to_utc(today)
+        utc_end = to_utc(today, time.max)
 
-        doctor_name = selected_doctor.name if selected_doctor else (self.env.user.name or "Doctor")
-        display_doctor_name = doctor_name.replace('Dr. ', '').strip()
-        doctor_spec = selected_doctor.specialization if (selected_doctor and selected_doctor.specialization) else 'Dental Surgeon'
+        doctor_domain = [('doctor_id', '=', selected_doctor.id)]
+        active_states = ['pending', 'confirmed', 'checked_in', 'in_consultation', 'completed']
 
-        # 1. Appointments Today - filtered to this doctor
-        today_domain = [
-            ('date_start', '>=', utc_start),
-            ('date_start', '<=', utc_end),
-        ]
+        # Today's appointments
+        today_appts = self.search(doctor_domain + self._dental_day_domain(utc_start, utc_end), order='date_start asc')
+        live_today = today_appts.filtered(lambda a: a.state in active_states)
+        waiting = today_appts.filtered(lambda a: a.state == 'checked_in').sorted(
+            key=lambda a: (not a.is_emergency, a.check_in_time or a.date_start)
+        )
+        completed_today = today_appts.filtered(lambda a: a.state == 'completed')
+        remaining_today = today_appts.filtered(lambda a: a.state in ['pending', 'confirmed'])
+        cancelled_today = today_appts.filtered(lambda a: a.state in ['cancelled', 'no_show'])
+
+        # Patient currently in the chair (not limited to today so a forgotten visit stays visible)
+        current = self.search(doctor_domain + [('state', '=', 'in_consultation')], order='called_time desc', limit=1)
+
+        # First-visit patients among today's appointments (no earlier visit with any doctor)
+        today_patients = live_today.mapped('patient_id')
+        returning = today_patients.browse()
+        if today_patients:
+            returning = self.search([
+                ('patient_id', 'in', today_patients.ids),
+                ('date_start', '<', utc_start),
+                ('state', 'in', active_states),
+            ]).mapped('patient_id')
+        new_patients_today = len(today_patients - returning)
+
+        # Follow-ups due for this doctor
+        followups_due = 0
         if selected_doctor:
-            today_domain.append(('doctor_id', '=', selected_doctor.id))
-        all_today_appts = self.search(today_domain, order='date_start asc')
-        appointments_today_count = len(all_today_appts)
-
-        # Treatments today (completed or procedures)
-        treatments_today_count = sum(1 for a in all_today_appts if a.state == 'completed')
-
-        # 2. New Patients Today
-        new_patients_today = self.env['res.partner'].search_count([
-            ('is_dental_patient', '=', True),
-            ('create_date', '>=', utc_start),
-            ('create_date', '<=', utc_end),
-        ])
-
-        # 3. Total Patients
-        total_patients_count = self.env['res.partner'].search_count([
-            ('is_dental_patient', '=', True),
-        ])
-
-        # 4. Total Revenue Today / This Month
-        revenue_val = 0
-        currency_symbol = company.currency_id.symbol if company.currency_id else '$'
-        try:
-            invoices = self.env['account.move'].search([
-                ('move_type', '=', 'out_invoice'),
-                ('state', '=', 'posted'),
-                ('invoice_date', '>=', today.replace(day=1))
+            followups_due = self.env['dental.follow.up'].search_count([
+                ('doctor_id', '=', selected_doctor.id),
+                ('state', '=', 'pending'),
+                ('date', '<=', today),
             ])
-            inv_sum = sum(invoices.mapped('amount_total'))
-            if inv_sum > 0:
-                revenue_val = int(inv_sum)
-            else:
-                completed_appts = all_today_appts.filtered(lambda a: a.state == 'completed')
-                t_sum = sum(a.treatment_id.list_price for a in completed_appts if a.treatment_id)
-                revenue_val = int(t_sum)
-        except Exception:
-            revenue_val = 0
 
-        # 5. Upcoming Patients (for this doctor)
-        up_dom = [
-            ('date_start', '>=', utc_start),
-            ('state', 'in', ['pending', 'confirmed', 'checked_in', 'in_consultation'])
-        ]
-        if selected_doctor:
-            up_dom.append(('doctor_id', '=', selected_doctor.id))
-        upcoming_patients_count = self.search_count(up_dom)
-
-        # 6. Appointments Overview Chart Data (Week, Month, Year) - for this doctor
-        start_of_week = today - timedelta(days=today.weekday())
-        week_chart_days = []
-        raw_counts = []
-        for d in range(7):
-            cur_d = start_of_week + timedelta(days=d)
-            d_s = user_tz.localize(datetime.combine(cur_d, time.min)).astimezone(pytz.utc).strftime('%Y-%m-%d %H:%M:%S')
-            d_e = user_tz.localize(datetime.combine(cur_d, time.max)).astimezone(pytz.utc).strftime('%Y-%m-%d %H:%M:%S')
-            chart_dom = [('date_start', '>=', d_s), ('date_start', '<=', d_e)]
-            if selected_doctor:
-                chart_dom.append(('doctor_id', '=', selected_doctor.id))
-            cnt = self.search_count(chart_dom)
-            raw_counts.append((cur_d, cnt))
-
-        max_week = max([c[1] for c in raw_counts] + [1])
-        for cur_d, cnt in raw_counts:
-            day_name = cur_d.strftime('%a')
-            day_label = 'Sat' if day_name == 'Sat' else day_name
-            pct = min(100, round((cnt / max_week) * 100, 1)) if max_week > 0 else 0
-            week_chart_days.append({
-                'label': day_label,
-                'count': cnt,
-                'height_pct': pct,
-            })
-
-        # Real Month Chart Data (Week 1 to Week 4 of current month)
-        _, last_day_of_month = calendar.monthrange(today.year, today.month)
-        month_intervals = [
-            ('Week 1', 1, min(7, last_day_of_month)),
-            ('Week 2', 8, min(14, last_day_of_month)),
-            ('Week 3', 15, min(21, last_day_of_month)),
-            ('Week 4', 22, last_day_of_month),
-        ]
-        month_counts = []
-        for w_label, start_d, end_d in month_intervals:
-            if start_d <= last_day_of_month:
-                w_start = user_tz.localize(datetime(today.year, today.month, start_d, 0, 0, 0)).astimezone(pytz.utc).strftime('%Y-%m-%d %H:%M:%S')
-                w_end = user_tz.localize(datetime(today.year, today.month, end_d, 23, 59, 59)).astimezone(pytz.utc).strftime('%Y-%m-%d %H:%M:%S')
-                w_dom = [('date_start', '>=', w_start), ('date_start', '<=', w_end)]
-                if selected_doctor:
-                    w_dom.append(('doctor_id', '=', selected_doctor.id))
-                w_cnt = self.search_count(w_dom)
-            else:
-                w_cnt = 0
-            month_counts.append((w_label, w_cnt))
-
-        max_month = max([c[1] for c in month_counts] + [1])
-        month_chart_data = [{
-            'label': w_label,
-            'count': w_cnt,
-            'height_pct': min(100, round((w_cnt / max_month) * 100, 1)) if max_month > 0 else 0
-        } for w_label, w_cnt in month_counts]
-
-        # Real Year Chart Data (Jan - Dec of current year)
-        year_counts = []
-        month_names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-        for m_idx, m_name in enumerate(month_names, 1):
-            _, m_last_day = calendar.monthrange(today.year, m_idx)
-            m_start = user_tz.localize(datetime(today.year, m_idx, 1, 0, 0, 0)).astimezone(pytz.utc).strftime('%Y-%m-%d %H:%M:%S')
-            m_end = user_tz.localize(datetime(today.year, m_idx, m_last_day, 23, 59, 59)).astimezone(pytz.utc).strftime('%Y-%m-%d %H:%M:%S')
-            y_dom = [('date_start', '>=', m_start), ('date_start', '<=', m_end)]
-            if selected_doctor:
-                y_dom.append(('doctor_id', '=', selected_doctor.id))
-            y_cnt = self.search_count(y_dom)
-            year_counts.append((m_name, y_cnt))
-
-        max_year = max([c[1] for c in year_counts] + [1])
-        year_chart_data = [{
-            'label': m_name,
-            'count': y_cnt,
-            'height_pct': min(100, round((y_cnt / max_year) * 100, 1)) if max_year > 0 else 0
-        } for m_name, y_cnt in year_counts]
-
-        # 7. Doctor Profile & Info (Only this doctor on their page)
-        avatar = f'/web/image?model=hr.employee&field=avatar_128&id={selected_doctor.id}' if selected_doctor else f'/web/image?model=res.users&field=avatar_128&id={self.env.uid}'
-
-        doctors_list = []
-        if selected_doctor:
-            doctors_list.append({
-                'id': selected_doctor.id,
-                'name': display_doctor_name,
-                'display_name': f"Dr. {display_doctor_name}",
-                'specialization': doctor_spec,
-                'avatar_url': avatar,
-                'is_active': True,
-                'today_appointments': appointments_today_count,
-            })
-
-        # 8. Upcoming Appointments List - filtered to this doctor
-        upcoming_domain = [
-            ('date_start', '>=', utc_start),
+        # This month: distinct patients and value of completed treatments (at list price)
+        month_appts = self.search(doctor_domain + [
+            ('date_start', '>=', to_utc(today.replace(day=1))),
             ('date_start', '<=', utc_end),
-        ]
-        if selected_doctor:
-            upcoming_domain.append(('doctor_id', '=', selected_doctor.id))
+            ('state', 'in', active_states),
+        ])
+        company = selected_doctor.company_id or self.env.company
+        month_value = sum(a.treatment_id.list_price for a in month_appts if a.state == 'completed' and a.treatment_id)
 
-        appts_pool = self.search(upcoming_domain, order='date_start asc')
-        upcoming_list = []
-        for a in appts_pool:
-            start_utc = pytz.utc.localize(a.date_start)
-            start_user = start_utc.astimezone(user_tz)
-            time_display = start_user.strftime('%I:%M %p').lstrip('0')
+        # Overview charts: one query over the needed range, bucketed by local date
+        week_start = today - timedelta(days=today.weekday())
+        range_start = min(date(today.year, 1, 1), week_start)
+        range_end = max(date(today.year, 12, 31), week_start + timedelta(days=6))
+        chart_rows = self.search_read(doctor_domain + [
+            ('date_start', '>=', to_utc(range_start)),
+            ('date_start', '<=', to_utc(range_end, time.max)),
+            ('state', 'in', active_states),
+        ], ['date_start'])
+        per_day = {}
+        for row in chart_rows:
+            local_day = pytz.utc.localize(row['date_start']).astimezone(user_tz).date()
+            per_day[local_day] = per_day.get(local_day, 0) + 1
 
-            treatment_title = 'Consultation'
-            if a.treatment_id:
-                tname = a.treatment_id.name
-                if isinstance(tname, dict):
-                    treatment_title = tname.get('en_US') or list(tname.values())[0]
-                else:
-                    treatment_title = str(tname)
-                if 'Root Canal' in treatment_title:
-                    treatment_title = 'Root Canal'
-                elif 'Braces' in treatment_title:
-                    treatment_title = 'Braces Checkup'
+        def hour_label(h):
+            return f"{h % 12 or 12}{'a' if h < 12 else 'p'}"
 
-            if a.state == 'confirmed':
-                status_label = 'Confirmed'
-                status_color = 'color-confirmed'
-            elif a.state == 'pending':
-                status_label = 'Pending'
-                status_color = 'color-pending'
-            elif a.state in ['cancelled', 'refused']:
-                status_label = 'Not Available'
-                status_color = 'color-not-available'
-            elif a.state == 'checked_in':
-                status_label = 'Waiting'
-                status_color = 'color-pending'
-            elif a.state == 'in_consultation':
-                status_label = 'In Consultation'
-                status_color = 'color-confirmed'
-            else:
-                status_label = 'Confirmed'
-                status_color = 'color-confirmed'
+        hour_counts = {}
+        for a in live_today:
+            h = pytz.utc.localize(a.date_start).astimezone(user_tz).hour
+            hour_counts[h] = hour_counts.get(h, 0) + 1
+        first_hour = min([8] + list(hour_counts))
+        last_hour = max([19] + list(hour_counts))
+        day_chart = [{
+            'label': hour_label(h),
+            'tooltip': f"{h % 12 or 12}:00 {'AM' if h < 12 else 'PM'}",
+            'count': hour_counts.get(h, 0),
+            'is_current': h == now_local.hour,
+        } for h in range(first_hour, last_hour + 1)]
 
-            doc_display_name = a.doctor_id.name.replace('Dr. ', '') if a.doctor_id else 'Doctor'
-
-            upcoming_list.append({
-                'id': a.id,
-                'patient_id': a.patient_id.id,
-                'patient_name': a.patient_id.name or 'Patient',
-                'treatment': treatment_title,
-                'doctor_id': a.doctor_id.id if a.doctor_id else False,
-                'doctor_name': doc_display_name,
-                'time': time_display,
-                'status': a.state,
-                'status_label': status_label,
-                'status_color': status_color,
-                'avatar_url': f'/web/image?model=res.partner&field=avatar_128&id={a.patient_id.id}',
+        week_chart = []
+        for i in range(7):
+            d = week_start + timedelta(days=i)
+            week_chart.append({
+                'label': d.strftime('%a'),
+                'tooltip': d.strftime('%a %d %b'),
+                'count': per_day.get(d, 0),
+                'is_current': d == today,
             })
 
-        waiting_count = len([a for a in all_today_appts if a.state in ['confirmed', 'checked_in', 'pending', 'in_consultation']])
+        _weekday, last_day = calendar.monthrange(today.year, today.month)
+        month_chart = []
+        for s, e in [(1, 7), (8, 14), (15, 21), (22, last_day)]:
+            month_chart.append({
+                'label': f"{s}-{e}",
+                'tooltip': f"{s}-{e} {today.strftime('%b')}",
+                'count': sum(per_day.get(date(today.year, today.month, x), 0) for x in range(s, e + 1)),
+                'is_current': s <= today.day <= e,
+            })
+
+        year_chart = []
+        for m in range(1, 13):
+            year_chart.append({
+                'label': calendar.month_abbr[m],
+                'tooltip': f"{calendar.month_name[m]} {today.year}",
+                'count': sum(c for d, c in per_day.items() if d.year == today.year and d.month == m),
+                'is_current': m == today.month,
+            })
+
+        # Greeting & doctor profile
+        hour = now_local.hour
+        greeting = _("Good Morning") if hour < 12 else (_("Good Afternoon") if hour < 17 else _("Good Evening"))
+        raw_name = selected_doctor.name or user.name or _('Doctor')
+        short_name = raw_name.replace('Dr. ', '').replace('Dr ', '').strip()
 
         return {
+            'has_doctor': True,
+            'date_label': now_local.strftime('%A, %d %B %Y'),
+            'refreshed_at': now_local.strftime('%I:%M %p').lstrip('0'),
             'doctor_info': {
-                'id': selected_doctor.id if selected_doctor else False,
-                'name': display_doctor_name,
-                'display_name': f"Dr. {display_doctor_name}",
-                'greeting': f"{greeting}, Dr. {display_doctor_name}",
-                'subtitle': "Here's what's happening with your schedule today.",
-                'specialization': doctor_spec,
-                'avatar_url': avatar,
-                'today_appointments': appointments_today_count,
-                'completed_today': treatments_today_count,
-                'waiting_today': waiting_count,
+                'id': selected_doctor.id or False,
+                'name': short_name,
+                'display_name': f"Dr. {short_name}",
+                'greeting': f"{greeting}, Dr. {short_name}",
+                'specialization': selected_doctor.specialization or _('Dental Surgeon'),
+                'branch_name': company.name or '',
+                'avatar_url': (f'/web/image?model=hr.employee.public&field=avatar_128&id={selected_doctor.id}' if selected_doctor
+                               else f'/web/image?model=res.users&field=avatar_128&id={user.id}'),
             },
             'kpi_stats': {
+                'appointments_today': len(live_today),
+                'remaining_today': len(remaining_today),
+                'waiting': len(waiting),
+                'longest_wait_mins': max([int((now_utc - a.check_in_time).total_seconds() // 60) for a in waiting if a.check_in_time] + [0]),
+                'completed_today': len(completed_today),
+                'completion_pct': round(len(completed_today) * 100 / len(live_today)) if live_today else 0,
+                'cancelled_today': len(cancelled_today),
                 'new_patients_today': new_patients_today,
-                'appointments_today': appointments_today_count,
-                'treatment_today': treatments_today_count,
-                'total_revenue': f"{currency_symbol}{revenue_val:,}",
-                'total_patients': f"{total_patients_count}",
-                'upcoming_patients': upcoming_patients_count,
+                'followups_due': followups_due,
+                'patients_month': len(month_appts.mapped('patient_id')),
+                'treatment_value_month': format_amount(self.env, month_value, company.currency_id),
             },
+            'current_patient': current._dentist_dashboard_row(user_tz, now_utc) if current else False,
+            'waiting_queue': [a._dentist_dashboard_row(user_tz, now_utc) for a in waiting],
+            'today_schedule': [a._dentist_dashboard_row(user_tz, now_utc) for a in today_appts],
             'overview_charts': {
-                'week': week_chart_days,
-                'month': month_chart_data,
-                'year': year_chart_data,
+                'day': day_chart,
+                'week': week_chart,
+                'month': month_chart,
+                'year': year_chart,
             },
-            'doctors': doctors_list,
-            'upcoming_appointments': upcoming_list[:12],
         }
-

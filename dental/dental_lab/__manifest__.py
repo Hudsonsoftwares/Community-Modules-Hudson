@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     'name': 'Dental Lab',
-    'version': '20.0.1.0.0',
+    'version': '20.0.1.0.1',
     'category': 'Healthcare/Dental',
     'summary': 'Dental Laboratory Workflow, Prosthetics Fabrication, Materials Purchasing, In-House MRP, Quality Control, Dispatch & Clinic Acceptance',
     'description': """
@@ -88,6 +88,7 @@ Key Features:
         'report/lab_order_prescription_template.xml',
         'report/lab_delivery_slip_template.xml',
         'report/dental_lab_reports.xml',
+        'views/dental_kanban_views.xml',
     ],
     'installable': True,
     'application': True,

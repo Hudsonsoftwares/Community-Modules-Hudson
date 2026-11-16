@@ -111,7 +111,8 @@ class HrSalaryRule(models.Model):
     company_id = fields.Many2one(
         'res.company',
         string='Company',
-        default=lambda self: self.env.company
+        default=False,
+        help="If set, this salary rule will only be available to the specified company. If empty, it is shared across all companies."
     )
 
     @api.model_create_multi
@@ -132,7 +133,7 @@ class HrSalaryRule(models.Model):
                 vals['appears_on_payslip'] = 'never'
         return super().write(vals)
 
-    @api.constrains('code', 'struct_id')
+    @api.constrains('code', 'struct_id', 'company_id')
     def _check_code_struct_unique(self):
         for rule in self:
             if rule.code and rule.struct_id:
@@ -140,10 +141,11 @@ class HrSalaryRule(models.Model):
                     ('id', '!=', rule.id),
                     ('code', '=', rule.code),
                     ('struct_id', '=', rule.struct_id.id),
+                    ('company_id', '=', rule.company_id.id),
                 ], limit=1)
                 if dup:
                     raise ValidationError(_(
-                        "A rule with code '%(code)s' already exists in structure '%(struct)s'!",
+                        "A rule with code '%(code)s' already exists in structure '%(struct)s' for this company scope!",
                         code=rule.code,
                         struct=rule.struct_id.name
                     ))

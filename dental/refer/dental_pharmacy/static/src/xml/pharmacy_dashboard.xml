@@ -1,0 +1,539 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-name="dental_pharmacy.PharmacyDashboard">
+        <div class="pharmacy-dashboard-container h-100 overflow-auto" style="height: calc(100vh - 48px); max-height: calc(100vh - 48px); overflow-y: auto !important; overflow-x: hidden !important;">
+
+            <!-- 1. TOP HEADER BANNER (With Clinic & Medicine Image) -->
+            <div class="pharmacy-header-banner">
+                <div class="banner-medicine-center">
+                    <img src="/dental_pharmacy/static/src/img/pharmacy_medicine_feathered.png"
+                         class="banner-medicine-img"
+                         alt="Dental Pharmacy Clinic" />
+                </div>
+
+                <div class="banner-content d-flex justify-content-between align-items-center">
+                    <div class="d-flex align-items-center gap-3 banner-brand-group">
+                        <div class="pill-icon-container">
+                            <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+                                <path d="M4.5 10.5L10.5 4.5C12.5 2.5 15.5 2.5 17.5 4.5C19.5 6.5 19.5 9.5 17.5 11.5L11.5 17.5C9.5 19.5 6.5 19.5 4.5 17.5C2.5 15.5 2.5 12.5 4.5 10.5Z" stroke="#00acc1" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+                                <path d="M8.5 6.5L17.5 15.5" stroke="#00acc1" stroke-width="2.2" stroke-linecap="round"/>
+                                <path d="M4.5 10.5L10.5 4.5C12.5 2.5 15.5 2.5 17.5 4.5L11.5 10.5L4.5 10.5Z" fill="#00acc1" fill-opacity="0.25"/>
+                            </svg>
+                        </div>
+                        <div class="banner-text-block">
+                            <div class="banner-tag">DENTAL PHARMACY</div>
+                            <h1 class="banner-title">Safe Medications, Healthier Smiles</h1>
+                            <p class="banner-subtitle">Manage dental prescriptions and dispensing with complete control.</p>
+                        </div>
+                    </div>
+
+                    <!-- Right Side Date Indicator Pill -->
+                    <div class="banner-date-card shadow-xs">
+                        <div class="d-flex align-items-center justify-content-between gap-2 date-main-row">
+                            <span class="d-flex align-items-center gap-1">
+                                <i class="fa fa-calendar text-primary small"/>
+                                <span class="date-today-label">Today</span>
+                            </span>
+                        </div>
+                        <div class="date-sub-text" t-out="this.currentFormattedDate"/>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2. FOUR KPI CARDS ROW -->
+            <div class="row g-3 mb-4">
+                <!-- Card 1: Prescriptions Today -->
+                <div class="col-12 col-sm-6 col-xl-3">
+                    <div class="kpi-metric-card" t-on-click="() => this.openFilteredPrescriptions('today')">
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="kpi-icon-box bg-purple-tint">
+                                <span class="rx-symbol">℞</span>
+                            </div>
+                            <div class="flex-grow-1">
+                                <div class="kpi-label">Prescriptions Today</div>
+                                <div class="kpi-value" t-out="this.state.data.prescriptions_today !== undefined ? this.state.data.prescriptions_today : 0"/>
+                                <div class="kpi-trend" t-att-class="this.state.data.prescriptions_trend_is_up ? 'text-success' : (this.state.data.prescriptions_trend_is_down ? 'text-danger' : 'text-muted')">
+                                    <span t-if="this.state.data.prescriptions_trend_is_up" class="trend-arrow">↑ </span>
+                                    <span t-elif="this.state.data.prescriptions_trend_is_down" class="trend-arrow">↓ </span>
+                                    <span t-out="this.state.data.prescriptions_growth"/>
+                                    <span class="trend-sub"> vs yesterday</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Card 2: Medicines Dispensed -->
+                <div class="col-12 col-sm-6 col-xl-3">
+                    <div class="kpi-metric-card" t-on-click="() => this.openDispenseOrders('today')">
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="kpi-icon-box bg-mint-tint">
+                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                                    <path d="M4.5 10.5L10.5 4.5C12.5 2.5 15.5 2.5 17.5 4.5C19.5 6.5 19.5 9.5 17.5 11.5L11.5 17.5C9.5 19.5 6.5 19.5 4.5 17.5C2.5 15.5 2.5 12.5 4.5 10.5Z" stroke="#10b981" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path d="M8 8L16 16" stroke="#10b981" stroke-width="2.2" stroke-linecap="round"/>
+                                </svg>
+                            </div>
+                            <div class="flex-grow-1">
+                                <div class="kpi-label">Medicines Dispensed</div>
+                                <div class="kpi-value" t-out="this.state.data.medicines_dispensed_today !== undefined ? this.state.data.medicines_dispensed_today : 0"/>
+                                <div class="kpi-trend" t-att-class="this.state.data.dispensed_trend_is_up ? 'text-success' : (this.state.data.dispensed_trend_is_down ? 'text-danger' : 'text-muted')">
+                                    <span t-if="this.state.data.dispensed_trend_is_up" class="trend-arrow">↑ </span>
+                                    <span t-elif="this.state.data.dispensed_trend_is_down" class="trend-arrow">↓ </span>
+                                    <span t-out="this.state.data.medicines_dispensed_growth"/>
+                                    <span class="trend-sub"> vs yesterday</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Card 3: Low Stock Items -->
+                <div class="col-12 col-sm-6 col-xl-3">
+                    <div class="kpi-metric-card" t-on-click="() => this.openFilteredMedicines('low_stock')">
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="kpi-icon-box bg-orange-tint">
+                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#f97316" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+                                    <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
+                                    <line x1="12" y1="22.08" x2="12" y2="12"/>
+                                </svg>
+                            </div>
+                            <div class="flex-grow-1">
+                                <div class="kpi-label">Low Stock Items</div>
+                                <div class="d-flex align-items-baseline gap-2">
+                                    <div class="kpi-value" t-out="this.state.data.low_stock !== undefined ? this.state.data.low_stock : 0"/>
+                                    <span t-if="this.state.data.low_stock > 0" class="badge-attention">Needs attention</span>
+                                    <span t-else="" class="badge-attention bg-success-subtle text-success">Adequate</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Card 4: Expiring Soon -->
+                <div class="col-12 col-sm-6 col-xl-3">
+                    <div class="kpi-metric-card" t-on-click="() => this.openFilteredBatches('near_expiry')">
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="kpi-icon-box bg-blue-tint">
+                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0284c7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                                    <line x1="16" y1="2" x2="16" y2="6"/>
+                                    <line x1="8" y1="2" x2="8" y2="6"/>
+                                    <line x1="3" y1="10" x2="21" y2="10"/>
+                                    <circle cx="12" cy="15" r="2" fill="#0284c7"/>
+                                </svg>
+                            </div>
+                            <div class="flex-grow-1">
+                                <div class="kpi-label">Expiring Soon</div>
+                                <div class="kpi-value" t-out="this.state.data.near_expiry_batches !== undefined ? this.state.data.near_expiry_batches : 0"/>
+                                <div class="kpi-trend text-muted">
+                                    <span class="trend-sub">Within 60 days</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3. MIDDLE SECTION: Dispensing Activity, Stock Status & Quick Actions -->
+            <div class="row g-3 mb-4">
+                <!-- Dispensing Activity Chart (Left) -->
+                <div class="col-12 col-lg-5 col-xl-5">
+                    <div class="dashboard-panel h-100">
+                        <div class="panel-header d-flex justify-content-between align-items-center mb-2">
+                            <h2 class="panel-title mb-0">Dispensing Activity</h2>
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="badge bg-light text-dark border font-11">Last 7 Days</span>
+                            </div>
+                        </div>
+
+                        <!-- Chart Legends -->
+                        <div class="d-flex justify-content-end align-items-center gap-3 mb-2 font-12">
+                            <span class="d-flex align-items-center gap-1 chart-legend-text">
+                                <span class="legend-circle dot-purple"/> Prescriptions
+                            </span>
+                            <span class="d-flex align-items-center gap-1 chart-legend-text">
+                                <span class="legend-circle dot-cyan"/> Items Dispensed
+                            </span>
+                        </div>
+
+                        <!-- Vector Dynamic Dual-Line Wave Chart -->
+                        <div class="chart-wrapper">
+                            <svg class="activity-svg" viewBox="0 0 460 170" preserveAspectRatio="none">
+                                <defs>
+                                    <linearGradient id="purpleGradient" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="0%" stop-color="#8b5cf6" stop-opacity="0.32"/>
+                                        <stop offset="100%" stop-color="#8b5cf6" stop-opacity="0.0"/>
+                                    </linearGradient>
+                                    <linearGradient id="tealGradient" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="0%" stop-color="#06b6d4" stop-opacity="0.28"/>
+                                        <stop offset="100%" stop-color="#06b6d4" stop-opacity="0.0"/>
+                                    </linearGradient>
+                                </defs>
+
+                                <!-- Grid Lines & Dynamic Y-Labels -->
+                                <line x1="30" y1="20" x2="450" y2="20" stroke="#f1f5f9" stroke-width="1"/>
+                                <text x="10" y="24" fill="#64748b" font-size="10" font-family="sans-serif" t-esc="this.chartInfo.yLabels[0]"/>
+
+                                <line x1="30" y1="52" x2="450" y2="52" stroke="#f1f5f9" stroke-width="1"/>
+                                <text x="10" y="56" fill="#64748b" font-size="10" font-family="sans-serif" t-esc="this.chartInfo.yLabels[1]"/>
+
+                                <line x1="30" y1="85" x2="450" y2="85" stroke="#f1f5f9" stroke-width="1"/>
+                                <text x="10" y="89" fill="#64748b" font-size="10" font-family="sans-serif" t-esc="this.chartInfo.yLabels[2]"/>
+
+                                <line x1="30" y1="118" x2="450" y2="118" stroke="#f1f5f9" stroke-width="1"/>
+                                <text x="10" y="122" fill="#64748b" font-size="10" font-family="sans-serif" t-esc="this.chartInfo.yLabels[3]"/>
+
+                                <line x1="30" y1="150" x2="450" y2="150" stroke="#e2e8f0" stroke-width="1"/>
+                                <text x="16" y="153" fill="#64748b" font-size="10" font-family="sans-serif">0</text>
+
+                                <!-- Items Dispensed Area & Line -->
+                                <path t-if="this.chartInfo.dispAreaPath" t-att-d="this.chartInfo.dispAreaPath" fill="url(#tealGradient)"/>
+                                <path t-if="this.chartInfo.dispLinePath" t-att-d="this.chartInfo.dispLinePath" fill="none" stroke="#06b6d4" stroke-width="2.5" stroke-linecap="round"/>
+
+                                <!-- Prescriptions Area & Line -->
+                                <path t-if="this.chartInfo.rxAreaPath" t-att-d="this.chartInfo.rxAreaPath" fill="url(#purpleGradient)"/>
+                                <path t-if="this.chartInfo.rxLinePath" t-att-d="this.chartInfo.rxLinePath" fill="none" stroke="#8b5cf6" stroke-width="2.5" stroke-linecap="round"/>
+
+                                <!-- Teal Dots (Dispensed) -->
+                                <circle t-foreach="this.chartInfo.dispPoints" t-as="pt" t-key="'disp_' + pt_index"
+                                        t-att-cx="pt.x" t-att-cy="pt.y" r="3.5" fill="#06b6d4">
+                                </circle>
+
+                                <!-- Purple Dots (Prescriptions) -->
+                                <circle t-foreach="this.chartInfo.rxPoints" t-as="pt" t-key="'rx_' + pt_index"
+                                        t-att-cx="pt.x" t-att-cy="pt.y" r="3.5" fill="#8b5cf6">
+                                </circle>
+                            </svg>
+
+                            <!-- X Axis Date Labels (Dynamic from DB) -->
+                            <div class="d-flex justify-content-between chart-x-labels px-2">
+                                <span t-foreach="this.chartInfo.labels" t-as="lbl" t-key="lbl">
+                                    <t t-out="lbl"/>
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Stock Status Donut Chart (Middle) -->
+                <div class="col-12 col-lg-4 col-xl-4">
+                    <div class="dashboard-panel h-100">
+                        <div class="panel-header d-flex justify-content-between align-items-center mb-3">
+                            <h2 class="panel-title mb-0">Stock Status</h2>
+                            <span class="badge bg-light text-dark border font-11">Live Catalog</span>
+                        </div>
+
+                        <div class="d-flex align-items-center justify-content-between py-2">
+                            <!-- SVG Donut Chart with Center Text -->
+                            <div class="donut-chart-box">
+                                <svg width="150" height="150" viewBox="0 0 150 150">
+                                    <!-- Base ring -->
+                                    <circle cx="75" cy="75" r="54" fill="transparent" stroke="#f1f5f9" stroke-width="16"/>
+
+                                    <!-- Empty state ring if total is 0 -->
+                                    <circle t-if="this.donutInfo.isEmpty"
+                                            cx="75" cy="75" r="54" fill="transparent" stroke="#cbd5e1" stroke-width="16"/>
+
+                                    <!-- Dynamic segments -->
+                                    <circle t-foreach="this.donutInfo.segments" t-as="seg" t-key="seg.key"
+                                            cx="75" cy="75" r="54" fill="transparent"
+                                            t-att-stroke="seg.color" stroke-width="16"
+                                            t-att-stroke-dasharray="seg.dasharray"
+                                            t-att-stroke-dashoffset="seg.dashoffset"
+                                            transform="rotate(-90 75 75)"/>
+
+                                    <!-- Center Counter Text -->
+                                    <text x="75" y="73" text-anchor="middle" font-size="22" font-weight="800" fill="#0f172a" t-esc="this.donutInfo.total"/>
+                                    <text x="75" y="90" text-anchor="middle" font-size="11" font-weight="600" fill="#475569">Total Items</text>
+                                </svg>
+                            </div>
+
+                            <!-- Donut Breakdown Legend (Real DB Metrics) -->
+                            <div class="donut-legend flex-grow-1 ps-3 font-12">
+                                <div class="legend-row">
+                                    <span class="d-flex align-items-center gap-2 legend-item-name">
+                                        <span class="legend-circle bg-cyan-solid"/> In Stock
+                                    </span>
+                                    <span class="legend-item-val">
+                                        <t t-out="this.state.data.stock_breakdown.in_stock"/> (<t t-out="this.state.data.stock_breakdown.in_stock_pct"/>%)
+                                    </span>
+                                </div>
+                                <div class="legend-row">
+                                    <span class="d-flex align-items-center gap-2 legend-item-name">
+                                        <span class="legend-circle bg-orange-solid"/> Low Stock
+                                    </span>
+                                    <span class="legend-item-val">
+                                        <t t-out="this.state.data.stock_breakdown.low_stock"/> (<t t-out="this.state.data.stock_breakdown.low_stock_pct"/>%)
+                                    </span>
+                                </div>
+                                <div class="legend-row">
+                                    <span class="d-flex align-items-center gap-2 legend-item-name">
+                                        <span class="legend-circle bg-yellow-solid"/> Expiring Soon
+                                    </span>
+                                    <span class="legend-item-val">
+                                        <t t-out="this.state.data.stock_breakdown.expiring_soon"/> (<t t-out="this.state.data.stock_breakdown.expiring_soon_pct"/>%)
+                                    </span>
+                                </div>
+                                <div class="legend-row">
+                                    <span class="d-flex align-items-center gap-2 legend-item-name">
+                                        <span class="legend-circle bg-red-solid"/> Out of Stock
+                                    </span>
+                                    <span class="legend-item-val">
+                                        <t t-out="this.state.data.stock_breakdown.out_of_stock"/> (<t t-out="this.state.data.stock_breakdown.out_of_stock_pct"/>%)
+                                    </span>
+                                </div>
+                                <div class="legend-row mb-0">
+                                    <span class="d-flex align-items-center gap-2 legend-item-name">
+                                        <span class="legend-circle bg-slate-solid"/> Inactive
+                                    </span>
+                                    <span class="legend-item-val">
+                                        <t t-out="this.state.data.stock_breakdown.inactive"/> (<t t-out="this.state.data.stock_breakdown.inactive_pct"/>%)
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Actions (Right) -->
+                <div class="col-12 col-lg-3 col-xl-3">
+                    <div class="dashboard-panel h-100">
+                        <div class="panel-header mb-3">
+                            <h2 class="panel-title mb-0">Quick Actions</h2>
+                        </div>
+
+                        <div class="d-flex flex-column gap-2">
+                            <!-- 1. New Prescription -->
+                            <button class="action-btn-card btn-action-purple" t-on-click="() => this.newPrescription()">
+                                <div class="d-flex align-items-center gap-2">
+                                    <span class="action-icon-circle purple-circle">
+                                        <i class="fa fa-plus"/>
+                                    </span>
+                                    <span class="action-title">New Prescription</span>
+                                </div>
+                            </button>
+
+                            <!-- 2. Dispense Medicine -->
+                            <button class="action-btn-card btn-action-mint" t-on-click="() => this.newDispense()">
+                                <div class="d-flex align-items-center gap-2">
+                                    <span class="action-icon-circle mint-circle">
+                                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+                                            <path d="M4.5 10.5L10.5 4.5C12.5 2.5 15.5 2.5 17.5 4.5C19.5 6.5 19.5 9.5 17.5 11.5L11.5 17.5C9.5 19.5 6.5 19.5 4.5 17.5C2.5 15.5 2.5 12.5 4.5 10.5Z" stroke="#059669" stroke-width="2.5" stroke-linecap="round"/>
+                                        </svg>
+                                    </span>
+                                    <span class="action-title">Dispense Medicine</span>
+                                </div>
+                            </button>
+
+                            <!-- 3. Open Inventory -->
+                            <button class="action-btn-card btn-action-blue" t-on-click="() => this.openInventory()">
+                                <div class="d-flex align-items-center justify-content-between w-100">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <span class="action-icon-circle blue-circle">
+                                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#0284c7" stroke-width="2">
+                                                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+                                            </svg>
+                                        </span>
+                                        <div class="text-start">
+                                            <div class="action-title line-height-1">Open Inventory</div>
+                                            <div class="action-subtext">Receive / Adjust Stock</div>
+                                        </div>
+                                    </div>
+                                    <i class="fa fa-external-link action-ext-icon"/>
+                                </div>
+                            </button>
+
+                            <!-- 4. Create Purchase Order -->
+                            <button class="action-btn-card btn-action-fuchsia" t-on-click="() => this.openPurchaseOrders()">
+                                <div class="d-flex align-items-center justify-content-between w-100">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <span class="action-icon-circle fuchsia-circle">
+                                            <i class="fa fa-shopping-cart"/>
+                                        </span>
+                                        <div class="text-start">
+                                            <div class="action-title line-height-1">Create Purchase Order</div>
+                                            <div class="action-subtext">Open Purchase App</div>
+                                        </div>
+                                    </div>
+                                    <i class="fa fa-external-link action-ext-icon text-purple"/>
+                                </div>
+                            </button>
+
+                            <!-- 5. Generate Reorder RFQs -->
+                            <button class="action-btn-card btn-action-orange" t-on-click="() => this.generateReorderRfqs()">
+                                <div class="d-flex align-items-center justify-content-between w-100">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <span class="action-icon-circle" style="background: rgba(249, 115, 22, 0.15); color: #ea580c; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                                            <i class="fa fa-bolt"/>
+                                        </span>
+                                        <div class="text-start">
+                                            <div class="action-title line-height-1">Generate Reorder RFQ</div>
+                                            <div class="action-subtext">Low Stock Replenishment</div>
+                                        </div>
+                                    </div>
+                                    <i class="fa fa-bolt action-ext-icon text-warning"/>
+                                </div>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 4. BOTTOM THREE CARDS ROW: Tables -->
+            <div class="row g-3">
+                <!-- Table 1: Recent Prescriptions -->
+                <div class="col-12 col-lg-4 col-xl-4">
+                    <div class="dashboard-panel h-100 p-0">
+                        <div class="panel-header d-flex justify-content-between align-items-center p-3 pb-2 border-bottom-0">
+                            <h2 class="panel-title mb-0">Recent Prescriptions</h2>
+                            <button class="btn-pill-view-all" t-on-click="() => this.openFilteredPrescriptions('all')">
+                                View All
+                            </button>
+                        </div>
+
+                        <div class="table-responsive px-3 pb-3">
+                            <table class="table modern-data-table align-middle mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>REF</th>
+                                        <th>PATIENT</th>
+                                        <th>DOCTOR</th>
+                                        <th>DATE</th>
+                                        <th>STATUS</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <t t-if="this.state.data.recent_prescriptions?.length">
+                                        <tr t-foreach="this.state.data.recent_prescriptions" t-as="rx" t-key="rx.id">
+                                            <td>
+                                                <a href="#" class="ref-link" t-on-click="() => this.openRecord('dental.prescription', rx.id)">
+                                                    <t t-out="rx.ref"/>
+                                                </a>
+                                            </td>
+                                            <td class="patient-name-text"><t t-out="rx.patient"/></td>
+                                            <td class="doctor-name-text"><t t-out="rx.doctor"/></td>
+                                            <td class="date-text"><t t-out="rx.date"/></td>
+                                            <td>
+                                                <span t-if="rx.status == 'Dispensed'" class="badge-status-dispensed">Dispensed</span>
+                                                <span t-elif="rx.status == 'Pending'" class="badge-status-pending">Pending</span>
+                                                <span t-elif="rx.status == 'Partial'" class="badge-status-partial">Partial</span>
+                                                <span t-else="" class="badge-status-default"><t t-out="rx.status"/></span>
+                                            </td>
+                                        </tr>
+                                    </t>
+                                    <t t-else="">
+                                        <tr>
+                                            <td colspan="5" class="table-empty-row">
+                                                <i class="fa fa-folder-open-o me-2"/>No recent prescriptions found
+                                            </td>
+                                        </tr>
+                                    </t>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Table 2: Low Stock Medicines -->
+                <div class="col-12 col-lg-4 col-xl-4">
+                    <div class="dashboard-panel h-100 p-0">
+                        <div class="panel-header d-flex justify-content-between align-items-center p-3 pb-2 border-bottom-0">
+                            <h2 class="panel-title mb-0">Low Stock Medicines</h2>
+                            <button class="btn-pill-view-all" t-on-click="() => this.openFilteredMedicines('low_stock')">
+                                View All
+                            </button>
+                        </div>
+
+                        <div class="table-responsive px-3 pb-3">
+                            <table class="table modern-data-table align-middle mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>MEDICINE</th>
+                                        <th class="text-center">CURRENT</th>
+                                        <th class="text-center">MIN. QTY</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <t t-if="this.state.data.low_stock_medicines?.length">
+                                        <tr t-foreach="this.state.data.low_stock_medicines" t-as="med" t-key="med.id">
+                                            <td>
+                                                <div class="d-flex align-items-center gap-2">
+                                                    <div class="med-thumb-icon">
+                                                        <t t-if="med.type == 'Capsule'">💊</t>
+                                                        <t t-elif="med.type == 'Liquid'">🧴</t>
+                                                        <t t-else="">⚪</t>
+                                                    </div>
+                                                    <div>
+                                                        <a href="#" class="ref-link med-name-text" t-on-click="() => this.openRecord('product.template', med.id)">
+                                                            <t t-out="med.name"/>
+                                                        </a>
+                                                        <div class="med-type-text"><t t-out="med.type"/></div>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td class="text-center fw-bold text-danger"><t t-out="med.current"/></td>
+                                            <td class="text-center text-muted"><t t-out="med.min_qty"/></td>
+                                        </tr>
+                                    </t>
+                                    <t t-else="">
+                                        <tr>
+                                            <td colspan="3" class="table-empty-row">
+                                                <i class="fa fa-check-circle-o text-success me-2"/>All medicines adequately stocked
+                                            </td>
+                                        </tr>
+                                    </t>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Table 3: Expiry Alerts -->
+                <div class="col-12 col-lg-4 col-xl-4">
+                    <div class="dashboard-panel h-100 p-0">
+                        <div class="panel-header d-flex justify-content-between align-items-center p-3 pb-2 border-bottom-0">
+                            <h2 class="panel-title mb-0">Expiry Alerts</h2>
+                            <button class="btn-pill-view-all" t-on-click="() => this.openFilteredBatches('near_expiry')">
+                                View All
+                            </button>
+                        </div>
+
+                        <div class="table-responsive px-3 pb-3">
+                            <table class="table modern-data-table align-middle mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>MEDICINE</th>
+                                        <th>BATCH</th>
+                                        <th>EXPIRY</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <t t-if="this.state.data.expiry_alerts?.length">
+                                        <tr t-foreach="this.state.data.expiry_alerts" t-as="lot" t-key="lot.id">
+                                            <td>
+                                                <a href="#" class="ref-link med-name-text" t-on-click="() => this.openRecord('stock.lot', lot.id)">
+                                                    <t t-out="lot.medicine"/>
+                                                </a>
+                                            </td>
+                                            <td class="doctor-name-text"><t t-out="lot.batch"/></td>
+                                            <td class="text-expiry"><t t-out="lot.expiry"/></td>
+                                        </tr>
+                                    </t>
+                                    <t t-else="">
+                                        <tr>
+                                            <td colspan="3" class="table-empty-row">
+                                                <i class="fa fa-shield text-success me-2"/>No batches expiring soon
+                                            </td>
+                                        </tr>
+                                    </t>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </t>
+</templates>

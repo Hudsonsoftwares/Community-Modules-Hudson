@@ -464,6 +464,7 @@ class FsPlanningSlot(models.Model):
                 'date_start': fields.Datetime.to_string(slot.date_start),
                 'date_end': fields.Datetime.to_string(slot.date_end),
                 'state': slot.state,
+                'resource_id': slot.resource_id.id,
                 'group_key': key,
             })
         ordered = sorted(groups.values(), key=lambda g: (g['key'] is False, (g['name'] or '').lower()))
@@ -473,7 +474,16 @@ class FsPlanningSlot(models.Model):
             'group_field': group_field,
             'group_field_string': field.string,
             'total': total,
+            # Mapbox: map tiles and driving routes (distances, travel times)
+            'mapbox_token': self._get_map_mapbox_token() or False,
+            'can_set_mapbox_token': self.env.user.has_group('base.group_system'),
         }
+
+    @api.model
+    def _get_map_mapbox_token(self):
+        """Public Mapbox token of the map view; modules adding a Mapbox
+        setting return it (e.g. field service: Settings > Mapbox)."""
+        return False
 
     @api.model
     def _map_group_of(self, slot, field):
@@ -824,6 +834,50 @@ class FsPlanningSlot(models.Model):
         return True
 
     # -------------------------------------------------------------------------
+    # CALENDAR VIEW: the work to schedule, dragged onto the calendar
+    # -------------------------------------------------------------------------
+
+    @api.model
+    def get_calendar_to_schedule(self, date_from=False, date_to=False):
+        """"To schedule" section of the calendar view: the same work as the
+        side panel of the schedule (``_get_schedule_to_plan``), for the
+        Planning administrators who plan it."""
+        if not self.env.user.has_group('hudson_planning.group_planning_manager'):
+            return []
+        return self._get_schedule_to_plan(date_from, date_to)
+
+    @api.model
+    def action_plan_from_calendar(self, ref, date_start):
+        """Plan an item of the "to schedule" section dropped on the calendar,
+        from ``date_start`` (the start of the day in the month view): its
+        hours of working time from there, as an open shift to assign.
+
+        :return: id of the planned shift
+        """
+        self._check_planning_manager()
+        self.action_plan_from_schedule(ref, False, False, date_start, False)
+        return self._get_planned_shift(ref).id
+
+    @api.model
+    def _get_planned_shift(self, ref):
+        """The shift of an item of the "to schedule" panel once planned."""
+        model, _sep, res_id = ref.partition(',')
+        return self.browse(int(res_id)).exists() if model == 'fs.planning.slot' else self.browse()
+
+    def action_unschedule_from_calendar(self):
+        """Shift dropped on "Drop here to unschedule" of the calendar: the
+        hours of a sales order go back to the work to schedule (no dates, no
+        employee)."""
+        self._check_planning_manager()
+        for slot in self:
+            if not slot.sale_line_id:
+                raise UserError(_("Only the shifts of sales orders can be unscheduled: delete this shift instead."))
+            if slot.resource_id:
+                slot.write({'resource_id': False})
+            slot.write({'date_start': False, 'date_end': False, 'break_hours': 0.0})
+        return True
+
+    # -------------------------------------------------------------------------
     # SALES ORDERS: open shifts of the services sold (Plan Services)
     # -------------------------------------------------------------------------
 
@@ -1140,8 +1194,14 @@ class FsPlanningSlot(models.Model):
     # -------------------------------------------------------------------------
 
     def _get_slot_tz(self):
+        """Timezone in which shift template hours are read and written.
+
+        It is the planner's timezone (the one the web client displays dates
+        in), not the employee's: a 8:00-17:00 template must show 8:00-17:00
+        on the planning, whatever the employee's own timezone is.
+        """
         self.ensure_one()
-        return pytz.timezone(self.resource_id.tz or self.env.user.tz or 'UTC')
+        return pytz.timezone(self.env.context.get('tz') or self.env.user.tz or 'UTC')
 
     @api.onchange('shift_template_id')
     def _onchange_shift_template_id(self):

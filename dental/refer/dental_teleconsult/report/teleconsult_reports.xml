@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="action_report_teleconsult_consent" model="ir.actions.report">
+        <field name="name">Telemedicine Consent Record</field>
+        <field name="model">dental.appointment</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">dental_teleconsult.report_teleconsult_consent</field>
+        <field name="print_report_name">'Telemedicine Consent - %s' % object.name</field>
+    </record>
+
+    <record id="action_report_teleconsult_summary" model="ir.actions.report">
+        <field name="name">Online Consultation Visit Summary</field>
+        <field name="model">dental.appointment</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">dental_teleconsult.report_teleconsult_summary</field>
+        <field name="print_report_name">'Visit Summary - %s' % object.name</field>
+    </record>
+
+    <template id="report_teleconsult_consent">
+        <t t-call="web.html_container">
+            <t t-foreach="docs" t-as="doc">
+                <t t-set="company" t-value="doc._teleconsult_company()"/>
+                <t t-set="terms" t-value="doc._teleconsult_consent_terms()"/>
+                <t t-call="web.external_layout">
+                    <div class="page">
+                        <h2>Telemedicine Consent Record</h2>
+                        <table class="table table-sm table-borderless mt-3">
+                            <tr><td class="w-25"><strong>Patient</strong></td>
+                                <td><span t-field="doc.patient_id.name"/>
+                                    <t t-if="doc.patient_id.dental_patient_id"> (<span t-field="doc.patient_id.dental_patient_id"/>)</t></td></tr>
+                            <tr><td><strong>Appointment</strong></td><td><span t-field="doc.name"/> - <span t-out="doc.teleconsult_start_display"/></td></tr>
+                            <tr><td><strong>Dentist</strong></td><td>Dr. <span t-field="doc.doctor_id.name"/></td></tr>
+                            <tr><td><strong>Clinic</strong></td><td><span t-out="company.name"/></td></tr>
+                        </table>
+
+                        <h5 class="mt-4">Consent given by the patient</h5>
+                        <p class="border p-3">
+                            <strong>[X]</strong> <span t-out="terms['telemedicine']"/>
+                        </p>
+                        <p class="border p-3">
+                            <strong t-out="'[X]' if doc.teleconsult_recording_consent else '[ ]'"/>
+                            <span t-out="terms['recording']"/>
+                            <t t-if="not company.dental_teleconsult_allow_recording">
+                                <em>(recording is disabled at this clinic: not offered to the patient)</em>
+                            </t>
+                        </p>
+
+                        <h5 class="mt-4">Evidence</h5>
+                        <table class="table table-sm">
+                            <tr><td class="w-25">Accepted on (UTC)</td><td><span t-field="doc.teleconsult_consent_at"/></td></tr>
+                            <tr><td>Identified by</td><td><span t-field="doc.teleconsult_consent_method"/></td></tr>
+                            <tr><td>IP address</td><td><span t-out="doc.teleconsult_consent_ip or '-'"/></td></tr>
+                            <tr><td>Browser</td><td><small t-out="doc.teleconsult_consent_user_agent or '-'"/></td></tr>
+                        </table>
+                        <p class="text-muted small mt-4">
+                            Electronic consent recorded automatically when the patient entered the online waiting room
+                            through their personal consultation link.
+                        </p>
+                    </div>
+                </t>
+            </t>
+        </t>
+    </template>
+
+    <template id="report_teleconsult_summary">
+        <t t-call="web.html_container">
+            <t t-foreach="docs" t-as="doc">
+                <t t-set="company" t-value="doc._teleconsult_company()"/>
+                <t t-call="web.external_layout">
+                    <div class="page">
+                        <h2>Online Consultation Summary</h2>
+                        <table class="table table-sm table-borderless mt-3">
+                            <tr><td class="w-25"><strong>Patient</strong></td><td><span t-field="doc.patient_id.name"/></td></tr>
+                            <tr><td><strong>Date</strong></td><td><span t-out="doc.teleconsult_start_display"/></td></tr>
+                            <tr><td><strong>Dentist</strong></td><td>Dr. <span t-field="doc.doctor_id.name"/></td></tr>
+                            <tr><td><strong>Reference</strong></td><td><span t-field="doc.name"/></td></tr>
+                            <tr t-if="doc.teleconsult_outcome"><td><strong>Outcome</strong></td><td><span t-field="doc.teleconsult_outcome"/></td></tr>
+                        </table>
+                        <h5 class="mt-4">Advice from your dentist</h5>
+                        <div t-field="doc.teleconsult_summary"/>
+                        <div t-if="doc.teleconsult_outcome in ('in_clinic', 'referral')" class="alert alert-info mt-3">
+                            Your dentist recommends an in-person visit. Please contact the clinic to book it.
+                        </div>
+                        <div t-if="doc.teleconsult_outcome == 'emergency'" class="alert alert-danger mt-3">
+                            Your dentist advises urgent care. If symptoms worsen, go to the nearest emergency service.
+                        </div>
+                        <t t-set="prescriptions" t-value="doc.teleconsult_prescription_ids"/>
+                        <t t-if="prescriptions">
+                            <h5 class="mt-4">Prescriptions issued</h5>
+                            <ul>
+                                <li t-foreach="prescriptions" t-as="rx"><span t-out="rx.name"/></li>
+                            </ul>
+                            <p class="small text-muted">The prescription documents are provided separately.</p>
+                        </t>
+                        <p class="text-muted small mt-4">
+                            This consultation took place by video. The dentist could not examine you in person.
+                        </p>
+                    </div>
+                </t>
+            </t>
+        </t>
+    </template>
+</odoo>
